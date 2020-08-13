@@ -1,3 +1,4 @@
 # guilded.py
 Guilded API wrapper, written in Python
-![docs](https://guildedpy.readthedocs.io/en/latest/?badge=latest)
+
+[![Documentation Status](https://readthedocs.org/projects/guildedpy/badge/?version=latest)](https://guildedpy.readthedocs.io/en/latest/?badge=latest)
