@@ -1,0 +1,7 @@
+README.md
+setup.py
+guilded/__init__.py
+guilded.py.egg-info/PKG-INFO
+guilded.py.egg-info/SOURCES.txt
+guilded.py.egg-info/dependency_links.txt
+guilded.py.egg-info/top_level.txt
