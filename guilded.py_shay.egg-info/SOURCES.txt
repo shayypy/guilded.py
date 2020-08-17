@@ -1,7 +1,0 @@
-README.md
-setup.py
-guilded/__init__.py
-guilded.py_shay.egg-info/PKG-INFO
-guilded.py_shay.egg-info/SOURCES.txt
-guilded.py_shay.egg-info/dependency_links.txt
-guilded.py_shay.egg-info/top_level.txt
