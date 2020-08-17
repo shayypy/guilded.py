@@ -2,7 +2,7 @@
 
 Guilded API wrapper, written in Python.
 
-[![Downloads](https://pepy.tech/badge/guilded-py)](https://pepy.tech/project/guilded-py)
+[![Downloads](https://pepy.tech/badge/guilded-py)](https://pypi.org/project/guilded-py)
 
 # Read The Docs
 
