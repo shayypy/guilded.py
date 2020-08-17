@@ -75,16 +75,13 @@ class Bot:
 
     # fetch from the api
     async def fetch_team(self, teamId):
-        try:
-            teamResponse = await session.get(BASE + 'teams/' + teamId)
-            teamJson     = (await teamResponse.json())['team']
-            team         = Team(**teamJson)
-            for t in self.teams:
-                if t.id == team.id:
-                    self.teams.remove(t)
-            self.teams.append(team)
-        except:
-            pass
+        teamResponse = await session.get(BASE + 'teams/' + teamId)
+        teamJson     = (await teamResponse.json())['team']
+        team         = Team(**teamJson)
+        for t in self.teams:
+            if t.id == team.id:
+                self.teams.remove(t)
+        self.teams.append(team)
         return team
 
     async def fetch_user(self, userId):
@@ -178,8 +175,7 @@ class Bot:
                         #data['author'] = await self.fetch_user(data['createdBy']) 
                         # not available, see:
                         # https://www.guilded.gg/guilded-api/groups/l3GmAe9d/channels/1688bafa-9ecb-498e-9f6d-313c1cdc7150/docs/729851648
-                        mdata   = data['message']
-                        message = Message(**mdata)
+                        message         = Message(**data)
                         event_delmessage = [l for l in self.listeners if l.__name__ == 'on_message_delete']
                         for delmsg_ev in event_delmessage:
                             try:    await delmsg_ev.__call__(message)
@@ -190,8 +186,7 @@ class Bot:
                         data['team']   = await self.fetch_team(data['teamId'])
                         data['id']     = data['message']['id']
                         data['author'] = await self.fetch_user(data['updatedBy'])
-                        mdata          = data['message']
-                        message        = Message(**mdata)
+                        message        = Message(**data)
                         event_pinmsg   = [l for l in self.listeners if l.__name__ == 'on_pins_add']
                         for pinmsg_ev in event_pinmsg:
                             try:    await pinmsg_ev.__call__(message, data['author']) # message, who_pinned
@@ -202,8 +197,7 @@ class Bot:
                         data['team']   = await self.fetch_team(data['teamId'])
                         data['id']     = data['message']['id']
                         data['author'] = await self.fetch_user(data['updatedBy'])
-                        mdata          = data['message']
-                        message        = Message(**mdata)
+                        message        = Message(**data)
                         event_pinmsg   = [l for l in self.listeners if l.__name__ == 'on_pins_remove' or l.__name__ == 'on_unpin']
                         for pinmsg_ev in event_pinmsg:
                             try:    await pinmsg_ev.__call__(message, data['author']) # message, who_unpinned
@@ -213,8 +207,7 @@ class Bot:
                     if recv_type == 'ChatMessageUpdated':
                         data['team']   = await self.fetch_team(data['teamId'])
                         data['author'] = await self.fetch_user(data['updatedBy'])
-                        mdata          = data['message']
-                        message        = Message(**mdata)
+                        message        = Message(**data)
                         onmsg_events   = [l for l in self.listeners if l.__name__ == 'on_message_edit']
                         for edit_ev in onmsg_events: # seems like guilded doesnt give you the previous version ://
                             try:    await edit_ev.__call__(message) 
@@ -468,15 +461,11 @@ class Embed:
         # Timestamps are currently unsupported I'm sorry
         # I'll get off my lazy butt and do it someday
         # Stupid timezones
-        self.title       = title
-        self.description = description
-        self.color       = color
-        self.url         = url
-        self.default     = {
-            "title": self.title,
-            "description": self.description,
-            "color": self.color,
-            "url": self.url,
+        self.default = {
+            "title": title,
+            "description": description,
+            "color": color,
+            "url": url,
             "author": {
                 "name": None,
                 "url": None,
@@ -525,10 +514,7 @@ class Message:
         self.content    = ''
         content0        = kwargs['content']['document']['nodes'][0]['nodes']
         for aaaHelpMe  in content0:
-            try:
-                cont_append = aaaHelpMe['leaves'][0]['text']
-            except KeyError:
-                cont_append = aaaHelpMe['nodes'][0]['leaves'][0]['text']
+            cont_append   = aaaHelpMe['leaves'][0]['text']
             self.content += cont_append
 
     async def add_reaction(emoji_id):

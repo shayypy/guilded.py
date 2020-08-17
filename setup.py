@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="guilded.py", # Replace with your own username
-    version="0.0.1",
+    version="0.0.2",
     author="shay",
     author_email="shay@bearger.ga",
     description="An API wrapper for Guilded's undocumented user API",
