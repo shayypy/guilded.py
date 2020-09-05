@@ -20,19 +20,8 @@ def make_datetime(initial):
     # for dates formatted like 2020-07-28T22:28:01.151Z
     #                          yyyy-mm-ssThh:mm:ss.mlsZ
     try:
-        j1        = initial.split('T')
-        j1_date   = j1[0].split('-')
-        j1_time   = j1[1].split(':')
-        j1_year   = int(j1_date[0])
-        j1_month  = int(j1_date[1])
-        j1_day    = int(j1_date[2])
-        j1_hour   = int(j1_time[0])
-        j1_minute = int(j1_time[1])
-        j1_second = int(re.sub(r'\..+Z$', '', j1_time[2]))
-        finalDate = datetime.datetime(year=j1_year, month=j1_month, day=j1_day, hour=j1_hour, minute=j1_minute, second=j1_second)
-        return finalDate
-
-    except: 
+        return datetime.datetime.strptime(initial, "%Y-%m-%dT%H:%M:%S.%fZ")
+    except ValueError: 
         # will make this more.. usable eventually
         return initial
 
