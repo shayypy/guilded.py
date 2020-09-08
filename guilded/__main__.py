@@ -20,7 +20,7 @@ def make_datetime(initial):
     # for dates formatted like 2020-07-28T22:28:01.151Z
     #                          yyyy-mm-ssThh:mm:ss.mlsZ
     try:
-        return datetime.datetime.strptime(initial, "%Y-%m-%dT%H:%M:%S.%fZ")
+        return datetime.datetime.strptime(str(initial), "%Y-%m-%dT%H:%M:%S.%fZ")
     except ValueError: 
         # will make this more.. usable eventually
         return initial
