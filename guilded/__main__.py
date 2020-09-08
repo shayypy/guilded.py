@@ -5,6 +5,7 @@ import uuid
 import shlex
 import aiohttp
 import asyncio
+import inspect
 import datetime
 import traceback
 import websockets
@@ -16,23 +17,12 @@ async def make_session():
     global session
     session = aiohttp.ClientSession()
 
-def make_datetime(initial):
+def make_datetime(initial: str):
     # for dates formatted like 2020-07-28T22:28:01.151Z
     #                          yyyy-mm-ssThh:mm:ss.mlsZ
     try:
-        j1        = initial.split('T')
-        j1_date   = j1[0].split('-')
-        j1_time   = j1[1].split(':')
-        j1_year   = int(j1_date[0])
-        j1_month  = int(j1_date[1])
-        j1_day    = int(j1_date[2])
-        j1_hour   = int(j1_time[0])
-        j1_minute = int(j1_time[1])
-        j1_second = int(re.sub(r'\..+Z$', '', j1_time[2]))
-        finalDate = datetime.datetime(year=j1_year, month=j1_month, day=j1_day, hour=j1_hour, minute=j1_minute, second=j1_second)
-        return finalDate
-
-    except: 
+        return datetime.datetime.strptime(str(initial), "%Y-%m-%dT%H:%M:%S.%fZ")
+    except ValueError: 
         # will make this more.. usable eventually
         return initial
 
@@ -84,8 +74,23 @@ class Bot:
                     self.teams.remove(t)
             self.teams.append(team)
         except:
-            pass
+            team = teamId
+            # just have an error elsewhere lul
         return team
+
+    async def fetch_channel(self, channelId):
+        try:
+            channelResponse = await session.get(BASE + 'channels/' + channelId)
+            channelJson     = (await channelResponse.json())['channel']
+            channel         = TextChannel(**channelJson)
+            for c in self.channels:
+                if c.id == channel.id:
+                    self.channels.remove(c)
+            self.channels.append(channel)
+        except:
+            channel = channelId
+            # just have an error elsewhere lul
+        return channel
 
     async def fetch_user(self, userId):
         userResponse = await session.get(BASE + 'users/' + userId)
@@ -111,11 +116,13 @@ class Bot:
                 await websocket.send('2')
             except:
                 await self.connect(cookie=self.login_cookie)
-                await self.trigger_on_ready()
 
     async def websocket_process(self, websocket):
         while True:
-            latest = await websocket.recv()
+            try:
+                latest = await websocket.recv()
+            except:
+                websocket = await self.connect(cookie=self.login_cookie)
             dd = [dbl for dbl in self.listeners if dbl.__name__ == 'on_socket_raw_receive']
             for dbl in dd: await dbl.__call__(latest)
 
@@ -146,6 +153,7 @@ class Bot:
                         if message.content.startswith(self.command_prefix):
                             if message.author.id != self.user.id or message.author.id == self.owner_id:
                                 # ignores self, but if the owner is itself, it does not ignore self
+                                # will add selfbot arg in the future
                                 data['message'] = message
                                 ctx = Context(**data)
                                 ctx.invoked_command = (message.content.replace(self.command_prefix, '', 1).split(' '))[0]
@@ -157,6 +165,10 @@ class Bot:
                                         ctx.arguments.append(a)
                                 for c in self.commands:
                                     if c.__name__ == ctx.invoked_command:
+                                        argspec   = inspect.getfullargspec(c)
+                                        func_args = argspec.args + argspec.kwonlyargs
+                                        while len(func_args) < len(ctx.arguments):
+                                            del ctx.arguments[-1]
                                         try:
                                             await c(*ctx.arguments)
                                             break
@@ -235,6 +247,17 @@ class Bot:
         self.user = ClientUser(**responseJson)
         if self.owner_id == None:
             self.owner_id = self.user.id
+
+        me = await (await session.get(BASE + 'me')).json()
+        for team in me['teams']:
+            await self.fetch_team(team['id'])
+            # adds to cache as well
+
+        for team in self.teams:
+            channels = await session.get(BASE + 'teams/' + team.id + '/channels')
+            channels = (await channels.json())['channels']
+            for channel in channels:
+                self.text_channels.append(TextChannel(**channel))
 
         if not 'Set-Cookie' in loginResponse.headers:
             raise KeyError('Missing required information in the returned headers from Guilded. Check your credentials?')
@@ -415,9 +438,19 @@ class abc:
 
     class User(Messageable, metaclass=abc.ABCMeta):
         def __init__(self):
-            self.name         = self.name 
+            self.name         = self.name
             self.id           = self.id
             self.display_name = self.display_name or self.name
+
+    class TeamChannel(Messageable, metaclass=abc.ABCMeta):
+        def __init__(self, **kwargs):
+            self.id         = kwargs.get('id')
+            self.team       = kwargs.get('team')
+            self.type       = kwargs.get('type')
+            self.created_at = make_datetime(kwargs.get('createdAt'))
+            self.updated_at = make_datetime(kwargs.get('updatedAt'))
+            self.created_by = kwargs.get('createdBy')
+            self.channel_id = self.id
 
 class User(abc.User):
     def __init__(self, **kwargs):
@@ -506,14 +539,9 @@ class Embed:
     def set_thumbnail(self, url: str):
         self.default['thumbnail'] = {'url': url}
 
-class TextChannel(abc.Messageable):
+class TextChannel(abc.TeamChannel):
     def __init__(self, **kwargs):
-        self.id         = kwargs.get('id')
-        self.type       = kwargs.get('type')
-        self.created_at = make_datetime(kwargs.get('createdAt'))
-        self.updated_at = make_datetime(kwargs.get('updatedAt'))
-        self.created_by = kwargs.get('createdBy')
-        self.channel_id = self.id
+        self.id = kwargs.get('id')
 
 class Message:
     def __init__(self, **kwargs):
@@ -545,4 +573,4 @@ class Context(abc.Messageable):
         self.team            = message.team
         self.invoked_command = None
         self.arguments       = []
-        self.channel_id = self.channel
+        self.channel_id      = self.channel
