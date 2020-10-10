@@ -12,6 +12,10 @@ import websockets
 BASE   = 'https://api.guilded.gg/'
 WS_URL = 'wss://api.guilded.gg/socket.io/?jwt=undefined&EIO=3&transport=websocket'
 
+class internal:
+    '''internal stuff lol. i know this sucks'''
+    pinginterval = 25 # default ping interval
+
 session = None
 async def make_session():
     global session
@@ -22,7 +26,7 @@ def make_datetime(initial: str):
     #                          yyyy-mm-ssThh:mm:ss.mlsZ
     try:
         return datetime.datetime.strptime(str(initial), "%Y-%m-%dT%H:%M:%S.%fZ")
-    except ValueError: 
+    except ValueError:
         # will make this more.. usable eventually
         return initial
 
@@ -55,13 +59,21 @@ class Bot:
                 break
         return team
 
-    def get_team(self, userId):
+    def get_user(self, userId):
         user = None
         for u in self.users:
             if u.id == userId:
                 user = t
                 break
         return user
+
+    def get_channel(self, channelId):
+        channel = None
+        for c in self.channels:
+            if c.id == channelId:
+                channel = c
+                break
+        return channel
 
     # fetch from the api
     async def fetch_team(self, teamId):
@@ -73,6 +85,14 @@ class Bot:
                 if t.id == team.id:
                     self.teams.remove(t)
             self.teams.append(team)
+            chanResponse = await session.get(BASE + 'teams/' + teamId + '/channels')
+            chanJson     = (await chanResponse.json())['channels']
+            for c in chanJson:
+                channel = TextChannel(**c)
+                if channel not in self.channels:
+                    self.channels.append(channel)
+                if channel not in self.text_channels:
+                    self.text_channels.append(channel)
         except:
             team = teamId
             # just have an error elsewhere lul
@@ -111,7 +131,7 @@ class Bot:
     # connection
     async def heartbeat(self, websocket):
         while True:
-            await asyncio.sleep(25)
+            await asyncio.sleep(25) # temp
             try:
                 await websocket.send('2')
             except:
@@ -132,6 +152,11 @@ class Bot:
                     if char.isdigit(): latest = latest.replace(char, '', 1)
                     else: break
                 data = json.loads(latest)
+                #try:
+                #    if 'pingInterval' in data.keys():
+                #        internal.pinginterval = data['pingInterval'] * 1000
+                #except AttributeError:
+                #    pass
                 try: recv_type = data[0]
                 except: pass
                 else:
@@ -150,30 +175,31 @@ class Bot:
                         for onm_ in onmsg_events: await onm_.__call__(message)
 
                         # commands
-                        if message.content.startswith(self.command_prefix):
-                            if message.author.id != self.user.id or message.author.id == self.owner_id:
-                                # ignores self, but if the owner is itself, it does not ignore self
-                                # will add selfbot arg in the future
-                                data['message'] = message
-                                ctx = Context(**data)
-                                ctx.invoked_command = (message.content.replace(self.command_prefix, '', 1).split(' '))[0]
-                                ctx.arguments = [ctx]
-                                args = message.content.replace(f'{self.command_prefix}{ctx.invoked_command}', '', 1)
-                                if args != '':
-                                    use_args = shlex.split(args)
-                                    for a in use_args: 
-                                        ctx.arguments.append(a)
-                                for c in self.commands:
-                                    if c.__name__ == ctx.invoked_command:
-                                        argspec   = inspect.getfullargspec(c)
-                                        func_args = argspec.args + argspec.kwonlyargs
-                                        while len(func_args) < len(ctx.arguments):
-                                            del ctx.arguments[-1]
-                                        try:
-                                            await c(*ctx.arguments)
-                                            break
-                                        except: 
-                                            traceback.print_exc()
+                        if message.content:
+                            if message.content.startswith(self.command_prefix):
+                                if message.author.id != self.user.id or message.author.id == self.owner_id:
+                                    # ignores self, but if the owner is itself, it does not ignore self
+                                    # will add selfbot arg in the future
+                                    data['message'] = message
+                                    ctx = Context(**data)
+                                    ctx.invoked_command = (message.content.replace(self.command_prefix, '', 1).split(' '))[0]
+                                    ctx.arguments = [ctx]
+                                    args = message.content.replace(f'{self.command_prefix}{ctx.invoked_command}', '', 1)
+                                    if args != '':
+                                        use_args = shlex.split(args)
+                                        for a in use_args:
+                                            ctx.arguments.append(a)
+                                    for c in self.commands:
+                                        if c.__name__ == ctx.invoked_command:
+                                            argspec   = inspect.getfullargspec(c)
+                                            func_args = argspec.args + argspec.kwonlyargs
+                                            while len(func_args) < len(ctx.arguments):
+                                                del ctx.arguments[-1]
+                                            try:
+                                                await c(*ctx.arguments)
+                                                break
+                                            except:
+                                                traceback.print_exc()
 
                     # start typing (there is no end typing event)
                     if recv_type == 'ChatChannelTyping':
@@ -187,7 +213,7 @@ class Bot:
                     if recv_type == 'ChatMessageDeleted':
                         data['team']    = await self.fetch_team(data['teamId'])
                         data['id']      = data['message']['id']
-                        #data['author'] = await self.fetch_user(data['createdBy']) 
+                        #data['author'] = await self.fetch_user(data['createdBy'])
                         # not available, see:
                         # https://www.guilded.gg/guilded-api/groups/l3GmAe9d/channels/1688bafa-9ecb-498e-9f6d-313c1cdc7150/docs/729851648
                         mdata   = data['message']
@@ -229,7 +255,7 @@ class Bot:
                         message        = Message(**mdata)
                         onmsg_events   = [l for l in self.listeners if l.__name__ == 'on_message_edit']
                         for edit_ev in onmsg_events: # seems like guilded doesnt give you the previous version ://
-                            try:    await edit_ev.__call__(message) 
+                            try:    await edit_ev.__call__(message)
                             except: traceback.print_exc()
 
     async def connect(self, cookie: str):
@@ -258,6 +284,7 @@ class Bot:
             channels = (await channels.json())['channels']
             for channel in channels:
                 self.text_channels.append(TextChannel(**channel))
+                self.channels.append(TextChannel(**channel))
 
         if not 'Set-Cookie' in loginResponse.headers:
             raise KeyError('Missing required information in the returned headers from Guilded. Check your credentials?')
@@ -270,7 +297,7 @@ class Bot:
         login = await self.login(email=email, password=password)
         wsckt = await self.connect(cookie=login['cookie'])
         await asyncio.gather(
-            self.websocket_process(websocket=wsckt), 
+            self.websocket_process(websocket=wsckt),
             self.heartbeat(websocket=wsckt),
             loop=self.loop)
         self.loop.run_forever()
@@ -350,7 +377,7 @@ class Team:
         baseg['team'] = self
         self.home_group         = TeamGroup(**baseg)
         self.members            = []
-        for member in kwargs.get('members'): 
+        for member in kwargs.get('members'):
             member['team'] = self
             self.members.append(Member(**member))
         self.bots               = [] # :eyes:
@@ -383,13 +410,13 @@ class TeamGroup:
 
 class abc:
     class Messageable(metaclass=abc.ABCMeta):
-        def __init__(self):
-            self.channel = self.channel_id
+        #def __init__(self):
+        #    self.channel = self.channel_id
 
         async def fetch_message(id):
             message = await session.get(BASE + 'content/route/metadata?route=//channels/'+ self.channel +'/chat?messageId='+ id)
             message = (await message.json())['metadata']
-            message['author'] = await Bot.fetch_user(message['createdBy'])
+            message['author'] = await Bot.fetch_user(message['createdBy']) # does this even work
             return Message(**message)
 
         async def send(self, content=None, embed=None):
@@ -424,14 +451,18 @@ class abc:
                 post_json['content']['document']['nodes'].append({
                     "object": "block",
                     "type": "webhookMessage",
-                    "data": {'embeds': [embed.default]},
+                    "data": {'embeds': [embed.to_dict()]},
                     "nodes": []})
 
             if content == None and embed == None:
                 raise ValueError('content and embed cannot both be None.')
 
             # POST the message to the channel
-            msg = await session.post(BASE + 'channels/' + self.channel + '/messages', json=post_json)
+            if type(self) == Context:
+                id_to_send = self.channel.id
+            else:
+                id_to_send = self.id
+            msg = await session.post(BASE + 'channels/' + id_to_send + '/messages', json=post_json)
             #msg = await msg.json()
             return 200
             #return Message(**msg['message'])
@@ -451,6 +482,16 @@ class abc:
             self.updated_at = make_datetime(kwargs.get('updatedAt'))
             self.created_by = kwargs.get('createdBy')
             self.channel_id = self.id
+
+        async def history(self, limit=50, oldest_first=True):
+            if limit == None:
+                js = await session.get(BASE + f'channels/{self.id}/messages')
+            else:
+                js = await session.get(BASE + f'channels/{self.id}/messages?limit={limit}')
+            messages = [Message(**message) for message in (await js.json())['messages']]
+            if oldest_first:
+                messages.reverse()
+            return messages
 
 class User(abc.User):
     def __init__(self, **kwargs):
@@ -505,7 +546,7 @@ class Embed:
         self.description = description
         self.color       = color
         self.url         = url
-        self.default     = {
+        self.dictionary  = {
             "title": self.title,
             "description": self.description,
             "color": self.color,
@@ -528,16 +569,54 @@ class Embed:
         }
 
     def set_author(self, name: str, url: str = None, icon_url: str = None):
-        self.default['author'] = {'name': name, 'url': url, 'icon_url': icon_url}
+        self.dictionary['author'] = {'name': name, 'url': url, 'icon_url': icon_url}
 
     def set_footer(self, text: str, icon_url: str = None):
-        self.default['footer'] = {'text': text, 'icon_url': icon_url}
+        self.dictionary['footer'] = {'text': text, 'icon_url': icon_url}
 
     def set_image(self, url: str):
-        self.default['image'] = {'url': url}
+        self.dictionary['image'] = {'url': url}
 
     def set_thumbnail(self, url: str):
-        self.default['thumbnail'] = {'url': url}
+        self.dictionary['thumbnail'] = {'url': url}
+
+    def to_dict(self):
+        '''This function should be called if you want a more up-to-date version of the embed, \
+        e.g. its description has been edited after the initial creation of the guilded.Embed object.'''
+        return {
+            'title': self.title,
+            'description': self.description,
+            'color': self.color,
+            'url': self.url,
+            'author': self.dictionary['author'],
+            'footer': self.dictionary['footer'],
+            'image': self.dictionary['image'],
+            'thumbnail': self.dictionary['thumbnail']
+        }
+
+    @classmethod
+    def from_dict(cls, embed_dict: dict):
+        embed = cls(
+            title=embed_dict['title'],
+            description=embed_dict['description'],
+            color=embed_dict['color'],
+            url=embed_dict['url'])
+        try:
+            embed.set_author(
+                name=embed_dict['author']['name'],
+                url=embed_dict['author']['url'],
+                icon_url=embed_dict['author']['icon_url'])
+        except KeyError: pass
+        try:
+            embed.set_footer(
+                text=embed_dict['footer']['text'],
+                icon_url=embed_dict['footer']['icon_url'])
+        except KeyError: pass
+        try: embed.set_image(url=embed_dict['image']['url'])
+        except KeyError: pass
+        try: embed.set_thumbnail(url=embed_dict['thumbnail']['url'])
+        except KeyError: pass
+        return embed
 
 class TextChannel(abc.TeamChannel):
     def __init__(self, **kwargs):
@@ -545,21 +624,76 @@ class TextChannel(abc.TeamChannel):
 
 class Message:
     def __init__(self, **kwargs):
-        self.channel    = kwargs.get('channelId')
+        self.raw        = kwargs
+        self.channel    = TextChannel(**{
+            'id': kwargs.get('channelId'),
+            'team': kwargs.get('team')
+        })
         self.team       = kwargs.get('team')
         self.created_at = make_datetime(kwargs.get('createdAt'))
         self.id         = kwargs.get('id')
         self.author     = kwargs.get('author')
-        self.content    = ''
-        content0        = kwargs['content']['document']['nodes'][0]['nodes']
-        for aaaHelpMe  in content0:
-            try:
-                cont_append = aaaHelpMe['leaves'][0]['text']
-            except KeyError:
-                cont_append = aaaHelpMe['nodes'][0]['leaves'][0]['text']
-            self.content += cont_append
+        #self.author     = Member(**{
+        #    'id': kwargs.get('author'),
+        #    'team': kwargs.get('team')
+        #})
+        self.embeds     = []
+        self.content    = self.get_full_content()
+        #self.content    = ''
+        #content0        = kwargs['content']['document']['nodes'][0]['nodes']
+        #for aaaHelpMe  in content0:
+        #    try:
+        #        cont_append = aaaHelpMe['leaves'][0]['text']
+        #    except KeyError:
+        #        cont_append = aaaHelpMe['nodes'][0]['leaves'][0]['text']
+        #    self.content += cont_append
 
-    async def add_reaction(emoji_id):
+    def get_full_content(self):
+        nodes   = self.raw['content']['document']['nodes']
+        content = ''
+        for node in nodes:
+            type = node['type']
+            if type == 'paragraph':
+                for element in node['nodes']:
+                    if element['object'] == 'text':
+                        for leaf in element['leaves']:
+                            if not leaf['marks']:
+                                content += leaf['text']
+                            else:
+                                to_mark = '{unmarked_content}'
+                                marks = leaf['marks']
+                                for mark in marks:
+                                    if mark['type'] == 'bold':
+                                        to_mark = '**' + to_mark + '**'
+                                    if mark['type'] == 'italic':
+                                        to_mark = '*' + to_mark + '*'
+                                    if mark['type'] == 'underline':
+                                        to_mark = '__' + to_mark + '__'
+                                    if mark['type'] == 'strikethrough':
+                                        to_mark = '~~' + to_mark + '~~'
+                                    else:
+                                        # unknown md type
+                                        to_mark = to_mark
+                                content += to_mark.format(unmarked_content=leaf['text'])
+                    if element['object'] == 'inline':
+                        if element['type'] == 'mention':
+                            content += element['leaves'][0]['leaves'][0]['text']
+                        if element['type'] == 'reaction':
+                            content += element['nodes'][0]['leaves'][0]['text']
+            if type == 'markdown-plain-text':
+                content += node['nodes'][0]['leaves'][0]['text']
+            if type == 'webhookMessage':
+                for msg_embed in node['data']['embeds']:
+                    self.embeds.append(Embed.from_dict(msg_embed))
+                #content += node['nodes'][0] # im sure theres somethere here sometimes
+            if type == 'block-quote-container':
+                content += '> ' + str(node['nodes'][0]['nodes'][0]['leaves'][0]['text'])
+
+        if content == '':
+            content = None
+        return content
+
+    async def add_reaction(self, emoji_id):
         react = await session.post(BASE + 'channels/' + self.channel + '/messages/' + self.id + '/reactions/' + emoji_id)
         return await react.json()
 
