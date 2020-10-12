@@ -3,6 +3,7 @@ import abc
 import json
 import uuid
 import shlex
+import typing
 import aiohttp
 import asyncio
 import inspect
@@ -94,6 +95,7 @@ class Bot:
                 if channel not in self.text_channels:
                     self.text_channels.append(channel)
         except:
+            traceback.print_exc()
             team = teamId
             # just have an error elsewhere lul
         return team
@@ -354,6 +356,7 @@ class Team:
         self.owner_id           = kwargs.get('ownerId')
         self.name               = kwargs.get('name')
         self.slug               = kwargs.get('subdomain')
+        self.subdomain          = self.slug
         self.icon_url           = kwargs.get('profilePicture')
         self.dash_image_url     = kwargs.get('teamDashImage')
         self.twitter            = kwargs['socialInfo'].get('twitter')
@@ -372,7 +375,9 @@ class Team:
         self.sync_discord_roles = kwargs.get('autoSyncDiscordRoles')
         self.games              = kwargs.get('games')
         self.roles              = []
-        for role in kwargs.get('roles'): self.roles.append(Role(**role))
+        if kwargs.get('roles'):
+            for role in kwargs.get('roles'):
+                self.roles.append(Role(**role))
         baseg = kwargs.get('baseGroup')
         baseg['team'] = self
         self.home_group         = TeamGroup(**baseg)
@@ -380,16 +385,17 @@ class Team:
         for member in kwargs.get('members'):
             member['team'] = self
             self.members.append(Member(**member))
-        self.bots               = [] # :eyes:
+        self.bots               = [] # 👀
         self.default_role       = Role(**kwargs['rolesById'].get('baseRole'))
         self.follower_count     = kwargs.get('followerCount')
-        self.is_applicant       = kwargs.get('isUserApplicant') # is the bot an applicant
-        self.is_following       = kwargs.get('userFollowsTeam') # is the bot following the team
+        self.is_applicant       = kwargs.get('isUserApplicant') # are you an applicant
+        self.is_following       = kwargs.get('userFollowsTeam') # are you following the team
         # bunch of weird stats stuff
         measurements                     = kwargs.get('measurements')
         self.member_count                = measurements.get('numMembers')
         self.recent_match_count          = measurements.get('numRecentMatches')
         self.follower_and_member_count   = measurements.get('numFollowersAndMembers')
+        self.follower_count              = self.follower_and_member_count - self.member_count
         self.members_in_last_day_count   = measurements.get('numMembersAddedInLastDay')
         self.members_in_last_week_count  = measurements.get('numMembersAddedInLastWeek')
         self.members_in_last_month_count = measurements.get('numMembersAddedInLastMonth')
@@ -469,9 +475,15 @@ class abc:
 
     class User(Messageable, metaclass=abc.ABCMeta):
         def __init__(self):
-            self.name         = self.name
-            self.id           = self.id
-            self.display_name = self.display_name or self.name
+            self.display_name   = self.display_name or self.name
+            #self.avatar_url_aws = self.avatar_url.replace('https://img.guildedcdn.com/', 'https://s3-us-west-2.amazonaws.com/www.guilded.gg/')
+
+        def avatar_url_as(self, size: str = 'Large'):#, aws=False):
+            if size.lower() not in ['small', 'medium', 'large']:
+                raise ValueError('Invalid size. Must be small, medium, or large.')
+            if not self.avatar:
+                return self.avatar_url
+            return f'https://img.guildedcdn.com/UserAvatar/{self.avatar}-{size.capitalize()}.png?w=450&h=450'
 
     class TeamChannel(Messageable, metaclass=abc.ABCMeta):
         def __init__(self, **kwargs):
@@ -498,26 +510,50 @@ class User(abc.User):
         self.id           = kwargs.get('id')
         self.name         = kwargs.get('name')
         self.display_name = self.name
+        self.avatar       = kwargs.get('profilePicture')
+        self.avatar_url   = 'https://guilded.ga/logo.png'
+        #self.avatar_url_aws = self.avatar_url.replace('https://img.guildedcdn.com/', 'https://s3-us-west-2.amazonaws.com/www.guilded.gg/')
+        self.banner       = kwargs.get('profileBannerLg')
+        self.banner_url   = None
+
+        if self.avatar:
+            self.avatar = re.sub(
+                r'^(https:\/\/s3-us-west-2\.amazonaws\.com\/www\.guilded\.gg\/UserAvatar\/)', # remove first part
+                '',
+                re.sub(
+                    r'(-(Small|Medium|Large)\.png(\?w=\d+&h=\d+)?)$', # remove size contraints
+                    '',
+                    self.avatar
+                ))
+            self.avatar_url = f'https://img.guildedcdn.com/UserAvatar/{self.avatar}-Large.png?w=450&h=450'
+
+        if self.banner:
+            self.banner = re.sub(
+                r'^(https:\/\/s3-us-west-2\.amazonaws\.com\/www\.guilded\.gg\/UserBanner\/)', # remove first part
+                '',
+                re.sub(
+                    r'(-Hero\.png(\?w=\d+&h=\d+)?)$', # remove size contraints
+                    '',
+                    self.banner
+                ))
+            self.banner_url = f'https://img.guildedcdn.com/UserBanner/{self.banner}-Hero.png'
+
+        self.display_name = self.name
         self.about        = kwargs.get('aboutInfo')
         self.slug         = kwargs.get('subdomain')
         self.steam        = kwargs.get('steamId')
         self.last_online  = make_datetime(kwargs.get('lastOnline'))
         self.created_at   = make_datetime(kwargs.get('joinDate'))
 
-class Member(abc.User):
+class Member(User):
     def __init__(self, **kwargs):
-        self.id          = kwargs.get('id')
-        self.name        = kwargs.get('name')
         self.team        = kwargs.get('team')
         self.nick        = kwargs.get('nickname')
-        if self.nick == None: self.display_name = self.name
-        else:                 self.display_name = self.nick
+        if self.nick:      self.display_name = self.nick
         self.xp          = kwargs.get('teamXp')
-        self.last_online = make_datetime(kwargs.get('lastOnline'))
-        self.created_at  = make_datetime(kwargs.get('joinDate'))
 
-    async def edit(self, nick=None):
-        if nick != None:
+    async def edit(self, nick: typing.Optional):
+        if nick:
             await session.put(
                 BASE + 'teams/' + self.team.id + '/members/' + self.id + '/nickname',
                 json={'nickname': nick})
@@ -538,7 +574,7 @@ class Role:
         if self.discord_last_synced != None: self.discord_last_synced = make_datetime(self.discord_last_synced)
 
 class Embed:
-    def __init__(self, title=None, description=None, color=None, url=None):
+    def __init__(self, title=None, description=None, color:int=None, url=None):
         # Timestamps are currently unsupported I'm sorry
         # I'll get off my lazy butt and do it someday
         # Stupid timezones
@@ -546,11 +582,16 @@ class Embed:
         self.description = description
         self.color       = color
         self.url         = url
+        self.author      = None
+        self.footer      = None
+        self.image       = None
+        self.thumbnail   = None
         self.dictionary  = {
             "title": self.title,
             "description": self.description,
             "color": self.color,
             "url": self.url,
+            "fields": [], # i don't know if there's a limit to these
             "author": {
                 "name": None,
                 "url": None,
@@ -570,15 +611,32 @@ class Embed:
 
     def set_author(self, name: str, url: str = None, icon_url: str = None):
         self.dictionary['author'] = {'name': name, 'url': url, 'icon_url': icon_url}
+        class author:
+            self.name     = name
+            self.url      = url
+            self.icon_url = icon_url
+        self.author = author
+        return self
 
     def set_footer(self, text: str, icon_url: str = None):
         self.dictionary['footer'] = {'text': text, 'icon_url': icon_url}
+        return self
 
     def set_image(self, url: str):
         self.dictionary['image'] = {'url': url}
+        return self
 
     def set_thumbnail(self, url: str):
         self.dictionary['thumbnail'] = {'url': url}
+        return self
+
+    def add_field(self, name: str, value: str, inline=True):
+        self.dictionary['fields'].append({
+            'name': name,
+            'value': value,
+            'inline': inline
+        })
+        return self
 
     def to_dict(self):
         '''This function should be called if you want a more up-to-date version of the embed, \
@@ -588,6 +646,7 @@ class Embed:
             'description': self.description,
             'color': self.color,
             'url': self.url,
+            'fields': self.dictionary['fields'],
             'author': self.dictionary['author'],
             'footer': self.dictionary['footer'],
             'image': self.dictionary['image'],
@@ -596,11 +655,19 @@ class Embed:
 
     @classmethod
     def from_dict(cls, embed_dict: dict):
+        try:             title = embed_dict['title']
+        except KeyError: title = None
+        try:             description = embed_dict['description']
+        except KeyError: description = None
+        try:             color = embed_dict['color']
+        except KeyError: color = None
+        try:             url = embed_dict['url']
+        except KeyError: url = None
         embed = cls(
-            title=embed_dict['title'],
-            description=embed_dict['description'],
-            color=embed_dict['color'],
-            url=embed_dict['url'])
+            title=title,
+            description=description,
+            color=color,
+            url=url)
         try:
             embed.set_author(
                 name=embed_dict['author']['name'],
@@ -633,10 +700,7 @@ class Message:
         self.created_at = make_datetime(kwargs.get('createdAt'))
         self.id         = kwargs.get('id')
         self.author     = kwargs.get('author')
-        #self.author     = Member(**{
-        #    'id': kwargs.get('author'),
-        #    'team': kwargs.get('team')
-        #})
+        self.mentions   = []
         self.embeds     = []
         self.content    = self.get_full_content()
         #self.content    = ''
@@ -649,7 +713,11 @@ class Message:
         #    self.content += cont_append
 
     def get_full_content(self):
-        nodes   = self.raw['content']['document']['nodes']
+        try:
+            nodes   = self.raw['content']['document']['nodes']
+        except KeyError:
+            # there's no content
+            return None
         content = ''
         for node in nodes:
             type = node['type']
@@ -671,15 +739,26 @@ class Message:
                                         to_mark = '__' + to_mark + '__'
                                     if mark['type'] == 'strikethrough':
                                         to_mark = '~~' + to_mark + '~~'
+                                    if mark['type'] == 'spoiler':
+                                        to_mark = '||' + to_mark + '||'
                                     else:
                                         # unknown md type
                                         to_mark = to_mark
                                 content += to_mark.format(unmarked_content=leaf['text'])
                     if element['object'] == 'inline':
                         if element['type'] == 'mention':
-                            content += element['leaves'][0]['leaves'][0]['text']
+                            person   = element['data']['mention']
+                            content += '<@' + person['id'] + '>'
+                            self.mentions.append(Member(**{
+                                'name': person['name'],
+                                'avatar_url': person['avatar'],
+                                'color': person['color'],
+                                'id': person['id']
+                            }))
                         if element['type'] == 'reaction':
                             content += element['nodes'][0]['leaves'][0]['text']
+                        if element['type'] == 'link':
+                            content += f"[{element['nodes'][0]['leaves'][0]['text']}]({element['data']['href']})"
             if type == 'markdown-plain-text':
                 content += node['nodes'][0]['leaves'][0]['text']
             if type == 'webhookMessage':
