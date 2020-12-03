@@ -20,6 +20,7 @@ class Forbidden(GuildedException):
     pass
 
 class NotFound(GuildedException):
+    '''Attempting to perform an action on something that doesn't exist (like Message.delete on an already-deleted message)'''
     pass
 
 class HTTPException(GuildedException):

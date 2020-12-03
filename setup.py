@@ -3,9 +3,13 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+requirements = []
+with open('requirements.txt') as rtxt:
+    requirements = rtxt.read().splitlines()
+
 setuptools.setup(
     name="guilded.py",
-    version="0.0.5",
+    version="0.0.6",
     author="shay",
     author_email="shay@bearger.ga",
     description="An API wrapper for Guilded's undocumented user API",
@@ -19,4 +23,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.5.3',
+    install_requires=requirements
 )
