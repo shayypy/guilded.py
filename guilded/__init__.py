@@ -1,7 +1,20 @@
-__title__ = 'guilded'
-__author__ = 'shay'
-__copyright__ = 'Copyright 2020-2020 shay'
-__version__ = '0.0.6a'
 
-from .__main__ import *
+__copyright__ = 'shay 2020-2021'
+__version__ = '1.0.0a'
+
+import logging
+
+from .asset import Asset
+from .channel import *
+from .client import Client
 from .errors import *
+from . import abc, utils
+from .user import *
+from .message import Message
+from .team import Team
+from .emoji import Emoji
+from .file import File
+from .embed import Embed, EmptyEmbed, EmbedProxy
+from .colour import Colour
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())

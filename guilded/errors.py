@@ -1,28 +1,35 @@
 class GuildedException(Exception):
-    """Base exception class for guilded.py
-    Ideally speaking, this could be caught to handle any exceptions thrown from this library.
-    """
-    pass
-
-class BotException(GuildedException):
-    """Exception that's thrown when an operation in the :class:`Bot` fails.
-    These are usually for exceptions that happened due to user input.
-    """
-    pass
-
-class CommandException(GuildedException):
-	'''Base exception thrown when there's a problem running a command. Usually
-	due to user error.'''
-	pass
-
-class Forbidden(GuildedException):
-    '''Raised when attempting to execute something you are not properly authenticated to do.'''
-    pass
-
-class NotFound(GuildedException):
-    '''Attempting to perform an action on something that doesn't exist (like Message.delete on an already-deleted message)'''
+    '''Base class for all guilded.py exceptions.'''
     pass
 
 class HTTPException(GuildedException):
-    '''Generic exception raised when a request to Guilded fails.'''
+    '''A non-ok response from Guilded was returned whilst performing an HTTP request.'''
     pass
+
+class BadRequest(HTTPException):
+    '''400'''
+    pass
+
+class Forbidden(HTTPException):
+    '''403'''
+    pass
+
+class NotFound(HTTPException):
+    '''404'''
+    pass
+
+class TooManyRequests(HTTPException):
+    '''429'''
+    pass
+
+class GuildedServerError(HTTPException):
+    '''500'''
+    pass
+
+error_mapping = {
+    400: BadRequest,
+    403: Forbidden,
+    404: NotFound,
+    429: TooManyRequests,
+    500: GuildedServerError
+}

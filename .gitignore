@@ -1,5 +1,6 @@
-/testing_bot.py
-/guilded.py.egg-info
-/guilded.py_shay.egg-info
-/dist
-/build
+guilded.py.egg-info/
+guilded.py_shay.egg-info/
+dist/
+build/
+guilded/__pycache__/
+testing/
