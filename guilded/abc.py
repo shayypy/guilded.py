@@ -67,8 +67,8 @@ class User(metaclass=abc.ABCMeta):
         self.email = data.get('email')
         self.service_email = data.get('serviceEmail')
         self.games = data.get('aliases', [])
-        self.bio = data.get('aboutInfo', {}).get('bio', '')
-        self.tagline = data.get('aboutInfo', {}).get('tagLine', '')
+        self.bio = (data.get('aboutInfo') or {}).get('bio') or ''
+        self.tagline = (data.get('aboutInfo') or {}).get('tagLine') or ''
         activity = data.get('userStatus', {})
         if activity.get('content'):
             self.activity = Activity.build(activity['content'])
@@ -88,6 +88,12 @@ class User(metaclass=abc.ABCMeta):
 
     def __str__(self):
         return f'{self.name}#{self.id}'
+
+    def __eq__(self, other):
+        try:
+            return self.id == other.id
+        except:
+            return False
 
     @property
     def slug(self):
@@ -149,6 +155,12 @@ class TeamChannel(Messageable):
 
     def __repr__(self):
         return f'<TeamChannel id={self.id} name={self.name} team={repr(self.team)}>'
+
+    def __eq__(self, other):
+        try:
+            return self.id == other.id
+        except:
+            return False
 
     async def delete(self):
         return await self._state.delete_team_channel(self.team.id, self.group.id, self.id)
