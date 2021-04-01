@@ -41,6 +41,7 @@ class HTTPClient:
         self._messages = {}
         self._team_members = {}
         self._team_channels = {}
+        self._threads = {}
         self._dm_channels = {}
 
     def _get_user(self, id):

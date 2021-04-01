@@ -15,8 +15,10 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    # message processing here
-    ...
+    if message.author == client.user:
+        return
+    if message.content == 'ping':
+        await message.channel.send('pong')  # per #updates, message.channel will sometimes be None due to caching issues
 
 client.run('email@example.com', 'password123')
 ```

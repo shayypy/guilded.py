@@ -19,7 +19,7 @@ class ChatChannel(guilded.abc.TeamChannel):
 class Thread(guilded.abc.TeamChannel):
     def __init__(self, **fields):
         super().__init__(**fields)
-        data = fields.get('data', {})  # i mean, just in case
+        data = fields.get('data', fields.get('channel', {}))  # i mean, just in case
         self.type = ChannelType.thread
         self.participants = []
         if data.get('type').lower() == 'team':
