@@ -13,18 +13,18 @@ class Messageable(metaclass=abc.ABCMeta):
         self._channel_id = data.get('id')
         self.type = None
 
-    async def send(self, content: str = None, *, embed = None, embeds: list = [], file = None, files: list = []):
+    async def send(self, content: str = None, *, embed = None, embeds: list = None, file = None, files: list = None):
         '''Send to a Guilded channel.'''
         payload = {}
         if content:
             payload['content'] = content
         if embed:
-            embeds = [embed, *embeds]
-        if embeds:
+            embeds = [embed, *(embeds or [])]
+        if embeds is not None:
             payload['embeds'] = [embed.to_dict() for embed in embeds]
         if file:
-            files = [file, *files]
-        if files:
+            files = [file, *(files or [])]
+        if files is not None:
             pl_files = []
             for file in files:
                 file.type = MediaType.attachment
@@ -43,7 +43,7 @@ class Messageable(metaclass=abc.ABCMeta):
     async def history(self, *, limit: int = 51):
         history = await self._state.get_channel_messages(self._channel_id, limit=limit)
         messages = []
-        for message in history:
+        for message in history.get('messages', []):
             try:
                 messages.append(Message(state=self._state, channel=self, data=message))
             except:
@@ -119,11 +119,11 @@ class User(metaclass=abc.ABCMeta):
         return f'<@{self.id}>'
 
 class TeamChannel(Messageable):
-    def __init__(self, *, state, group, team, data, **extra):
+    def __init__(self, *, state, group, data, **extra):
         super().__init__(state=state, data=data)
         #self._state = state
         self.group = group
-        self.team = team or getattr(group, 'team', None)
+        self.team = extra.get('team') or getattr(group, 'team', None)
         data = data.get('channel', data)
 
         #self.id = data.get('id')
