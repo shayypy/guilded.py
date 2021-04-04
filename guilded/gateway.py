@@ -14,8 +14,10 @@ import sys
 from . import utils
 from .errors import *
 from .user import Member
-from .channel import Thread
+from .channel import Thread, DMChannel
 from .message import Message, PartialMessage
+
+from guilded.abc import TeamChannel
 
 log = logging.getLogger(__name__)
 
@@ -177,6 +179,12 @@ class WebSocketEventParsers:
                 try: author = await self.client.getch_user(createdBy)
                 except: author = None
 
+        if not channel:
+            if data.get('channelType', '').lower() == 'team':
+                channel = TeamChannel(state=self._state, group=None, data={'id': channelId}, team=team)
+            else:
+                channel = DMChannel(state=self._state, data={'id': channelId, 'users': []})
+
         message = Message(state=self.client.http, channel=channel, data=data, author=author, team=team)
         self._state.add_to_message_cache(message)
         self.client.dispatch('message', message)
@@ -289,7 +297,7 @@ class WebSocketEventParsers:
             try: team = await self.client.getch_team(data['teamId'])
             except: return
 
-            thread = Thread(state=self._state, data=data.get('channel', data))
+            thread = Thread(state=self._state, group=None, data=data.get('channel', data), team=team)
 
 class Heartbeater(threading.Thread):
     def __init__(self, ws, *, interval):
