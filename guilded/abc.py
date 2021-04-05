@@ -29,7 +29,7 @@ class Messageable(metaclass=abc.ABCMeta):
             for file in files:
                 file.type = MediaType.attachment
                 if file.url is None:
-                    file = await file._upload()
+                    await file._upload(self._state)
                 pl_files.append(file)
 
             payload['files'] = pl_files

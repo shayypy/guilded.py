@@ -47,7 +47,7 @@ class Group:
         elif type(fields.get('icon')) == File:
             file = fields.get('icon')
             file.type = MediaType.group_icon
-            fields['icon_url'] = await file._upload()
+            fields['icon_url'] = await file._upload(self._state)
         elif type(fields.get('icon')) == type(None):
             fields['icon_url'] = None
 
