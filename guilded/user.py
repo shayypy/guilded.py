@@ -11,8 +11,6 @@ class Device:
         self.active = data.get('isActive', False)
 
 class User(guilded.abc.User, guilded.abc.Messageable):
-    def __init__(self, *, state, data):
-        pass
 
     async def create_dm(self):
         dm = await self._state.create_dm(self.id)
