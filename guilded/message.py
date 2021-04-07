@@ -1,4 +1,5 @@
 import logging
+import datetime
 
 from .errors import *
 #from .user import Member
@@ -42,16 +43,25 @@ class Message:
         self._raw = data
 
         message = data.get('message', data)
-        self.id = data.get('contentId', message.get('id'))
+        self.id = data.get('contentId') or message.get('id')
         self.webhook_id = data.get('webhookId')
         self.channel = channel
         self.channel_id = data.get('channelId')
         self.team = extra.get('team') or getattr(channel, 'team', None)
+        self.team_id = data.get('teamId')
 
         self.created_at = ISO8601(data.get('createdAt'))
         self.edited_at = ISO8601(message.get('editedAt'))
+        self.deleted_at = extra.get('deleted_at') or ISO8601(data.get('deletedAt'))
 
         self.author = extra.get('author')
+        self.author_id = data.get('createdBy') or message.get('createdBy')
+        if self.author is None:
+            if data.get('channelType', '').lower() == 'team' and self.team is not None:
+                self.author = self._state._get_team_member(self.team_id, self.author_id)
+            elif data.get('channelType', '').lower() == 'dm' or self.team is None:
+                self.author = self._state._get_user(self.author_id)
+
         self.mentions = []
         self.channel_mentions = []
         self.role_mentions = []
@@ -161,15 +171,16 @@ class Message:
                     self.embeds.append(Embed.from_dict(msg_embed))
             if type == 'block-quote-container':
                 text = str(node['nodes'][0]['nodes'][0]['leaves'][0]['text'])
-                content += '\n> {text}\n'
+                content += f'\n> {text}\n'
 
         return content
 
     async def delete(self):
-        return await self._state.delete_message(self.channel.id or self.channel_id, self.id)
+        response = await self._state.delete_message(self.channel_id, self.id)
+        self.deleted_at = datetime.datetime.utcnow()
 
-    async def send(self, *, content: str = None, embed = None, embeds: list = [], file = None, files: list = []):
-        '''Send to a Guilded channel.'''
+    async def edit(self, *, content: str = None, embed = None, embeds: list = None, file = None, files: list = None):
+        '''Edit a message.'''
         payload = {
             'old_content': self.content,
             'old_embeds': [embed.to_dict() for embed in self.embeds],
@@ -178,22 +189,22 @@ class Message:
         if content:
             payload['content'] = content
         if embed:
-            embeds.append(embed)
-        if embeds:
+            embeds = [embed, *(embeds or [])]
+        if embeds is not None:
             payload['embeds'] = [embed.to_dict() for embed in embeds]
         if file:
-            files.append(file)
-        if files:
+            files = [file, *(files or [])]
+        if files is not None:
             pl_files = []
             for file in files:
                 file.type = MediaType.attachment
                 if file.url is None:
-                    file = await file._upload()
+                    await file._upload(self._state)
                 pl_files.append(file)
 
             payload['files'] = pl_files
 
-        return await self._state.edit_message(self._channel_id, **payload)
+        await self._state.edit_message(self._channel_id, **payload)
 
 class PartialMessage:
     pass

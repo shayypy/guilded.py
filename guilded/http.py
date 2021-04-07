@@ -182,7 +182,7 @@ class HTTPClient:
                     'nodes': []
                 })
 
-        return self.request(route, json=payload)
+        return self.request(route, json=payload), payload
 
     def edit_message(self, channel_id: str, message_id: str, **fields):
         route = Route('PUT', f'/channels/{channel_id}/messages/{message_id}')
@@ -324,24 +324,23 @@ class HTTPClient:
             params={'dynamicMediaTypeId': str(file.type)}
         )
 
+    def get_user(self, user_id: str):
+        return self.request(Route('GET', f'/users/{user_id}'))
+
+    def get_team(self, team_id: str):
+        return self.request(Route('GET', f'/teams/{team_id}'))
+
     def get_team_members(self, team_id: str):
-        return self.request(
-            Route('GET', f'/teams/{team_id}/members')
-        )
+        return self.request(Route('GET', f'/teams/{team_id}/members'))
 
     def get_team_member(self, team_id: str, user_id: str):
-        return self.request(
-            Route('GET', f'/teams/{team_id}/members/{user_id}')
-        )
+        return self.request(Route('GET', f'/teams/{team_id}/members/{user_id}'))
 
     def get_team_channels(self, team_id: str):
         return self.request(Route('GET', f'/teams/{team_id}/channels'))
 
     def change_team_member_nickname(self, team_id: str, user_id: str, nickname: str):
-        return self.request(
-            Route('GET', f'/teams/{team_id}/members/{user_id}/nickname'),
-            json={'nickname': nickname}
-        )
+        return self.request(Route('GET', f'/teams/{team_id}/members/{user_id}/nickname'), json={'nickname': nickname})
 
     def reset_team_member_nickname(self, team_id: str, user_id: str):
         return self.request(Route('DELETE', f'/teams/{team_id}/members/{user_id}/nickname'))

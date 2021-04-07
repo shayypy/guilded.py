@@ -48,6 +48,7 @@ class DMChannel(guilded.abc.Messageable):
         self._channel_id = self.id
         self.users = []
         self.recipient = None
+        self.team = None
         for user_data in data.get('users', []):
             user = self._state._get_user(user_data.get('id'))
             if user:

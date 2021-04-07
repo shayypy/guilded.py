@@ -34,7 +34,12 @@ class Messageable(metaclass=abc.ABCMeta):
 
             payload['files'] = pl_files
 
-        return await self._state.send_message(self._channel_id, **payload)
+        response_coro, payload = self._state.send_message(self._channel_id, **payload)
+        response = await response_coro
+        payload['createdAt'] = response.pop('message', response or {}).pop('createdAt', None)
+        payload['id'] = payload.pop('messageId')
+
+        return Message(state=self._state, channel=self, data=payload)
 
     async def trigger_typing(self):
         '''Begin your typing indicator in this channel.'''

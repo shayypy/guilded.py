@@ -18,7 +18,7 @@ async def on_message(message):
     if message.author == client.user:
         return
     if message.content == 'ping':
-        await message.channel.send('pong')  # per #updates, message.channel will sometimes be None due to caching issues
+        await message.channel.send('pong')  # message.channel will sometimes be a partial TeamChannel/DMChannel (depending on the context) if the channel was not cached previously.
 
 client.run('email@example.com', 'password123')
 ```
