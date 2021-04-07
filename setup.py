@@ -1,3 +1,4 @@
+import re
 import setuptools
 
 with open('README.md', 'r') as rmd:
@@ -9,7 +10,7 @@ with open('requirements.txt') as rtxt:
 
 version = ''
 with open('guilded/__init__.py') as initpy:
-    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read(), re.MULTILINE).group(1)
+    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', initpy.read(), re.MULTILINE).group(1)
 
 if not version:
     raise RuntimeError('Version is not set.')
