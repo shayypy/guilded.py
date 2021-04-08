@@ -38,8 +38,23 @@ class Messageable(metaclass=abc.ABCMeta):
         response = await response_coro
         payload['createdAt'] = response.pop('message', response or {}).pop('createdAt', None)
         payload['id'] = payload.pop('messageId')
+        payload['channelId'] = self.id
+        payload['teamId'] = self.team.id if self.team else None
+        payload['createdBy'] = self._state.my_id
 
-        return Message(state=self._state, channel=self, data=payload)
+        if payload['teamId'] is not None:
+            try:
+                author = self._state._get_team_member(payload['teamId'], payload['createdBy']) or await self._state.get_team_member(payload['teamId'], payload['createdBy'])
+            except:
+                author = None
+
+        if author is None or payload['teamId'] is None:
+            try:
+                author = self._state._get_user(payload['createdBy']) or await self._state.get_user(payload['createdBy'])
+            except:
+                author = None
+
+        return Message(state=self._state, channel=self, data=payload, author=author)
 
     async def trigger_typing(self):
         '''Begin your typing indicator in this channel.'''

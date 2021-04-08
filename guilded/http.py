@@ -112,7 +112,8 @@ class HTTPClient:
                         #raise TooManyRequests(response)
 
                 elif response.status >= 400:
-                    raise error_mapping.get(response.status, HTTPException)(response)
+                    error = error_mapping.get(response.status, HTTPException)(f'{data.get("code")}: {data.get("message")} (for {url})')
+                    raise error
 
             return data if route.path != '/login' else response
 
@@ -149,6 +150,9 @@ class HTTPClient:
             ),
             headers={'cookie': cookies}
         )
+
+    def logout(self):
+        return self.request(Route('POST', '/logout'))
 
     def send_message(self, channel_id: str, *, content=None, embeds=[], files=[]):
         route = Route('POST', f'/channels/{channel_id}/messages')
