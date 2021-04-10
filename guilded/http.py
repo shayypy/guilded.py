@@ -98,19 +98,31 @@ class HTTPClient:
         method = route.method
 
         async def perform():
-            log_data = f'with {kwargs["json"]}' if kwargs.get('json') else ''
-            log.info('%s %s %s', method, route.path, log_data)
+            log_data = ''
+            if kwargs.get('json'):
+                log_data = f' with {kwargs["json"]}'
+            elif kwargs.get('data'):
+                log_data = f' with {kwargs["data"]}'
+            log_args = ''
+            if kwargs.get('params'):
+                log_args = '?' + '&'.join([f'{key}={val}' for key, val in kwargs['params'].items()])
+            log.info('%s %s%s%s', method, route.url, log_args, log_data)
             response = await self.session.request(method, url, **kwargs)
             log.info('Guilded responded with HTTP %s', response.status)
             if response.status == 204:
                 return None
 
-            data_txt = await response.text()
             try:
-                data = json.loads(data_txt)
-            except json.decoder.JSONDecodeError:
-                data = data_txt
-            log.debug('Guilded responded with %s', data)
+                data_txt = await response.text()
+            except UnicodeDecodeError:
+                data = await response.read()
+                log.debug('Response data: bytes')
+            else:
+                try:
+                    data = json.loads(data_txt)
+                except json.decoder.JSONDecodeError:
+                    data = data_txt
+                log.debug(f'Response data: {data}')
             if response.status != 200:
 
                 if response.status == 429:
@@ -274,7 +286,7 @@ class HTTPClient:
                 for file in files:
                     payload['content']['document']['nodes'].append({
                         'object': 'block',
-                        'type': file.file_type,
+                        'type': str(file.file_type),
                         'data': {'src': file.url},
                         'nodes': []
                     })
@@ -363,6 +375,9 @@ class HTTPClient:
             data={'file': file._bytes},
             params={'dynamicMediaTypeId': str(file.type)}
         )
+
+    def read_filelike_data(self, filelike):
+        return self.request(Route('GET', filelike.url, override_base=Route.NO_BASE))
 
     def get_user(self, user_id: str):
         return self.request(Route('GET', f'/users/{user_id}'))

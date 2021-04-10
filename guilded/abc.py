@@ -2,7 +2,8 @@ import abc
 
 from .activity import Activity
 from .asset import Asset
-from .file import MediaType
+from .embed import _EmptyEmbed, Embed
+from .file import MediaType, FileType, File
 from .message import Message
 from .presence import Presence
 from .utils import ISO8601
@@ -19,19 +20,50 @@ class Messageable(metaclass=abc.ABCMeta):
         '''Send to a Guilded channel.'''
         content = list(content)
         if kwargs.get('file'):
-            content.append(kwargs.get('file'))
-
+            file = kwargs.get('file')
+            file.set_media_type(MediaType.attachment)
+            if file.url is None:
+                await file._upload(self._state)
+            content.append(file)
         for file in kwargs.get('files') or []:
-            file.type = MediaType.attachment
+            file.set_media_type(MediaType.attachment)
             if file.url is None:
                 await file._upload(self._state)
             content.append(file)
 
+        def embed_attachment_uri(embed):
+            # pseudo-support attachment:// URI for use in embeds
+            for slot in [('image', 'url'), ('thumbnail', 'url'), ('author', 'icon_url'), ('footer', 'icon_url')]:
+                url = getattr(getattr(embed, slot[0]), slot[1])
+                if isinstance(url, _EmptyEmbed):
+                    continue
+                if url.startswith('attachment://'):
+                    filename = url.strip('attachment://')
+                    for node in content:
+                        if isinstance(node, File) and node.filename == filename:
+                            getattr(embed, f'_{slot[0]}')[slot[1]] = node.url
+                            content.remove(node)
+                            break
+
+            return embed
+
+        # upload Files passed positionally
+        for node in content:
+            if isinstance(node, File) and node.url is None:
+                node.set_media_type(MediaType.attachment)
+                await node._upload(self._state)
+
+        # handle attachment URIs for Embeds passed positionally
+        # this is a separate loop to ensure that all files are uploaded first
+        for node in content:
+            if isinstance(node, Embed):
+                content[content.index(node)] = embed_attachment_uri(node)
+
         if kwargs.get('embed'):
-            content.append(kwargs.get('embed'))
+            content.append(embed_attachment_uri(kwargs.get('embed')))
 
         for embed in kwargs.get('embeds') or []:
-            content.append(embed)
+            content.append(embed_attachment_uri(embed))
 
         response_coro, payload = self._state.send_message(self._channel_id, content)
         response = await response_coro

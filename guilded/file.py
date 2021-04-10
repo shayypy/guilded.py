@@ -37,14 +37,16 @@ class FileType(Enum):
         return f'<FileType name={self.name} value={self.value}>'
 
 class File:
-    def __init__(self, fp: Union[str, io.BufferedIOBase], *, file_type: FileType = None):
+    def __init__(self, fp: Union[str, io.BufferedIOBase], *, filename=None, file_type: FileType = None):
         '''A class that wraps basic media pre-and-mid-upload. Non-image/video filetypes are not supported by Guilded.'''
         self.fp = fp
         self.type = None
         self.url = None
+        self.filename = filename
 
         if type(fp) == str:
             self._bytes = open(fp, 'rb')
+            self.filename = filename or fp
             if file_type is None:
                 try:
                     extension = self.fp.split('.')[-1]
@@ -63,8 +65,18 @@ class File:
                 self.file_type = file_type
 
         else:
-            self._bytes = fp
+            if isinstance(fp, io.BytesIO):
+                fp.seek(0)
+                self._bytes = fp.read()
+            elif isinstance(fp, bytes):
+                self._bytes = fp
+            else:
+                self._bytes = None
             self.file_type = file_type
+
+        if self.file_type is None:
+            # fallback in case the checker fails, just so null isn't sent
+            self.file_type = FileType.image
 
     def __repr__(self):
         return f'<File type={self.type}>'
@@ -72,8 +84,16 @@ class File:
     def __bytes__(self):
         return self._bytes
 
+    def set_media_type(self, media_type):
+        self.type = media_type
+        return self
+
+    def set_file_type(self, file_type):
+        self.file_type = file_type
+        return self
+
     async def _upload(self, state):
         response = await state.upload_file(self)
         url = response.get('url')
         self.url = url
-        return url
+        return self

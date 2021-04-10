@@ -1,3 +1,6 @@
+from io import BytesIO
+
+
 class Asset:
     FRIENDLY = {
         'sm': 'small',
@@ -30,5 +33,7 @@ class Asset:
         return self.url is not None and other.url is not None and self.url == other.url
 
     async def read(self):
-        response = await self._state.get(self.url)
-        return await response.read()
+        return await self._state.read_filelike_data(self)
+
+    async def bytesio(self):
+        return BytesIO(await self._state.read_filelike_data(self))
