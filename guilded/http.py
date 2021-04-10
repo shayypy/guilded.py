@@ -6,6 +6,8 @@ import json
 
 from . import utils
 from .errors import *
+from .file import File
+from .embed import Embed
 from .user import ClientUser
 
 log = logging.getLogger(__name__)
@@ -71,11 +73,19 @@ class HTTPClient:
         self._teams[team.id] = team
 
     def add_to_member_cache(self, member):
-        self._team_members[member.team.id] = self._team_members.get(member.team.id, {})
-        self._team_members[member.team.id][member.id] = member
+        self._team_members[member.team_id] = self._team_members.get(member.team_id, {})
+        self._team_members[member.team_id][member.id] = member
+
+    def remove_from_member_cache(self, team_id, member_id):
+        try: del self._team_members[team_id][member_id]
+        except KeyError: pass
 
     def add_to_team_channel_cache(self, channel):
         self._team_channels[channel.id] = channel
+
+    def remove_from_team_channel_cache(self, channel_id):
+        try: del self._team_channels[channel_id]
+        except KeyError: pass
 
     def add_to_dm_channel_cache(self, channel):
         self._dm_channels[channel.id] = channel
@@ -96,7 +106,11 @@ class HTTPClient:
             if response.status == 204:
                 return None
 
-            data = await response.json()
+            data_txt = await response.text()
+            try:
+                data = json.loads(data_txt)
+            except json.decoder.JSONDecodeError:
+                data = data_txt
             log.debug(f'Guilded responded with {data}')
             if response.status != 200:
 
@@ -112,7 +126,7 @@ class HTTPClient:
                         #raise TooManyRequests(response)
 
                 elif response.status >= 400:
-                    error = error_mapping.get(response.status, HTTPException)(f'{data.get("code")}: {data.get("message")} (for {url})')
+                    error = error_mapping.get(response.status, HTTPException)(f'{data.get("code")}: {data.get("message")}')
                     raise error
 
             return data if route.path != '/login' else response
@@ -154,37 +168,60 @@ class HTTPClient:
     def logout(self):
         return self.request(Route('POST', '/logout'))
 
-    def send_message(self, channel_id: str, *, content=None, embeds=[], files=[]):
+    def send_message(self, channel_id: str, content):
         route = Route('POST', f'/channels/{channel_id}/messages')
         payload = {
             'messageId': utils.new_uuid(),
             'content': {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}}
         }
 
-        if content:
-            payload['content']['document']['nodes'].append({
-                'object': 'block', 
-                'type': 'markdown-plain-text', 
-                'data': {},
-                'nodes': [{'object':'text', 'leaves': [{'object': 'leaf', 'text': str(content), 'marks': []}]}]
-            })
-
-        if embeds:
-            payload['content']['document']['nodes'].append({
+        for node in content:
+            t = type(node)
+            blank_node = {
                 'object': 'block',
-                'type': 'webhookMessage',
-                'data': {'embeds': embeds},
+                'type': None,
+                'data': {},
                 'nodes': []
-            })
+            }
+            if t == Embed:
+                blank_node['type'] = 'webhookMessage'
+                blank_node['data'] = {'embeds': node.to_dict()}
 
-        if files:
-            for file in files:
-                payload['content']['document']['nodes'].append({
-                    'object': 'block',
-                    'type': file.file_type,
-                    'data': {'src': file.url},
-                    'nodes': []
-                })
+            elif t == File:
+                blank_node['type'] = node.file_type
+                blank_node['data'] = {'src': node.url}
+
+            else:
+                # stringify anything else, similar to prev. behavior
+                blank_node['type'] = 'markdown-plain-text'
+                blank_node['nodes'].append({'object':'text', 'leaves': [{'object': 'leaf', 'text': str(node), 'marks': []}]})
+
+            payload['content']['document']['nodes'].append(blank_node)
+
+        #if content:
+        #    payload['content']['document']['nodes'].append({
+        #        'object': 'block', 
+        #        'type': 'markdown-plain-text', 
+        #        'data': {},
+        #        'nodes': [{'object':'text', 'leaves': [{'object': 'leaf', 'text': str(content), 'marks': []}]}]
+        #    })
+
+        #if embeds:
+        #    payload['content']['document']['nodes'].append({
+        #        'object': 'block',
+        #        'type': 'webhookMessage',
+        #        'data': {'embeds': embeds},
+        #        'nodes': []
+        #    })
+
+        #if files:
+        #    for file in files:
+        #        payload['content']['document']['nodes'].append({
+        #            'object': 'block',
+        #            'type': file.file_type,
+        #            'data': {'src': file.url},
+        #            'nodes': []
+        #        })
 
         return self.request(route, json=payload), payload
 
@@ -405,3 +442,12 @@ class HTTPClient:
 
     def get_channel_message(self, channel_id: str, message_id: str):
         return self.request(Route('GET', f'/content/route/metadata?route=//channels/{channel_id}/chat?messageId={message_id}'))
+
+    def get_game_list(self):
+        return self.request(Route('GET', 'https://raw.githubusercontent.com/GuildedAPI/datatables/main/games.json', override_base=Route.NO_BASE))
+
+    def add_message_reaction(self, channel_id: str, message_id: str, emoji_id: int):
+        return self.request(Route('POST', f'/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}'))
+
+    def remove_self_message_reaction(self, channel_id: str, message_id: str, emoji_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}'))

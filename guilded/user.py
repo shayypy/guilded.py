@@ -1,7 +1,6 @@
 import guilded.abc
 from .errors import *
 from .utils import ISO8601
-from .channel import DMChannel
 
 class Device:
     def __init__(self, data):
@@ -11,15 +10,13 @@ class Device:
         self.active = data.get('isActive', False)
 
 class User(guilded.abc.User, guilded.abc.Messageable):
-
-    async def create_dm(self):
-        dm = await self._state.create_dm(self.id)
-        return DMChannel(state=self._state, data=dm)
+    pass
 
 class Member(guilded.abc.User, guilded.abc.Messageable):
     def __init__(self, *, state, data, **extra):
         super().__init__(state=state, data=data)
-        self.team = extra.get('team') or data.get('team') or data.get('teamId')
+        self.team = extra.get('team') or data.get('team')
+        self.team_id = data.get('teamId') or (self.team.id if self.team else None)
         self.nick = data.get('nickname')
         self.xp = data.get('teamXp')
         self.joined_at = ISO8601(data.get('joinDate'))
@@ -52,10 +49,6 @@ class Member(guilded.abc.User, guilded.abc.Messageable):
         else:
             await self._state.set_team_member_xp(self.team.id, self.id, xp)
             self.xp = xp
-
-    async def create_dm(self):
-        dm = await self._state.create_dm(self.id)
-        return DMChannel(state=self._state, data=dm)
 
 class ClientUser(guilded.abc.User):
     def __init__(self, *, state, data):

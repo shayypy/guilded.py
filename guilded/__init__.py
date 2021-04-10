@@ -15,6 +15,8 @@ from .team import Team
 from .emoji import Emoji
 from .file import File
 from .embed import Embed, EmptyEmbed, EmbedProxy
-from .colour import Colour
+from .colour import Colour, Color
+from .status import TransientStatus, Game
+from .presence import Presence
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())

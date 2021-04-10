@@ -5,6 +5,7 @@ import logging
 import traceback
 
 from .team import Team
+from .status import Game
 from .user import User, ClientUser
 from .http import HTTPClient
 from .gateway import GuildedWebSocket, WebSocketClosure
@@ -52,7 +53,7 @@ def _cleanup_loop(loop):
 
 class Client:
     '''The basic client class for interfacing with Guilded.'''
-    def __init__(self, *, loop: asyncio.AbstractEventLoop = None, max_messages: int = 1000, disable_team_websockets=False):
+    def __init__(self, *, loop: asyncio.AbstractEventLoop = None, max_messages: int = 1000, disable_team_websockets=False, cache_on_startup=None):
         # internal
         self.loop = loop or asyncio.get_event_loop()
         self.user = None
@@ -60,10 +61,16 @@ class Client:
         self.disable_team_websockets = disable_team_websockets
         self._listeners = {}
 
+        cache_on_startup = cache_on_startup or {}
+        self.cache_on_startup = {
+            'members': cache_on_startup.get('members') or True,
+            'channels': cache_on_startup.get('channels') or True
+        }
+
         # state
         self.http = None
         self._closed = False
-        self._ready = False
+        self._ready = asyncio.Event()
 
     @property
     def cached_messages(self):
@@ -101,9 +108,6 @@ class Client:
     def channels(self):
         return [*self.dm_channels, *self.team_channels]
 
-    def is_ready(self):
-        return self._ready
-
     @property
     def guilds(self):
         '''A placeholder property for Discord bot compensation. Will be removed in a later version.'''
@@ -116,6 +120,12 @@ class Client:
     @property
     def closed(self):
         return self._closed
+
+    def is_ready(self):
+        return self._ready.is_set()
+
+    async def wait_until_ready(self):
+        await self._ready.wait()
 
     def event(self, coro):
         '''Register an event for the library to automatically dispatch when appropriate.'''
@@ -146,11 +156,14 @@ class Client:
 
         for team_data in data.get('teams'):
             team = Team(state=self.http, data=team_data)
-            members = await team.fetch_members()
-            for member in members: self.http.add_to_member_cache(member)
 
-            team.channels = await team.fetch_channels()
-            for channel in team.channels: self.http.add_to_team_channel_cache(channel)
+            if self.cache_on_startup['members'] is True:
+                members = await team.fetch_members()
+                for member in members: self.http.add_to_member_cache(member)
+
+            if self.cache_on_startup['channels'] is True:
+                team.channels = await team.fetch_channels()
+                for channel in team.channels: self.http.add_to_team_channel_cache(channel)
 
             self.http.add_to_team_cache(team)
 
@@ -177,25 +190,49 @@ class Client:
                         self.dispatch('team_connect', team)
 
             async def listen_socks(ws, team=None):
-                reconnect_tried = 0
                 teamId = team.id if team is not None else None
-                while True and ws is not None and reconnect_tried <= 5:
+                next_backoff_time = 5
+                while True and ws is not None:
                     try:
                         await ws.poll_event()
                     except WebSocketClosure as exc:
                         code = ws._close_code or ws.socket.close_code
-                        log.info(f'Websocket closed with code {code}, attempting to reconnect...')
-                        ws = await GuildedWebSocket.build(self, loop=self.loop, teamId=teamId)
-                        reconnect_tried += 1
+                        if teamId:
+                            log.warning(f'Team {teamId}\'s websocket closed with code {code}, attempting to reconnect in {next_backoff_time} seconds')
+                            self.dispatch('team_disconnect', teamId)
+                        else:
+                            log.warning(f'Websocket closed with code {code}, attempting to reconnect in {next_backoff_time} seconds')
+                            self.dispatch('disconnect')
+                        await asyncio.sleep(next_backoff_time)
+                        build = GuildedWebSocket.build(self, loop=self.loop, teamId=teamId)
+                        try:
+                            ws = await asyncio.wait_for(build, timeout=60)
+                        except asyncio.TimeoutError:
+                            log.warning('Timed out trying to reconnect.')
+                            next_backoff_time += 5
                     else:
-                        reconnect_tried = 0
+                        next_backoff_time = 5
 
-            self._ready = True
+            self._ready.set()
             self.dispatch('ready')
 
             await asyncio.gather(
                 listen_socks(self.ws), *[listen_socks(team.ws, team) for team in self.teams]
             )
+
+    async def close(self):
+        if self._closed: return
+
+        await self.http.logout()
+        for ws in [self.ws] + [team.ws for team in self.teams if team.ws is not None]:
+            try:
+                await ws.close(code=1000)
+            except Exception:
+                # it's probably already closed, but catch all anyway
+                pass
+
+        self._closed = True
+        self._ready.clear()
 
     def run(self, email: str, password: str):
         '''Login and connect to Guilded, and start the event loop.'''
@@ -336,3 +373,20 @@ class Client:
             channel = team.get_channel(id) or await team.fetch_channel(id)
 
         return channel
+
+    async def fetch_game(self, id: int):
+        games = await self.http.get_game_list()
+        name = games.get(str(id))
+        if name is None:
+            raise ValueError(f'{id} is not a recognized game id.')
+
+        return name
+
+    async def fetch_games(self):
+        '''Fetch the whole documented game list.'''
+        return await self.http.get_game_list()
+
+    async def fill_game_list(self):
+        '''Fill the internal game list cache from remote data.'''
+        games = await self.fetch_games()
+        Game.MAPPING = games

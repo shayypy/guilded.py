@@ -3,6 +3,7 @@ import abc
 from .asset import Asset
 from .file import MediaType
 from .message import Message
+from .presence import Presence
 from .activity import Activity
 from .utils import ISO8601, GUILDED_EPOCH_ISO8601
 
@@ -13,28 +14,25 @@ class Messageable(metaclass=abc.ABCMeta):
         self._channel_id = data.get('id')
         self.type = None
 
-    async def send(self, content: str = None, *, embed = None, embeds: list = None, file = None, files: list = None):
+    async def send(self, *content, **kwargs):
         '''Send to a Guilded channel.'''
-        payload = {}
-        if content:
-            payload['content'] = content
-        if embed:
-            embeds = [embed, *(embeds or [])]
-        if embeds is not None:
-            payload['embeds'] = [embed.to_dict() for embed in embeds]
-        if file:
-            files = [file, *(files or [])]
-        if files is not None:
-            pl_files = []
-            for file in files:
+        content = list(content)
+        if kwargs.get('file'):
+            content.append(kwargs.get('file'))
+        if kwargs.get('files') is not None:
+            for file in kwargs.get('files'):
                 file.type = MediaType.attachment
                 if file.url is None:
                     await file._upload(self._state)
-                pl_files.append(file)
+                content.append(file)
 
-            payload['files'] = pl_files
+        if kwargs.get('embed'):
+            content.append(kwargs.get('embed'))
+        if kwargs.get('embeds') is not None:
+            for embed in kwargs.get('embeds'):
+                content.append(embed)
 
-        response_coro, payload = self._state.send_message(self._channel_id, **payload)
+        response_coro, payload = self._state.send_message(self._channel_id, content)
         response = await response_coro
         payload['createdAt'] = response.pop('message', response or {}).pop('createdAt', None)
         payload['id'] = payload.pop('messageId')
@@ -43,8 +41,9 @@ class Messageable(metaclass=abc.ABCMeta):
         payload['createdBy'] = self._state.my_id
 
         if payload['teamId'] is not None:
+            args = (payload['teamId'], payload['createdBy'])
             try:
-                author = self._state._get_team_member(payload['teamId'], payload['createdBy']) or await self._state.get_team_member(payload['teamId'], payload['createdBy'])
+                author = self._state._get_team_member(*args) or await self._state.get_team_member(*args)
             except:
                 author = None
 
@@ -89,16 +88,16 @@ class User(metaclass=abc.ABCMeta):
         self.games = data.get('aliases', [])
         self.bio = (data.get('aboutInfo') or {}).get('bio') or ''
         self.tagline = (data.get('aboutInfo') or {}).get('tagLine') or ''
-        activity = data.get('userStatus', {})
-        if activity.get('content'):
-            self.activity = Activity.build(activity['content'])
+        self.presence = Presence.from_value(data.get('userPresenceStatus', 5))
+        status = data.get('userStatus', {})
+        if status.get('content'):
+            self.status = Activity.build(status['content'])
         else:
-            self.activity = None
+            self.status = None
 
-        self.online_at = ISO8601(data.get('lastOnline', GUILDED_EPOCH_ISO8601))
-        self.created_at = ISO8601(data.get('joinDate', GUILDED_EPOCH_ISO8601))
-        # ^ this will end up being the team join date for a member,
-        # not much I can do without re-fetching the user
+        self.online_at = ISO8601(data.get('lastOnline'))
+        self.created_at = ISO8601(data.get('createdAt') or data.get('joinDate'))
+        # in profilev3, createdAt is returned instead of joinDate
 
         self.avatar_url = Asset('profilePicture', state=self._state, data=data)
         self.banner_url = Asset('profileBanner', state=self._state, data=data)
@@ -137,6 +136,11 @@ class User(metaclass=abc.ABCMeta):
     @property
     def mention(self):
         return f'<@{self.id}>'
+
+    async def create_dm(self):
+        dm = await self._state.create_dm(self.id)
+        self._channel_id = dm._channel_id
+        return Messageable(state=self._state, data=dm)
 
 class TeamChannel(Messageable):
     def __init__(self, *, state, group, data, **extra):

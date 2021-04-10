@@ -1,6 +1,4 @@
-from typing import Sequence
 import concurrent.futures
-
 import threading
 import traceback
 import datetime
@@ -8,7 +6,6 @@ import asyncio
 import aiohttp
 import logging
 import json
-import time
 import sys
 
 from . import utils
@@ -29,12 +26,12 @@ class GuildedWebSocket:
     '''Implements Guilded's global gateway as well as team websocket connections.'''
     HEARTBEAT_PAYLOAD = '2'
     def __init__(self, socket, client, *, loop):
-        self.socket = socket
         self.client = client
         self.loop = loop
         self._heartbeater = None
 
         # ws
+        self.socket = socket
         self._close_code = None
 
         # actual gateway garbage
@@ -42,10 +39,13 @@ class GuildedWebSocket:
         self.upgrades = []
 
         # I'm aware of the python-engineio package but 
-        # have opted not to use it so as to have less 
+        # have opted not to use it so as to have fewer 
         # dependencies, and thus fewer links in the chain.
 
-    async def send(self, payload):
+    async def send(self, payload, *, raw=False):
+        if raw == True:
+            payload = f'42{json.dumps(payload)}'
+
         return await self.socket.send_str(payload)
 
     @property
@@ -65,7 +65,7 @@ class GuildedWebSocket:
 
         ws = cls(socket, client, loop=loop or asyncio.get_event_loop())
         ws._parsers = WebSocketEventParsers(client)
-        await ws.send(GuildedWebSocket.HEARTBEAT_PAYLOAD)
+        await ws.send(GuildedWebSocket.HEARTBEAT_PAYLOAD, raw=True)
         await ws.poll_event()
 
         return ws
@@ -102,7 +102,7 @@ class GuildedWebSocket:
             self.sid = data['sid']
             self.upgrades = data['upgrades']
             self._heartbeater = Heartbeater(ws=self, interval=data['pingInterval'] / 1000)#, timeout=60.0) # data['pingTimeout']
-            await self.send(self.HEARTBEAT_PAYLOAD)
+            await self.send(self.HEARTBEAT_PAYLOAD, raw=True)
             self._heartbeater.start()
             return
 
@@ -134,6 +134,7 @@ class GuildedWebSocket:
 
     async def close(self, code=1000):
         self._close_code = code
+        await self.send(['logout'])
         await self.socket.close(code=code)
 
 class WebSocketEventParsers:
@@ -263,7 +264,11 @@ class WebSocketEventParsers:
 
         team = self.client.get_team(data['teamId'])
         if team is None: return
-        before = team.get_member(data['userId'])
+        if data.get('userId'):
+            before = team.get_member(data.get('userId'))
+        else:
+            # probably includes userIds instead, which i don't plan on handling yet
+            return
         if before is None:
             return
 
@@ -275,7 +280,6 @@ class WebSocketEventParsers:
         self.client.dispatch('member_update', before, after)
 
     async def teamRolesUpdates(self, data):
-        # yes, this event name is camelcased
         try: team = await self.client.getch_team(data['teamId'])
         except: return
 
@@ -298,6 +302,34 @@ class WebSocketEventParsers:
             except: return
 
             thread = Thread(state=self._state, group=None, data=data.get('channel', data), team=team)
+            self.client.dispatch('team_thread_created', thread)
+
+    async def TeamMemberRemoved(self, data):
+        team_id = data.get('teamId')
+        user_id = data.get('userId')
+        self._state.remove_from_member_cache(team_id, user_id)
+        #self.client.dispatch('member_remove', user)
+
+    async def TeamMemberJoined(self, data):
+        try: team = await self.client.getch_team(data['teamId'])
+        except: team = None
+        member = Member(state=self._state, data=data['user'], team=team)
+        self._state.add_to_member_cache(member)
+        self.client.dispatch('member_join', member)
+
+    async def USER_UPDATED(self, data):
+        # transient status update handling
+        # also happens in TeamMemberUpdated
+        # this might just be yourself?
+        pass
+
+    async def USER_PRESENCE_MANUALLY_SET(self, data):
+        status = data.get('status', 1)
+        self.client.user.presence = Presence.from_value(status)
+        
+        #self.client.dispatch('self_presence_set', self.client.user.presence)
+        # not sure if an event should be dispatched for this
+        # it happens when you set your own presence
 
 class Heartbeater(threading.Thread):
     def __init__(self, ws, *, interval):
@@ -316,7 +348,7 @@ class Heartbeater(threading.Thread):
         log.debug('Started heartbeat thread')
         while not self._stop_ev.wait(self.interval):
             log.debug('Sending heartbeat')
-            coro = self.ws.send(GuildedWebSocket.HEARTBEAT_PAYLOAD)
+            coro = self.ws.send(GuildedWebSocket.HEARTBEAT_PAYLOAD, raw=True)
             f = asyncio.run_coroutine_threadsafe(coro, loop=self.ws.loop)
             try:
                 total = 0

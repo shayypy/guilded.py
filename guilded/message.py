@@ -46,7 +46,7 @@ class Message:
         self.id = data.get('contentId') or message.get('id')
         self.webhook_id = data.get('webhookId')
         self.channel = channel
-        self.channel_id = data.get('channelId')
+        self.channel_id = data.get('channelId') or (channel.id if channel else None)
         self.team = extra.get('team') or getattr(channel, 'team', None)
         self.team_id = data.get('teamId')
 
@@ -176,7 +176,7 @@ class Message:
         return content
 
     async def delete(self):
-        response = await self._state.delete_message(self.channel_id or self.channel.id, self.id)
+        response = await self._state.delete_message(self.channel_id, self.id)
         self.deleted_at = datetime.datetime.utcnow()
 
     async def edit(self, *, content: str = None, embed = None, embeds: list = None, file = None, files: list = None):
@@ -204,7 +204,15 @@ class Message:
 
             payload['files'] = pl_files
 
-        await self._state.edit_message(self._channel_id, **payload)
+        await self._state.edit_message(self.channel_id, self.id, **payload)
+
+    async def add_reaction(self, emoji):
+        '''Add a reaction to a message. In the future, will take type Emoji, but currently takes an integer (the emoji's id)'''
+        await self._state.add_message_reaction(self.channel_id, self.id, emoji)
+
+    async def remove_self_reaction(self, emoji):
+        '''Add a reaction to a message. In the future, will take type Emoji, but currently takes an integer (the emoji's id)'''
+        await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji)
 
 class PartialMessage:
     pass
