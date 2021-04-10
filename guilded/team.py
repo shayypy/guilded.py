@@ -1,7 +1,7 @@
 import datetime
 import asyncio
 
-from .errors import *
+from .errors import NotFound
 from .gateway import GuildedWebSocket
 from .user import Member
 from .asset import Asset
