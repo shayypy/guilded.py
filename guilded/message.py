@@ -84,7 +84,7 @@ class Message:
 
     @property
     def embed(self):
-        return embeds[0] if embeds else None
+        return self.embeds[0] if self.embeds else None
 
     @property
     def guild(self):
