@@ -4,3 +4,5 @@ dist/
 build/
 guilded/__pycache__/
 testing/
+*.pyc
+*.log
