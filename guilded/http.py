@@ -144,9 +144,6 @@ class HTTPClient:
         data = await self.request(Route('GET', '/me'))
         return data
 
-    async def logout(self):
-        return await self.request(Route('POST', '/logout'))
-
     async def ws_connect(self, cookies=None, **gateway_args):
         cookies = cookies or self.cookies
         if not cookies:
@@ -179,18 +176,17 @@ class HTTPClient:
         }
 
         for node in content:
-            t = type(node)
             blank_node = {
                 'object': 'block',
                 'type': None,
                 'data': {},
                 'nodes': []
             }
-            if t == Embed:
+            if isinstance(node, Embed):
                 blank_node['type'] = 'webhookMessage'
-                blank_node['data'] = {'embeds': node.to_dict()}
+                blank_node['data'] = {'embeds': [node.to_dict()]}
 
-            elif t == File:
+            elif isinstance(node, File):
                 blank_node['type'] = node.file_type
                 blank_node['data'] = {'src': node.url}
 
