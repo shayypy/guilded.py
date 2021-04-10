@@ -18,7 +18,7 @@ class EmbedProxy:
         return len(self.__dict__)
 
     def __repr__(self):
-        return 'EmbedProxy(%s)' % ', '.join(('%s=%r' % (k, v) for k, v in self.__dict__.items() if not k.startswith('_')))
+        return 'EmbedProxy(%s)' % ', '.join(['%s=%r' % (k, v) for k, v in self.__dict__.items() if not k.startswith('_')])
 
     def __getattr__(self, attr):
         return EmptyEmbed

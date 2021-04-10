@@ -119,7 +119,7 @@ def escape_markdown(text, *, as_needed=False, ignore_links=True):
         return _MARKDOWN_ESCAPE_REGEX.sub(r'\\\1', text)
 
 def parse_hex_number(argument):
-    arg = ''.join(i * 2 for i in argument) if len(argument) == 3 else argument
+    arg = ''.join([i * 2 for i in argument]) if len(argument) == 3 else argument
     try:
         value = int(arg, base=16)
         if not (0 <= value <= 0xFFFFFF):
