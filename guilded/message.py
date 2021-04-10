@@ -6,6 +6,7 @@ from .errors import *
 from .embed import Embed
 from .colour import Colour
 #from guilded.abc import TeamChannel
+from .file import MediaType
 from .utils import ISO8601, parse_hex_number
 
 log = logging.getLogger(__name__)
