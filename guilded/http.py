@@ -1,14 +1,13 @@
-from typing import Union
-import datetime
-import logging
 import asyncio
+import datetime
 import json
+import logging
+from typing import Union
 
 from . import utils
-from .errors import *
-from .file import File
 from .embed import Embed
-from .user import ClientUser
+from .errors import GuildedException, HTTPException, error_mapping
+from .file import File
 
 log = logging.getLogger(__name__)
 
@@ -100,9 +99,9 @@ class HTTPClient:
 
         async def perform():
             log_data = f'with {kwargs["json"]}' if kwargs.get('json') else ''
-            log.info(f'{method} {route.path} {log_data}')
+            log.info('%s %s %s', method, route.path, log_data)
             response = await self.session.request(method, url, **kwargs)
-            log.info(f'Guilded responded with HTTP {response.status}')
+            log.info('Guilded responded with HTTP %s', response.status)
             if response.status == 204:
                 return None
 
@@ -111,12 +110,16 @@ class HTTPClient:
                 data = json.loads(data_txt)
             except json.decoder.JSONDecodeError:
                 data = data_txt
-            log.debug(f'Guilded responded with {data}')
+            log.debug('Guilded responded with %s', data)
             if response.status != 200:
 
                 if response.status == 429:
                     retry_after = response.headers.get('Retry-After')
-                    log.warning(f'Rate limited on {route.path}. Retrying in {retry_after or 5} seconds')
+                    log.warning(
+                        'Rate limited on %s. Retrying in %s seconds',
+                        route.path,
+                        retry_after or 5
+                    )
                     if retry_after:
                         await asyncio.sleep(retry_after)
                         data = await perform()
@@ -140,9 +143,6 @@ class HTTPClient:
         self.cookies = response.headers.get('Set-Cookie')
         data = await self.request(Route('GET', '/me'))
         return data
-
-    async def logout(self):
-        return await self.request(Route('POST', '/logout'))
 
     async def ws_connect(self, cookies=None, **gateway_args):
         cookies = cookies or self.cookies
@@ -176,18 +176,17 @@ class HTTPClient:
         }
 
         for node in content:
-            t = type(node)
             blank_node = {
                 'object': 'block',
                 'type': None,
                 'data': {},
                 'nodes': []
             }
-            if t == Embed:
+            if isinstance(node, Embed):
                 blank_node['type'] = 'webhookMessage'
-                blank_node['data'] = {'embeds': node.to_dict()}
+                blank_node['data'] = {'embeds': [node.to_dict()]}
 
-            elif t == File:
+            elif isinstance(node, File):
                 blank_node['type'] = node.file_type
                 blank_node['data'] = {'src': node.url}
 

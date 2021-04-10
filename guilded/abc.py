@@ -1,11 +1,12 @@
 import abc
 
+from .activity import Activity
 from .asset import Asset
 from .file import MediaType
 from .message import Message
 from .presence import Presence
-from .activity import Activity
-from .utils import ISO8601, GUILDED_EPOCH_ISO8601
+from .utils import ISO8601
+
 
 class Messageable(metaclass=abc.ABCMeta):
     def __init__(self, *, state, data):
@@ -19,18 +20,18 @@ class Messageable(metaclass=abc.ABCMeta):
         content = list(content)
         if kwargs.get('file'):
             content.append(kwargs.get('file'))
-        if kwargs.get('files') is not None:
-            for file in kwargs.get('files'):
-                file.type = MediaType.attachment
-                if file.url is None:
-                    await file._upload(self._state)
-                content.append(file)
+
+        for file in kwargs.get('files') or []:
+            file.type = MediaType.attachment
+            if file.url is None:
+                await file._upload(self._state)
+            content.append(file)
 
         if kwargs.get('embed'):
             content.append(kwargs.get('embed'))
-        if kwargs.get('embeds') is not None:
-            for embed in kwargs.get('embeds'):
-                content.append(embed)
+
+        for embed in kwargs.get('embeds') or []:
+            content.append(embed)
 
         response_coro, payload = self._state.send_message(self._channel_id, content)
         response = await response_coro

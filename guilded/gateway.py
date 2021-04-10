@@ -1,20 +1,20 @@
+import asyncio
 import concurrent.futures
+import datetime
+import json
+import logging
+import sys
 import threading
 import traceback
-import datetime
-import asyncio
+
 import aiohttp
-import logging
-import json
-import sys
-
-from . import utils
-from .errors import *
-from .user import Member
-from .channel import Thread, DMChannel
-from .message import Message, PartialMessage
-
 from guilded.abc import TeamChannel
+from .errors import GuildedException
+
+from .presence import Presence
+from .channel import DMChannel, Thread
+from .message import Message
+from .user import Member
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class GuildedWebSocket:
         # dependencies, and thus fewer links in the chain.
 
     async def send(self, payload, *, raw=False):
-        if raw == True:
+        if raw is True:
             payload = f'42{json.dumps(payload)}'
 
         return await self.socket.send_str(payload)
@@ -54,11 +54,11 @@ class GuildedWebSocket:
 
     @classmethod
     async def build(cls, client, *, loop=None, **gateway_args):
-        log.info(f'Connecting to the gateway with args {gateway_args}')
+        log.info('Connecting to the gateway with args %s', gateway_args)
         try:
             socket = await client.http.ws_connect(**gateway_args)
         except aiohttp.client_exceptions.WSServerHandshakeError as exc:
-            log.error(f'Failed to connect: {exc}')
+            log.error('Failed to connect: %s', exc)
             return exc
         else:
             log.info('Connected')
@@ -71,7 +71,7 @@ class GuildedWebSocket:
         return ws
 
     def _pretty_event(self, payload):
-        if type(payload) == list:
+        if isinstance(payload, list):
             payload = payload[1]
         if not payload.get('type'):
             return payload
@@ -95,7 +95,7 @@ class GuildedWebSocket:
         self.client.dispatch('socket_raw_receive', payload)
         data = self._full_event_parse(payload)
         self.client.dispatch('socket_response', data)
-        log.debug(f'Received {data}')
+        log.debug('Received %s', data)
 
         if data.get('sid'): 
             # hello
@@ -112,15 +112,14 @@ class GuildedWebSocket:
             return
         try:
             await event
+        except GuildedException as e:
+            self.client.dispatch('error', e)
+            raise
         except Exception as e:
-            if isinstance(e, GuildedException):
-                self.client.dispatch('error', e)
-                raise e
-            else:
-                # wrap error if not already from the lib
-                exc = GuildedException(e)
-                self.client.dispatch('error', exc)
-                raise exc from e
+            # wrap error if not already from the lib
+            exc = GuildedException(e)
+            self.client.dispatch('error', exc)
+            raise exc from e
 
     async def poll_event(self):
         msg = await self.socket.receive()
@@ -283,7 +282,6 @@ class WebSocketEventParsers:
         try: team = await self.client.getch_team(data['teamId'])
         except: return
 
-        befores_afters = []
         for updated in data['memberRoleIds']:
             before = team.get_member(updated['userId'])
             if not before: continue
@@ -291,10 +289,7 @@ class WebSocketEventParsers:
             after = team.get_member(before.id)
             after.roles = updated['roleIds']
             self._state.add_to_member_cache(after)
-            befores_afters.append([before, after])
-
-        for b, a in befores_afters:
-            self.client.dispatch('member_update', b, a)
+            self.client.dispatch('member_update', before, after)
 
     async def TemporalChannelCreated(self, data):
         if data.get('channelType', '').lower() == 'team':

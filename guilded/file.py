@@ -1,8 +1,9 @@
-from typing import Union
-from enum import Enum
 import io
+from enum import Enum
+from typing import Union
 
 from . import utils
+
 
 class MediaType(Enum):
     attachment = 'ContentMedia'

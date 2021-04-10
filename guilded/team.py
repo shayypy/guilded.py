@@ -1,12 +1,15 @@
-import datetime
 import asyncio
+import datetime
 
-from .errors import *
-from .user import Member
-from .asset import Asset
-from .utils import ISO8601
 from guilded.abc import TeamChannel
+
+from .asset import Asset
 from .channel import ChatChannel, Thread
+from .errors import NotFound
+from .gateway import GuildedWebSocket
+from .user import Member
+from .utils import ISO8601
+
 
 class SocialInfo:
     '''Represents the set social media connections for a :class:`Team`.'''
@@ -185,13 +188,13 @@ class Team:
 
         return channel_list
 
-    async def fetch_channel(id):
+    async def fetch_channel(self, id):
         channels = await self.fetch_channels()
-        for channel in channels:
-            if channel.id == id:
-                return id
+        channel = next((channel for channel in channels if channel.id == id), None)
+        if channel:
+            return channel
 
-        raise NotFound(id)
+        raise NotFound(f'Channel with the ID "{id}" not found.')
 
     async def fetch_members(self):
         '''Fetch the list of :class:Member s in this team.'''
@@ -212,7 +215,6 @@ class Team:
         for this, so it is no more efficient than performing :class:Team.fetch_members and filtering \
         the list yourself, and exists solely for convenience.'''
         members = await self._state.get_team_members(self.id)
-        member_list = []
         for member in members.get('members', members):
             if member['id'] == id:
                 return Member(state=self._state, data=member)

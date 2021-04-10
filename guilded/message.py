@@ -1,12 +1,10 @@
-import logging
 import datetime
+import logging
+from typing import Optional
 
-from .errors import *
-#from .user import Member
 from .embed import Embed
-from .colour import Colour
-#from guilded.abc import TeamChannel
-from .utils import ISO8601, parse_hex_number
+from .file import MediaType
+from .utils import ISO8601
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +82,7 @@ class Message:
 
     @property
     def embed(self):
-        return embeds[0] if embeds else None
+        return self.embeds[0] if self.embeds else None
 
     @property
     def guild(self):
@@ -179,7 +177,7 @@ class Message:
         response = await self._state.delete_message(self.channel_id, self.id)
         self.deleted_at = datetime.datetime.utcnow()
 
-    async def edit(self, *, content: str = None, embed = None, embeds: list = None, file = None, files: list = None):
+    async def edit(self, *, content: str = None, embed = None, embeds: Optional[list] = None, file = None, files: Optional[list] = None):
         '''Edit a message.'''
         payload = {
             'old_content': self.content,

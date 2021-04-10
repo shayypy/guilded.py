@@ -1,7 +1,10 @@
 from enum import Enum
 
 import guilded.abc
+
+from .message import Message
 from .utils import ISO8601
+
 
 class ChannelType(Enum):
     chat = 'chat'
