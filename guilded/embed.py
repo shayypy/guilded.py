@@ -3,6 +3,7 @@ import datetime
 from . import utils
 from .colour import Colour
 
+
 class _EmptyEmbed:
     def __bool__(self): return False
     def __repr__(self): return 'Embed.Empty'

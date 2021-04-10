@@ -1,6 +1,7 @@
 from .asset import Asset
-from .utils import ISO8601
 from .file import File, MediaType
+from .utils import ISO8601
+
 
 class Group:
     def __init__(self, *, state, team, data):

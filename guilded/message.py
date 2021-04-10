@@ -1,14 +1,10 @@
-import logging
 import datetime
+import logging
 from typing import Optional
 
-from .errors import *
-#from .user import Member
 from .embed import Embed
-from .colour import Colour
-#from guilded.abc import TeamChannel
 from .file import MediaType
-from .utils import ISO8601, parse_hex_number
+from .utils import ISO8601
 
 log = logging.getLogger(__name__)
 

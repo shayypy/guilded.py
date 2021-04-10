@@ -1,8 +1,8 @@
+import asyncio
+import datetime
+import re
 from operator import attrgetter
 from uuid import uuid1
-import datetime
-import asyncio
-import re
 
 from .colour import Colour
 

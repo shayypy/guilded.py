@@ -1,6 +1,7 @@
 import colorsys
 import random
 
+
 class Colour:
     """Represents a colour in Guilded, such as in embeds or roles. This class is similar
     to a (red, green, blue) :class:`tuple`.

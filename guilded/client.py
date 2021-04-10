@@ -1,15 +1,16 @@
-import sys
 import asyncio
-import aiohttp
 import logging
+import sys
 import traceback
 
-from .team import Team
-from .status import Game
-from .user import User, ClientUser
-from .http import HTTPClient
+import aiohttp
+
+from .errors import NotFound
 from .gateway import GuildedWebSocket, WebSocketClosure
-from .errors import *
+from .http import HTTPClient
+from .status import Game
+from .team import Team
+from .user import ClientUser, User
 
 log = logging.getLogger(__name__)
 

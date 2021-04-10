@@ -1,13 +1,15 @@
-import datetime
 import asyncio
+import datetime
 
+from guilded.abc import TeamChannel
+
+from .asset import Asset
+from .channel import ChatChannel, Thread
 from .errors import NotFound
 from .gateway import GuildedWebSocket
 from .user import Member
-from .asset import Asset
 from .utils import ISO8601
-from guilded.abc import TeamChannel
-from .channel import ChatChannel, Thread
+
 
 class SocialInfo:
     '''Represents the set social media connections for a :class:`Team`.'''

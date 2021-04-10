@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class Presence(Enum):
     online = 1
     idle = 2

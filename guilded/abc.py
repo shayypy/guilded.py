@@ -1,11 +1,12 @@
 import abc
 
+from .activity import Activity
 from .asset import Asset
 from .file import MediaType
 from .message import Message
 from .presence import Presence
-from .activity import Activity
-from .utils import ISO8601, GUILDED_EPOCH_ISO8601
+from .utils import ISO8601
+
 
 class Messageable(metaclass=abc.ABCMeta):
     def __init__(self, *, state, data):

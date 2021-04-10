@@ -1,20 +1,20 @@
+import asyncio
 import concurrent.futures
+import datetime
+import json
+import logging
+import sys
 import threading
 import traceback
-import datetime
-import asyncio
+
 import aiohttp
-import logging
-import json
-import sys
-
-from . import utils
-from .errors import *
-from .user import Member
-from .channel import Thread, DMChannel
-from .message import Message, PartialMessage
-
 from guilded.abc import TeamChannel
+from .errors import GuildedException
+
+from .presence import Presence
+from .channel import DMChannel, Thread
+from .message import Message
+from .user import Member
 
 log = logging.getLogger(__name__)
 

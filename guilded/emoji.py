@@ -1,5 +1,6 @@
 from .asset import Asset
 
+
 class Emoji:
     def __init__(self, *, state, team, data):
         self._raw = data
