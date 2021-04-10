@@ -43,7 +43,7 @@ class GuildedWebSocket:
         # dependencies, and thus fewer links in the chain.
 
     async def send(self, payload, *, raw=False):
-        if raw == True:
+        if raw is True:
             payload = f'42{json.dumps(payload)}'
 
         return await self.socket.send_str(payload)
@@ -71,7 +71,7 @@ class GuildedWebSocket:
         return ws
 
     def _pretty_event(self, payload):
-        if type(payload) == list:
+        if isinstance(payload, list):
             payload = payload[1]
         if not payload.get('type'):
             return payload
