@@ -112,15 +112,14 @@ class GuildedWebSocket:
             return
         try:
             await event
+        except GuildedException as e:
+            self.client.dispatch('error', e)
+            raise
         except Exception as e:
-            if isinstance(e, GuildedException):
-                self.client.dispatch('error', e)
-                raise e
-            else:
-                # wrap error if not already from the lib
-                exc = GuildedException(e)
-                self.client.dispatch('error', exc)
-                raise exc from e
+            # wrap error if not already from the lib
+            exc = GuildedException(e)
+            self.client.dispatch('error', exc)
+            raise exc from e
 
     async def poll_event(self):
         msg = await self.socket.receive()
