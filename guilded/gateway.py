@@ -282,7 +282,6 @@ class WebSocketEventParsers:
         try: team = await self.client.getch_team(data['teamId'])
         except: return
 
-        befores_afters = []
         for updated in data['memberRoleIds']:
             before = team.get_member(updated['userId'])
             if not before: continue
@@ -290,10 +289,7 @@ class WebSocketEventParsers:
             after = team.get_member(before.id)
             after.roles = updated['roleIds']
             self._state.add_to_member_cache(after)
-            befores_afters.append([before, after])
-
-        for b, a in befores_afters:
-            self.client.dispatch('member_update', b, a)
+            self.client.dispatch('member_update', before, after)
 
     async def TemporalChannelCreated(self, data):
         if data.get('channelType', '').lower() == 'team':
