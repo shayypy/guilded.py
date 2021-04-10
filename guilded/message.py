@@ -1,5 +1,6 @@
 import logging
 import datetime
+from typing import Optional
 
 from .errors import *
 #from .user import Member
@@ -180,7 +181,7 @@ class Message:
         response = await self._state.delete_message(self.channel_id, self.id)
         self.deleted_at = datetime.datetime.utcnow()
 
-    async def edit(self, *, content: str = None, embed = None, embeds: list = None, file = None, files: list = None):
+    async def edit(self, *, content: str = None, embed = None, embeds: Optional[list] = None, file = None, files: Optional[list] = None):
         '''Edit a message.'''
         payload = {
             'old_content': self.content,
