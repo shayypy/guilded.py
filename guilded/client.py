@@ -199,10 +199,10 @@ class Client:
                     except WebSocketClosure as exc:
                         code = ws._close_code or ws.socket.close_code
                         if teamId:
-                            log.warning(f'Team {teamId}\'s websocket closed with code {code}, attempting to reconnect in {next_backoff_time} seconds')
+                            log.warning('Team %s\'s websocket closed with code %s, attempting to reconnect in %s seconds', teamId, code, next_backoff_time)
                             self.dispatch('team_disconnect', teamId)
                         else:
-                            log.warning(f'Websocket closed with code {code}, attempting to reconnect in {next_backoff_time} seconds')
+                            log.warning('Websocket closed with code %s, attempting to reconnect in %s seconds', code, next_backoff_time)
                             self.dispatch('disconnect')
                         await asyncio.sleep(next_backoff_time)
                         build = GuildedWebSocket.build(self, loop=self.loop, teamId=teamId)

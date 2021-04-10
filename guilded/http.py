@@ -99,9 +99,9 @@ class HTTPClient:
 
         async def perform():
             log_data = f'with {kwargs["json"]}' if kwargs.get('json') else ''
-            log.info(f'{method} {route.path} {log_data}')
+            log.info('%s %s %s', method, route.path, log_data)
             response = await self.session.request(method, url, **kwargs)
-            log.info(f'Guilded responded with HTTP {response.status}')
+            log.info('Guilded responded with HTTP %s', response.status)
             if response.status == 204:
                 return None
 
@@ -110,12 +110,16 @@ class HTTPClient:
                 data = json.loads(data_txt)
             except json.decoder.JSONDecodeError:
                 data = data_txt
-            log.debug(f'Guilded responded with {data}')
+            log.debug('Guilded responded with %s', data)
             if response.status != 200:
 
                 if response.status == 429:
                     retry_after = response.headers.get('Retry-After')
-                    log.warning(f'Rate limited on {route.path}. Retrying in {retry_after or 5} seconds')
+                    log.warning(
+                        'Rate limited on %s. Retrying in %s seconds',
+                        route.path,
+                        retry_after or 5
+                    )
                     if retry_after:
                         await asyncio.sleep(retry_after)
                         data = await perform()

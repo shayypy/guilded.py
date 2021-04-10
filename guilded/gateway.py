@@ -54,11 +54,11 @@ class GuildedWebSocket:
 
     @classmethod
     async def build(cls, client, *, loop=None, **gateway_args):
-        log.info(f'Connecting to the gateway with args {gateway_args}')
+        log.info('Connecting to the gateway with args %s', gateway_args)
         try:
             socket = await client.http.ws_connect(**gateway_args)
         except aiohttp.client_exceptions.WSServerHandshakeError as exc:
-            log.error(f'Failed to connect: {exc}')
+            log.error('Failed to connect: %s', exc)
             return exc
         else:
             log.info('Connected')
@@ -95,7 +95,7 @@ class GuildedWebSocket:
         self.client.dispatch('socket_raw_receive', payload)
         data = self._full_event_parse(payload)
         self.client.dispatch('socket_response', data)
-        log.debug(f'Received {data}')
+        log.debug('Received %s', data)
 
         if data.get('sid'): 
             # hello
