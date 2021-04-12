@@ -131,7 +131,7 @@ class Embed:
 
         try:
             self._colour = Colour(value=data['color'])
-        except KeyError:
+        except (KeyError, TypeError):
             pass
 
         try:
