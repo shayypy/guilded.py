@@ -21,7 +21,7 @@ from .errors import (
     NotFound,
     TooManyRequests,
 )
-from .file import File
+from .file import File, FileType, MediaType
 from .message import Message
 from .presence import Presence
 from .status import Game, TransientStatus
