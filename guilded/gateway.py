@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import concurrent.futures
 import datetime
@@ -7,16 +8,16 @@ import sys
 import threading
 import traceback
 
-import aiohttp
 from guilded.abc import TeamChannel
-from .errors import GuildedException
 
-from .presence import Presence
+from .errors import GuildedException
 from .channel import DMChannel, Thread
 from .message import Message
-from .user import Member
+from .presence import Presence
+from .user import Member, User
 
 log = logging.getLogger(__name__)
+
 
 class WebSocketClosure(Exception):
     '''An exception to make up for the fact that aiohttp doesn't signal closure.'''
@@ -149,35 +150,53 @@ class WebSocketEventParsers:
 
     async def ChatMessageCreated(self, data):
         channelId = data.get('channelId', data.get('message', {}).get('channelId'))
-        createdBy = data.get('createdBy', data.get('message', {}).get('createdBy'))
         teamId = data.get('teamId', data.get('message', {}).get('teamId'))
+        createdBy = data.get('createdBy', data.get('message', {}).get('createdBy'))
         channel, author, team = None, None, None
 
-        if channelId:
+        if channelId is not None:
             try: channel = await self.client.getch_channel(channelId)
             except: channel = None
 
-        if teamId:
+        if teamId is not None:
             if channel:
                 team = channel.team
             else:
                 try: team = await self.client.getch_team(teamId)
                 except: team = None
 
-        if createdBy:
+        def create_faux_user():
+            '''Create a fake user with only `.id` and `.bot` to cut down on `message.author` being None.
+            Although admittedly this isn't much more useful, it prevents the unexpected type change
+            and helps use cases where only an ID is checked anyway.
+            '''
+            return User(state=self._state, data={'id': createdBy}, bot=(data.get('webhookId') is not None or data.get('botId') is not None))
+
+        if createdBy is not None and data.get('webhookId') is None and data.get('botId') is None:
             if channel:
                 try: author = await channel.team.getch_member(createdBy)
                 except:
-                    try: await self.client.getch_user(createdBy)
-                    except: author = None
+                    try: author = await self.client.getch_user(createdBy)
+                    except: author = create_faux_user()
             elif team:
                 try: author = await team.getch_member(createdBy)
                 except:
-                    try: await self.client.getch_user(createdBy)
-                    except: author = None
+                    try: author = await self.client.getch_user(createdBy)
+                    except: author = create_faux_user()
             else:
                 try: author = await self.client.getch_user(createdBy)
-                except: author = None
+                except: author = create_faux_user()
+
+        elif createdBy is not None and (data.get('webhookId') is not None or data.get('botId') is not None):
+            # in the case of webhook/flowbot messages, both webhookId/botId and createdBy are
+            # returned, which i don't really know what to do with. fetching createdBy
+            # as though it's a user will return a seemingly?-valid user object for 'Gil',
+            # so we do it anyway (and skip member fetching, hence separate elif statement).
+            try: author = await self.client.getch_user(createdBy)
+            except: author = create_faux_user()
+            # (for webhooks,) in the future this will probably getch the webhook (with a similar interface to
+            # User) instead, since it makes more sense, but in the meantime, we'll just take
+            # advantage of the createdBy attr that gets returned, even though its probably(?) the same Gil user every time
 
         if not channel:
             if data.get('channelType', '').lower() == 'team':

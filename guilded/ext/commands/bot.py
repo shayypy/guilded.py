@@ -171,9 +171,11 @@ class Bot(guilded.Client):
             self.dispatch('command_error', ctx, exc)
 
     async def process_commands(self, message):
-        #if message.author.webhook_id:  # not sure if a reliable bot attribute exists in the current api, so we check for webhooks instead
-        #    return
-        # nevermind, it seems like this attribute isn't always returned either, so i guess we'll just accept commands from anyone for now
+        if message.author.bot:
+            # this is a bit of a hacky attr. obviously, it's impractical to tell if a user
+            # account is a bot, so this returns true if the message had either a webhookId
+            # or botId (for flow-bots) attribute.
+            return
 
         ctx = await self.get_context(message)
         await self.invoke(ctx)

@@ -43,6 +43,7 @@ class Message:
         message = data.get('message', data)
         self.id = data.get('contentId') or message.get('id')
         self.webhook_id = data.get('webhookId')
+        self.bot_id = data.get('botId')
         self.channel = channel
         self.channel_id = data.get('channelId') or (channel.id if channel else None)
         self.team = extra.get('team') or getattr(channel, 'team', None)
@@ -60,6 +61,9 @@ class Message:
             elif data.get('channelType', '').lower() == 'dm' or self.team is None:
                 self.author = self._state._get_user(self.author_id)
 
+        if self.author is not None:
+            self.author.bot = self.created_by_bot
+
         self.mentions = []
         self.channel_mentions = []
         self.role_mentions = []
@@ -75,6 +79,10 @@ class Message:
             return self.id == other.id
         except:
             return False
+
+    @property
+    def created_by_bot(self):
+        return self.author.bot if self.author else (self.webhook_id is not None or self.bot_id is not None)
 
     @property
     def jump_url(self):

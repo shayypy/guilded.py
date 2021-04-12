@@ -108,7 +108,7 @@ class Messageable(metaclass=abc.ABCMeta):
         return Message(state=self._state, channel=self, data=message_data)
 
 class User(metaclass=abc.ABCMeta):
-    def __init__(self, state, data):
+    def __init__(self, *, state, data, **extra):
         self._state = state
         data = data.get('user', data)
 
@@ -137,6 +137,8 @@ class User(metaclass=abc.ABCMeta):
 
         self.moderation_status = data.get('moderationStatus')
         self.badges = data.get('badges', [])
+
+        self.bot = extra.get('bot', False)
 
     def __str__(self):
         return f'{self.name}#{self.id}'

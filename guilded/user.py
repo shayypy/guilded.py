@@ -53,7 +53,7 @@ class Member(guilded.abc.User, guilded.abc.Messageable):
 
 class ClientUser(guilded.abc.User):
     def __init__(self, *, state, data):
-        super().__init__(state, data)
+        super().__init__(state=state, data=data)
         user = data.get('user', data)
 
         self.devices = [Device(device_data) for device_data in user.get('devices', [])]
