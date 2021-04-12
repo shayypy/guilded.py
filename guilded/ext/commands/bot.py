@@ -1,19 +1,28 @@
 import guilded
 import collections.abc
+import logging
 
 from . import errors
 from .core import Command
 from .context import Context
 from .view import StringView
 
+log = logging.getLogger(__name__)
+
 class Bot(guilded.Client):
-    def __init__(self, *, command_prefix: str, self_bot=False, description=None, owner_id=None, **kwargs):
+    def __init__(self, *,
+        command_prefix: str, self_bot=False,
+        description=None, owner_id=None,
+        strip_after_prefix=False, **kwargs
+    ):
         super().__init__(**kwargs)
         self.command_prefix = command_prefix
         self.self_bot = self_bot
         self.description = description
         self.owner_id = owner_id
         self._commands = {}
+        self.strip_after_prefix = strip_after_prefix
+        self._listeners = {'on_message': self.on_message}
 
         if self_bot:
             self._skip_check = lambda x, y: x != y
@@ -49,6 +58,35 @@ class Bot(guilded.Client):
             command = Command(coro, **kwargs)
             self.add_command(command)
             return command
+
+        return decorator
+
+    # listeners
+
+    def add_listener(self, func, name=None):
+        name = func.__name__ if name is None else name
+
+        if not asyncio.iscoroutinefunction(func):
+            raise TypeError('Listeners must be coroutines')
+
+        if name in self.extra_events:
+            self.extra_events[name].append(func)
+        else:
+            self.extra_events[name] = [func]
+
+    def remove_listener(self, func, name=None):
+        name = func.__name__ if name is None else name
+
+        if name in self.extra_events:
+            try:
+                self.extra_events[name].remove(func)
+            except ValueError:
+                pass
+
+    def listen(self, name=None):
+        def decorator(func):
+            self.add_listener(func, name)
+            return func
 
         return decorator
 
@@ -121,12 +159,13 @@ class Bot(guilded.Client):
         if ctx.command is not None:
             self.dispatch('command', ctx)
             try:
-                if await self.can_run(ctx, call_once=True):
-                    await ctx.command.invoke(ctx)
-                else:
-                    raise errors.CheckFailure('The global check once functions failed.')
+                #if await self.can_run(ctx, call_once=True):
+                await ctx.command.invoke(ctx)
+                #else:
+                #    raise errors.CheckFailure('The global check once functions failed.')
             except errors.CommandError as exc:
-                await ctx.command.dispatch_error(ctx, exc)
+                self.dispatch('command_error', ctx, exc)
+                #await ctx.command.dispatch_error(ctx, exc)
             else:
                 self.dispatch('command_completion', ctx)
         elif ctx.invoked_with:
@@ -134,8 +173,9 @@ class Bot(guilded.Client):
             self.dispatch('command_error', ctx, exc)
 
     async def process_commands(self, message):
-        if message.author.webhook_id:  # not sure if a reliable bot attribute exists in the current api, so we check for webhooks instead
-            return
+        #if message.author.webhook_id:  # not sure if a reliable bot attribute exists in the current api, so we check for webhooks instead
+        #    return
+        # nevermind, it seems like this attribute isn't always returned either, so i guess we'll just accept commands from anyone for now
 
         ctx = await self.get_context(message)
         await self.invoke(ctx)

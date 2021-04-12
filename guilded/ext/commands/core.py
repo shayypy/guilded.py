@@ -1,6 +1,31 @@
 import asyncio
 import inspect
+import functools
 
+from .errors import *
+
+
+def hooked_wrapped_callback(command, ctx, coro):
+    @functools.wraps(coro)
+    async def wrapped(*args, **kwargs):
+        try:
+            ret = await coro(ctx, *args, **kwargs)
+        except CommandError:
+            ctx.command_failed = True
+            raise
+        except asyncio.CancelledError:
+            ctx.command_failed = True
+            return
+        except Exception as exc:
+            ctx.command_failed = True
+            raise CommandInvokeError(exc) from exc
+        #finally:
+        #    if command._max_concurrency is not None:
+        #        await command._max_concurrency.release(ctx)
+
+        #    await command.call_after_hooks(ctx)
+        return ret
+    return wrapped
 
 class Command:
     def __init__(self, coro, **kwargs):
@@ -57,6 +82,17 @@ class Command:
             return await self.callback(self.cog, *args, **kwargs)
         else:
             return await self.callback(*args, **kwargs)
+
+    async def invoke(self, ctx):
+        ctx.command = self
+
+        # terminate the invoked_subcommand chain.
+        # since we're in a regular command (and not a group) then
+        # the invoked subcommand is None.
+        ctx.invoked_subcommand = None
+        ctx.subcommand_passed = None
+        injected = hooked_wrapped_callback(self, ctx, self.callback)
+        await injected(*ctx.args, **ctx.kwargs)
 
 def command(**kwargs):
     def decorator(coro):
