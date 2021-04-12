@@ -13,6 +13,7 @@ from .embed import Embed, EmbedProxy, EmptyEmbed
 from .emoji import Emoji
 from .errors import (
     BadRequest,
+    ClientException,
     Forbidden,
     GuildedException,
     GuildedServerError,

@@ -2,6 +2,9 @@ class GuildedException(Exception):
     '''Base class for all guilded.py exceptions.'''
     pass
 
+class ClientException(GuildedException):
+    pass
+
 class HTTPException(GuildedException):
     '''A non-ok response from Guilded was returned whilst performing an HTTP request.'''
     pass

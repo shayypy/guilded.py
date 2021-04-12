@@ -38,6 +38,12 @@ def new_uuid():
     '''Generate a new, compliant UUID.'''
     return str(uuid1())
 
+def find(predicate, sequence):
+    for element in sequence:
+        if predicate(element):
+            return element
+    return None
+
 def get(item, **attributes):
     # global -> local
     _all = all
