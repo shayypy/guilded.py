@@ -1,13 +1,11 @@
 import guilded
 import collections.abc
-import logging
 
 from . import errors
 from .core import Command
 from .context import Context
 from .view import StringView
 
-log = logging.getLogger(__name__)
 
 class Bot(guilded.Client):
     def __init__(self, *,
