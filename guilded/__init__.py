@@ -11,6 +11,7 @@ from .client import Client
 from .colour import Color, Colour
 from .embed import Embed, EmbedProxy, EmptyEmbed
 from .emoji import Emoji
+from .enums import *
 from .errors import (
     BadRequest,
     ClientException,

@@ -220,5 +220,8 @@ class Message:
         '''Add a reaction to a message. In the future, will take type Emoji, but currently takes an integer (the emoji's id)'''
         await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji)
 
+    #async def reply(self, *content, **kwargs):
+    #    title = kwargs.pop('title', None)
+
 class PartialMessage:
     pass

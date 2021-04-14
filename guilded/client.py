@@ -8,6 +8,7 @@ import aiohttp
 from .errors import NotFound
 from .gateway import GuildedWebSocket, WebSocketClosure
 from .http import HTTPClient
+from .presence import Presence
 from .status import Game
 from .team import Team
 from .user import ClientUser, User
@@ -54,15 +55,17 @@ def _cleanup_loop(loop):
 
 class Client:
     '''The basic client class for interfacing with Guilded.'''
-    def __init__(self, *, loop: asyncio.AbstractEventLoop = None, max_messages: int = 1000, disable_team_websockets=False, cache_on_startup=None):
+    def __init__(self, **options):
         # internal
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = options.pop('loop', asyncio.get_event_loop())
         self.user = None
-        self.max_messages = max_messages
-        self.disable_team_websockets = disable_team_websockets
+        self.max_messages = options.pop('max_messages', 1000)
+        self.disable_team_websockets = options.pop('disable_team_websockets', False)
+        self._login_presence = options.pop('presence', None)
+        self._login_status = options.pop('status', None)
         self._listeners = {}
 
-        cache_on_startup = cache_on_startup or {}
+        cache_on_startup = options.pop('cache_on_startup', {})
         self.cache_on_startup = {
             'members': cache_on_startup.get('members') or True,
             'channels': cache_on_startup.get('channels') or True
@@ -182,6 +185,14 @@ class Client:
             self.http.ws = self.ws
             self.dispatch('connect')
 
+            if self._login_presence is not None:
+                # we do this here because why bother setting a presence if you won't show up in the online list anyway
+                await self.change_presence(self._login_presence)
+
+            #if self._login_presence is Presence.online:
+            # todo: start http ping thread
+            # no need to do that if you don't want an online presence
+
             if not self.disable_team_websockets:
                 for team in self.teams:
                     team_ws_build = GuildedWebSocket.build(self, loop=self.loop, teamId=team.id)
@@ -205,7 +216,11 @@ class Client:
                             log.warning('Websocket closed with code %s, attempting to reconnect in %s seconds', code, next_backoff_time)
                             self.dispatch('disconnect')
                         await asyncio.sleep(next_backoff_time)
-                        build = GuildedWebSocket.build(self, loop=self.loop, teamId=teamId)
+                        if teamId:
+                            build = GuildedWebSocket.build(self, loop=self.loop, teamId=teamId)
+                        else:
+                            # possible reconnect issues brought up by @8r2y5
+                            build = GuildedWebSocket.build(self, loop=self.loop)
                         try:
                             ws = await asyncio.wait_for(build, timeout=60)
                         except asyncio.TimeoutError:
@@ -391,3 +406,14 @@ class Client:
         '''Fill the internal game list cache from remote data.'''
         games = await self.fetch_games()
         Game.MAPPING = games
+
+    async def update_privacy_settings(self, *, dms, friend_requests):
+        await self.http.set_privacy_settings(dms=dms, friend_requests=friend_requests)
+
+    async def fetch_blocked_users(self):
+        settings = await self.http.get_privacy_settings()
+        blocked = []
+        for user in settings.get('blockedUsers', []):
+            blocked.append(User(state=self.http, data=user))
+
+        return blocked

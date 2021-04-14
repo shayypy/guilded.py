@@ -180,6 +180,9 @@ class HTTPClient:
     def logout(self):
         return self.request(Route('POST', '/logout'))
 
+    def ping(self):
+        return self.request(Route('PUT', '/users/me/ping'))
+
     def send_message(self, channel_id: str, content):
         route = Route('POST', f'/channels/{channel_id}/messages')
         payload = {
@@ -465,3 +468,12 @@ class HTTPClient:
 
     def remove_self_message_reaction(self, channel_id: str, message_id: str, emoji_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}'))
+
+    def get_privacy_settings(self):
+        return self.request(Route('GET', '/users/me/privacysettings'))
+
+    def set_privacy_settings(self, dms, friend_requests):
+        return self.request(Route('PUT', '/users/me/privacysettings', json={
+            'allowDMsFrom': str(dms),
+            'allowFriendRequestsFrom': str(friend_requests)
+        }))

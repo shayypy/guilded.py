@@ -8,21 +8,17 @@ from .view import StringView
 
 
 class Bot(guilded.Client):
-    def __init__(self, *,
-        command_prefix: str, self_bot=False,
-        description=None, owner_id=None,
-        strip_after_prefix=False, **kwargs
-    ):
-        super().__init__(**kwargs)
-        self.command_prefix = command_prefix
-        self.self_bot = self_bot
-        self.description = description
-        self.owner_id = owner_id
+    def __init__(self, **options):
+        self.command_prefix = options.pop('command_prefix', None)
+        self.self_bot = options.pop('self_bot', False)
+        self.description = options.pop('description', None)
+        self.owner_id = options.pop('owner_id', None)
         self._commands = {}
-        self.strip_after_prefix = strip_after_prefix
+        self.strip_after_prefix = options.pop('strip_after_prefix', False)
+        super().__init__(**options)
         self._listeners = {'on_message': self.on_message}
 
-        if self_bot:
+        if self.self_bot:
             self._skip_check = lambda x, y: x != y
         else:
             self._skip_check = lambda x, y: x == y
