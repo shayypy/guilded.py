@@ -6,6 +6,7 @@ from . import utils
 
 
 class MediaType(Enum):
+    """Represents a file/attachment's media type in Guilded."""
     attachment = 'ContentMedia'
     content_media = 'ContentMedia'
     emoji = 'CustomReaction'
@@ -27,6 +28,11 @@ class MediaType(Enum):
         return f'<MediaType name={self.name} value={self.value}>'
 
 class FileType(Enum):
+    """Represents a type of file in Guilded. In the case of uploading
+    files, this usually does not have to be set manually, but if the
+    library fails to detect the type of file from its extension, you
+    can pass this into :class:`File` ``file_type`` keyword arguement.
+    """
     image = 'image'
     video = 'video'
 
@@ -38,7 +44,38 @@ class FileType(Enum):
 
 class File:
     def __init__(self, fp: Union[str, io.BufferedIOBase], *, filename=None, file_type: FileType = None):
-        '''A class that wraps basic media pre-and-mid-upload. Non-image/video filetypes are not supported by Guilded.'''
+        """Wraps media pre-and-mid-upload.
+
+        .. warning::
+
+            Non-image/video filetypes are not supported by Guilded.
+
+        Parameters
+        ------------
+        fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
+            The file to upload. If passing a file with ``open``, the file
+            should be opened in ``rb`` mode.
+        filename: Optional[:class:`str`]
+            The name of this file. Not required unless also using the
+            ``attachment://`` URI in an accompanying embed.
+        file_type: :class:`FileType`
+            The type of file (image, video). It this could not be detected by
+            the library, defaults to :attr:`FileType.image`. 
+
+        Attributes
+        ------------
+        fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
+            The file to upload.
+        filename: Optional[:class:`str`]
+            The name of this file.
+        type: Optional[:class:`MediaType`]
+            The file's media type (attachment, emoji, ...).
+        file_type: :class:`FileType`
+            The type of file (image, video).
+        url: Optional[:class:`str`]
+            The URL to the file on Guilded's CDN after being uploaded by the
+            library.
+        """
         self.fp = fp
         self.type = None
         self.url = None
@@ -85,10 +122,12 @@ class File:
         return self._bytes
 
     def set_media_type(self, media_type):
+        """Manually set this file's media type."""
         self.type = media_type
         return self
 
     def set_file_type(self, file_type):
+        """Manually set this file's file type."""
         self.file_type = file_type
         return self
 
@@ -97,3 +136,30 @@ class File:
         url = response.get('url')
         self.url = url
         return self
+
+class Attachment:
+    """An uploaded attachment in a message, announcement, document, or any
+    other place you can upload files inline with content.
+
+    Attributes
+    ------------
+    url: :class:`str`
+        The URL to the file on Guilded's CDN.
+    type: :class:`MediaType`
+        The file's media type (should only ever be :attr:`MediaType.attachment`).
+    file_type: Optional[:class:`FileType`]
+        The type of file (image, video).
+    caption: Optional[:class:`str`]
+        The attachment's caption. This is probably not the actual caption
+        value when present, it's just an attribute of image blocks that I
+        figured I'd use in this class.
+    """
+    def __init__(self, *, state, data, **extra):
+        self._state = state
+        self.file_type = getattr(FileType, data.get('type'), None)
+        self.type = extra.get('type') or MediaType.attachment
+        self.url = data.get('data', {}).get('src')
+        self.caption = data.get('nodes', [{}])[0].get('leaves', [{}])[0].get('text', '')  # i guess that's what this field is, no idea.
+
+    async def read(self):
+        pass

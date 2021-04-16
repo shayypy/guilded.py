@@ -64,6 +64,8 @@ class HTTPClient:
         return self._team_members.get(team_id, {}).get(id)
 
     def add_to_message_cache(self, message):
+        if self._max_messages is None:
+            return
         self._messages[message.id] = message
         while len(self._messages) > self._max_messages:
             del self._messages[list(self._messages.keys())[0]]

@@ -54,7 +54,30 @@ def _cleanup_loop(loop):
         loop.close()
 
 class Client:
-    '''The basic client class for interfacing with Guilded.'''
+    """The basic client class for interfacing with Guilded.
+
+    Parameters
+    ----------
+    max_messages: Optional[:class:`int`]
+        The maximum number of messages to store in the internal message cache.
+        This defaults to ``1000``. Passing in ``None`` disables the message cache.
+    loop: Optional[:class:`asyncio.AbstractEventLoop`]
+        The :class:`asyncio.AbstractEventLoop` to use for asynchronous operations.
+        Defaults to ``None``, in which case the default event loop is used via
+        :func:`asyncio.get_event_loop()`.
+    disable_team_websockets: Optional[:class:`bool`]
+
+    presence: Optional[:class:`.Presence`]
+        A presence to use upon logging in.
+    status: Optional[:class:`.Status`]
+        A status (game) to use upon logging in.
+    Attributes
+    -----------
+    ws
+        The websocket gateway the client is currently connected to. Could be ``None``.
+    loop: :class:`asyncio.AbstractEventLoop`
+        The event loop that the client uses for HTTP requests and websocket operations.
+    """
     def __init__(self, **options):
         # internal
         self.loop = options.pop('loop', asyncio.get_event_loop())
@@ -98,28 +121,38 @@ class Client:
 
     @property
     def dm_channels(self):
+        """List[:class:`.DMChannel`]: The private/dm channels that the connected client can see."""
         return list(self.http._dm_channels.values())
 
     @property
     def private_channels(self):
+        """List[:class:`.DMChannel`]: |dpyattr|
+
+        This is an alias of :attr:`.dm_channels`.
+        """
         return self.dm_channels
 
     @property
     def team_channels(self):
+        """List[:class:`.TeamChannel`]: The team channels that the connected client can see."""
         return list(self.http._team_channels.values())
 
     @property
     def channels(self):
+        """List[Union[:class:`.TeamChannel`, :class:`.DMChannel`]]: The channels (Team and DM included) that the connected client can see."""
         return [*self.dm_channels, *self.team_channels]
 
     @property
     def guilds(self):
-        '''A placeholder property for Discord bot compensation. Will be removed in a later version.'''
+        """List[:class:`.Team`]: |dpyattr|
+
+        This is an alias of :attr:`.teams`.
+        """
         return self.teams
 
     @property
     def latency(self):
-        return self.http.ws.latency
+        return float('nan') if self.ws is None else self.ws.latency
 
     @property
     def closed(self):
@@ -132,7 +165,24 @@ class Client:
         await self._ready.wait()
 
     def event(self, coro):
-        '''Register an event for the library to automatically dispatch when appropriate.'''
+        """A decorator to register an event for the library to automatically dispatch when appropriate.
+
+        The events must be a :ref:`coroutine <coroutine>`, if not, :exc:`TypeError` is raised.
+
+        Example
+        ---------
+
+        .. code-block:: python3
+
+            @client.event
+            async def on_ready():
+                print('Ready!')
+
+        Raises
+        --------
+        TypeError
+            The function passed is not actually a coroutine.
+        """
         if not asyncio.iscoroutinefunction(coro):
             raise TypeError('Event must be a coroutine.')
 
@@ -141,14 +191,17 @@ class Client:
         return coro
 
     def dispatch(self, event_name, *args, **kwargs):
-        '''Dispatch a registered event.'''
+        """Dispatch a registered event."""
         coro = self._listeners.get(f'on_{event_name}')
         if not coro:
             return
         self.loop.create_task(coro(*args, **kwargs))
 
     async def start(self, email, password, *, reconnect=True):
-        '''Login and connect to Guilded using a user account email and password.'''
+        """|coro|
+
+        Login and connect to Guilded using a user account email and password.
+        """
         self.http = self.http or HTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
         self.user = await self.login(email, password)
         await self.connect()
@@ -237,6 +290,7 @@ class Client:
             )
 
     async def close(self):
+        """|coro|"""
         if self._closed: return
 
         await self.http.logout()
@@ -251,7 +305,7 @@ class Client:
         self._ready.clear()
 
     def run(self, email: str, password: str):
-        '''Login and connect to Guilded, and start the event loop.'''
+        """Login and connect to Guilded, and start the event loop. This is a blocking call, nothing after it will be called until the bot has been closed."""
         try:
             self.loop.create_task(self.start(
                 email=email, 
@@ -262,60 +316,44 @@ class Client:
             exit()
 
     def get_message(self, id: str):
-        '''Get a message from your :attr:Client.cached_messages. 
-        As messages are often frequently going in and out of cache, you should not rely on this method, and instead use :class:Messageable.fetch_message.
+        """Optional[:class:`Message`]: Get a message from your :attr:`.cached_messages`. 
+        As messages are often frequently going in and out of cache, you should not rely on this method, and instead use :meth:`Messageable.fetch_message`.
         
         Parameters
-        ==========
-        id
+        ------------
+        id: :class:`str`
             the id of the message
-
-        Returns
-        =======
-        Optional[:class:`Message`]
-        '''
+        """
         return self.http._get_message(id)
 
     def get_team(self, id: str):
-        '''Get a team from your :attr:Client.teams.
+        """Optional[:class:`Team`]: Get a team from your :attr:`.teams`.
 
         Parameters
-        ==========
-        id
+        ------------
+        id: :class:`str`
             the id of the team
-
-        Returns
-        =======
-        Optional[:class:`Team`]
-        '''
+        """
         return self.http._get_team(id)
 
     def get_user(self, id: str):
-        '''Get a user from your :attr:Client.users.
+        """Optional[:class:`User`]: Get a user from your :attr:`.users`.
 
         Parameters
-        ==========
-        id
+        ------------
+        id: :class:`str`
             the id of the user
-
-        Returns
-        =======
-        Optional[:class:`User`]
-        '''
+        """
         return self.http._get_user(id)
 
     def get_channel(self, id: str):
-        '''Get a user from your :attr:Client.channels.
+        """Optional[:class:`Messageable`]: Get a user from your :attr:`.channels`.
 
         Parameters
-        ==========
-        id
+        ------------
+        id: :class:`str`
             the id of the team or dm channel
-
-        Returns
-        =======
-        Optional[:class:`Messageable`]
-        '''
+        """
         return self.http._get_team_channel(id) or self.http._get_dm_channel(id)
 
     async def on_error(self, event_method, *args, **kwargs):
@@ -323,7 +361,15 @@ class Client:
         traceback.print_exc()
 
     async def search_teams(self, query: str):
-        '''Search Guilded for public teams. Returns an array of partial :class:`Team`s.'''
+        """|coro|
+
+        Search Guilded for public teams. Returns an array of partial teams.
+
+        Returns
+        ---------
+        List[:class:`Team`]
+            The teams from the query
+        """
         results = await self.http.search_teams(query)
         teams = []
         for team_object in results['results']['teams']:
@@ -334,53 +380,79 @@ class Client:
         return teams
 
     async def join_team(self, id: str):
-        '''Join a public team using its ID.
+        """|coro|
 
+        Join a public team using its ID.
+        
         Returns
-        =======
-        :class:Team - the team that you joined'''
+        ---------
+        :class:`Team`
+            The team you joined from the ID
+        """
         await self.http.join_team(id)
         team = await self.http.get_team(id)
         return 
 
     async def fetch_team(self, id: str):
-        '''Fetch a team from the API.'''
+        """|coro|
+
+        Fetch a team from the API.
+
+        Returns
+        ---------
+        :class:`Team`
+            The team from the ID
+        """
         team = await self.http.get_team(id)
         return Team(state=self.http, data=team)
 
     async def getch_team(self, id: str):
-        '''Try to get a team from internal cache, and if not found, try to fetch from the API.
+        """|coro|
 
-        Equivalent to:
-
-            team = client.get_team(id) or await client.fetch_team(id)
-
-        '''
+        Try to get a team from internal cache, and if not found, try to fetch from the API.
+        
+        Returns
+        ---------
+        :class:`Team`
+            The team from the ID
+        """
         return self.get_team(id) or await self.fetch_team(id)
 
     async def fetch_user(self, id: str):
-        '''Fetch a user from the API.'''
+        """|coro|
+
+        Fetch a user from the API.
+
+        Returns
+        ---------
+        :class:`User`
+            The user from the ID
+        """
         user = await self.http.get_user(id)
         return User(state=self.http, data=user)
 
     async def getch_user(self, id: str):
-        '''Try to get a user from internal cache, and if not found, try to fetch from the API.
+        """|coro|
 
-        Equivalent to:
-
-            user = client.get_user(id) or await client.fetch_user(id)
-
-        '''
+        Try to get a user from internal cache, and if not found, try to fetch from the API.
+        
+        Returns
+        ---------
+        :class:`User`
+            The user from the ID
+        """
         return self.get_user(id) or await self.fetch_user(id)
 
     async def getch_channel(self, id: str, team_id: str = None):
-        '''Try to get a channel from internal cache, and if not found, try to fetch from the API.
+        """|coro|
 
-        Roughly equivalent to:
+        Try to get a channel from internal cache, and if not found, try to fetch from the API.
 
-            channel = client.get_channel(id) or await team.fetch_channel(id)
-
-        '''
+        Returns
+        ---------
+        Union[:class:`TeamChannel`, :class:`DMChannel`]
+            The channel from the ID
+        """
         channel = self.get_channel(id)
         if team_id is None and channel is None:
             raise NotFound(id)
@@ -391,19 +463,40 @@ class Client:
         return channel
 
     async def fetch_game(self, id: int):
-        games = await self.http.get_game_list()
-        name = games.get(str(id))
-        if name is None:
+        """|coro|
+
+        Fetch a game from the `documentation's game list <https://guildedapi.com/resources/user/#transient-status-object>`_ (an incomplete listing of every game Guilded has a registered name for)
+        
+        Returns
+        ---------
+        :class:`Game`
+            The game with the ID
+        """
+        if not Game.MAPPING:
+            await self.fill_game_list()
+
+        game = Game(id)
+        if game.name is None:
             raise ValueError(f'{id} is not a recognized game id.')
 
-        return name
+        return game
 
     async def fetch_games(self):
-        '''Fetch the whole documented game list.'''
+        """|coro|
+
+        Fetch the whole documented game list.
+        
+        Returns
+        ---------
+        :class:`dict`
+        """
         return await self.http.get_game_list()
 
     async def fill_game_list(self):
-        '''Fill the internal game list cache from remote data.'''
+        """|coro|
+
+        Fill the internal game list cache from remote data.
+        """
         games = await self.fetch_games()
         Game.MAPPING = games
 
@@ -411,9 +504,20 @@ class Client:
         await self.http.set_privacy_settings(dms=dms, friend_requests=friend_requests)
 
     async def fetch_blocked_users(self):
+        """|coro|
+
+        The users the client has blocked.
+
+        Returns
+        ---------
+        List[:class:`User`]
+        """
         settings = await self.http.get_privacy_settings()
         blocked = []
         for user in settings.get('blockedUsers', []):
             blocked.append(User(state=self.http, data=user))
 
         return blocked
+
+    async def change_presence(self, *args):
+        pass

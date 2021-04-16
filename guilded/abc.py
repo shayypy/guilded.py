@@ -1,8 +1,5 @@
 import abc
 
-import guilded.user
-from guilded.channel import Thread
-
 from .activity import Activity
 from .asset import Asset
 from .embed import _EmptyEmbed, Embed
@@ -79,13 +76,13 @@ class Messageable(metaclass=abc.ABCMeta):
         if payload['teamId'] is not None:
             args = (payload['teamId'], payload['createdBy'])
             try:
-                author = self._state._get_team_member(*args) or guilded.user.Member(state=self._state, data=await self._state.get_team_member(*args), team=self.team)
+                author = self._state._get_team_member(*args) or await self._state.get_team_member(*args)
             except:
                 author = None
 
         if author is None or payload['teamId'] is None:
             try:
-                author = self._state._get_user(payload['createdBy']) or guilded.user.User(state=self._state, data=await self._state.get_user(payload['createdBy']))
+                author = self._state._get_user(payload['createdBy']) or await self._state.get_user(payload['createdBy'])
             except:
                 author = None
 

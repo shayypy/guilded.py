@@ -222,6 +222,3 @@ class Message:
 
     #async def reply(self, *content, **kwargs):
     #    title = kwargs.pop('title', None)
-
-class PartialMessage:
-    pass
