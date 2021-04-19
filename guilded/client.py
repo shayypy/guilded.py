@@ -1,3 +1,54 @@
+"""
+MIT License
+
+Copyright (c) 2020-present shay (shayypy)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+------------------------------------------------------------------------------
+
+This project includes code from https://github.com/Rapptz/discord.py, which is
+available under the MIT license:
+
+The MIT License (MIT)
+
+Copyright (c) 2015-present Rapptz
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+"""
+
 import asyncio
 import logging
 import sys
@@ -66,6 +117,8 @@ class Client:
         Defaults to ``None``, in which case the default event loop is used via
         :func:`asyncio.get_event_loop()`.
     disable_team_websockets: Optional[:class:`bool`]
+        Whether to prevent the library from opening team-specific websocket
+        connections.
 
     presence: Optional[:class:`.Presence`]
         A presence to use upon logging in.
@@ -164,6 +217,22 @@ class Client:
     async def wait_until_ready(self):
         await self._ready.wait()
 
+    async def _run_event(self, coro, event_name, *args, **kwargs):
+        try:
+            await coro(*args, **kwargs)
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            try:
+                await self.on_error(event_name, *args, **kwargs)
+            except asyncio.CancelledError:
+                pass
+
+    def _schedule_event(self, coro, event_name, *args, **kwargs):
+        wrapped = self._run_event(coro, event_name, *args, **kwargs)
+        # Schedules the task
+        return asyncio.create_task(wrapped, name=f'guilded.py: {event_name}')
+
     def event(self, coro):
         """A decorator to register an event for the library to automatically dispatch when appropriate.
 
@@ -191,7 +260,6 @@ class Client:
         return coro
 
     def dispatch(self, event_name, *args, **kwargs):
-        """Dispatch a registered event."""
         coro = self._listeners.get(f'on_{event_name}')
         if not coro:
             return
@@ -305,7 +373,10 @@ class Client:
         self._ready.clear()
 
     def run(self, email: str, password: str):
-        """Login and connect to Guilded, and start the event loop. This is a blocking call, nothing after it will be called until the bot has been closed."""
+        """Login and connect to Guilded, and start the event loop. This is a
+        blocking call, nothing after it will be called until the bot has been
+        closed.
+        """
         try:
             self.loop.create_task(self.start(
                 email=email, 
@@ -317,12 +388,18 @@ class Client:
 
     def get_message(self, id: str):
         """Optional[:class:`Message`]: Get a message from your :attr:`.cached_messages`. 
-        As messages are often frequently going in and out of cache, you should not rely on this method, and instead use :meth:`Messageable.fetch_message`.
+        As messages are often frequently going in and out of cache, you should
+        not rely on this method, and instead use :meth:`abc.Messageable.fetch_message`.
         
         Parameters
         ------------
         id: :class:`str`
             the id of the message
+
+        Returns
+        ---------
+        Optional[:class:`Message`]
+            The message from the ID
         """
         return self.http._get_message(id)
 
@@ -333,6 +410,11 @@ class Client:
         ------------
         id: :class:`str`
             the id of the team
+
+        Returns
+        ---------
+        Optional[:class:`Team`]
+            The team from the ID
         """
         return self.http._get_team(id)
 
@@ -343,6 +425,11 @@ class Client:
         ------------
         id: :class:`str`
             the id of the user
+
+        Returns
+        ---------
+        Optional[:class:`User`]
+            The user from the ID
         """
         return self.http._get_user(id)
 
@@ -353,6 +440,11 @@ class Client:
         ------------
         id: :class:`str`
             the id of the team or dm channel
+
+        Returns
+        ---------
+        Optional[:class:`abc.Messageable`]
+            The channel from the ID
         """
         return self.http._get_team_channel(id) or self.http._get_dm_channel(id)
 

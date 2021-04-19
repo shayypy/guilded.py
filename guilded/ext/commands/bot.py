@@ -1,5 +1,60 @@
-import guilded
+"""
+MIT License
+
+Copyright (c) 2020-present shay (shayypy)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+------------------------------------------------------------------------------
+
+This project includes code from https://github.com/Rapptz/discord.py, which is
+available under the MIT license:
+
+The MIT License (MIT)
+
+Copyright (c) 2015-present Rapptz
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+"""
+
 import collections.abc
+import inspect
+import sys
+import traceback
+
+import guilded
 
 from . import errors
 from .core import Command
@@ -8,17 +63,31 @@ from .view import StringView
 
 
 class Bot(guilded.Client):
-    def __init__(self, **options):
-        self.command_prefix = options.pop('command_prefix', None)
-        self.self_bot = options.pop('self_bot', False)
-        self.description = options.pop('description', None)
-        self.owner_id = options.pop('owner_id', None)
+    """A guilded bot with commands.
+
+    This is a subclass of :class:`guilded.Client`, and thus it implements all the
+    functionality of :class:`guilded.Client` but with commands-related features.
+    """
+    def __init__(self, *, command_prefix, description=None, **options):
+        super().__init__(**options)
+        self.command_prefix = command_prefix
+        self.description = inspect.cleandoc(description) if description else ''
+        self.__extensions = {}
+        self.__cogs = {}
         self._commands = {}
         self.strip_after_prefix = options.pop('strip_after_prefix', False)
-        super().__init__(**options)
-        self._listeners = {'on_message': self.on_message}
+        self.owner_id = options.get('owner_id')
+        self.owner_ids = options.get('owner_ids', set())
 
-        if self.self_bot:
+        if self.owner_id and self.owner_ids:
+            raise TypeError('Both owner_id and owner_ids are set.')
+        if self.owner_ids and not isinstance(self.owner_ids, collections.abc.Collection):
+            raise TypeError(f'owner_ids must be a collection not {self.owner_ids.__class__!r}')
+
+        self._listeners = {'on_message': self.on_message, 'on_command_error': self.on_command_error}
+        self.extra_events = {}
+
+        if options.pop('self_bot', False):
             self._skip_check = lambda x, y: x != y
         else:
             self._skip_check = lambda x, y: x == y
@@ -38,6 +107,12 @@ class Bot(guilded.Client):
     def all_commands(self):
         return {**self._commands, **self._commands_by_alias}
 
+    def dispatch(self, event_name, *args, **kwargs):
+        super().dispatch(event_name, *args, **kwargs)
+        ev = 'on_' + event_name
+        for event in self.extra_events.get(ev, []):
+            self._schedule_event(event, ev, *args, **kwargs)
+
     def add_command(self, command):
         if command.name in self._commands.keys():
             raise errors.CommandRegistrationError(f'A command with the name {command.name} is already registered.')
@@ -54,6 +129,45 @@ class Bot(guilded.Client):
             return command
 
         return decorator
+
+    async def close(self):
+        for extension in tuple(self.__extensions):
+            try:
+                self.unload_extension(extension)
+            except Exception:
+                pass
+
+        for cog in tuple(self.__cogs):
+            try:
+                self.remove_cog(cog)
+            except Exception:
+                pass
+
+        await super().close()
+
+    async def on_command_error(self, context, exception):
+        """|coro|
+
+        The default command error handler provided by the bot.
+
+        By default this prints to :data:`sys.stderr` however it could be
+        overridden to have a different implementation.
+
+        This only fires if you do not specify any listeners for command error.
+        """
+        if self.extra_events.get('on_command_error', None):
+            return
+
+        command = context.command
+        #if command and command.has_error_handler():
+        #    return
+
+        cog = context.cog
+        if cog and cog.has_error_handler():
+            return
+
+        print(f'Ignoring exception in command {context.command}:', file=sys.stderr)
+        traceback.print_exception(type(exception), exception, exception.__traceback__, file=sys.stderr)
 
     # listeners
 
@@ -84,6 +198,31 @@ class Bot(guilded.Client):
 
         return decorator
 
+    async def is_owner(self, user):
+        """|coro|
+
+        Checks if a :class:`guilded.User` or :class:`guilded.Member` is the
+        owner of this bot. If an :attr:`owner_id` or :attr:`owner_ids` are
+        not set, this function will always return False, unless the user
+        provided is the bot itself.
+
+        Parameters
+        -----------
+        user: :class:`.abc.User`
+            The user to check for.
+
+        Returns
+        --------
+        :class:`bool`
+            Whether the user is the owner.
+        """
+        if self.owner_id:
+            return user.id == self.owner_id
+        elif self.owner_ids:
+            return user.id in self.owner_ids
+        else:
+            return user.id == self.user.id
+
     #async def get_prefix(self, message):
     #    prefix = ret = self.command_prefix
     #    if callable(prefix):
@@ -105,7 +244,7 @@ class Bot(guilded.Client):
     #    return ret
 
     async def get_context(self, message):
-        view = StringView(message.content)
+        view = StringView(str(message.content))
         ctx = Context(prefix=None, view=view, bot=self, message=message)
 
         if self._skip_check(message.author.id, self.user.id):

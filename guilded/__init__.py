@@ -23,7 +23,7 @@ from .errors import (
     TooManyRequests,
 )
 from .file import File, FileType, MediaType, Attachment
-from .message import Message
+from .message import Message, MessageMention, MentionType
 from .presence import Presence
 from .status import Game, TransientStatus
 from .team import SocialInfo, Team, TeamTimezone

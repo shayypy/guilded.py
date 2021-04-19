@@ -1,3 +1,54 @@
+"""
+MIT License
+
+Copyright (c) 2020-present shay (shayypy)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+------------------------------------------------------------------------------
+
+This project includes code from https://github.com/Rapptz/discord.py, which is
+available under the MIT license:
+
+The MIT License (MIT)
+
+Copyright (c) 2015-present Rapptz
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+"""
+
 import asyncio
 import datetime
 import json
@@ -6,8 +57,9 @@ from typing import Union
 
 from . import utils
 from .embed import Embed
-from .errors import GuildedException, HTTPException, error_mapping
+from .errors import ClientException, HTTPException, error_mapping
 from .file import File
+from .user import User, Member
 
 log = logging.getLogger(__name__)
 
@@ -161,7 +213,7 @@ class HTTPClient:
     async def ws_connect(self, cookies=None, **gateway_args):
         cookies = cookies or self.cookies
         if not cookies:
-            raise GuildedException(
+            raise ClientException(
                 'No authentication cookies available. Get these from '
                 'logging into the REST API at least once '
                 'on this Client.'
@@ -310,14 +362,10 @@ class HTTPClient:
         return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}'))
 
     def trigger_typing(self, channel_id):
-        payload = ['ChatChannelTyping', {'channelId': channel_id}]
-        return self.ws.send(f'42{json.dumps(payload)}')
+        return self.ws.send(['ChatChannelTyping', {'channelId': channel_id}])
 
     def search_teams(self, query):
-        return self.request(
-            Route('GET', '/search'), 
-            params={'query': query, 'entityType': 'team'}
-        )
+        return self.request(Route('GET', '/search'), params={'query': query, 'entityType': 'team'})
 
     def join_team(self, team_id):
         return self.request(Route('PUT', f'/teams/{team_id}/members/{self.my_id}/join'))
@@ -326,16 +374,10 @@ class HTTPClient:
         return self.request(Route('DELETE', f'/teams/{team_id}/members/{self.my_id}'))
 
     def accept_invite(self, invite_code):
-        return self.request(
-            Route('PUT', f'/invites/{invite_code}'), 
-            json={'type': 'consume'}
-        )
+        return self.request(Route('PUT', f'/invites/{invite_code}'), json={'type': 'consume'})
 
     def create_team_invite(self, team_id):
-        return self.request(
-            Route('POST', f'/teams/{team_id}/invites'), 
-            json={'teamId': team_id}
-        )
+        return self.request(Route('POST', f'/teams/{team_id}/invites'), json={'teamId': team_id})
 
     def update_activity(self, activity, *, expires: Union[int, datetime.datetime] = 0):
         payload = {
@@ -370,13 +412,10 @@ class HTTPClient:
         )
 
     def delete_team_emoji(self, team_id: str, emoji_id: int):
-        return self.request(
-            Route('DELETE', f'/teams/{team_id}/emoji/{emoji_id}')
-        )
+        return self.request(Route('DELETE', f'/teams/{team_id}/emoji/{emoji_id}'))
 
     def upload_file(self, file):
-        return self.request(
-            Route('POST', '/media/upload', override_base=Route.MEDIA_BASE),
+        return self.request(Route('POST', '/media/upload', override_base=Route.MEDIA_BASE),
             data={'file': file._bytes},
             params={'dynamicMediaTypeId': str(file.type)}
         )
@@ -384,8 +423,14 @@ class HTTPClient:
     def read_filelike_data(self, filelike):
         return self.request(Route('GET', filelike.url, override_base=Route.NO_BASE))
 
-    def get_user(self, user_id: str):
-        return self.request(Route('GET', f'/users/{user_id}'))
+    def get_user(self, user_id: str, *, as_object=False):
+        if as_object is False:
+            return self.request(Route('GET', f'/users/{user_id}'))
+        else:
+            async def get_user_as_object():
+                data = await self.request(Route('GET', f'/users/{user_id}'))
+                return User(state=self, data=data)
+            return get_user_as_object()
 
     def get_team(self, team_id: str):
         return self.request(Route('GET', f'/teams/{team_id}'))
@@ -393,8 +438,14 @@ class HTTPClient:
     def get_team_members(self, team_id: str):
         return self.request(Route('GET', f'/teams/{team_id}/members'))
 
-    def get_team_member(self, team_id: str, user_id: str):
-        return self.request(Route('GET', f'/teams/{team_id}/members/{user_id}'))
+    def get_team_member(self, team_id: str, user_id: str, *, as_object=False):
+        if as_bbject is False:
+            return self.request(Route('GET', f'/teams/{team_id}/members/{user_id}'))
+        else:
+            async def get_team_member_as_object():
+                data = await self.request(Route('GET', f'/teams/{team_id}/members/{user_id}'))
+                return Member(state=self, data=data)
+            return get_team_member_as_object()
 
     def get_team_channels(self, team_id: str):
         return self.request(Route('GET', f'/teams/{team_id}/channels'))
@@ -454,10 +505,7 @@ class HTTPClient:
         return self.request(Route('DELETE', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{channel_id}'))
 
     def get_channel_messages(self, channel_id: str, *, limit: int):
-        return self.request(
-            Route('GET', f'/channels/{channel_id}/messages'),
-            params={'limit': limit}
-        )
+        return self.request(Route('GET', f'/channels/{channel_id}/messages'), params={'limit': limit})
 
     def get_channel_message(self, channel_id: str, message_id: str):
         return self.request(Route('GET', f'/content/route/metadata?route=//channels/{channel_id}/chat?messageId={message_id}'))

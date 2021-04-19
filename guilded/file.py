@@ -1,3 +1,54 @@
+"""
+MIT License
+
+Copyright (c) 2020-present shay (shayypy)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+------------------------------------------------------------------------------
+
+This project includes code from https://github.com/Rapptz/discord.py, which is
+available under the MIT license:
+
+The MIT License (MIT)
+
+Copyright (c) 2015-present Rapptz
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+"""
+
 import io
 from enum import Enum
 from typing import Union
@@ -147,6 +198,9 @@ class Attachment:
         The URL to the file on Guilded's CDN.
     type: :class:`MediaType`
         The file's media type (should only ever be :attr:`MediaType.attachment`).
+    filename: Optional[:class:`str`]
+        The file's name (``hash-Size.ext``). Automatically parsed from
+        :attr:`.url`. Could be :class:`None` if :attr:`.url` is too.
     file_type: Optional[:class:`FileType`]
         The type of file (image, video).
     caption: Optional[:class:`str`]
@@ -159,7 +213,35 @@ class Attachment:
         self.file_type = getattr(FileType, data.get('type'), None)
         self.type = extra.get('type') or MediaType.attachment
         self.url = data.get('data', {}).get('src')
-        self.caption = data.get('nodes', [{}])[0].get('leaves', [{}])[0].get('text', '')  # i guess that's what this field is, no idea.
+        self.caption = data.get('nodes', [{}])[0].get('leaves', [{}])[0].get('text', '')
+        # i guess that's what this field is, no idea.
+
+    @property
+    def filename(self):
+        try:
+            return str(self.url).split('/')[-1]
+        except IndexError:
+            # self.url is probably None
+            return None
 
     async def read(self):
-        pass
+        """|coro|
+
+        Returns
+        ---------
+        :class:`bytes`
+        """
+        return await self._state.read_filelike_data(self)
+
+    async def to_file(self):
+        """|coro|
+
+        Converts the attachment to an uploadable :class:`File` instance.
+
+        Returns
+        ---------
+        :class:`File`
+        """
+        data = await self.read()
+        file = File(data, filename=self.filename, file_type=self.file_type)
+        return file

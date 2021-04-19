@@ -1,3 +1,54 @@
+"""
+MIT License
+
+Copyright (c) 2020-present shay (shayypy)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+------------------------------------------------------------------------------
+
+This project includes code from https://github.com/Rapptz/discord.py, which is
+available under the MIT license:
+
+The MIT License (MIT)
+
+Copyright (c) 2015-present Rapptz
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+"""
+
 import aiohttp
 import asyncio
 import concurrent.futures
@@ -34,6 +85,7 @@ class GuildedWebSocket:
         # ws
         self.socket = socket
         self._close_code = None
+        self.team_id = None
 
         # actual gateway garbage
         self.sid = None
@@ -44,9 +96,10 @@ class GuildedWebSocket:
         # dependencies, and thus fewer links in the chain.
 
     async def send(self, payload, *, raw=False):
-        if raw is True:
+        if raw is False:
             payload = f'42{json.dumps(payload)}'
 
+        self.client.dispatch('socket_raw_send', payload)
         return await self.socket.send_str(payload)
 
     @property
@@ -65,6 +118,7 @@ class GuildedWebSocket:
             log.info('Connected')
 
         ws = cls(socket, client, loop=loop or asyncio.get_event_loop())
+        ws.team_id = gateway_args.get('teamId')
         ws._parsers = WebSocketEventParsers(client)
         await ws.send(GuildedWebSocket.HEARTBEAT_PAYLOAD, raw=True)
         await ws.poll_event()
@@ -98,12 +152,16 @@ class GuildedWebSocket:
         self.client.dispatch('socket_response', data)
         log.debug('Received %s', data)
 
-        if data.get('sid'): 
+        if data.get('sid') is not None:
             # hello
             self.sid = data['sid']
             self.upgrades = data['upgrades']
-            self._heartbeater = Heartbeater(ws=self, interval=data['pingInterval'] / 1000)#, timeout=60.0) # data['pingTimeout']
-            await self.send(self.HEARTBEAT_PAYLOAD, raw=True)
+            self._heartbeater = Heartbeater(ws=self, interval=data['pingInterval'] / 1000)
+            # maybe implement timeout later, idk
+            
+            #await self.send(self.HEARTBEAT_PAYLOAD, raw=True)
+            # not sure if a heartbeat should be sent here since it's sent when starting the heartbeater anyway
+            # (doing so results in double heartbeat)
             self._heartbeater.start()
             return
 
@@ -268,7 +326,7 @@ class WebSocketEventParsers:
         if not data.get('amount'): return
         team = self.client.get_team(data['teamId'])
         if team is None: return
-        before = team.get_member(data['userIds'][0])
+        before = team.get_member(data['userIds'][0] if data.get('userIds') else data['userId'])
         if before is None: return
 
         after = team.get_member(before.id)
@@ -277,7 +335,7 @@ class WebSocketEventParsers:
         self.client.dispatch('member_update', before, after)
 
     async def TeamMemberUpdated(self, data):
-        raw_after = Member(state=self.client.http, data=data)
+        raw_after = Member(state=self._state, data=data)
         self.client.dispatch('raw_member_update', raw_after)
 
         team = self.client.get_team(data['teamId'])
