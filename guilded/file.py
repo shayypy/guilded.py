@@ -204,17 +204,14 @@ class Attachment:
     file_type: Optional[:class:`FileType`]
         The type of file (image, video).
     caption: Optional[:class:`str`]
-        The attachment's caption. This is probably not the actual caption
-        value when present, it's just an attribute of image blocks that I
-        figured I'd use in this class.
+        The attachment's caption. (this is a placeholder)
     """
     def __init__(self, *, state, data, **extra):
         self._state = state
         self.file_type = getattr(FileType, data.get('type'), None)
         self.type = extra.get('type') or MediaType.attachment
         self.url = data.get('data', {}).get('src')
-        self.caption = data.get('nodes', [{}])[0].get('leaves', [{}])[0].get('text', '')
-        # i guess that's what this field is, no idea.
+        #self.caption = data.get('nodes', [{}])[0].get('leaves', [{}])[0].get('text', '')
 
     @property
     def filename(self):
