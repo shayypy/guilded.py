@@ -204,14 +204,43 @@ class Attachment:
     file_type: Optional[:class:`FileType`]
         The type of file (image, video).
     caption: Optional[:class:`str`]
-        The attachment's caption. (this is a placeholder)
+        The attachment's caption. This probably won't be present in message
+        attachments.
     """
     def __init__(self, *, state, data, **extra):
         self._state = state
         self.file_type = getattr(FileType, data.get('type'), None)
         self.type = extra.get('type') or MediaType.attachment
         self.url = data.get('data', {}).get('src')
-        #self.caption = data.get('nodes', [{}])[0].get('leaves', [{}])[0].get('text', '')
+        if data.get('nodes'):
+            node = data['nodes'][0] or {}
+            if node.get('type') == 'image-caption-line':
+                caption = ''
+                for leaf in node.get('leaves', []):
+                    if not leaf.get('marks'):
+                        caption += leaf['text']
+                    else:
+                        to_mark = '{unmarked_content}'
+                        for mark in leaf['marks']:
+                            if mark['type'] == 'bold':
+                                to_mark = '**' + to_mark + '**'
+                            elif mark['type'] == 'italic':
+                                to_mark = '*' + to_mark + '*'
+                            elif mark['type'] == 'underline':
+                                to_mark = '__' + to_mark + '__'
+                            elif mark['type'] == 'strikethrough':
+                                to_mark = '~~' + to_mark + '~~'
+                            elif mark['type'] == 'spoiler':
+                                to_mark = '||' + to_mark + '||'
+                            else:
+                                pass
+                        caption += to_mark.format(
+                            unmarked_content=str(leaf['text'])
+                        )
+
+                self.caption = caption
+            else:
+                self.caption = None
 
     @property
     def filename(self):
