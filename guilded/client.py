@@ -57,6 +57,7 @@ import traceback
 import aiohttp
 
 from .errors import NotFound
+from .embed import Embed
 from .gateway import GuildedWebSocket, WebSocketClosure
 from .http import HTTPClient
 from .presence import Presence
@@ -581,6 +582,7 @@ class Client:
         Returns
         ---------
         :class:`dict`
+            The whole game list (`viewable here <https://github.com/GuildedAPI/datatables/blob/main/games.json>`_)
         """
         return await self.http.get_game_list()
 
@@ -613,3 +615,56 @@ class Client:
 
     async def change_presence(self, *args):
         pass
+
+    async def fetch_subdomain(self, subdomain: str):
+        """|coro|
+
+        Check if a subdomain (profile/team vanity url) is available.
+
+        Returns
+        --------
+        Optional[Union[:class:`User`, :class:`Team`]]
+            The user or team that is using this subdomain.
+        """
+        value = await self.http.check_subdomain(subdomain)
+        if (value or {}).get('exists') == True:
+            # currently this endpoint returns {} if the subdomain does not
+            # exist, but just in case it eventually returns 204 or whatever,
+            # we check more explicitly instead.
+            if value.get('teamId'):
+                using_subdomain = await self.getch_team(value.get('teamId'))
+            elif value.get('userId'):
+                using_subdomain = await self.getch_user(value.get('userId'))
+
+            return using_subdomain
+
+        else:
+            return None
+
+    async def fetch_metadata(self, route: str):
+        """|coro|
+
+        This is essentially a barebones wrapper method for the Get Metadata
+        endpoint; it returns raw JSON data from the metadata route provided.
+
+        Returns
+        --------
+        :class:`dict`
+        """
+        data = await self.http.get_metadata(route)
+        return data
+
+    async def fetch_link_embed(self, url: str):
+        """|coro|
+
+        Fetch the OpenGraph data for a URL. The request made here is to
+        Guilded, not directly to the website, so any images will contain
+        proxy URLs.
+
+        Returns
+        --------
+        :class:`Embed`
+        """
+        data = await self.http.get_embed_for_url(url)
+        embed = Embed.from_unfurl_dict(data)
+        return embed

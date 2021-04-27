@@ -149,11 +149,13 @@ class Embed:
 
     @classmethod
     def from_dict(cls, data):
-        """Converts a :class:`dict` to a :class:`Embed` provided it is in the
-        format that Discord expects it to be in.
-        You can find out about this format in the `official Discord documentation`__.
-        .. _DiscordDocs: https://discord.com/developers/docs/resources/channel#embed-object
-        __ DiscordDocs_
+        """Converts a :class:`dict` to a :class:`Embed`, provided it is in the
+        format that Guilded expects it to be in.
+
+        This format is identical to Discord's format for embeds, but you can
+        find `documentation about it here <https://guildedapi.com/resources/
+        channel/embed-object>`_ anyway.
+
         Parameters
         -----------
         data: :class:`dict`
@@ -199,6 +201,50 @@ class Embed:
                 setattr(self, '_' + attr, value)
 
         return self
+
+    @classmethod
+    def from_unfurl_dict(cls, data):
+        """Similar to :meth:`Embed.from_dict`, but for embed data returned by
+        the `Get Embed for URL <https://guildedapi.com/resources/channel#get-
+        embed-for-url>`_ endpoint.
+
+        You probably won't have to use this yourself.
+        """
+        data['type'] = 'link'
+        try:
+            data['title'] = data.pop('ogTitle')
+        except KeyError:
+            pass
+
+        try:
+            data['description'] = data.pop('ogDescription')
+        except KeyError:
+            pass
+
+        try:
+            data['url'] = data.pop('ogUrl')
+        except KeyError:
+            pass
+
+        try:
+            data['provider'] = data.pop('ogSiteName')
+        except KeyError:
+            pass
+
+        try:
+            data['thumbnail'] = {}
+            data['thumbnail']['url'] = data.pop('ogImage')['url']
+        except KeyError:
+            del data['thumbnail']
+
+        try:
+            data['video'] = {}
+            data['video']['url'] = data.pop('ogVideo')['url']
+        except KeyError:
+            del data['video']
+
+        embed = Embed.from_dict(data)
+        return embed
 
     def copy(self):
         """Returns a shallow copy of the embed."""
