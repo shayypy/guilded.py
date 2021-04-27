@@ -104,6 +104,16 @@ class MessageMention:
     def __str__(self):
         return self.name or ''
 
+class Link:
+    """A link within a message. Basically represents a markdown link."""
+    def __init__(self, url, *, name=None, title=None):
+        self.url = url
+        self.name = name
+        self.title = title
+
+    def __str__(self):
+        return self.url
+
 class Message:
     """A message in Guilded.
 
@@ -158,6 +168,7 @@ class Message:
         self.raw_role_mentions = []
         self.embeds = []
         self.attachments = []
+        self.links = []
         self.content = self._get_full_content()
 
     def __str__(self):
@@ -259,9 +270,14 @@ class Message:
                             rtext = element['nodes'][0]['leaves'][0]['text']
                             content += str(rtext)
                         elif element['type'] == 'link':
-                            l1 = element['nodes'][0]['leaves'][0]['text']
-                            l2 = element['data']['href']
-                            content += f'[{l1}]({l2})'
+                            link_text = element['nodes'][0]['leaves'][0]['text']
+                            link_href = element['data']['href']
+                            link = Link(link_href, name=link_text)
+                            self.links.append(link)
+                            if link.url != link.name:
+                                content += f'[{link.name}]({link.url})'
+                            else:
+                                content += link.url
                         elif element['type'] == 'channel':
                             channel = element['data']['channel']
                             content += f'<#{channel.get("id")}>'

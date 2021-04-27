@@ -100,7 +100,7 @@ class Team:
 
         for member in data.get('members', []):
             self._state.add_to_member_cache(
-                self.state._get_team_member(self.id, member.get('id')) or Member(state=self._state, data=member)
+                self._state._get_team_member(self.id, member.get('id')) or Member(state=self._state, data=member)
             )
         #self.members = data.get('members', [])
         self.bots = data.get('bots', [])
