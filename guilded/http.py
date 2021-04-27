@@ -202,6 +202,8 @@ class HTTPClient:
 
         return await perform()
 
+    # state
+
     async def login(self, email, password):
         self.email = email
         self.password = password
@@ -237,6 +239,9 @@ class HTTPClient:
     def ping(self):
         return self.request(Route('PUT', '/users/me/ping'))
 
+    # /channels
+    # (message interfacing)
+
     def send_message(self, channel_id: str, content):
         route = Route('POST', f'/channels/{channel_id}/messages')
         payload = {
@@ -265,31 +270,6 @@ class HTTPClient:
                 blank_node['nodes'].append({'object':'text', 'leaves': [{'object': 'leaf', 'text': str(node), 'marks': []}]})
 
             payload['content']['document']['nodes'].append(blank_node)
-
-        #if content:
-        #    payload['content']['document']['nodes'].append({
-        #        'object': 'block', 
-        #        'type': 'markdown-plain-text', 
-        #        'data': {},
-        #        'nodes': [{'object':'text', 'leaves': [{'object': 'leaf', 'text': str(content), 'marks': []}]}]
-        #    })
-
-        #if embeds:
-        #    payload['content']['document']['nodes'].append({
-        #        'object': 'block',
-        #        'type': 'webhookMessage',
-        #        'data': {'embeds': embeds},
-        #        'nodes': []
-        #    })
-
-        #if files:
-        #    for file in files:
-        #        payload['content']['document']['nodes'].append({
-        #            'object': 'block',
-        #            'type': file.file_type,
-        #            'data': {'src': file.url},
-        #            'nodes': []
-        #        })
 
         return self.request(route, json=payload), payload
 
@@ -361,11 +341,16 @@ class HTTPClient:
     def delete_message(self, channel_id: str, message_id: str):
         return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}'))
 
-    def trigger_typing(self, channel_id):
-        return self.ws.send(['ChatChannelTyping', {'channelId': channel_id}])
+    def add_message_reaction(self, channel_id: str, message_id: str, emoji_id: int):
+        return self.request(Route('POST', f'/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}'))
 
-    def search_teams(self, query):
-        return self.request(Route('GET', '/search'), params={'query': query, 'entityType': 'team'})
+    def remove_self_message_reaction(self, channel_id: str, message_id: str, emoji_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}'))
+
+    def get_channel_messages(self, channel_id: str, *, limit: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/messages'), params={'limit': limit})
+
+    # /teams
 
     def join_team(self, team_id):
         return self.request(Route('PUT', f'/teams/{team_id}/members/{self.my_id}/join'))
@@ -373,64 +358,11 @@ class HTTPClient:
     def leave_team(self, team_id):
         return self.request(Route('DELETE', f'/teams/{team_id}/members/{self.my_id}'))
 
-    def accept_invite(self, invite_code):
-        return self.request(Route('PUT', f'/invites/{invite_code}'), json={'type': 'consume'})
-
     def create_team_invite(self, team_id):
         return self.request(Route('POST', f'/teams/{team_id}/invites'), json={'teamId': team_id})
 
-    def update_activity(self, activity, *, expires: Union[int, datetime.datetime] = 0):
-        payload = {
-            'content': {'document': {
-                'object': 'document',
-                'data': [],
-                'nodes': []
-            }}
-        }
-        payload['content']['document']['nodes'].append({
-            'object': 'text',
-            'leaves': [{
-                'object': 'leaf',
-                'text': activity.details,
-                'marks': []
-            }]
-        })
-        if activity.emoji:
-            payload['customReactionId'] = activity.emoji.id
-            payload['customReaction'] = activity.emoji._raw
-        if type(expires) == datetime.datetime:
-            if expires.tzinfo is None:
-                expires = expires.replace(tzinfo=datetime.timezone.utc)
-            now = datetime.datetime.now(datetime.timezone.utc)
-            expires = (expires - now).total_seconds()
-
-        payload['expireInMs'] = expires * 1000
-
-        return self.request(
-            Route('POST', '/users/me/status'),
-            json=payload
-        )
-
     def delete_team_emoji(self, team_id: str, emoji_id: int):
         return self.request(Route('DELETE', f'/teams/{team_id}/emoji/{emoji_id}'))
-
-    def upload_file(self, file):
-        return self.request(Route('POST', '/media/upload', override_base=Route.MEDIA_BASE),
-            data={'file': file._bytes},
-            params={'dynamicMediaTypeId': str(file.type)}
-        )
-
-    def read_filelike_data(self, filelike):
-        return self.request(Route('GET', filelike.url, override_base=Route.NO_BASE))
-
-    def get_user(self, user_id: str, *, as_object=False):
-        if as_object is False:
-            return self.request(Route('GET', f'/users/{user_id}'))
-        else:
-            async def get_user_as_object():
-                data = await self.request(Route('GET', f'/users/{user_id}'))
-                return User(state=self, data=data)
-            return get_user_as_object()
 
     def get_team(self, team_id: str):
         return self.request(Route('GET', f'/teams/{team_id}'))
@@ -504,20 +436,16 @@ class HTTPClient:
     def delete_team_channel(self, team_id: str, group_id: str, channel_id: str):
         return self.request(Route('DELETE', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{channel_id}'))
 
-    def get_channel_messages(self, channel_id: str, *, limit: int):
-        return self.request(Route('GET', f'/channels/{channel_id}/messages'), params={'limit': limit})
+    # /users
 
-    def get_channel_message(self, channel_id: str, message_id: str):
-        return self.request(Route('GET', f'/content/route/metadata?route=//channels/{channel_id}/chat?messageId={message_id}'))
-
-    def get_game_list(self):
-        return self.request(Route('GET', 'https://raw.githubusercontent.com/GuildedAPI/datatables/main/games.json', override_base=Route.NO_BASE))
-
-    def add_message_reaction(self, channel_id: str, message_id: str, emoji_id: int):
-        return self.request(Route('POST', f'/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}'))
-
-    def remove_self_message_reaction(self, channel_id: str, message_id: str, emoji_id: int):
-        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}'))
+    def get_user(self, user_id: str, *, as_object=False):
+        if as_object is False:
+            return self.request(Route('GET', f'/users/{user_id}'))
+        else:
+            async def get_user_as_object():
+                data = await self.request(Route('GET', f'/users/{user_id}'))
+                return User(state=self, data=data)
+            return get_user_as_object()
 
     def get_privacy_settings(self):
         return self.request(Route('GET', '/users/me/privacysettings'))
@@ -527,3 +455,81 @@ class HTTPClient:
             'allowDMsFrom': str(dms),
             'allowFriendRequestsFrom': str(friend_requests)
         }))
+
+    def update_activity(self, activity, *, expires: Union[int, datetime.datetime] = 0):
+        payload = {
+            'content': {'document': {
+                'object': 'document',
+                'data': [],
+                'nodes': []
+            }}
+        }
+        payload['content']['document']['nodes'].append({
+            'object': 'text',
+            'leaves': [{
+                'object': 'leaf',
+                'text': activity.details,
+                'marks': []
+            }]
+        })
+        if activity.emoji:
+            payload['customReactionId'] = activity.emoji.id
+            payload['customReaction'] = activity.emoji._raw
+        if type(expires) == datetime.datetime:
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            expires = (expires - now).total_seconds()
+
+        payload['expireInMs'] = expires * 1000
+
+        return self.request(Route('POST', '/users/me/status'), json=payload)
+
+    # /content
+
+    def get_metadata(self, route: str):
+        return self.request(Route('GET', '/content/route/metadata'), params={'route': route})
+
+    def get_channel_message(self, channel_id: str, message_id: str):
+        return self.get_metadata(f'//channels/{channel_id}/chat?messageId={message_id}')
+
+    def get_embed_for_url(self, url: str):
+        return self.request(Route('GET', '/content/embed_info'), params={'url': url})
+
+    def get_form_data(self, form_id: int):
+        if not isinstance(form, int):
+            raise TypeError('form_id must be type int, not %s' % type(isinstance).__class__.__name__)
+        return self.request(Route('GET', f'/content/custom_forms/{form_id}'))
+
+    # media.guilded.gg
+
+    def upload_file(self, file):
+        return self.request(Route('POST', '/media/upload', override_base=Route.MEDIA_BASE),
+            data={'file': file._bytes},
+            params={'dynamicMediaTypeId': str(file.type)}
+        )
+
+    def execute_webhook(self, webhook_id: str, webhook_token: str, data: dict):
+        return self.request(Route('POST', f'/webhooks/{webhook_id}/{webhook_token}', override_base=Route.MEDIA_BASE), json=data)
+
+    # one-off
+
+    def check_subdomain(self, subdomain: str):
+        return self.request(Route('GET', f'/subdomains/{subdomain}'))
+
+    def search_teams(self, query):
+        return self.request(Route('GET', '/search'), params={'query': query, 'entityType': 'team'})
+
+    def get_game_list(self):
+        return self.request(Route('GET', 'https://raw.githubusercontent.com/GuildedAPI/datatables/main/games.json', override_base=Route.NO_BASE))
+
+    def accept_invite(self, invite_code):
+        return self.request(Route('PUT', f'/invites/{invite_code}'), json={'type': 'consume'})
+
+    def read_filelike_data(self, filelike):
+        return self.request(Route('GET', filelike.url, override_base=Route.NO_BASE))
+
+    # websocket
+
+    def trigger_typing(self, channel_id: str):
+        return self.ws.send(['ChatChannelTyping', {'channelId': channel_id}])
