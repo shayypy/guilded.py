@@ -51,6 +51,10 @@ DEALINGS IN THE SOFTWARE.
 
 import abc
 
+try: import discord
+except ModuleNotFoundError: discord_compat = False
+else: discord_compat = True
+
 from .activity import Activity
 from .asset import Asset
 from .embed import _EmptyEmbed, Embed

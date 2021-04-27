@@ -108,3 +108,12 @@ class ClientUser(guilded.abc.User):
         user = data.get('user', data)
 
         self.devices = [Device(device_data) for device_data in user.get('devices', [])]
+
+    async def edit_settings(self, **kwargs):
+        """|coro|
+        """
+        payload = {}
+        try:
+            payload['useLegacyNav'] = kwargs.pop('legacy_navigation')
+        except KeyError:
+            pass

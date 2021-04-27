@@ -71,6 +71,7 @@ class MediaType(Enum):
     group_icon = 'GroupAvatar'
     group_avatar = 'GroupAvatar'
     group_banner = 'GroupBanner'
+    embed_image = 'ExternalOGEmbedImage'
 
     def __str__(self):
         return self.value
