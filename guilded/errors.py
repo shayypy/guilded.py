@@ -50,34 +50,57 @@ DEALINGS IN THE SOFTWARE.
 """
 
 class GuildedException(Exception):
-    '''Base class for all guilded.py exceptions.'''
+    """Base class for all guilded.py exceptions."""
     pass
 
 class ClientException(GuildedException):
     pass
 
 class HTTPException(GuildedException):
-    '''A non-ok response from Guilded was returned whilst performing an HTTP request.'''
-    pass
+    """A non-ok response from Guilded was returned whilst performing an HTTP request.
+
+    Attributes
+    -----------
+    response: :class:`aiohttp.ClientResponse`
+        The :class:`aiohttp.ClientResponse` of the failed request.
+    status: :class:`int`
+        The HTTP status code of the request.
+    code: :class:`str`
+        A PascalCase representation of the HTTP status code. Could also be
+        called the error's name. Probably not useful in most cases.
+    message: :class:`str`
+        The message that came with the error.
+    """
+    def __init__(self, response, data):
+        self.response = response
+        self.status = response.status
+        if isinstance(data, dict):
+            self.message = data.get('message', data)
+            self.code = data.get('code', 'UnknownCode')
+        else:
+            self.message = data
+            self.code = ''
+
+        super().__init__(f'{self.status} ({self.code}): {self.message}')
 
 class BadRequest(HTTPException):
-    '''400'''
+    """Thrown on status code 400"""
     pass
 
 class Forbidden(HTTPException):
-    '''403'''
+    """Thrown on status code 403"""
     pass
 
 class NotFound(HTTPException):
-    '''404'''
+    """Thrown on status code 404"""
     pass
 
 class TooManyRequests(HTTPException):
-    '''429'''
+    """Thrown on status code 429"""
     pass
 
 class GuildedServerError(HTTPException):
-    '''500'''
+    """Thrown on status code 500"""
     pass
 
 error_mapping = {

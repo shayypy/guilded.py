@@ -101,19 +101,19 @@ class Converter:
 
 class BasicIDConverter(Converter):
     def __init__(self):
-        self._id_regex = re.compile(r'([a-zA-Z0-9]{8})$')
+        self._id_regex = r'([a-zA-Z0-9]{8})'
         super().__init__()
 
     def _get_id_match(self, argument):
-        return self._id_regex.match(argument)
+        return re.search(self._id_regex, argument)
 
 class UUIDConverter(Converter):
     def __init__(self):
-        self._id_regex = re.compile(r'(\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b)$')
+        self._id_regex = r'(\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b)'
         super().__init__()
 
     def _get_id_match(self, argument):
-        return self._id_regex.match(argument)
+        return re.search(self._id_regex, argument)
 
 class MemberConverter(BasicIDConverter):
     """Converts to a :class:`~guilded.Member`.
@@ -127,13 +127,12 @@ class MemberConverter(BasicIDConverter):
     2. Lookup by mention.
     3. Lookup by name
     4. Lookup by nickname
-    5. Lookup by subdomain (vanity URL)
     """
 
     def find_member_named(self, team, argument):
-        # Guilded doesn't really have a query-members-through-gateway ability
-        # so instead we only search cache here.
-        return discord.utils.find(lambda m: m.name == argument or m.nick == argument, team.members)
+        # Guilded doesn't really have a query-members-through-gateway ability,
+        # so instead we just search the internal cache.
+        return guilded.utils.find(lambda m: m.name == argument or m.nick == argument, team.members)
 
     async def convert(self, ctx, argument):
         bot = ctx.bot
@@ -149,6 +148,7 @@ class MemberConverter(BasicIDConverter):
             #    result = _get_from_teams(bot, 'get_member_named', argument)
 
             # i'm too tired to implement get_member_named right now
+
             result = self.find_member_named(team, argument)
         else:
             user_id = match.group(1)
@@ -162,7 +162,7 @@ class MemberConverter(BasicIDConverter):
                 raise MemberNotFound(argument)
 
             if user_id is not None:
-                result = await self.fetch_member_by_id(bot, team, user_id)
+                result = await team.getch_member(user_id)
             else:
                 result = self.find_member_named(team, argument)
 

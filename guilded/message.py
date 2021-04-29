@@ -245,27 +245,28 @@ class Message:
                         if element['type'] == 'mention':
                             mentioned = element['data']['mention']
                             if mentioned['type'] == 'role':
-                                content += f'<@&{mentioned["id"]}>'
+                                content += f'<@{mentioned["id"]}>'
                             elif mentioned['type'] == 'person':
                                 content += f'<@{mentioned["id"]}>'
-                                #name = mentioned.get('name')
-                                #if mentioned.get('nickname') is True and mentioned.get('matcher') is not None:
-                                #    name = name.strip('@').strip(name).strip('@')
-                                #    if not name.strip():
-                                #        # matcher might be empty, oops - no username is available
-                                #        name = None
 
                                 self.raw_mentions.append(f'<@{mentioned["id"]}>')
                                 member = self._state._get_team_member(self.team_id, mentioned['id'])
                                 if member:
                                     self.mentions.append(member)
-                                #self.mentions.append(Member(state=self._state, data={
-                                #    'name': name,
-                                #    'profilePicture': mentioned.get('avatar'),
-                                #    'colour': parse_hex_number(mentioned.get('color', '000000').strip('#')),
-                                #    'id': mentioned.get('id'),
-                                #    'nickname': mentioned.get('name') if mentioned.get('nickname') is True else None
-                                #}))
+                                else:
+                                    name = mentioned.get('name')
+                                    if mentioned.get('nickname') is True and mentioned.get('matcher') is not None:
+                                        name = name.strip('@').strip(name).strip('@')
+                                        if not name.strip():
+                                            # matcher might be empty, oops - no username is available
+                                            name = None
+                                    self.mentions.append(self._state.create_member(data={
+                                        'name': name,
+                                        'profilePicture': mentioned.get('avatar'),
+                                        'colour': parse_hex_number(mentioned.get('color', '000000').strip('#')),
+                                        'id': mentioned.get('id'),
+                                        'nickname': mentioned.get('name') if mentioned.get('nickname') is True else None
+                                    }))
                         elif element['type'] == 'reaction':
                             rtext = element['nodes'][0]['leaves'][0]['text']
                             content += str(rtext)
@@ -281,9 +282,12 @@ class Message:
                         elif element['type'] == 'channel':
                             channel = element['data']['channel']
                             content += f'<#{channel.get("id")}>'
-                            #self.channel_mentions.append(TeamChannel(state=self._state, group=None, team=self.team, data={
-                            #    'name': channel.get('name'),
-                            #    'id': channel.get('id')
+                            #self.channel_mentions.append(self._state.create_team_channel(
+                            #    group=None,
+                            #    team=self.team,
+                            #    data={
+                            #        'name': channel.get('name'),
+                            #        'id': channel.get('id')
                             #}))
 
             elif node_type == 'markdown-plain-text':

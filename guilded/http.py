@@ -56,6 +56,7 @@ import logging
 from typing import Union
 
 from . import utils
+#from .channel import TeamChannel
 from .embed import Embed
 from .errors import ClientException, HTTPException, error_mapping
 from .file import File
@@ -195,8 +196,8 @@ class HTTPClient:
                         #raise TooManyRequests(response)
 
                 elif response.status >= 400:
-                    error = error_mapping.get(response.status, HTTPException)(f'{data.get("code")}: {data.get("message")}')
-                    raise error
+                    exception = error_mapping.get(response.status, HTTPException)
+                    raise exception(response, data)
 
             return data if route.path != '/login' else response
 
@@ -533,3 +534,11 @@ class HTTPClient:
 
     def trigger_typing(self, channel_id: str):
         return self.ws.send(['ChatChannelTyping', {'channelId': channel_id}])
+
+    # create objects from data
+
+    def create_member(self, **data):
+        return Member(state=self, **data)
+
+    def create_team_channel(self, **data):
+        return TeamChannel(state=self, **data)
