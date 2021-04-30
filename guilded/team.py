@@ -294,6 +294,21 @@ class Team:
         than performing :meth:`Team.fetch_members` and filtering the list
         yourself, with the exception of being able to shorthand-get full user
         data.
+
+        Parameters
+        -----------
+        id: :class:`str`
+            The member's id to fetch
+        full: :class:`bool`
+            Whether to fetch full user data for this member. If this is
+            ``False``, a partial member will be returned with only the
+            member's id, name, and ocassionally avatar & banner. Defaults
+            to ``True``
+
+        Returns
+        --------
+        :class:`Member`
+            The member from their id
         """
         members = await self._state.get_team_members(self.id)
         if full is True:
