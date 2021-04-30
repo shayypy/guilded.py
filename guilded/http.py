@@ -372,7 +372,7 @@ class HTTPClient:
         return self.request(Route('GET', f'/teams/{team_id}/members'))
 
     def get_team_member(self, team_id: str, user_id: str, *, as_object=False):
-        if as_bbject is False:
+        if as_object is False:
             return self.request(Route('GET', f'/teams/{team_id}/members/{user_id}'))
         else:
             async def get_team_member_as_object():
@@ -436,6 +436,37 @@ class HTTPClient:
 
     def delete_team_channel(self, team_id: str, group_id: str, channel_id: str):
         return self.request(Route('DELETE', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{channel_id}'))
+
+    def create_team_ban(self, team_id: str, user_id: str, *, reason: str = None, after: datetime.datetime = None):
+        payload = {'memberId': user_id, 'teamId': team_id, 'reason': reason or ''}
+
+        if isinstance(after, datetime.datetime):
+            payload['afterDate'] = after.isoformat()
+        elif after is not None:
+            raise TypeError('after must be type datetime.datetime, not %s' % after.__class__.__name__)
+        else:
+            payload['afterDate'] = None
+
+        return self.request(Route('DELETE', f'/teams/{team_id}/members/ban'), json=payload)
+
+    def remove_team_ban(self, team_id: str, user_id: str):
+        payload = {'memberId': user_id, 'teamId': team_id}
+        return self.request(Route('PUT', f'/teams/{team_id}/members/{user_id}/ban'), json=payload)
+
+    def get_team_bans(self, team_id: str):
+        return self.request(Route('GET', f'/teams/{team_id}/members/ban'))
+
+    def remove_team_member(self, team_id: str, user_id: str):
+        return self.request(Route('DELETE', f'/teams/{team_id}/members/{user_id}'))
+
+    def leave_team(self, team_id: str):
+        return self.remove_team_member(team_id, self.my_id)
+
+    def set_team_member_xp(self, team_id: str, user_id: str, xp: int):
+        if not isinstance(xp, int):
+            raise TypeError('xp must be type int, not %s' % xp.__class__.__name__)
+
+        return self.request(Route('PUT', f'/teams/{team_id}/members/{user_id}/xp'), json={'amount': xp})
 
     # /users
 
