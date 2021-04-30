@@ -63,7 +63,7 @@ from .utils import ISO8601
 
 
 class SocialInfo:
-    '''Represents the set social media connections for a :class:`Team`.'''
+    """Represents the set social media connections for a :class:`Team`."""
     def __init__(self, **fields):
         self.twitter = None
         self.facebook = None
@@ -80,7 +80,7 @@ class TeamTimezone(datetime.tzinfo):
     pass
 
 class Team:
-    '''Represents a team (or "server") in Guilded.'''
+    """Represents a team (or "server") in Guilded."""
     def __init__(self, *, state, data, ws=None):
         self._state = state
         self.ws = ws
@@ -151,47 +151,64 @@ class Team:
 
     @property
     def me(self):
+        """Your own member object in this team."""
         return self.get_member(self._state.my_id)
 
     @property
     def members(self):
+        """The cached list of members in this team. Many objects may not
+        have all the desired information due to the Get Team Members endpoint
+        returning partial objects.
+        """
         return list(self._state._team_members.get(self.id, {}).values())
 
     def get_member(self, id):
+        """Get a member by their ID from the internal cache."""
         return self._state._get_team_member(self.id, id)
 
     async def ws_connect(self, client):
-        '''Connect to the team's websocket.'''
+        """|coro|
+
+        Connect to the team's websocket.
+        """
         if self.ws is None:
             team_ws_build = GuildedWebSocket.build(client, loop=client.loop, teamId=self.id)
             self.ws = await asyncio.wait_for(team_ws_build, timeout=60)
 
     async def delete(self):
-        '''Delete the team. You must be the team owner to do this.'''
+        """|coro|
+
+        Delete the team. You must be the team owner to do this.
+        """
         return await self._state.delete_team(self.id)
 
     async def leave(self):
-        '''Leave the team.'''
+        """|coro|
+
+        Leave the team.
+        """
         return await self._state.leave_team(self.id)
 
     async def create_chat_channel(self, *, name: str, category=None, public=False, group=None):
-        '''Create a new chat (text) channel in the team.
+        """|coro|
+
+        Create a new chat (text) channel in the team.
 
         Parameters
-        ==========
-        name
+        -----------
+        name: :class:`str`
             the channel's name. can include spaces.
-        category
+        category: :class:`TeamCategory`
             the :class:`TeamCategory` to create this channel under. if not provided, it will be created under the "Channels" header in the interface (no category).
-        public
+        public: :class:`bool`
             whether or not this channel and its contents should be visible to people who aren't part of the server. defaults to false.
-        group
+        group: :class:`Group`
             the :class:`Group` to create this channel in. if not provided, defaults to the base group.
 
         Returns
-        =======
+        --------
         :class:`ChatChannel`
-        '''
+        """
 
         return await self._state.create_team_channel(
             type='chat',
@@ -203,7 +220,7 @@ class Team:
         )
 
     async def fetch_channels(self):
-        '''Fetch the list of :class:`TeamChannel`s in this team.'''
+        """Fetch the list of :class:`TeamChannel`s in this team."""
         channels = await self._state.get_team_channels(self.id)
         channel_list = []
         data = {'state': self._state, 'group': None, 'team': self}
@@ -248,7 +265,15 @@ class Team:
         raise NotFound(f'Channel with the ID "{id}" not found.')
 
     async def fetch_members(self):
-        '''Fetch the list of :class:Member s in this team.'''
+        """|coro|
+
+        Fetch the list of :class:`guilded.Member`s in this team.
+
+        .. warning::
+            Guilded returns only partial member data. You will have, at the
+            least, :attr:`Member.id` and :attr:`Member.name`, and sometimes
+            :attr:`Member.avatar_url` and :attr:`Member.banner`.
+        """
         members = await self._state.get_team_members(self.id)
         member_list = []
         for member in members.get('members', members):
@@ -261,14 +286,24 @@ class Team:
 
         return member_list
 
-    async def fetch_member(self, id: str):
-        '''Fetch a specific :class:Member in this team. Guilded does not actually have an endpoint \
-        for this, so it is no more efficient than performing :class:Team.fetch_members and filtering \
-        the list yourself, and exists solely for convenience.'''
+    async def fetch_member(self, id: str, *, full=True):
+        """|coro|
+
+        Fetch a specific :class:`guilded.Member` in this team. Guilded does
+        not actually have an endpoint for this, so it is no more efficient
+        than performing :meth:`Team.fetch_members` and filtering the list
+        yourself, with the exception of being able to shorthand-get full user
+        data.
+        """
         members = await self._state.get_team_members(self.id)
+        if full is True:
+            user_data = await self._state.get_user(id)
+        else:
+            user_data = {}
         for member in members.get('members', members):
             if member['id'] == id:
-                return Member(state=self._state, data=member)
+                data = {**member, **user_data}
+                return Member(state=self._state, data=data)
 
         raise NotFound(f'Member with the ID "{id}" not found.')
 
@@ -276,10 +311,14 @@ class Team:
         return self.get_member(id) or await self.fetch_member(id)
 
     async def create_invite(self):
-        '''Create an invite to this team.
+        """|coro|
+
+        Create an invite to this team.
 
         Returns
-            :class:`str` - the invite code that was created
-        '''
+        --------
+        :class:`str`
+            the invite code that was created
+        """
         invite = await self._state.create_team_invite(self.id)
         return invite.get('invite', invite).get('id')
