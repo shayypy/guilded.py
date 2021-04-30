@@ -356,9 +356,6 @@ class HTTPClient:
     def join_team(self, team_id):
         return self.request(Route('PUT', f'/teams/{team_id}/members/{self.my_id}/join'))
 
-    def leave_team(self, team_id):
-        return self.request(Route('DELETE', f'/teams/{team_id}/members/{self.my_id}'))
-
     def create_team_invite(self, team_id):
         return self.request(Route('POST', f'/teams/{team_id}/invites'), json={'teamId': team_id})
 
