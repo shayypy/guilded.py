@@ -35,7 +35,7 @@ jobs:
       uses: remorses/pypi@v3
       with:
         # setup file
-        setup_file: # optional, default is ./setup.py
+        setup_file: ./setup.py
         # username
         username: ${{ secrets.user }}
         # password
