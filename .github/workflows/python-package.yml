@@ -36,7 +36,7 @@ jobs:
       with:
         # setup file
         setup_file: ./setup.py
-        # username
+        # usernam
         username: ${{ secrets.user }}
         # password
         password: ${{ secrets.pass }}
