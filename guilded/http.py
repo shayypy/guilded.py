@@ -60,6 +60,7 @@ from . import utils
 from .embed import Embed
 from .errors import ClientException, HTTPException, error_mapping
 from .file import File
+from .message import Message
 from .user import User, Member
 
 log = logging.getLogger(__name__)
@@ -86,7 +87,7 @@ class HTTPClient:
 
         self.email = None
         self.password = None
-        self.cookies = None
+        self.cookie = None
 
         self._max_messages = max_messages
         self._users = {}
@@ -209,13 +210,13 @@ class HTTPClient:
         self.email = email
         self.password = password
         response = await self.request(Route('POST', '/login'), json=self.credentials)
-        self.cookies = response.headers.get('Set-Cookie')
+        self.cookie = response.cookies['guilded_mid'].value
         data = await self.request(Route('GET', '/me'))
         return data
 
-    async def ws_connect(self, cookies=None, **gateway_args):
-        cookies = cookies or self.cookies
-        if not cookies:
+    async def ws_connect(self, cookie=None, **gateway_args):
+        cookie = cookie or self.cookie
+        if not cookie:
             raise ClientException(
                 'No authentication cookies available. Get these from '
                 'logging into the REST API at least once '
@@ -224,14 +225,14 @@ class HTTPClient:
         gateway_args = {**gateway_args,
             'jwt': 'undefined',
             'EIO': '3',
-            'transport': 'websocket'
+            'transport': 'websocket',
+            'guildedClientId': cookie
         }
 
         return await self.session.ws_connect(
             'wss://api.guilded.gg/socket.io/?{}'.format(
                 '&'.join([f'{key}={val}' for key, val in gateway_args.items()])
-            ),
-            headers={'cookie': cookies}
+            )
         )
 
     def logout(self):
@@ -380,6 +381,9 @@ class HTTPClient:
     def get_team_channels(self, team_id: str):
         return self.request(Route('GET', f'/teams/{team_id}/channels'))
 
+    def get_public_team_channel(self, team_id: str, channel_id: str):
+        return self.request(Route('GET', f'/teams/{team_id}/channels/{channel_id}'))
+
     def change_team_member_nickname(self, team_id: str, user_id: str, nickname: str):
         return self.request(Route('GET', f'/teams/{team_id}/members/{user_id}/nickname'), json={'nickname': nickname})
 
@@ -465,6 +469,12 @@ class HTTPClient:
 
         return self.request(Route('PUT', f'/teams/{team_id}/members/{user_id}/xp'), json={'amount': xp})
 
+    def archive_team_thread(self, team_id: str, group_id: str, thread_id: str):
+        return self.request(Route('PUT', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{thread_id}/archive'))
+
+    def restore_team_thread(self, team_id: str, group_id: str, thread_id: str):
+        return self.request(Route('PUT', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{thread_id}/restore'))
+
     # /users
 
     def get_user(self, user_id: str, *, as_object=False):
@@ -514,6 +524,9 @@ class HTTPClient:
 
         return self.request(Route('POST', '/users/me/status'), json=payload)
 
+    def leave_thread(self, thread_id: str):
+        return self.request(Route('DELETE', f'/users/{self.my_id}/channels/{thread_id}'))
+
     # /content
 
     def get_metadata(self, route: str):
@@ -522,13 +535,23 @@ class HTTPClient:
     def get_channel_message(self, channel_id: str, message_id: str):
         return self.get_metadata(f'//channels/{channel_id}/chat?messageId={message_id}')
 
+    def get_channel(self, channel_id: str):
+        return self.get_metadata(f'//channels/{channel_id}/chat')
+
     def get_embed_for_url(self, url: str):
         return self.request(Route('GET', '/content/embed_info'), params={'url': url})
 
     def get_form_data(self, form_id: int):
         if not isinstance(form, int):
-            raise TypeError('form_id must be type int, not %s' % type(isinstance).__class__.__name__)
+            raise TypeError('form_id must be type int, not %s' % form_id.__class__.__name__)
         return self.request(Route('GET', f'/content/custom_forms/{form_id}'))
+
+    #def submit_form_response(self, form_id: int, *options):
+    #    #payload = {'responseSpecs': 'values': {}}
+    #    #for option in options:
+    #    #    if option.type is None:pass
+
+    #    return self.request(Route('PUT', f'/content/custom_forms/{form_id}/responses'), json=payload)
 
     # media.guilded.gg
 
@@ -568,5 +591,26 @@ class HTTPClient:
     def create_member(self, **data):
         return Member(state=self, **data)
 
-    def create_team_channel(self, **data):
-        return TeamChannel(state=self, **data)
+    def create_channel(self, **data):
+        channel_data = data.get('data', data)
+        if channel_data.get('type', '').lower() == 'team':
+            ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
+            if ctype is channel.ChannelType.chat:
+                try:
+                    # we assume here that only threads will have this attribute
+                    # so from this we can reasonably know whether a channel is
+                    # a thread or not
+                    channel_data['threadMessageId']
+                except KeyError:
+                    return channel.ChatChannel(state=self, **data)
+                else:
+                    return channel.Thread(state=self, **data)
+            elif ctype is channel.ChannelType.voice:
+                return channel.VoiceChannel(state=self, **data)
+            elif ctype is channel.ChannelType.voice:
+                return channel.VoiceChannel(state=self, **data)
+        else:
+            return channel.DMChannel(state=self, **data)
+
+    def create_message(self, **data):
+        return Message(state=self, **data)
