@@ -220,7 +220,10 @@ class Team:
         )
 
     async def fetch_channels(self):
-        """Fetch the list of :class:`TeamChannel`s in this team."""
+        """|coro|
+
+        Fetch the list of :class:`TeamChannel`s in this team.
+        """
         channels = await self._state.get_team_channels(self.id)
         channel_list = []
         data = {'state': self._state, 'group': None, 'team': self}
@@ -257,12 +260,25 @@ class Team:
         return channel_list
 
     async def fetch_channel(self, id):
-        channels = await self.fetch_channels()
-        channel = next((channel for channel in channels if channel.id == id), None)
-        if channel:
-            return channel
+        """|coro|
 
-        raise NotFound(f'Channel with the ID "{id}" not found.')
+        Fetch a channel.
+
+        .. note::
+            The channel doesn't actually have to be part of the current team
+            because this endpoint just fetches the channel globally, and this
+            method will not artificially raise on team mismatch. If you want
+            to use this method to check if a channel is part of this team,
+            check the :attr:`abc.TeamChannel.team` attribute afterwards or use
+            :meth:`Team.get_channel` if your channel cache is enabled.
+        """
+        request = self._state.get_channel(id)
+        data = await request
+        channel = self._state.create_channel(data)
+        return channel
+
+    async def getch_channel(self, id):
+        return self.get_channel(id) or await self.fetch_channel(id)
 
     async def fetch_members(self):
         """|coro|
@@ -311,14 +327,14 @@ class Team:
             The member from their id
         """
         members = await self._state.get_team_members(self.id)
-        if full is True:
-            user_data = await self._state.get_user(id)
-        else:
-            user_data = {}
-        for member in members.get('members', members):
-            if member['id'] == id:
-                data = {**member, **user_data}
-                return Member(state=self._state, data=data)
+        member = next((member for member in members.get('members', []) if member.get('id') == id), None)
+        if member is not None:
+            if full is True:
+                user_data = await self._state.get_user(id)
+            else:
+                user_data = {}
+            data = {**member, **user_data}
+            return Member(state=self._state, data=data)
 
         raise NotFound(f'Member with the ID "{id}" not found.')
 

@@ -56,7 +56,7 @@ import logging
 from typing import Union
 
 from . import utils
-#from .channel import TeamChannel
+from . import channel
 from .embed import Embed
 from .errors import ClientException, HTTPException, error_mapping
 from .file import File
@@ -244,11 +244,12 @@ class HTTPClient:
     # /channels
     # (message interfacing)
 
-    def send_message(self, channel_id: str, content):
+    def send_message(self, channel_id: str, content, extra_payload=None):
         route = Route('POST', f'/channels/{channel_id}/messages')
         payload = {
             'messageId': utils.new_uuid(),
-            'content': {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}}
+            'content': {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}},
+            **(extra_payload or {})
         }
 
         for node in content:
@@ -532,8 +533,11 @@ class HTTPClient:
     def get_metadata(self, route: str):
         return self.request(Route('GET', '/content/route/metadata'), params={'route': route})
 
-    def get_channel_message(self, channel_id: str, message_id: str):
-        return self.get_metadata(f'//channels/{channel_id}/chat?messageId={message_id}')
+    async def get_channel_message(self, channel_id: str, message_id: str):
+        metadata = await self.get_metadata(f'//channels/{channel_id}/chat?messageId={message_id}')
+        channel = self.create_channel(data=metadata['metadata']['channel'])
+        message = self.create_message(data=metadata['metadata']['message'], channel=channel)
+        return message
 
     def get_channel(self, channel_id: str):
         return self.get_metadata(f'//channels/{channel_id}/chat')
@@ -588,11 +592,15 @@ class HTTPClient:
 
     # create objects from data
 
+    def create_user(self, **data):
+        return User(state=self, **data)
+
     def create_member(self, **data):
         return Member(state=self, **data)
 
     def create_channel(self, **data):
         channel_data = data.get('data', data)
+        data['group'] = data.get('group')
         if channel_data.get('type', '').lower() == 'team':
             ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
             if ctype is channel.ChannelType.chat:
@@ -613,4 +621,5 @@ class HTTPClient:
             return channel.DMChannel(state=self, **data)
 
     def create_message(self, **data):
+        data['channel'] = data.get('channel')
         return Message(state=self, **data)

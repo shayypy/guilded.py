@@ -63,7 +63,6 @@ from .message import Message
 from .presence import Presence
 from .utils import ISO8601
 
-
 class Messageable(metaclass=abc.ABCMeta):
     def __init__(self, *, state, data):
         self._state = state
@@ -130,7 +129,21 @@ class Messageable(metaclass=abc.ABCMeta):
         for embed in kwargs.get('embeds') or []:
             content.append(embed_attachment_uri(embed))
 
-        response_coro, payload = self._state.send_message(self._channel_id, content)
+        message_payload = {}
+        if kwargs.get('reference') and kwargs.get('reply_to'):
+            raise ValueError('Cannot provide both reference and reply_to')
+
+        if kwargs.get('reference'):
+            kwargs['reply_to'] = [kwargs['reference'].id]
+
+        if kwargs.get('reply_to'):
+            if not isinstance(kwargs['reply_to'], list):
+                raise TypeError('reply_to must be type list, not %s' % type(kwargs['reply_to']).__name__)
+
+            message_payload['repliesToIds'] = [message.id for message in kwargs['reply_to']]
+            message_payload['isSilent'] = not kwargs.get('mention_author', True)
+
+        response_coro, payload = self._state.send_message(self._channel_id, content, message_payload)
         response = await response_coro
         payload['createdAt'] = response.pop('message', response or {}).pop('createdAt', None)
         payload['id'] = payload.pop('messageId')
@@ -179,8 +192,8 @@ class Messageable(metaclass=abc.ABCMeta):
         return messages
 
     async def fetch_message(self, id: str):
-        message_data = await self._state.get_channel_message(self._channel_id, id)
-        return Message(state=self._state, channel=self, data=message_data)
+        message = await self._state.get_channel_message(self._channel_id, id)
+        return message
 
 class User(metaclass=abc.ABCMeta):
     def __init__(self, *, state, data, **extra):
@@ -225,6 +238,9 @@ class User(metaclass=abc.ABCMeta):
         except:
             return False
 
+    def __repr__(self):
+        return f'<{self.__class__.__name__} id={self.id} name={self.name}>'
+
     @property
     def slug(self):
         return self.subdomain
@@ -257,33 +273,59 @@ class TeamChannel(Messageable):
     def __init__(self, *, state, group, data, **extra):
         super().__init__(state=state, data=data)
         #self._state = state
-        self.group = group
-        self.team = extra.get('team') or getattr(group, 'team', None)
         data = data.get('channel', data)
+        self.group = group
+        self.group_id = data.get('groupId') or getattr(self.group, 'id', None)
 
-        #self.id = data.get('id')
-        #self._channel_id = self.id
+        self.team = extra.get('team') or getattr(group, 'team', None) or self._state._get_team(data.get('teamId'))
+        self.team_id = data.get('teamId') or self.team.id
+
         self.name = data.get('name')
         self.position = data.get('priority')
         self.description = data.get('description')
+        self.slug = data.get('slug')
         self.roles_synced = data.get('isRoleSynced')
-        self.public = data.get('isPublic')
-        self.settings = data.get('settings') # no clue
+        self.public = data.get('isPublic', False)
+        self.settings = data.get('settings')  # no clue
 
         self.created_at = ISO8601(data.get('createdAt'))
         self.updated_at = ISO8601(data.get('updatedAt'))
-        self.added_at = ISO8601(data.get('addedAt')) # i have no idea what this means
+        self.added_at = ISO8601(data.get('addedAt'))  # i have no idea what this is
         self.archived_at = ISO8601(data.get('archivedAt'))
         self.auto_archive_at = ISO8601(data.get('autoArchiveAt'))
-        self.created_by = extra.get('created_by')
-        self.archived_by = extra.get('archived_by')
-        self.created_by = extra.get('created_by')
+        created_by = extra.get('created_by') or self._state._get_team_member(self.team_id, extra.get('createdBy'))
+        if created_by is None:
+            if data.get('createdByInfo'):
+                self.created_by = self._state.create_member(data=data.get('createdByInfo'))
+        else:
+            self.created_by = created_by
+        self.archived_by = extra.get('archived_by') or self._state._get_team_member(self.team_id, extra.get('archivedBy'))
         self.created_by_webhook_id = data.get('createdByWebhookId')
         self.archived_by_webhook_id = data.get('archivedByWebhookId')
+
+        self.parent_id = data.get('parentChannelId') or data.get('originatingChannelId')
+        # latter is probably only on threads
+        if self.parent_id is not None:
+            self.parent = self._state._get_team_channel(self.parent_id)
+        else:
+            self.parent = None
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} id={self.id} name={self.name} team={repr(self.team)}>'
 
     @property
     def topic(self):
         return self.description
+
+    @property
+    def vanity_url(self):
+        if self.slug and self.team.vanity_url:
+            return f'{self.team.vanity_url}/blog/{self.slug}'
+        return None
+
+    @property
+    def mention(self):
+        return f'<#{self.id}>'
 
     def __str__(self):
         return self.name
@@ -298,7 +340,7 @@ class TeamChannel(Messageable):
             return False
 
     async def delete(self):
-        return await self._state.delete_team_channel(self.team.id, self.group.id, self.id)
+        return await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
 
     #async def create_thread(self, name, *, message=None, initial_message: Message = None)
     #    return Thread(state=self._state, data=data)

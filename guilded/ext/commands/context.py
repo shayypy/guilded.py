@@ -68,6 +68,9 @@ class Context(guilded.abc.Messageable):
         self.subcommand_passed = attrs.pop('subcommand_passed', None)
         self.command_failed = attrs.pop('command_failed', False)
 
+    def __repr__(self):
+        return f'<Context prefix={self.prefix} message={repr(self.message)}>'
+
     @property
     def valid(self):
         return self.prefix is not None and self.command is not None
@@ -102,5 +105,11 @@ class Context(guilded.abc.Messageable):
     def me(self):
         return self.team.me if self.team else self.bot.user
 
-    #def reply(self, *content, **kwargs):
-    #    return self.message.reply(*content, **kwargs)
+    def reply(self, *content, **kwargs):
+        """|coro|
+
+        Reply to the invoking message. Functions the same as
+        :meth:`abc.Messageable.send`, but with the ``reply_to`` parameter
+        already set.
+        """
+        return self.message.reply(*content, **kwargs)

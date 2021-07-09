@@ -78,15 +78,15 @@ def ISO8601(string: str):
         raise TypeError(f'{string} is not a valid ISO8601 datetime.')
 
 def hyperlink(link: str, *, title=None):
-    '''A helper function to make links clickable when sent into chat.'''
+    """A helper function to make links clickable when sent into chat."""
     return f'[{title or link}]({link})'
 
 def link(link: str, *, title=None):
-    '''Alias of :func:hyperlink.'''
+    """Alias of :func:hyperlink."""
     return hyperlink(link, title=title)
 
 def new_uuid():
-    '''Generate a new, compliant UUID.'''
+    """Generate a new, compliant UUID."""
     return str(uuid1())
 
 def find(predicate, sequence):

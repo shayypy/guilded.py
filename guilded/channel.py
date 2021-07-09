@@ -62,8 +62,14 @@ class ChannelType(Enum):
     voice = 'voice'
     forum = 'forum'
     docs = 'doc'
+    announcements = 'announcements'
+    news = announcements
     thread = 'temporal'
     dm = 'DM'
+
+    @classmethod
+    def from_str(self, string):
+        return getattr(self, string, None)
 
 class ChatChannel(guilded.abc.TeamChannel):
     def __init__(self, **fields):
@@ -75,25 +81,64 @@ class Thread(guilded.abc.TeamChannel):
         super().__init__(**fields)
         data = fields.get('data') or fields.get('channel', {})  # i mean, just in case
         self.type = ChannelType.thread
-        self.participants = []
-        if data.get('type').lower() == 'team':
-            self.team = fields.get('team') or self._state._get_team(data.get('teamId'))
-            team_id = getattr(self.team, 'id', None) or data.get('teamId')
-            self.parent = fields.get('parent') or self._state._get_team_channel(data.get('parentChannelId'))
-            self.created_by = fields.get('created_by') or self._state._get_team_member(team_id, data.get('createdBy'))
-            for user in data.get('participants'):
-                _id = user.get('id')
-                user = self._state._get_team_member(team_id, data.get('createdBy'))
-                if user is not None: self.participants.append(user)
 
-        else:  # realistically this should only ever be DM, but process for any non-team context instead anyway
-            self.team = None
-            self.parent = fields.get('parent') or self._state._get_dm_channel(data.get('parentChannelId'))
-            self.created_by = fields.get('created_by') or self._state._get_user(data.get('createdBy'))
-            for user in data.get('participants'):
-                _id = user.get('id')
-                user = self._state._get_user(data.get('createdBy'))
-                if user is not None: self.participants.append(user)
+        self._message_count = data.get('messageCount') or 0
+        self.initial_message_id = data.get('threadMessageId')
+        self._initial_message = self._state._get_message(self.initial_message_id)
+        # this is unlikely to not be None given the temporal nature of message
+        # cache but may as well try anyway
+
+        self.participants = set()
+        participants = data.get('participants')
+        if participants is None:
+            participants = [{'id': user_id} for user_id in data.get('userIds')]
+        for member_obj in (participants or []):
+            member = self._state._get_team_member(self.team_id, member_obj.get('id'))
+            if member is None:
+                # it's just an empty member with only ID, better than nothing?
+                member = self._state.create_member(member_obj)
+
+            self.participants.add(member)
+
+    @property
+    def message_count(self):
+        return int(self._message_count)
+
+    @property
+    def initial_message(self):
+        return self._initial_message
+
+    async def archive(self):
+        """|coro|
+
+        Archive this thread.
+        """
+        request = self._state.archive_team_thread(self.team_id, self.group_id, self.id)
+        await request
+
+    async def restore(self):
+        """|coro|
+
+        Restore this thread.
+        """
+        request = self._state.restore_team_thread(self.team_id, self.group_id, self.id)
+        await request
+
+    async def fetch_initial_message(self):
+        """|coro|
+
+        Fetch the initial message in this channel. Sometimes this may be
+        available via :attr:`Thread.initial_message`, but it is unlikely
+        when dealing with existing threads because it relies on message cache.
+
+        Roughly equivilent to:
+
+        .. python3::
+            initial_message = await thread.fetch_message(thread.initial_message_id)
+        """
+        data = await self._state.get_message(self.id, self.initial_message_id)
+        message = self._state.create_message(data)
+        return message
 
 class DMChannel(guilded.abc.Messageable):
     def __init__(self, *, state, data):

@@ -74,6 +74,9 @@ class Member(guilded.abc.User, guilded.abc.Messageable):
         self.joined_at = ISO8601(data.get('joinDate'))
         self.colour = data.get('colour') or data.get('color')
 
+    def __repr__(self):
+        return f'<Member id={self.id} name={self.name} team={repr(self.team)}>'
+
     @property
     def color(self):
         return self.colour
@@ -108,6 +111,9 @@ class ClientUser(guilded.abc.User):
         user = data.get('user', data)
 
         self.devices = [Device(device_data) for device_data in user.get('devices', [])]
+
+    def __repr__(self):
+        return f'<ClientUser id={self.id} name={self.name}>'
 
     async def edit_settings(self, **kwargs):
         """|coro|

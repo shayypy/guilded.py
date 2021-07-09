@@ -60,17 +60,97 @@ from .utils import ISO8601
 
 log = logging.getLogger(__name__)
 
-class MessageLeaf:
+class FormType(Enum):
+    poll = 'poll'
+    form = 'form'
+
+    @classmethod
+    def from_str(cls, string):
+        return getattr(cls, string, cls.form)
+
+class MessageNode:
+    def __init__(self, *, state, data):
+        self._state = state
+
+class MessageForm:
+    def __init__(self, *, state, id):
+        self._state = state
+        self.id = id
+
+    async def fetch(self):
+        data = await self._state.get_form_data(self.id)
+        return MessageForm.from_dict(data, state=self._state)
+
+    @classmethod
+    def from_dict(cls, data, *, state, responses=None):
+        my_response = data.get('customFormResponse') or {}
+        cls.my_response = MessageFormResponse(my_response)
+
+        data = data.get('customForm', data)
+        if isinstance(responses, dict):
+            responses = responses.get('customFormResponses', responses)
+        else:
+            responses = []
+
+        cls.id = data.get('id')
+        cls.title = data.get('title', '')
+        cls.description = data.get('description', '')
+        cls.type = FormType.from_str(data.get('type'))
+        cls.team_id = data.get('teamId')
+        cls.team = state._get_team(cls.team_id)
+        cls.author_id = data.get('createdBy')
+        cls.author = state._get_team_member(cls.team_id, cls.author_id)
+        cls.created_at = ISO8601(data.get('createdAt'))
+        cls.updated_at = ISO8601(data.get('updatedAt'))
+        cls.response_count = int(data.get('responseCount', 0))
+        cls.activity_id = data.get('activityId')
+
+        form_specs = data.get('formSpecs', {})
+        cls.valid = form_specs.get('isValid')
+        sections = ((form_specs.get('sections') or [{}])[0].get('fieldSpecs') or [{}])
+        cls.sections = [MessageFormSection(section) for section in sections]
+
+        cls.public = data.get('isPublic', False)
+        cls.deleted = data.get('isDeleted', False)
+
+        return cls
+
+    @property
+    def options(self):
+        try:
+            return self.sections[0].options
+        except IndexError:
+            return []
+
+class MessageFormInputType(Enum):
+    radios = 'Radios'
+    checkboxes = 'Checkboxes'
+
+    @classmethod
+    def from_str(cls, string):
+        return getattr(cls, string)
+
+class MessageFormSection:
     def __init__(self, data):
-        self._raw = data.get('data', data)
+        self.grow = data.get('grow')  # not sure what this is
+        self.input_type = MessageFormInputType.from_str(data.get('type'))
+        self.label = data.get('label', '')
+        self.header = data.get('header', '')
+        self.optional = data.get('isOptional')
+        self.default_value = data.get('defaultValue')
+        self.field_name = data.get('fieldName')
 
-class MessagePoll(MessageLeaf):
+        self.options = [MessageFormOption(option) for option in data.get('options', [])]
+
+    @property
+    def name(self):
+        return self.label
+
+class MessageFormOption:
     def __init__(self, data):
-        super().__init__(data)
+        pass
 
-        self.id = self._raw.get('customFormId')
-
-class MessagePollOption:
+class MessageFormResponse:
     def __init__(self, data):
         pass
 
@@ -134,7 +214,6 @@ class Message:
     """
     def __init__(self, *, state, channel, data, **extra):
         self._state = state
-        self._raw = data
 
         message = data.get('message', data)
         self.id = data.get('contentId') or message.get('id')
@@ -156,9 +235,24 @@ class Message:
                 self.author = self._state._get_team_member(self.team_id, self.author_id)
             elif data.get('channelType', '').lower() == 'dm' or self.team is None:
                 self.author = self._state._get_user(self.author_id)
+            elif data.get('createdByInfo'):
+                self.author = self._state.create_user(data=data['createdByInfo'])
 
         if self.author is not None:
             self.author.bot = self.created_by_bot
+
+        self.replied_to = []
+        self.replied_to_ids = message.get('repliesToIds', message.get('repliesTo') or [])
+        if data.get('repliedToMessages'):
+            for message_data in data['repliedToMessages']:
+                message = self._state.create_message(data=message_data)
+                self.replied_to.append(message)
+        else:
+            for message_id in self.replied_to_ids:
+                message = self._state._get_message(message_id)
+                if not message:
+                    continue
+                self.replied_to.append(message)
 
         self.mentions = []
         self.raw_mentions = []
@@ -169,7 +263,7 @@ class Message:
         self.embeds = []
         self.attachments = []
         self.links = []
-        self.content = self._get_full_content()
+        self.content = self._get_full_content(data)
 
     def __str__(self):
         return self.content
@@ -179,6 +273,9 @@ class Message:
             return self.id == other.id
         except:
             return False
+
+    def __repr__(self):
+        return f'<Message id={self.id} author={repr(self.author)} channel={repr(self.channel)} team={repr(self.team)}>'
 
     @property
     def created_by_bot(self):
@@ -197,19 +294,16 @@ class Message:
         # basic compatibility w/ discord bot code, plan on deprecating in the future
         return self.team
 
-    def _get_full_content(self):
+    def _get_full_content(self, data):
         """Get the content of this message in an easy to use single string.
         Attempts to append mentions, embeds, and attachments to the Message as well.
-        
+
         .. warning::
 
             Intended for internal use only.
         """
-        # if-elsing till the day i die
-        # (or until this lib can update to 3.10)
-        # (or until i decide to rewrite this to have a handler for each node type)
         try:
-            nodes = self._raw.get('message', self._raw)['content']['document']['nodes']
+            nodes = data.get('message', data)['content']['document']['nodes']
         except KeyError:
             # empty message
             return ''
@@ -339,13 +433,25 @@ class Message:
 
         await self._state.edit_message(self.channel_id, self.id, **payload)
 
-    async def add_reaction(self, emoji):
-        """Add a reaction to a message. In the future, will take type Emoji, but currently takes an integer (the emoji's id)"""
-        await self._state.add_message_reaction(self.channel_id, self.id, emoji)
+    def add_reaction(self, emoji):
+        """|coro|
 
-    async def remove_self_reaction(self, emoji):
-        """Remove your reaction to a message. In the future, will take type Emoji, but currently takes an integer (the emoji's id)"""
-        await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji)
+        Add a reaction to a message. In the future, will take type Emoji, but currently takes an integer (the emoji's id)
+        """
+        return self._state.add_message_reaction(self.channel_id, self.id, emoji)
 
-    #async def reply(self, *content, **kwargs):
-    #    title = kwargs.pop('title', None)
+    def remove_self_reaction(self, emoji):
+        """|coro|
+
+        Remove your reaction to a message. In the future, will take type Emoji, but currently takes an integer (the emoji's id)
+        """
+        return self._state.remove_self_message_reaction(self.channel_id, self.id, emoji)
+
+    def reply(self, *content, **kwargs):
+        """|coro|
+
+        Reply to a message. Functions the same as
+        :meth:`abc.Messageable.send`, but with the ``reply_to`` parameter
+        already set.
+        """
+        return self.channel.send(*content, **kwargs, reply_to=[self])

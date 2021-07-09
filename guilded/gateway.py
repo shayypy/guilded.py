@@ -71,11 +71,11 @@ log = logging.getLogger(__name__)
 
 
 class WebSocketClosure(Exception):
-    '''An exception to make up for the fact that aiohttp doesn't signal closure.'''
+    """An exception to make up for the fact that aiohttp doesn't signal closure."""
     pass
 
 class GuildedWebSocket:
-    '''Implements Guilded's global gateway as well as team websocket connections.'''
+    """Implements Guilded's global gateway as well as team websocket connections."""
     HEARTBEAT_PAYLOAD = '2'
     def __init__(self, socket, client, *, loop):
         self.client = client
@@ -224,10 +224,10 @@ class WebSocketEventParsers:
                 except: team = None
 
         def create_faux_user():
-            '''Create a fake user with only `.id` and `.bot` to cut down on `message.author` being None.
+            """Create a fake user with only `.id` and `.bot` to cut down on `message.author` being None.
             Although admittedly this isn't much more useful, it prevents the unexpected type change
             and helps use cases where only an ID is checked anyway.
-            '''
+            """
             return User(state=self._state, data={'id': createdBy}, bot=(data.get('webhookId') is not None or data.get('botId') is not None))
 
         if createdBy is not None and data.get('webhookId') is None and data.get('botId') is None:
@@ -258,11 +258,14 @@ class WebSocketEventParsers:
 
         if not channel:
             if data.get('channelType', '').lower() == 'team':
-                channel = TeamChannel(state=self._state, group=None, data={'id': channelId}, team=team)
+                try:
+                    channel = await team.getch_channel(channelId)
+                except:
+                    channel = TeamChannel(state=self._state, group=None, data={'id': channelId}, team=team)
             else:
                 channel = DMChannel(state=self._state, data={'id': channelId, 'users': []})
 
-        message = Message(state=self.client.http, channel=channel, data=data, author=author, team=team)
+        message = self._state.create_message(channel=channel, data=data, author=author, team=team)
         self._state.add_to_message_cache(message)
         self.client.dispatch('message', message)
 
