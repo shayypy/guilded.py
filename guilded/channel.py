@@ -88,7 +88,7 @@ class Thread(guilded.abc.TeamChannel):
         # this is unlikely to not be None given the temporal nature of message
         # cache but may as well try anyway
 
-        self.participants = set()
+        self.participants = []
         participants = data.get('participants')
         if participants is None:
             participants = [{'id': user_id} for user_id in data.get('userIds')]
@@ -98,7 +98,7 @@ class Thread(guilded.abc.TeamChannel):
                 # it's just an empty member with only ID, better than nothing?
                 member = self._state.create_member(member_obj)
 
-            self.participants.add(member)
+            self.participants.append(member)
 
     @property
     def message_count(self):
