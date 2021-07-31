@@ -319,7 +319,7 @@ class WebSocketEventParsers:
             return
 
         data['webhookId'] = before.webhook_id
-        data['createdAt'] = before._raw.get('createdAt')
+        data['createdAt'] = before.created_at.isoformat(timespec='milliseconds') + 'Z'
 
         after = Message(state=self.client.http, channel=before.channel, author=before.author, data=data)
         self._state.add_to_message_cache(after)
