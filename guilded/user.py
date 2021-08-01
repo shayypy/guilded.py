@@ -52,6 +52,7 @@ DEALINGS IN THE SOFTWARE.
 import guilded.abc
 
 from .utils import ISO8601
+from .file import File, MediaType
 
 
 class Device:
@@ -123,3 +124,41 @@ class ClientUser(guilded.abc.User):
             payload['useLegacyNav'] = kwargs.pop('legacy_navigation')
         except KeyError:
             pass
+
+    async def edit(self, **kwargs):
+        """|coro|
+
+        Edit your account.
+        """
+        try:
+            avatar = kwargs.pop('avatar')
+        except KeyError:
+            pass
+        else:
+            if avatar is None:
+                image_url = None
+            else:
+                file = File(avatar)
+                file.set_media_type(MediaType.user_avatar)
+                await file._upload(self._state)
+                image_url = file.url
+
+            await self._state.set_profile_images(image_url)
+
+        try:
+            banner = kwargs.pop('banner')
+        except KeyError:
+            pass
+        else:
+            if banner is None:
+                image_url = None
+            else:
+                file = File(banner)
+                file.set_media_type(MediaType.user_banner)
+                await file._upload(self._state)
+                image_url = file.url
+
+            await self._state.set_profile_banner(image_url)
+
+        #payload = {}
+        #await self._state.edit_current_user()

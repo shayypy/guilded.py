@@ -601,6 +601,12 @@ class HTTPClient:
     def leave_thread(self, thread_id: str):
         return self.request(Route('DELETE', f'/users/{self.my_id}/channels/{thread_id}'))
 
+    def set_profile_images(self, image_url: str):
+        return self.request(Route('POST', f'/users/me/profile/images'), json={'imageUrl': image_url})
+
+    def set_profile_banner(self, image_url: str):
+        return self.request(Route('POST', f'/users/me/profile/images/banner'), json={'imageUrl': image_url})
+
     # /content
 
     def get_metadata(self, route: str):

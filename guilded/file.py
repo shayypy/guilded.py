@@ -61,10 +61,13 @@ class MediaType(Enum):
     attachment = 'ContentMedia'
     content_media = 'ContentMedia'
     emoji = 'CustomReaction'
-    profile_banner = 'UserBanner'
-    banner = 'UserBanner'
+    custom_reaction = 'CustomReaction'
     avatar = 'UserAvatar'
+    user_avatar = 'UserAvatar'
     profile_avatar = 'UserAvatar'
+    banner = 'UserBanner'
+    user_banner = 'UserBanner'
+    profile_banner = 'UserBanner'
     team_icon = 'TeamAvatar'
     team_avatar = 'TeamAvatar'
     team_banner = 'TeamBanner'
@@ -157,7 +160,7 @@ class File:
             if isinstance(fp, io.BytesIO):
                 fp.seek(0)
                 self._bytes = fp.read()
-            elif isinstance(fp, bytes):
+            elif isinstance(fp, bytes) or isinstance(fp, io.BufferedReader):
                 self._bytes = fp
             else:
                 self._bytes = None
