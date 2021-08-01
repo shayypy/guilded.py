@@ -602,10 +602,31 @@ class HTTPClient:
         return self.request(Route('DELETE', f'/users/{self.my_id}/channels/{thread_id}'))
 
     def set_profile_images(self, image_url: str):
-        return self.request(Route('POST', f'/users/me/profile/images'), json={'imageUrl': image_url})
+        return self.request(Route('POST', '/users/me/profile/images'), json={'imageUrl': image_url})
 
     def set_profile_banner(self, image_url: str):
-        return self.request(Route('POST', f'/users/me/profile/images/banner'), json={'imageUrl': image_url})
+        return self.request(Route('POST', '/users/me/profile/images/banner'), json={'imageUrl': image_url})
+
+    def get_friends(self):
+        return self.request(Route('GET', '/users/me/friends'))
+
+    def create_friend_request(self, user_ids: list):
+        return self.request(Route('POST', '/users/me/friendrequests'), json={'friendUserIds': user_ids})
+
+    def delete_friend_request(self, user_id: str):
+        return self.request(Route('DELETE', '/users/me/friendrequests'), json={'friendUserId': user_id})
+
+    def decline_friend_request(self, user_id: str):
+        return self.request(Route('PUT', '/users/me/friendrequests'), json={'friendUserId': user_id, 'friendStatus': 'declined'})
+
+    def accept_friend_request(self, user_id: str):
+        return self.request(Route('PUT', '/users/me/friendrequests'), json={'friendUserId': user_id, 'friendStatus': 'accepted'})
+
+    def block_user(self, user_id: str):
+        return self.request(Route('POST', f'/users/{user_id}/block'))
+
+    def unblock_user(self, user_id: str):
+        return self.request(Route('POST', f'/users/{user_id}/unblock'))
 
     # /content
 

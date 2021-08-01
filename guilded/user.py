@@ -160,20 +160,20 @@ class ClientUser(guilded.abc.User):
         This account's accepted friends. Could be partial (only ID) if the
         user was not cached.
     pending_friends: List[:class:`User`]
-        This account's pending friends. Could be partial (only ID) if the user
-        was not cached.
-    requested_friends: List[:class:`User`]
-        This account's requested friends (requested by this ``ClientUser``).
+        This account's pending friends (requested by this ``ClientUser``).
         Could be partial (only ID) if the user was not cached.
+    requested_friends: List[:class:`User`]
+        This account's requested friends. Could be partial (only ID) if the
+        user was not cached.
     """
     def __init__(self, *, state, data):
         super().__init__(state=state, data=data)
         user = data.get('user', data)
 
         self.devices = [Device(device_data) for device_data in user.get('devices', [])]
-        self.accepted_friends = []
-        self.pending_friends = []
-        self.requested_friends = []
+        self._accepted_friends = {}
+        self._pending_friends = {}
+        self._requested_friends = {}
 
         for partial_friend in data.get('friends', []):
             friend_user = self._state._get_user(partial_friend['friendUserId'])
@@ -187,6 +187,13 @@ class ClientUser(guilded.abc.User):
                 friend_user.friend_status = partial_friend['friendStatus']
                 friend_user.friend_requested_at = ISO8601(partial_friend['createdAt'])
 
+            if friend_user.friend_status == 'accepted':
+                self._accepted_friends[friend_user.id] = friend_user
+            elif friend_user.friend_status == 'pending':
+                self._pending_friends[friend_user.id] = friend_user
+            elif friend_user.friend_status == 'requested':
+                self._requested_friends[friend_user.id] = friend_user
+
     @property
     def friends(self):
         """This user's accepted, pending, and requested friends.
@@ -196,8 +203,46 @@ class ClientUser(guilded.abc.User):
         """
         return self.accepted_friends + self.pending_friends + self.requested_friends
 
+    @property
+    def accepted_friends(self):
+        return list(self._accepted_friends.values())
+
+    @property
+    def pending_friends(self):
+        return list(self._pending_friends.values())
+
+    @property
+    def requested_friends(self):
+        return list(self._requested_friends.values())
+
     def __repr__(self):
         return f'<ClientUser id={repr(self.id)} name={repr(self.name)}>'
+
+    async def fetch_friends(self):
+        """|coro|
+
+        Fetch a list of this account's accepted, pending, and requested friends.
+
+        Returns
+        ---------
+        List[:class:`User`]
+            This user's accepted, pending, and requested friends.
+        """
+        friends = await self._state.get_friends()
+
+        for friend_data in friends.get('friends', []):
+            friend = self._state.create_user(data=friend_data, friend_status='accepted')
+            self._accepted_friends[friend.id] = friend
+
+        for friend_data in friends.get('friendRequests', {}).get('pending', []):
+            friend = self._state.create_user(data=friend_data, friend_status='pending')
+            self._pending_friends[friend.id] = friend
+
+        for friend_data in friends.get('friendRequests', {}).get('requested', []):
+            friend = self._state.create_user(data=friend_data, friend_status='requested')
+            self._requested_friends[friend.id] = friend
+
+        return self.friends
 
     async def edit_settings(self, **kwargs):
         """|coro|
