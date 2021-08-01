@@ -160,7 +160,7 @@ class File:
             if isinstance(fp, io.BytesIO):
                 fp.seek(0)
                 self._bytes = fp.read()
-            elif isinstance(fp, bytes) or isinstance(fp, io.BufferedReader):
+            elif isinstance(fp, (bytes, io.BufferedReader)):
                 self._bytes = fp
             else:
                 self._bytes = None
