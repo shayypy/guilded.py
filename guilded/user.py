@@ -77,9 +77,49 @@ class Device:
         self.active = data.get('isActive', False)
 
 class User(guilded.abc.User, guilded.abc.Messageable):
-    pass
+    async def block(self):
+        """|coro|
 
-class Member(guilded.abc.User, guilded.abc.Messageable):
+        Block this user.
+        """
+        await self._state.block_user(self.id)
+
+    async def unblock(self):
+        """|coro|
+
+        Unblock this user.
+        """
+        await self._state.unblock_user(self.id)
+
+    async def accept_friend_request(self):
+        """|coro|
+
+        Accept this user's friend request, if it exists.
+        """
+        await self._state.accept_friend_request(self.id)
+
+    async def decline_friend_request(self):
+        """|coro|
+
+        Decline this user's friend request, if it exists.
+        """
+        await self._state.decline_friend_request(self.id)
+
+    async def send_friend_request(self):
+        """|coro|
+
+        Send a friend request to this user.
+        """
+        await self._state.create_friend_request([self.id])
+
+    async def delete_friend_request(self):
+        """|coro|
+
+        Delete your friend request to this user, if it exists.
+        """
+        await self._state.delete_friend_request(self.id)
+
+class Member(User):
     """Represents a member of a team.
 
     Attributes
