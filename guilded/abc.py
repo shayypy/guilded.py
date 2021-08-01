@@ -154,6 +154,7 @@ class Messageable(metaclass=abc.ABCMeta):
         payload['teamId'] = self.team.id if self.team else None
         payload['createdBy'] = self._state.my_id
 
+        author = None
         if payload['teamId'] is not None:
             args = (payload['teamId'], payload['createdBy'])
             try:
@@ -239,7 +240,7 @@ class User(metaclass=abc.ABCMeta):
             return False
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} id={self.id} name={self.name}>'
+        return f'<{self.__class__.__name__} id={repr(self.id)} name={repr(self.name)}>'
 
     @property
     def slug(self):
@@ -273,7 +274,7 @@ class TeamChannel(Messageable):
     def __init__(self, *, state, group, data, **extra):
         super().__init__(state=state, data=data)
         #self._state = state
-        data = data.get('channel', data)
+        data = data.get('data') or data.get('channel') or data
         self.group = group
         self.group_id = data.get('groupId') or getattr(self.group, 'id', None)
 
@@ -306,12 +307,9 @@ class TeamChannel(Messageable):
         self.parent_id = data.get('parentChannelId') or data.get('originatingChannelId')
         # latter is probably only on threads
         if self.parent_id is not None:
-            self.parent = self._state._get_team_channel(self.parent_id)
+            self.parent = self._state._get_team_channel(self.team_id, self.parent_id)
         else:
             self.parent = None
-
-    def __repr__(self):
-        return f'<{self.__class__.__name__} id={self.id} name={self.name} team={repr(self.team)}>'
 
     @property
     def topic(self):
@@ -331,7 +329,7 @@ class TeamChannel(Messageable):
         return self.name
 
     def __repr__(self):
-        return f'<TeamChannel id={self.id} name={self.name} team={repr(self.team)}>'
+        return f'<{self.__class__.__name__} id={repr(self.id)} name={repr(self.name)} team={repr(self.team)}>'
 
     def __eq__(self, other):
         try:
@@ -341,6 +339,3 @@ class TeamChannel(Messageable):
 
     async def delete(self):
         return await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
-
-    #async def create_thread(self, name, *, message=None, initial_message: Message = None)
-    #    return Thread(state=self._state, data=data)
