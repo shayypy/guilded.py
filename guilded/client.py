@@ -277,9 +277,6 @@ class Client:
     async def login(self, email, password):
         self.http = self.http or HTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
         data = await self.http.login(email, password)
-        me = ClientUser(state=self.http, data=data)
-        self.http.my_id = me.id
-        self.user = me
 
         for team_data in data.get('teams'):
             team = Team(state=self.http, data=team_data)
@@ -296,6 +293,10 @@ class Client:
                     self.http.add_to_team_channel_cache(channel)
 
             self.http.add_to_team_cache(team)
+
+        me = ClientUser(state=self.http, data=data)
+        self.http.my_id = me.id
+        self.user = me
 
     async def connect(self):
         if not self.http:

@@ -156,15 +156,48 @@ class ClientUser(guilded.abc.User):
     ------------
     devices: List[:class:`Device`]
         The devices this account is logged in on.
+    accepted_friends: List[:class:`User`]
+        This account's accepted friends. Could be partial (only ID) if the
+        user was not cached.
+    pending_friends: List[:class:`User`]
+        This account's pending friends. Could be partial (only ID) if the user
+        was not cached.
+    requested_friends: List[:class:`User`]
+        This account's requested friends (requested by this ``ClientUser``).
+        Could be partial (only ID) if the user was not cached.
     """
     def __init__(self, *, state, data):
         super().__init__(state=state, data=data)
         user = data.get('user', data)
 
         self.devices = [Device(device_data) for device_data in user.get('devices', [])]
+        self.accepted_friends = []
+        self.pending_friends = []
+        self.requested_friends = []
+
+        for partial_friend in data.get('friends', []):
+            friend_user = self._state._get_user(partial_friend['friendUserId'])
+            if not friend_user:
+                friend_user = self._state.create_user(
+                    data={'id': partial_friend['friendUserId']},
+                    friend_status=partial_friend['friendStatus'],
+                    friend_created_at=partial_friend['createdAt']
+                )
+            else:
+                friend_user.friend_status = partial_friend['friendStatus']
+                friend_user.friend_requested_at = ISO8601(partial_friend['createdAt'])
+
+    @property
+    def friends(self):
+        """This user's accepted, pending, and requested friends.
+
+        All items in this list are expected to have ``id``, ``friend_status``,
+        and ``friend_requested_at`` attributes at a bare minimum.
+        """
+        return self.accepted_friends + self.pending_friends + self.requested_friends
 
     def __repr__(self):
-        return f'<ClientUser id={self.id} name={self.name}>'
+        return f'<ClientUser id={repr(self.id)} name={repr(self.name)}>'
 
     async def edit_settings(self, **kwargs):
         """|coro|

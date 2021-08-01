@@ -230,6 +230,9 @@ class User(metaclass=abc.ABCMeta):
 
         self.bot = extra.get('bot', False)
 
+        self.friend_status = extra.get('friend_status')
+        self.friend_requested_at = ISO8601(extra.get('friend_created_at'))
+
     def __str__(self):
         return f'{self.name}#{self.id}'
 
