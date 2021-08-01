@@ -120,11 +120,15 @@ class Client:
     disable_team_websockets: Optional[:class:`bool`]
         Whether to prevent the library from opening team-specific websocket
         connections.
-
     presence: Optional[:class:`.Presence`]
         A presence to use upon logging in.
     status: Optional[:class:`.Status`]
         A status (game) to use upon logging in.
+    cache_on_startup: Optional[:class:`dict`]
+        A mapping of types of objects to a :class:`bool` (whether to
+        cache the type on startup). Currently accepts ``members`` and
+        ``channels``. By default, both are enabled.
+
     Attributes
     -----------
     ws
