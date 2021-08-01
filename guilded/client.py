@@ -56,7 +56,7 @@ import traceback
 
 import aiohttp
 
-from .errors import NotFound
+from .errors import NotFound, ClientException
 from .embed import Embed
 from .gateway import GuildedWebSocket, WebSocketClosure
 from .http import HTTPClient
@@ -271,11 +271,11 @@ class Client:
 
         Login and connect to Guilded using a user account email and password.
         """
-        self.http = self.http or HTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
         await self.login(email, password)
         await self.connect()
 
     async def login(self, email, password):
+        self.http = self.http or HTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
         data = await self.http.login(email, password)
         me = ClientUser(state=self.http, data=data)
         self.http.my_id = me.id
@@ -298,6 +298,9 @@ class Client:
             self.http.add_to_team_cache(team)
 
     async def connect(self):
+        if not self.http:
+            raise ClientException('You must log in via REST before connecting to the gateway.')
+
         while not self.closed:
             ws_build = GuildedWebSocket.build(self, loop=self.loop)
             gws = await asyncio.wait_for(ws_build, timeout=60)
