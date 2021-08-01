@@ -56,6 +56,20 @@ from .file import File, MediaType
 
 
 class Device:
+    """Represents a device that the :class:`ClientUser` is logged into.
+
+    Attributes
+    ------------
+    type: :class:`str`
+        The type of device. Could be ``desktop`` or ``mobile``.
+    id: :class:`str`
+        The ID of this device. This is a UUID for mobile devices but an even
+        longer string on desktops.
+    last_online: :class:`datetime.datetime`
+        When this device was last active.
+    active: :class:`bool`
+        Whether this device is "active". This seems to always be ``True``.
+    """
     def __init__(self, data):
         self.type = data.get('type')
         self.id = data.get('id')
@@ -66,6 +80,24 @@ class User(guilded.abc.User, guilded.abc.Messageable):
     pass
 
 class Member(guilded.abc.User, guilded.abc.Messageable):
+    """Represents a member of a team.
+
+    Attributes
+    ------------
+    team: :class:`Team`
+        The team this member is from.
+    xp: :class:`int`
+        This member's XP. Could be negative.
+    joined_at: :class:`datetime.datetime`
+        When this user joined their team.
+    display_name: :class:`str`
+        This member's display name (``nick`` if present, else ``name``)
+    colour: Optional[:class:`int`]
+        The color that this member's name displays with. There is an alias for 
+        this called ``color``.
+    nick: Optional[:class:`str`]
+        This member's nickname, if any.
+    """
     def __init__(self, *, state, data, **extra):
         super().__init__(state=state, data=data)
         self.team = extra.get('team') or data.get('team')
@@ -87,6 +119,17 @@ class Member(guilded.abc.User, guilded.abc.Messageable):
         return self.nick or self.name
 
     async def edit(self, **kwargs):
+        """|coro|
+
+        Edit this member.
+
+        Parameters
+        ------------
+        nick: Optional[:class:`str`]
+            A new nickname. Use ``None`` to reset.
+        xp: Optional[:class:`int`]
+            A new XP value.
+        """
         try:
             nick = kwargs.pop('nick')
         except KeyError:
@@ -107,6 +150,13 @@ class Member(guilded.abc.User, guilded.abc.Messageable):
             self.xp = xp
 
 class ClientUser(guilded.abc.User):
+    """Represents the current logged-in user.
+
+    Attributes
+    ------------
+    devices: List[:class:`Device`]
+        The devices this account is logged in on.
+    """
     def __init__(self, *, state, data):
         super().__init__(state=state, data=data)
         user = data.get('user', data)
