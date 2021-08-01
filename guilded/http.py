@@ -673,8 +673,14 @@ class HTTPClient:
     def check_subdomain(self, subdomain: str):
         return self.request(Route('GET', f'/subdomains/{subdomain}'))
 
-    def search_teams(self, query):
-        return self.request(Route('GET', '/search'), params={'query': query, 'entityType': 'team'})
+    def search(self, query: str, *, entity_type: str, max_results: int = 20, exclude: list = None):
+        params = {
+            'query': query,
+            'entityType': entity_type,
+            'maxResultsPerType': max_results,
+            'excludedEntityIds': ','.join(exclude or [])
+        }
+        return self.request(Route('GET', '/search'), params=params)
 
     def get_game_list(self):
         return self.request(Route('GET', 'https://raw.githubusercontent.com/GuildedAPI/datatables/main/games.json', override_base=Route.NO_BASE))

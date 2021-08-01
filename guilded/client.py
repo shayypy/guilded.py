@@ -459,17 +459,62 @@ class Client:
         print(f'Ignoring exception in {event_method}:', file=sys.stderr)
         traceback.print_exc()
 
-    async def search_teams(self, query: str):
+    async def search_users(self, query: str, *, max_results=20, exclude=None):
+        """|coro|
+
+        Search Guilded for users. Returns an array of partial users.
+
+        Parameters
+        ------------
+        query: :class:`str`
+            Query to use while searching
+        max_results: Optional[:class:`int`]
+            The maximum number of results to return. Defaults to 20.
+        exclude: Optional[List[:class:`User`]]
+            A list of users to exclude from results. A common for this
+            could be your list of :attr:`Client.users`.
+
+        Returns
+        ---------
+        List[:class:`User`]
+            The users from the query
+        """
+        results = await self.http.search(query,
+            entity_type='user',
+            max_results=max_results,
+            exclude=[item.id for item in (exclude or [])]
+        )
+        users = []
+        for user_data in results['results']['users']:
+            users.append(self.http.create_user(data=user_data))
+
+        return users
+
+    async def search_teams(self, query: str, *, max_results=20, exclude=None):
         """|coro|
 
         Search Guilded for public teams. Returns an array of partial teams.
+
+        Parameters
+        ------------
+        query: :class:`str`
+            Query to use while searching
+        max_results: Optional[:class:`int`]
+            The maximum number of results to return. Defaults to 20.
+        exclude: Optional[List[:class:`Team`]]
+            A list of teams to exclude from results. A common value for this
+            could be your list of :attr:`Client.teams`.
 
         Returns
         ---------
         List[:class:`Team`]
             The teams from the query
         """
-        results = await self.http.search_teams(query)
+        results = await self.http.search(query,
+            entity_type='team',
+            max_results=max_results,
+            exclude=[item.id for item in (exclude or [])]
+        )
         teams = []
         for team_object in results['results']['teams']:
             team_object['isPublic'] = True  # These results will only have public teams, however this attribute 
