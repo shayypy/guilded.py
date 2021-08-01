@@ -100,11 +100,14 @@ class Team:
 
         for member in data.get('members', []):
             self._state.add_to_member_cache(
-                self._state._get_team_member(self.id, member.get('id')) or Member(state=self._state, data=member)
+                self._state._get_team_member(self.id, member.get('id')) or self._state.create_member(data=member)
             )
-        #self.members = data.get('members', [])
+        for channel in data.get('channels', []):
+            self._state.add_to_team_channel_cache(
+                self._state._get_team_channel(self.id, channel.get('id')) or self._state.create_channel(data=channel)
+            )
+
         self.bots = data.get('bots', [])
-        self.channels = data.get('channels', [])
 
         self.recruiting = data.get('isRecruiting', False)
         self.verified = data.get('isVerified', False)
@@ -125,7 +128,7 @@ class Team:
         return self.name
 
     def __repr__(self):
-        return f'<Team id={self.id} name={self.name}>'
+        return f'<Team id={repr(self.id)} name={repr(self.name)}>'
 
     @property
     def slug(self):
@@ -161,6 +164,11 @@ class Team:
         returning partial objects.
         """
         return list(self._state._team_members.get(self.id, {}).values())
+
+    @property
+    def channels(self):
+        """The cached list of channels in this team."""
+        return [channel for channel in self._state._team_channels.values() if channel.team_id == self.id]
 
     def get_member(self, id):
         """Get a member by their ID from the internal cache."""
@@ -227,26 +235,13 @@ class Team:
         channels = await self._state.get_team_channels(self.id)
         channel_list = []
         data = {'state': self._state, 'group': None, 'team': self}
-        for channel in channels.get('channels', []):
-            data = {**data, 'data': channel}
-            try:
-                if channel.get('contentType') == 'chat':
-                    channel_obj = ChatChannel(**data)
-                else:
-                    channel_obj = TeamChannel(**data)
-            except:
-                continue
-            else:
-                channel_list.append(channel_obj)
+        for channel_data in channels.get('channels', []):
+            channel = self._state.create_channel(data=channel_data)
+            channel_list.append(channel)
 
-        for channel in channels.get('temporalChannels', []):
-            data = {**data, 'data': channel}
-            try:
-                channel_obj = Thread(**data)
-            except:
-                continue
-            else:
-                channel_list.append(channel_obj)
+        #for thread_data in channels.get('temporalChannels', []):
+        #    channel = self._state.create_channel(data=thread_data)
+        #    channel_list.append(channel_obj)
 
         #for channel in channels.get('categories', []):
         #    data = {**data, 'data': channel}

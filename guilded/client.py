@@ -288,8 +288,11 @@ class Client:
                 for member in members: self.http.add_to_member_cache(member)
 
             if self.cache_on_startup['channels'] is True:
-                team.channels = await team.fetch_channels()
-                for channel in team.channels: self.http.add_to_team_channel_cache(channel)
+                channels = await team.fetch_channels()
+                for channel in channels:
+                    if channel is None:
+                        continue
+                    self.http.add_to_team_channel_cache(channel)
 
             self.http.add_to_team_cache(team)
 
@@ -447,7 +450,7 @@ class Client:
         Optional[:class:`abc.Messageable`]
             The channel from the ID
         """
-        return self.http._get_team_channel(id) or self.http._get_dm_channel(id)
+        return self.http._get_global_team_channel(id) or self.http._get_dm_channel(id)
 
     async def on_error(self, event_method, *args, **kwargs):
         print(f'Ignoring exception in {event_method}:', file=sys.stderr)
@@ -476,7 +479,7 @@ class Client:
         """|coro|
 
         Join a public team using its ID.
-        
+
         Returns
         ---------
         :class:`Team`
