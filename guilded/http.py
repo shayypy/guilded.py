@@ -96,6 +96,7 @@ class HTTPClient:
         self._messages = {}
         self._team_members = {}
         self._team_channels = {}
+        self._team_threads = {}
         self._threads = {}
         self._dm_channels = {}
 
@@ -108,11 +109,29 @@ class HTTPClient:
     def _get_message(self, id):
         return self._messages.get(id)
 
-    def _get_team_channel(self, id):
-        return self._team_channels.get(id)
-
     def _get_dm_channel(self, id):
         return self._dm_channels.get(id)
+
+    def _get_thread(self, id):
+        return self._threads.get(id)
+
+    def _get_team_channel(self, team_id, id):
+        return self._team_channels.get(team_id, {}).get(id)
+
+    @property
+    def _all_team_channels(self):
+        all_channels = {}
+        for team in self._team_channels.values():
+            for channel_id, channel in team.items():
+                all_channels[channel_id] = channel
+
+        return all_channels
+
+    def _get_global_team_channel(self, id):
+        return self._all_team_channels.get(id)
+
+    def _get_team_thread(self, team_id, id):
+        return self._team_threads.get(team_id, {}).get(id)
 
     def _get_team_member(self, team_id, id):
         return self._team_members.get(team_id, {}).get(id)
@@ -136,7 +155,8 @@ class HTTPClient:
         except KeyError: pass
 
     def add_to_team_channel_cache(self, channel):
-        self._team_channels[channel.id] = channel
+        self._team_channels[channel.team_id] = self._team_channels.get(channel.team_id, {})
+        self._team_channels[channel.team_id][channel.id] = channel
 
     def remove_from_team_channel_cache(self, channel_id):
         try: del self._team_channels[channel_id]
@@ -352,6 +372,59 @@ class HTTPClient:
 
     def get_channel_messages(self, channel_id: str, *, limit: int):
         return self.request(Route('GET', f'/channels/{channel_id}/messages'), params={'limit': limit})
+
+    def create_thread(self, channel_id: str, message_content, *, name: str, initial_message=None):
+        route = Route('POST', f'/channels/{channel_id}/threads')
+        thread_id = utils.new_uuid()
+        payload = {
+            'name': name,
+            'channelId': thread_id,
+            'confirmed': False,
+            'contentType': 'chat',
+            'message': {
+                'id': utils.new_uuid(),
+                'channelId': thread_id,
+                'content': {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}}
+            }
+        }
+
+        for node in message_content:
+            blank_node = {
+                'object': 'block',
+                'type': None,
+                'data': {},
+                'nodes': []
+            }
+            if isinstance(node, Embed):
+                blank_node['type'] = 'webhookMessage'
+                blank_node['data'] = {'embeds': [node.to_dict()]}
+
+            elif isinstance(node, File):
+                blank_node['type'] = node.file_type
+                blank_node['data'] = {'src': node.url}
+
+            else:
+                # stringify anything else, similar to prev. behavior
+                blank_node['type'] = 'markdown-plain-text'
+                blank_node['nodes'].append({'object':'text', 'leaves': [{'object': 'leaf', 'text': str(node), 'marks': []}]})
+
+            payload['message']['content']['document']['nodes'].append(blank_node)
+
+        if initial_message:
+            payload['initialThreadMessage'] = initial_message._raw['message'].copy()
+            payload['initialThreadMessage']['botId'] = initial_message.bot_id
+            payload['initialThreadMessage']['webhookId'] = initial_message.webhook_id
+            payload['initialThreadMessage']['channelId'] = initial_message.channel_id
+            payload['initialThreadMessage']['isOptimistic'] = False
+
+            #payload['initialThreadMessage'].pop('isPrivate', None)
+            #payload['initialThreadMessage'].pop('isSilent', None)
+            #payload['initialThreadMessage'].pop('repliesToIds', None)
+            #payload['initialThreadMessage'].pop('repliesTo', None)
+
+            #payload['threadMessageId'] = utils.new_uuid()
+
+        return self.request(route, json=payload)
 
     # /teams
 
@@ -613,8 +686,6 @@ class HTTPClient:
                     return channel.ChatChannel(state=self, **data)
                 else:
                     return channel.Thread(state=self, **data)
-            elif ctype is channel.ChannelType.voice:
-                return channel.VoiceChannel(state=self, **data)
             elif ctype is channel.ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
         else:

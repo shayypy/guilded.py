@@ -214,6 +214,7 @@ class Message:
     """
     def __init__(self, *, state, channel, data, **extra):
         self._state = state
+        self._raw = data
 
         message = data.get('message', data)
         self.id = data.get('contentId') or message.get('id')
@@ -275,7 +276,7 @@ class Message:
             return False
 
     def __repr__(self):
-        return f'<Message id={self.id} author={repr(self.author)} channel={repr(self.channel)} team={repr(self.team)}>'
+        return f'<Message id={repr(self.id)} author={repr(self.author)} channel={repr(self.channel)} team={repr(self.team)}>'
 
     @property
     def created_by_bot(self):
@@ -455,3 +456,14 @@ class Message:
         already set.
         """
         return self.channel.send(*content, **kwargs, reply_to=[self])
+
+    def create_thread(self, *content, **kwargs):
+        """|coro|
+
+        Create a thread on a message.
+
+        .. bug
+            This method currently does not work.
+        """
+        kwargs['message'] = self
+        return self.channel.create_thread(*content, **kwargs)

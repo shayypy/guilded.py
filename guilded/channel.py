@@ -75,11 +75,34 @@ class ChatChannel(guilded.abc.TeamChannel):
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.chat
+        self.start_thread = self.create_thread
+
+    async def create_thread(self, *content, **kwargs):
+        """|coro|
+
+        Create a new thread in this channel. There is an alias for this called 
+        ``start_thread``.
+        """
+        name = kwargs.get('name')
+        message = kwargs.get('message')
+        if not name:
+            raise TypeError('name is a required argument that is missing.')
+        if not message and not content:
+            raise TypeError('Must include message, an argument list of content, or both.')
+
+        data = await self._state.create_thread(self.id, content, name=name, initial_message=message)
+        thread = Thread(data=data.get('thread', data), state=self._state, group=self.group, team=self.team)
+        return thread
+
+class VoiceChannel(guilded.abc.TeamChannel):
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.voice
 
 class Thread(guilded.abc.TeamChannel):
     def __init__(self, **fields):
         super().__init__(**fields)
-        data = fields.get('data') or fields.get('channel', {})  # i mean, just in case
+        data = fields.get('data') or fields.get('channel', {})
         self.type = ChannelType.thread
 
         self._message_count = data.get('messageCount') or 0
@@ -91,7 +114,7 @@ class Thread(guilded.abc.TeamChannel):
         self.participants = []
         participants = data.get('participants')
         if participants is None:
-            participants = [{'id': user_id} for user_id in data.get('userIds')]
+            participants = [{'id': user_id} for user_id in data.get('userIds', [])]
         for member_obj in (participants or []):
             member = self._state._get_team_member(self.team_id, member_obj.get('id'))
             if member is None:
@@ -122,6 +145,14 @@ class Thread(guilded.abc.TeamChannel):
         Restore this thread.
         """
         request = self._state.restore_team_thread(self.team_id, self.group_id, self.id)
+        await request
+
+    async def leave(self):
+        """|coro|
+
+        Leave this thread.
+        """
+        request = self._state.leave_thread(self.id)
         await request
 
     async def fetch_initial_message(self):
