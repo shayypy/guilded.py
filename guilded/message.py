@@ -211,6 +211,14 @@ class Message:
     ------------
     id: :class:`str`
         The message's ID.
+    channel: Union[:class:`abc.TeamChannel`, :class:`DMChannel`]
+        The channel this message was sent in.
+    team: Optional[:class:`Team`]
+        The team this message was sent in. ``None`` if the message is in a DM.
+    webhook_id: Optional[:class:`str`]
+        The webhook's ID that sent the message, if applicable.
+    bot_id: Optional[:class:`str`]
+        The bot's ID that sent the message, if applicable.
     """
     def __init__(self, *, state, channel, data, **extra):
         self._state = state
@@ -404,11 +412,18 @@ class Message:
         return content
 
     async def delete(self):
+        """|coro|
+
+        Delete this message.
+        """
         response = await self._state.delete_message(self.channel_id, self.id)
         self.deleted_at = datetime.datetime.utcnow()
 
     async def edit(self, *, content: str = None, embed = None, embeds: Optional[list] = None, file = None, files: Optional[list] = None):
-        """Edit a message."""
+        """|coro|
+
+        Edit this message.
+        """
         payload = {
             'old_content': self.content,
             'old_embeds': [embed.to_dict() for embed in self.embeds],
@@ -434,36 +449,40 @@ class Message:
 
         await self._state.edit_message(self.channel_id, self.id, **payload)
 
-    def add_reaction(self, emoji):
+    async def add_reaction(self, emoji):
         """|coro|
 
-        Add a reaction to a message. In the future, will take type Emoji, but currently takes an integer (the emoji's id)
+        Add a reaction to this message. In the future, will take type Emoji,
+        but currently takes an integer (the emoji's id).
         """
-        return self._state.add_message_reaction(self.channel_id, self.id, emoji)
+        return await self._state.add_message_reaction(self.channel_id, self.id, emoji)
 
-    def remove_self_reaction(self, emoji):
+    async def remove_self_reaction(self, emoji):
         """|coro|
 
-        Remove your reaction to a message. In the future, will take type Emoji, but currently takes an integer (the emoji's id)
+        Remove your reaction to this message. In the future, will take type
+        Emoji, but currently takes an integer (the emoji's id).
         """
-        return self._state.remove_self_message_reaction(self.channel_id, self.id, emoji)
+        return await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji)
 
-    def reply(self, *content, **kwargs):
+    async def reply(self, *content, **kwargs):
         """|coro|
 
         Reply to a message. Functions the same as
         :meth:`abc.Messageable.send`, but with the ``reply_to`` parameter
         already set.
         """
-        return self.channel.send(*content, **kwargs, reply_to=[self])
+        kwargs['reply_to'] = [self]
+        return await self.channel.send(*content, **kwargs)
 
-    def create_thread(self, *content, **kwargs):
+    async def create_thread(self, *content, **kwargs):
         """|coro|
 
         Create a thread on a message.
 
-        .. bug
+        .. warning::
+
             This method currently does not work.
         """
         kwargs['message'] = self
-        return self.channel.create_thread(*content, **kwargs)
+        return await self.channel.create_thread(*content, **kwargs)

@@ -131,10 +131,14 @@ class Client:
 
     Attributes
     -----------
-    ws
-        The websocket gateway the client is currently connected to. Could be ``None``.
     loop: :class:`asyncio.AbstractEventLoop`
-        The event loop that the client uses for HTTP requests and websocket operations.
+        The event loop that the client uses for HTTP requests and websocket
+        operations.
+    user: :class:`ClientUser`
+        The currently logged-in user.
+    ws: Optional[:class:`GuildedWebsocket`]
+        The websocket gateway the client is currently connected to. Could be
+        ``None``.
     """
     def __init__(self, **options):
         # internal

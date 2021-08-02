@@ -286,6 +286,8 @@ class ClientUser(guilded.abc.User):
 
     async def edit_settings(self, **kwargs):
         """|coro|
+
+        Change client settings.
         """
         payload = {}
         try:
