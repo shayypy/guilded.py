@@ -63,10 +63,40 @@ from .view import StringView
 
 
 class Bot(guilded.Client):
-    """A guilded bot with commands.
+    """A Guilded bot with commands.
 
-    This is a subclass of :class:`guilded.Client`, and thus it implements all the
-    functionality of :class:`guilded.Client` but with commands-related features.
+    This is a subclass of :class:`guilded.Client`, and thus it implements all
+    the functionality of :class:`guilded.Client` but comes with
+    commands-related features.
+
+    Parameters
+    ------------
+    command_prefix: Union[:class:`list`, :class:`str`]
+        The command prefix or list of command prefixes to listen for.
+    description: Optional[:class:`str`]
+        A description of this bot. Will show up in the default help command,
+        when it is created.
+    owner_id: Optional[:class:`str`]
+        The user's ID who owns this bot. Used for the
+        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        with ``owner_ids``.
+    owner_ids: Optional[List[:class:`str`]]
+        The users' IDs who own this bot. Used for the
+        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        with ``owner_id``.
+
+    Attributes
+    ------------
+    command_prefix: Union[:class:`list`, :class:`str`]
+        The command prefix or list of command prefixes to listen for.
+    commands: :class:`list`
+        A list of all the :class:`Command` s registered to this bot.
+    description: Optional[:class:`str`]
+        A description of this bot.
+    owner_id: Optional[:class:`str`]
+        The user's ID who owns this bot.
+    owner_ids: Optional[List[:class:`str`]]
+        The users' IDs who own this bot.
     """
     def __init__(self, *, command_prefix, description=None, **options):
         super().__init__(**options)
@@ -198,11 +228,11 @@ class Bot(guilded.Client):
 
         return decorator
 
-    async def is_owner(self, user):
+    async def is_owner(self, user: guilded.User):
         """|coro|
 
         Checks if a :class:`guilded.User` or :class:`guilded.Member` is the
-        owner of this bot. If an :attr:`owner_id` or :attr:`owner_ids` are
+        owner of this bot. If an :attr:`.owner_id` or :attr:`.owner_ids` are
         not set, this function will always return False, unless the user
         provided is the bot itself.
 
@@ -243,7 +273,7 @@ class Bot(guilded.Client):
 
     #    return ret
 
-    async def get_context(self, message):
+    async def get_context(self, message: guilded.Message):
         view = StringView(str(message.content))
         ctx = Context(prefix=None, view=view, bot=self, message=message)
 
@@ -316,4 +346,11 @@ class Bot(guilded.Client):
         await self.invoke(ctx)
 
     async def on_message(self, message):
+        """|coro|
+
+        The default handler for :func:`guilded.on_message` provided by the bot.
+
+        If you are overriding this, remember to call :meth:`.process_commands`
+        or all commands will be ignored.
+        """
         await self.process_commands(message)
