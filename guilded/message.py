@@ -291,8 +291,15 @@ class Message:
         return self.author.bot if self.author else (self.webhook_id is not None or self.bot_id is not None)
 
     @property
+    def share_url(self):
+        if self.team and self.channel:
+            return f'https://guilded.gg//groups/{self.channel.group_id}/channels/{self.channel.id}/chat?messageId={self.id}'
+        else:
+            return None
+
+    @property
     def jump_url(self):
-        return f'https://guilded.gg/channels/{self.channel.id}/chat?messageId={self.id}'
+        return self.share_url
 
     @property
     def embed(self):
