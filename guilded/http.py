@@ -264,13 +264,16 @@ class HTTPClient:
     # /channels
     # (message interfacing)
 
-    def send_message(self, channel_id: str, content, extra_payload=None):
+    def send_message(self, channel_id: str, content, extra_payload=None, share_urls=None):
         route = Route('POST', f'/channels/{channel_id}/messages')
         payload = {
             'messageId': utils.new_uuid(),
             'content': {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}},
             **(extra_payload or {})
         }
+
+        if share_urls:
+            payload['content']['document']['data']['shareUrls'] = share_urls
 
         for node in content:
             blank_node = {

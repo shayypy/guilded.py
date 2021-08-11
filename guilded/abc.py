@@ -143,7 +143,8 @@ class Messageable(metaclass=abc.ABCMeta):
             message_payload['repliesToIds'] = [message.id for message in kwargs['reply_to']]
             message_payload['isSilent'] = not kwargs.get('mention_author', True)
 
-        response_coro, payload = self._state.send_message(self._channel_id, content, message_payload)
+        share_urls = [message.share_url for message in kwargs.get('share', []) if message.share_url is not None]
+        response_coro, payload = self._state.send_message(self._channel_id, content, message_payload, share_urls=share_urls)
         response = await response_coro
         payload['createdAt'] = response.pop('message', response or {}).pop('createdAt', None)
         payload['id'] = payload.pop('messageId')
