@@ -75,13 +75,23 @@ class ChatChannel(guilded.abc.TeamChannel):
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.chat
-        self.start_thread = self.create_thread
 
     async def create_thread(self, *content, **kwargs):
         """|coro|
 
-        Create a new thread in this channel. There is an alias for this called 
-        ``start_thread``.
+        Create a new thread in this channel.
+
+        Parameters
+        ------------
+        content: Any
+            The content of the message that should be created as the initial
+            message of the newly-created thread. Passing either this or
+            ``message`` is required.
+        name: :class:`str`
+            The name to create the thread with.
+        message: Optional[:class:`ChatMessage`]
+            The message to create this thread from. Passing either this or
+            values for ``content`` is required.
         """
         name = kwargs.get('name')
         message = kwargs.get('message')
