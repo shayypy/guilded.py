@@ -230,8 +230,8 @@ class Message:
         self.bot_id = data.get('botId')
         self.channel = channel
         self.channel_id = data.get('channelId') or (channel.id if channel else None)
-        self.team = extra.get('team') or getattr(channel, 'team', None)
         self.team_id = data.get('teamId')
+        self.team = extra.get('team') or getattr(channel, 'team', None) or self._state._get_team(self.team_id)
 
         self.created_at = ISO8601(data.get('createdAt'))
         self.edited_at = ISO8601(message.get('editedAt'))
