@@ -322,7 +322,7 @@ class Embed:
             self._footer['text'] = str(text)
 
         if icon_url is not EmptyEmbed:
-            self._footer['icon_url'] = str(icon_url)
+            self._footer['iconUrl'] = str(icon_url)
 
         return self
 
@@ -447,7 +447,7 @@ class Embed:
             self._author['url'] = str(url)
 
         if icon_url is not EmptyEmbed:
-            self._author['icon_url'] = str(icon_url)
+            self._author['iconUrl'] = str(icon_url)
 
         return self
 
@@ -583,7 +583,15 @@ class Embed:
         return self
 
     def to_dict(self):
-        """Converts this embed object into a dict."""
+        """Converts this embed object into a dict.
+
+        .. note::
+
+            The resulting dict will be more or less identical to Discord's
+            format for embeds, with the exception that an ``iconUrl`` key is
+            used in place of ``icon_url``s. This is because ``icon_url``s do
+            not display on Desktop clients.
+        """
 
         # add in the raw data into the dict
         result = {
