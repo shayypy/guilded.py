@@ -310,7 +310,7 @@ class Team:
         -----------
         id: :class:`str`
             The member's id to fetch
-        full: :class:`bool`
+        full: Optional[:class:`bool`]
             Whether to fetch full user data for this member. If this is
             ``False``, a partial member will be returned with only the
             member's id, name, and ocassionally avatar & banner. Defaults
@@ -331,7 +331,7 @@ class Team:
             data = {**member, **user_data}
             return Member(state=self._state, data=data)
 
-        raise NotFound(f'Member with the ID "{id}" not found.')
+        raise ValueError(f'Member with the ID {id!r} not found.')
 
     async def getch_member(self, id: str):
         return self.get_member(id) or await self.fetch_member(id)
