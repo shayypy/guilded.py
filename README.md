@@ -1,8 +1,10 @@
-# This is a development branch
+Welcome to guilded.py, a discord.py-esque asynchronous Python wrapper for the Guilded API. If you know discord.py, you know guilded.py.
 
-This is not the main branch of guilded.py. Breaking changes ensue. This branch is not on PyPI. Please [join the Guilded API server](https://community.guildedapi.com) to give feedback (#library-list, guilded.py role).
+## Documentation
 
-### Basic Example
+In the works. Fortunately, if you've used discord.py before, you'll already have a head start.
+
+## Basic Example
 
 ```py
 import guilded
@@ -18,7 +20,16 @@ async def on_message(message):
     if message.author == client.user:
         return
     if message.content == 'ping':
-        await message.channel.send('pong')  # message.channel will sometimes be a partial TeamChannel/DMChannel (depending on the context) if the channel was not cached previously.
+        await message.channel.send('pong')
 
 client.run('email@example.com', 'password123')
 ```
+
+## Support
+
+Guilded.py has a support channel under its dedicated group for any questions you may have.
+
+1. Join the [Guilded-API](https://community.guildedapi.com) server
+2. Navigate to #library-list
+3. Click on the guilded.py role and click "Add me to role"
+4. You should see a new group pop up in your sidebar - you are now in the Guilded.py group
