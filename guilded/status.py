@@ -49,64 +49,23 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-class GuildedException(Exception):
-    """Base class for all guilded.py exceptions."""
-    pass
+import logging
 
-class ClientException(GuildedException):
-    pass
+log = logging.getLogger(__name__)
 
-class HTTPException(GuildedException):
-    """A non-ok response from Guilded was returned whilst performing an HTTP request.
+class TransientStatus:
+    def __init__(self, *, state, data, **extra):
+        self.id = data.get('id')
+        self.game_id = data.get('id')
 
-    Attributes
-    -----------
-    response: :class:`aiohttp.ClientResponse`
-        The :class:`aiohttp.ClientResponse` of the failed request.
-    status: :class:`int`
-        The HTTP status code of the request.
-    code: :class:`str`
-        A PascalCase representation of the HTTP status code. Could also be
-        called the error's name. Probably not useful in most cases.
-    message: :class:`str`
-        The message that came with the error.
-    """
-    def __init__(self, response, data):
-        self.response = response
-        self.status = response.status
-        if isinstance(data, dict):
-            self.message = data.get('message', data)
-            self.code = data.get('code', 'UnknownCode')
-        else:
-            self.message = data
-            self.code = ''
+class Game:
+    MAPPING = {}
+    def __init__(self, id: int):
+        if not self.MAPPING:
+            log.warning('The internal game cache is empty. Call coroutine client.fill_game_list to fill it automatically.')
 
-        super().__init__(f'{self.status} ({self.code}): {self.message}')
+        self.id = id
+        self.name = self.MAPPING.get(str(id))
 
-class BadRequest(HTTPException):
-    """Thrown on status code 400"""
-    pass
-
-class Forbidden(HTTPException):
-    """Thrown on status code 403"""
-    pass
-
-class NotFound(HTTPException):
-    """Thrown on status code 404"""
-    pass
-
-class TooManyRequests(HTTPException):
-    """Thrown on status code 429"""
-    pass
-
-class GuildedServerError(HTTPException):
-    """Thrown on status code 500"""
-    pass
-
-error_mapping = {
-    400: BadRequest,
-    403: Forbidden,
-    404: NotFound,
-    429: TooManyRequests,
-    500: GuildedServerError
-}
+    def __str__(self):
+        return self.name

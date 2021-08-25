@@ -49,64 +49,67 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-class GuildedException(Exception):
-    """Base class for all guilded.py exceptions."""
-    pass
+import guilded.abc
 
-class ClientException(GuildedException):
-    pass
 
-class HTTPException(GuildedException):
-    """A non-ok response from Guilded was returned whilst performing an HTTP request.
+class Context(guilded.abc.Messageable):
+    def __init__(self, **attrs):
+        self.message = attrs.pop('message', None)
+        self._state = attrs.pop('state', self.message._state)
+        self.bot = attrs.pop('bot', None)
+        self.args = attrs.pop('args', [])
+        self.kwargs = attrs.pop('kwargs', {})
+        self.prefix = attrs.pop('prefix')
+        self.command = attrs.pop('command', None)
+        self.view = attrs.pop('view', None)
+        self.invoked_with = attrs.pop('invoked_with', None)
+        self.invoked_parents = attrs.pop('invoked_parents', [])
+        self.invoked_subcommand = attrs.pop('invoked_subcommand', None)
+        self.subcommand_passed = attrs.pop('subcommand_passed', None)
+        self.command_failed = attrs.pop('command_failed', False)
 
-    Attributes
-    -----------
-    response: :class:`aiohttp.ClientResponse`
-        The :class:`aiohttp.ClientResponse` of the failed request.
-    status: :class:`int`
-        The HTTP status code of the request.
-    code: :class:`str`
-        A PascalCase representation of the HTTP status code. Could also be
-        called the error's name. Probably not useful in most cases.
-    message: :class:`str`
-        The message that came with the error.
-    """
-    def __init__(self, response, data):
-        self.response = response
-        self.status = response.status
-        if isinstance(data, dict):
-            self.message = data.get('message', data)
-            self.code = data.get('code', 'UnknownCode')
-        else:
-            self.message = data
-            self.code = ''
+    def __repr__(self):
+        return f'<Context prefix={self.prefix} message={repr(self.message)}>'
 
-        super().__init__(f'{self.status} ({self.code}): {self.message}')
+    @property
+    def valid(self):
+        return self.prefix is not None and self.command is not None
 
-class BadRequest(HTTPException):
-    """Thrown on status code 400"""
-    pass
+    @property
+    def cog(self):
+        if self.command is None:
+            return None
+        return self.command.cog
 
-class Forbidden(HTTPException):
-    """Thrown on status code 403"""
-    pass
+    @property
+    def channel(self):
+        return self.message.channel
 
-class NotFound(HTTPException):
-    """Thrown on status code 404"""
-    pass
+    @property
+    def _channel_id(self):
+        return self.message.channel_id
 
-class TooManyRequests(HTTPException):
-    """Thrown on status code 429"""
-    pass
+    @property
+    def team(self):
+        return self.message.team
 
-class GuildedServerError(HTTPException):
-    """Thrown on status code 500"""
-    pass
+    @property
+    def guild(self):
+        return self.team
 
-error_mapping = {
-    400: BadRequest,
-    403: Forbidden,
-    404: NotFound,
-    429: TooManyRequests,
-    500: GuildedServerError
-}
+    @property
+    def author(self):
+        return self.message.author
+
+    @property
+    def me(self):
+        return self.team.me if self.team else self.bot.user
+
+    def reply(self, *content, **kwargs):
+        """|coro|
+
+        Reply to the invoking message. Functions the same as
+        :meth:`abc.Messageable.send`, but with the ``reply_to`` parameter
+        already set.
+        """
+        return self.message.reply(*content, **kwargs)

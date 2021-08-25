@@ -49,64 +49,12 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-class GuildedException(Exception):
-    """Base class for all guilded.py exceptions."""
-    pass
+class Activity:
+    '''Represents a user or member's activity in Guilded. Referred to as "Status" in the user popout.'''
+    def __init__(self, *, details: str):
+        self.details = details
 
-class ClientException(GuildedException):
-    pass
-
-class HTTPException(GuildedException):
-    """A non-ok response from Guilded was returned whilst performing an HTTP request.
-
-    Attributes
-    -----------
-    response: :class:`aiohttp.ClientResponse`
-        The :class:`aiohttp.ClientResponse` of the failed request.
-    status: :class:`int`
-        The HTTP status code of the request.
-    code: :class:`str`
-        A PascalCase representation of the HTTP status code. Could also be
-        called the error's name. Probably not useful in most cases.
-    message: :class:`str`
-        The message that came with the error.
-    """
-    def __init__(self, response, data):
-        self.response = response
-        self.status = response.status
-        if isinstance(data, dict):
-            self.message = data.get('message', data)
-            self.code = data.get('code', 'UnknownCode')
-        else:
-            self.message = data
-            self.code = ''
-
-        super().__init__(f'{self.status} ({self.code}): {self.message}')
-
-class BadRequest(HTTPException):
-    """Thrown on status code 400"""
-    pass
-
-class Forbidden(HTTPException):
-    """Thrown on status code 403"""
-    pass
-
-class NotFound(HTTPException):
-    """Thrown on status code 404"""
-    pass
-
-class TooManyRequests(HTTPException):
-    """Thrown on status code 429"""
-    pass
-
-class GuildedServerError(HTTPException):
-    """Thrown on status code 500"""
-    pass
-
-error_mapping = {
-    400: BadRequest,
-    403: Forbidden,
-    404: NotFound,
-    429: TooManyRequests,
-    500: GuildedServerError
-}
+    @classmethod
+    def build(cls, data):
+        pl = data
+        return cls(details=pl.get('content'))

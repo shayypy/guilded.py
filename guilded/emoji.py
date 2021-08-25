@@ -49,64 +49,29 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-class GuildedException(Exception):
-    """Base class for all guilded.py exceptions."""
-    pass
+from .asset import Asset
 
-class ClientException(GuildedException):
-    pass
 
-class HTTPException(GuildedException):
-    """A non-ok response from Guilded was returned whilst performing an HTTP request.
-
-    Attributes
-    -----------
-    response: :class:`aiohttp.ClientResponse`
-        The :class:`aiohttp.ClientResponse` of the failed request.
-    status: :class:`int`
-        The HTTP status code of the request.
-    code: :class:`str`
-        A PascalCase representation of the HTTP status code. Could also be
-        called the error's name. Probably not useful in most cases.
-    message: :class:`str`
-        The message that came with the error.
-    """
-    def __init__(self, response, data):
-        self.response = response
-        self.status = response.status
-        if isinstance(data, dict):
-            self.message = data.get('message', data)
-            self.code = data.get('code', 'UnknownCode')
+class Emoji:
+    def __init__(self, *, state, team, data):
+        self._raw = data
+        self._state = state
+        self.team = team
+        self.id = data.get('id')
+        self.name = data.get('name')
+        urls = {
+            'customReaction': data.get('apng') or data.get('gif') or data.get('png') or data.get('webp'),
+            # assume animated first, even though guilded seems to simply append ?ia=1 rather than using their apng field.
+            'customReactionPNG': data.get('png'),
+            'customReactionWEBP': data.get('webp'),
+            'customReactionAPNG': data.get('apng'),
+            'customReactionGIF': data.get('gif')
+        }
+        self.url = Asset('customReaction', state=self._state, data=urls)
+        if getattr(self.url, 'apng') is not None or 'ia=1' in self.url:
+            self.animated = True
         else:
-            self.message = data
-            self.code = ''
+            self.animated = False
 
-        super().__init__(f'{self.status} ({self.code}): {self.message}')
-
-class BadRequest(HTTPException):
-    """Thrown on status code 400"""
-    pass
-
-class Forbidden(HTTPException):
-    """Thrown on status code 403"""
-    pass
-
-class NotFound(HTTPException):
-    """Thrown on status code 404"""
-    pass
-
-class TooManyRequests(HTTPException):
-    """Thrown on status code 429"""
-    pass
-
-class GuildedServerError(HTTPException):
-    """Thrown on status code 500"""
-    pass
-
-error_mapping = {
-    400: BadRequest,
-    403: Forbidden,
-    404: NotFound,
-    429: TooManyRequests,
-    500: GuildedServerError
-}
+    async def delete(self):
+        return await self._state.delete_team_emoji(self.team.id, self.id)

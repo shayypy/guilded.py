@@ -49,64 +49,42 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-class GuildedException(Exception):
-    """Base class for all guilded.py exceptions."""
-    pass
+from io import BytesIO
 
-class ClientException(GuildedException):
-    pass
 
-class HTTPException(GuildedException):
-    """A non-ok response from Guilded was returned whilst performing an HTTP request.
+class Asset:
+    FRIENDLY = {
+        'sm': 'small',
+        'md': 'medium',
+        'lg': 'large'
+    }
+    def __init__(self, type, *, state, data):
+        self._state = state
+        self.type = type
 
-    Attributes
-    -----------
-    response: :class:`aiohttp.ClientResponse`
-        The :class:`aiohttp.ClientResponse` of the failed request.
-    status: :class:`int`
-        The HTTP status code of the request.
-    code: :class:`str`
-        A PascalCase representation of the HTTP status code. Could also be
-        called the error's name. Probably not useful in most cases.
-    message: :class:`str`
-        The message that came with the error.
-    """
-    def __init__(self, response, data):
-        self.response = response
-        self.status = response.status
-        if isinstance(data, dict):
-            self.message = data.get('message', data)
-            self.code = data.get('code', 'UnknownCode')
-        else:
-            self.message = data
-            self.code = ''
+        self.url = data.get(self.type)
+        for key, value in data.items():
+            if key.startswith(self.type):
+                fmt = key.replace(self.type, '', 1)
+                setattr(self, self.FRIENDLY.get(fmt.lower(), fmt), Asset(self.type, state=self._state, data={}))
 
-        super().__init__(f'{self.status} ({self.code}): {self.message}')
+        if self.url is None:
+            self.url = getattr(self, 'large', getattr(self, 'medium', getattr(self, 'small', getattr(self, 'png', getattr(self, 'webp', self))))).url
 
-class BadRequest(HTTPException):
-    """Thrown on status code 400"""
-    pass
+    def __str__(self):
+        return self.url
 
-class Forbidden(HTTPException):
-    """Thrown on status code 403"""
-    pass
+    def __bool__(self):
+        return self.url is not None
 
-class NotFound(HTTPException):
-    """Thrown on status code 404"""
-    pass
+    def __len__(self):
+        return len(str(self))
 
-class TooManyRequests(HTTPException):
-    """Thrown on status code 429"""
-    pass
+    def __eq__(self, other):
+        return self.url is not None and other.url is not None and self.url == other.url
 
-class GuildedServerError(HTTPException):
-    """Thrown on status code 500"""
-    pass
+    async def read(self):
+        return await self._state.read_filelike_data(self)
 
-error_mapping = {
-    400: BadRequest,
-    403: Forbidden,
-    404: NotFound,
-    429: TooManyRequests,
-    500: GuildedServerError
-}
+    async def bytesio(self):
+        return BytesIO(await self._state.read_filelike_data(self))

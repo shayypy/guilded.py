@@ -1,13 +1,24 @@
-# guilded.py
+# This is a development branch
 
-Guilded API wrapper, written in Python.
+This is not the main branch of guilded.py. Breaking changes ensue. This branch is not on PyPI. Please [join the Guilded API server](https://community.guildedapi.com) to give feedback (#library-list, guilded.py role).
 
-[![Downloads](https://static.pepy.tech/personalized-badge/guilded-py?period=total&units=international_system&left_color=blue&right_color=yellow&left_text=Downloads)](https://pypi.org/project/guilded-py)
+### Basic Example
 
-# Documentation
+```py
+import guilded
 
-For documentation, see Guilded.py's dedicated group in [the Guilded API server](https://guilded.gg/guilded-api) (rtd soon™).
-- [Getting Started](https://www.guilded.gg/guilded-api/groups/WD56qLmd/channels/b43d6028-8277-4a1f-93be-ba5f8af128a8/docs)
-- [API Reference](https://www.guilded.gg/guilded-api/groups/WD56qLmd/channels/236eae98-df95-4349-8b16-80006b7587aa/docs)
-- [Event Reference](https://www.guilded.gg/guilded-api/groups/WD56qLmd/channels/b0036c20-9df2-4d65-9d46-aeef75583f92/docs)
-- [ABCs](https://www.guilded.gg/guilded-api/groups/WD56qLmd/channels/7277ccb1-e20c-4463-b6fa-42b3a91453d1/docs)
+client = guilded.Client()
+
+@client.event
+async def on_ready():
+    print('Ready')
+
+@client.event
+async def on_message(message):
+    if message.author == client.user:
+        return
+    if message.content == 'ping':
+        await message.channel.send('pong')  # message.channel will sometimes be a partial TeamChannel/DMChannel (depending on the context) if the channel was not cached previously.
+
+client.run('email@example.com', 'password123')
+```

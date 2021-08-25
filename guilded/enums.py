@@ -49,64 +49,22 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-class GuildedException(Exception):
-    """Base class for all guilded.py exceptions."""
-    pass
+from enum import Enum
 
-class ClientException(GuildedException):
-    pass
 
-class HTTPException(GuildedException):
-    """A non-ok response from Guilded was returned whilst performing an HTTP request.
+class AllowDMsFrom(Enum):
+    friends_and_members: 'friendsAndServerMembers'
+    members: 'friendsAndServerMembers'
+    friends: 'friendsOnly'
+    everyone: 'everyone'
 
-    Attributes
-    -----------
-    response: :class:`aiohttp.ClientResponse`
-        The :class:`aiohttp.ClientResponse` of the failed request.
-    status: :class:`int`
-        The HTTP status code of the request.
-    code: :class:`str`
-        A PascalCase representation of the HTTP status code. Could also be
-        called the error's name. Probably not useful in most cases.
-    message: :class:`str`
-        The message that came with the error.
-    """
-    def __init__(self, response, data):
-        self.response = response
-        self.status = response.status
-        if isinstance(data, dict):
-            self.message = data.get('message', data)
-            self.code = data.get('code', 'UnknownCode')
-        else:
-            self.message = data
-            self.code = ''
+    def __str__(self):
+        return self.value
 
-        super().__init__(f'{self.status} ({self.code}): {self.message}')
+class AllowFriendRequestsFrom(Enum):
+    friends_and_members: 'friendsAndServerMembers'
+    members: 'serverMembersOnly'
+    everyone: 'everyone'
 
-class BadRequest(HTTPException):
-    """Thrown on status code 400"""
-    pass
-
-class Forbidden(HTTPException):
-    """Thrown on status code 403"""
-    pass
-
-class NotFound(HTTPException):
-    """Thrown on status code 404"""
-    pass
-
-class TooManyRequests(HTTPException):
-    """Thrown on status code 429"""
-    pass
-
-class GuildedServerError(HTTPException):
-    """Thrown on status code 500"""
-    pass
-
-error_mapping = {
-    400: BadRequest,
-    403: Forbidden,
-    404: NotFound,
-    429: TooManyRequests,
-    500: GuildedServerError
-}
+    def __str__(self):
+        return self.value

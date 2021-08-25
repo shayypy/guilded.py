@@ -49,64 +49,58 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-class GuildedException(Exception):
-    """Base class for all guilded.py exceptions."""
-    pass
+from .asset import Asset
+from .file import File, MediaType
+from .utils import ISO8601
 
-class ClientException(GuildedException):
-    pass
 
-class HTTPException(GuildedException):
-    """A non-ok response from Guilded was returned whilst performing an HTTP request.
+class Group:
+    def __init__(self, *, state, team, data):
+        self._state = state
+        self.team = team
+        data = data.get('group', data)
 
-    Attributes
-    -----------
-    response: :class:`aiohttp.ClientResponse`
-        The :class:`aiohttp.ClientResponse` of the failed request.
-    status: :class:`int`
-        The HTTP status code of the request.
-    code: :class:`str`
-        A PascalCase representation of the HTTP status code. Could also be
-        called the error's name. Probably not useful in most cases.
-    message: :class:`str`
-        The message that came with the error.
-    """
-    def __init__(self, response, data):
-        self.response = response
-        self.status = response.status
-        if isinstance(data, dict):
-            self.message = data.get('message', data)
-            self.code = data.get('code', 'UnknownCode')
+        self.id = data.get('id')
+        self.name = data.get('name')
+        self.description = data.get('description')
+        self.position = data.get('priority')
+
+        self.game_id = data.get('gameId', 0)
+        self.base = data.get('isBase')
+        self.public = data.get('isPublic')
+        
+        self.created_by = self.team.get_member(data.get('createdBy')) or data.get('createdBy')
+        self.updated_by = self.team.get_member(data.get('updatedBy')) or data.get('updatedBy')
+        self.archived_by = self.team.get_member(data.get('archivedBy')) or data.get('archivedBy')
+
+        self.created_at = ISO8601(data.get('createdAt'))
+        self.updated_at = ISO8601(data.get('updatedAt'))
+        self.deleted_at = ISO8601(data.get('deletedAt'))
+        self.archived_at = ISO8601(data.get('archivedAt'))
+
+        icon_url = data.get('avatar')
+        if icon_url:
+            self.icon_url = Asset('avatar', state=self._state, data=data)
         else:
-            self.message = data
-            self.code = ''
+            self.icon_url = None
 
-        super().__init__(f'{self.status} ({self.code}): {self.message}')
+        banner_url = data.get('banner')
+        if banner_url:
+            self.banner_url = Asset('banner', state=self._state, data=data)
+        else:
+            self.banner_url = None
 
-class BadRequest(HTTPException):
-    """Thrown on status code 400"""
-    pass
+    async def delete(self):
+        return await self._state.delete_team_group(self.team.id, self.id)
 
-class Forbidden(HTTPException):
-    """Thrown on status code 403"""
-    pass
+    async def edit(self, **fields):
+        if type(fields.get('icon')) == str:
+            fields['icon_url'] = fields.get('icon')
+        elif type(fields.get('icon')) == File:
+            file = fields.get('icon')
+            file.type = MediaType.group_icon
+            fields['icon_url'] = await file._upload(self._state)
+        elif type(fields.get('icon')) == type(None):
+            fields['icon_url'] = None
 
-class NotFound(HTTPException):
-    """Thrown on status code 404"""
-    pass
-
-class TooManyRequests(HTTPException):
-    """Thrown on status code 429"""
-    pass
-
-class GuildedServerError(HTTPException):
-    """Thrown on status code 500"""
-    pass
-
-error_mapping = {
-    400: BadRequest,
-    403: Forbidden,
-    404: NotFound,
-    429: TooManyRequests,
-    500: GuildedServerError
-}
+        return await self._state.update_team_group(self.team.id, self.id, **fields)
