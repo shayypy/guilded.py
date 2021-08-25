@@ -163,6 +163,9 @@ class Command:
             #if value.annotation is converters.Greedy:
             #    raise TypeError('Unparameterized Greedy[...] is disallowed in signature.')
 
+    def __str__(self):
+        return self.name
+
     async def __call__(self, *args, **kwargs):
         '''|coro|
 
