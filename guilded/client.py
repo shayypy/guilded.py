@@ -291,7 +291,8 @@ class Client:
 
             if self.cache_on_startup['members'] is True:
                 members = await team.fetch_members()
-                for member in members: self.http.add_to_member_cache(member)
+                for member in members:
+                    self.http.add_to_member_cache(member)
 
             if self.cache_on_startup['channels'] is True:
                 channels = await team.fetch_channels()

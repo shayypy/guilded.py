@@ -213,55 +213,26 @@ class WebSocketEventParsers:
         channel, author, team = None, None, None
 
         if channelId is not None:
-            try: channel = await self.client.getch_channel(channelId)
-            except: channel = None
+            try:
+                channel = await self.client.getch_channel(channelId)
+            except:
+                pass
 
         if teamId is not None:
             if channel:
                 team = channel.team
             else:
-                try: team = await self.client.getch_team(teamId)
-                except: team = None
-
-        def create_faux_user():
-            """Create a fake user with only `.id` and `.bot` to cut down on `message.author` being None.
-            Although admittedly this isn't much more useful, it prevents the unexpected type change
-            and helps use cases where only an ID is checked anyway.
-            """
-            return User(state=self._state, data={'id': createdBy}, bot=(data.get('webhookId') is not None or data.get('botId') is not None))
-
-        if createdBy is not None and data.get('webhookId') is None and data.get('botId') is None:
-            if channel:
-                try: author = await channel.team.getch_member(createdBy)
-                except:
-                    try: author = await self.client.getch_user(createdBy)
-                    except: author = create_faux_user()
-            elif team:
-                try: author = await team.getch_member(createdBy)
-                except:
-                    try: author = await self.client.getch_user(createdBy)
-                    except: author = create_faux_user()
-            else:
-                try: author = await self.client.getch_user(createdBy)
-                except: author = create_faux_user()
-
-        elif createdBy is not None and (data.get('webhookId') is not None or data.get('botId') is not None):
-            # in the case of webhook/flowbot messages, both webhookId/botId and createdBy are
-            # returned, which i don't really know what to do with. fetching createdBy
-            # as though it's a user will return a seemingly?-valid user object for 'Gil',
-            # so we do it anyway (and skip member fetching, hence separate elif statement).
-            try: author = await self.client.getch_user(createdBy)
-            except: author = create_faux_user()
-            # (for webhooks,) in the future this will probably getch the webhook (with a similar interface to
-            # User) instead, since it makes more sense, but in the meantime, we'll just take
-            # advantage of the createdBy attr that gets returned, even though its probably(?) the same Gil user every time
-
-        if not channel:
-            if data.get('channelType', '').lower() == 'team':
                 try:
-                    channel = await team.getch_channel(channelId)
+                    team = await self.client.getch_team(teamId)
                 except:
-                    channel = TeamChannel(state=self._state, group=None, data={'id': channelId}, team=team)
+                    pass
+
+        else:
+            author = await self.client.getch_user(createdBy)
+
+        if channel is None:
+            if team:
+                channel = await team.getch_channel(channelId)
             else:
                 channel = DMChannel(state=self._state, data={'id': channelId, 'users': []})
 

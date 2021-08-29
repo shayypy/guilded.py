@@ -279,17 +279,12 @@ class Team:
         """|coro|
 
         Fetch the list of :class:`guilded.Member`s in this team.
-
-        .. warning::
-            Guilded returns only partial member data. You will have, at the
-            least, :attr:`Member.id` and :attr:`Member.name`, and sometimes
-            :attr:`Member.avatar_url` and :attr:`Member.banner`.
         """
-        members = await self._state.get_team_members(self.id)
+        team = await self._state.get_team(self.id)
         member_list = []
-        for member in members.get('members', members):
+        for member in team['team']['members']:
             try:
-                member_obj = Member(state=self._state, data=member, team=self)
+                member_obj = self._state.create_member(team=self, data=member)
             except:
                 continue
             else:
@@ -300,38 +295,41 @@ class Team:
     async def fetch_member(self, id: str, *, full=True):
         """|coro|
 
-        Fetch a specific :class:`guilded.Member` in this team. Guilded does
-        not actually have an endpoint for this, so it is no more efficient
-        than performing :meth:`Team.fetch_members` and filtering the list
-        yourself, with the exception of being able to shorthand-get full user
-        data.
+        Fetch a specific :class:`guilded.Member` in this team.
 
         Parameters
         -----------
         id: :class:`str`
-            The member's id to fetch
+            The member's id to fetch.
         full: Optional[:class:`bool`]
             Whether to fetch full user data for this member. If this is
-            ``False``, a partial member will be returned with only the
-            member's id, name, and ocassionally avatar & banner. Defaults
-            to ``True``
+            ``False``, only team-specific data about this user will be
+            returned. Defaults to ``True``.
+
+            .. note::
+                When this is ``True``, this method will make two HTTP requests.
+                If the extra information returned by doing this is not necessary
+                for your use-case, it is recommended to set it to ``False``.
 
         Returns
         --------
         :class:`Member`
             The member from their id
-        """
-        members = await self._state.get_team_members(self.id)
-        member = next((member for member in members.get('members', []) if member.get('id') == id), None)
-        if member is not None:
-            if full is True:
-                user_data = await self._state.get_user(id)
-            else:
-                user_data = {}
-            data = {**member, **user_data}
-            return Member(state=self._state, data=data)
 
-        raise ValueError(f'Member with the ID {id!r} not found.')
+        Raises
+        -------
+        :class:`NotFound`
+            A member with that ID does not exist in this team
+        """
+        data = (await self._state.get_team_member(self.id, id))[id]
+        if full is True:
+            user_data = await self._state.get_user(id)
+            user_data['user']['createdAt'] = user_data['user'].get('createdAt', user_data['user'].get('joinDate'))
+            data = {**user_data, **data}
+
+        member = self._state.create_member(team=self, data=data)
+        self._state.add_to_member_cache(member)
+        return member
 
     async def getch_member(self, id: str):
         return self.get_member(id) or await self.fetch_member(id)
