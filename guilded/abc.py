@@ -227,7 +227,8 @@ class User(metaclass=abc.ABCMeta):
         self.banner_url = Asset('profileBanner', state=self._state, data=data)
 
         self.moderation_status = data.get('moderationStatus')
-        self.badges = data.get('badges', [])
+        self.badges = data.get('badges') or []
+        self.stonks = data.get('stonks')
 
         self.bot = extra.get('bot', False)
 
@@ -235,7 +236,7 @@ class User(metaclass=abc.ABCMeta):
         self.friend_requested_at = ISO8601(extra.get('friend_created_at'))
 
     def __str__(self):
-        return f'{self.name}#{self.id}'
+        return self.name
 
     def __eq__(self, other):
         try:
