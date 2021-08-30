@@ -57,7 +57,7 @@ import traceback
 import guilded
 
 from . import errors
-from .core import Command
+from .core import Command, Group
 from .context import Context
 from .view import StringView
 
@@ -155,6 +155,16 @@ class Bot(guilded.Client):
             if isinstance(coro, Command):
                 raise TypeError('Function is already a command.')
             command = Command(coro, **kwargs)
+            self.add_command(command)
+            return command
+
+        return decorator
+
+    def group(self, **kwargs):
+        def decorator(coro):
+            if isinstance(coro, Group):
+                raise TypeError('Function is already a group.')
+            command = Group(coro, **kwargs)
             self.add_command(command)
             return command
 
