@@ -63,9 +63,9 @@ from .errors import *
 
 def _convert_to_bool(argument):
     lowered = argument.lower()
-    if lowered in ("yes", "y", "true", "t", "1", "enable", "on"):
+    if lowered in ('yes', 'y', 'true', 't', '1', 'enable', 'on'):
         return True
-    elif lowered in ("no", "n", "false", "f", "0", "disable", "off"):
+    elif lowered in ('no', 'n', 'false', 'f', '0', 'disable', 'off'):
         return False
     else:
         raise BadBoolArgument(lowered)
@@ -118,36 +118,36 @@ class _CaseInsensitiveDict(dict):
 class Command:
     def __init__(self, coro, **kwargs):
         if not asyncio.iscoroutinefunction(coro):
-            raise TypeError("Function must be a coroutine.")
+            raise TypeError('Function must be a coroutine.')
 
-        name = kwargs.get("name") or coro.__name__
+        name = kwargs.get('name') or coro.__name__
         if not isinstance(name, str):
-            raise TypeError("Command name must be a string.")
+            raise TypeError('Command name must be a string.')
         self.name = name
         self.callback = coro
 
-        help_doc = kwargs.get("help")
+        help_doc = kwargs.get('help')
         if help_doc is not None:
             help_doc = inspect.cleandoc(help_doc)
         else:
             help_doc = inspect.getdoc(coro)
             if isinstance(help_doc, bytes):
-                help_doc = help_doc.decode("utf-8")
+                help_doc = help_doc.decode('utf-8')
 
         self.help = help_doc
-        self.enabled = kwargs.get("enabled", True)
-        self.brief = kwargs.get("brief")
-        self.usage = kwargs.get("usage")
-        self.rest_is_raw = kwargs.get("rest_is_raw", False)
+        self.enabled = kwargs.get('enabled', True)
+        self.brief = kwargs.get('brief')
+        self.usage = kwargs.get('usage')
+        self.rest_is_raw = kwargs.get('rest_is_raw', False)
         self.require_var_positional = kwargs.get(
-            "require_var_positional", False
+            'require_var_positional', False
         )
-        self.ignore_extra = kwargs.get("ignore_extra", True)
+        self.ignore_extra = kwargs.get('ignore_extra', True)
         self.cooldown_after_parsing = kwargs.get(
-            "cooldown_after_parsing", False
+            'cooldown_after_parsing', False
         )
         self.cog = None
-        self.aliases = kwargs.get("aliases", [])
+        self.aliases = kwargs.get('aliases', [])
 
         if not isinstance(self.aliases, (list, tuple)):
             if isinstance(self.aliases, str):
@@ -156,11 +156,11 @@ class Command:
                 self.aliases = [self.aliases]
             else:
                 raise TypeError(
-                    "Command aliases must be a list or a tuple of strings."
+                    'Command aliases must be a list or a tuple of strings.'
                 )
 
-        self.description = inspect.cleandoc(kwargs.get("description", ""))
-        self.hidden = kwargs.get("hidden", False)
+        self.description = inspect.cleandoc(kwargs.get('description', ''))
+        self.hidden = kwargs.get('hidden', False)
 
         # try:
         #    checks = func.__commands_checks__
@@ -305,11 +305,11 @@ class Command:
             pass
         else:
             if module is not None and (
-                module.startswith("guilded.")
-                and not module.endswith("converter")
+                module.startswith('guilded.')
+                and not module.endswith('converter')
             ):
                 converter = getattr(
-                    converters, converter.__name__ + "Converter", converter
+                    converters, converter.__name__ + 'Converter', converter
                 )
 
         try:
@@ -342,7 +342,7 @@ class Command:
                 name = converter.__class__.__name__
 
             raise BadArgument(
-                f'Converting to "{name}" failed for parameter "{param.name}".'
+                f'Converting to {name!r} failed for parameter {param.name!r}.'
             ) from exc
 
     async def _parse_arguments(self, ctx):
@@ -400,9 +400,7 @@ class Command:
 
         if not self.ignore_extra:
             if not view.eof:
-                raise TooManyArguments(
-                    "Too many arguments passed to " + self.qualified_name
-                )
+                raise TooManyArguments(f'Too many arguments passed to {self.qualified_name}')
 
     async def invoke(self, ctx):
         ctx.command = self
@@ -443,7 +441,7 @@ class Command:
 def command(name, cls=Command, **kwargs):
     def decorator(coro):
         if isinstance(coro, Command):
-            raise TypeError("Function is already a command.")
+            raise TypeError('Function is already a command.')
         return cls(coro, **kwargs)
 
     return decorator
@@ -457,9 +455,9 @@ class Group(Command):
     def __init__(self, *args: typing.Any, **attrs: typing.Any):
         super().__init__(*args, **attrs)
         self.invoke_without_command = attrs.pop(
-            "invoke_without_command", False
+            'invoke_without_command', False
         )
-        case_i = self.case_insensitive = attrs.pop("case_insensitive", False)
+        case_i = self.case_insensitive = attrs.pop('case_insensitive', False)
         self.all_commands = _CaseInsensitiveDict() if case_i else {}
 
     @property
@@ -551,9 +549,6 @@ class Group(Command):
         This is usually not called, instead the :meth:`~.GroupMixin.command` or
         :meth:`~.GroupMixin.group` shortcut decorators are used instead.
 
-        .. versionchanged:: 1.4
-             Raise :exc:`.CommandRegistrationError` instead of generic :exc:`.ClientException`
-
         Parameters
         -----------
         command: :class:`Command`
@@ -568,7 +563,7 @@ class Group(Command):
         """
 
         if not isinstance(command, Command):
-            raise TypeError("The command passed must be a subclass of Command")
+            raise TypeError('The command passed must be a subclass of Command')
 
         if isinstance(self, Command):
             command.parent = self
@@ -623,11 +618,8 @@ class Group(Command):
     def walk_commands(self) -> typing.Generator[Command, None, None]:
         """An iterator that recursively walks through all commands and subcommands.
 
-        .. versionchanged:: 1.4
-            Duplicates due to aliases are no longer returned
-
         Yields
-        ------
+        -------
         Union[:class:`.Command`, :class:`.Group`]
             A command or group from the internal list of commands.
         """
@@ -658,7 +650,7 @@ class Group(Command):
         """
 
         # fast path, no space in name.
-        if " " not in name:
+        if ' ' not in name:
             return self.all_commands.get(name)
 
         names = name.split()
@@ -693,7 +685,7 @@ class Group(Command):
         """
 
         def deco(coro):
-            kwargs.setdefault("parent", self)
+            kwargs.setdefault('parent', self)
             res = command(name, cls, *args, **kwargs)(coro)
             self.add_command(res)
             return res
@@ -717,7 +709,7 @@ class Group(Command):
         """
 
         def decorator(func: typing.Callable):
-            kwargs.setdefault("parent", self)
+            kwargs.setdefault('parent', self)
             result = group(
                 name=name or func.__name__, cls=cls or Group, *args, **kwargs
             )(func)
@@ -729,6 +721,8 @@ class Group(Command):
 
 def group(name, cls=Group, **attrs):
     def deco(coro):
+        if isinstance(coro, Group):
+            raise TypeError('Function is already a group.')
         return cls(coro, **attrs)
 
     return deco
