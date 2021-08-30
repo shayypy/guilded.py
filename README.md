@@ -22,8 +22,10 @@ async def on_message(message):
     if message.content == 'ping':
         await message.channel.send('pong')
 
-client.run('email@example.com', 'password123')
+client.run('email', 'password')
 ```
+
+For more examples, see the examples directory in this repository.
 
 ## Support
 
