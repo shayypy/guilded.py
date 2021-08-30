@@ -445,6 +445,8 @@ def command(name, cls=Command, **kwargs):
     def decorator(coro):
         if isinstance(coro, Command):
             raise TypeError('Function is already a command.')
+
+        kwargs['name'] = kwargs.get('name', name)
         return cls(coro, **kwargs)
 
     return decorator
