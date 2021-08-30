@@ -446,13 +446,16 @@ class HTTPClient:
     def get_team_members(self, team_id: str):
         return self.request(Route('GET', f'/teams/{team_id}/members'))
 
+    def get_detailed_team_members(self, team_id: str, user_ids: list):
+        return self.request(Route('POST', f'/teams/{team_id}/members/detail'), json={'userIds': user_ids})
+
     def get_team_member(self, team_id: str, user_id: str, *, as_object=False):
         if as_object is False:
-            return self.request(Route('GET', f'/teams/{team_id}/members/{user_id}'))
+            return self.get_detailed_team_members(team_id, [user_id])
         else:
             async def get_team_member_as_object():
-                data = await self.request(Route('GET', f'/teams/{team_id}/members/{user_id}'))
-                return Member(state=self, data=data)
+                data = await self.get_detailed_team_members(team_id, [user_id])
+                return Member(state=self, data=data[user_id])
             return get_team_member_as_object()
 
     def get_team_channels(self, team_id: str):
@@ -713,15 +716,14 @@ class HTTPClient:
         if channel_data.get('type', '').lower() == 'team':
             ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
             if ctype is channel.ChannelType.chat:
-                try:
+                if 'threadMessageId' in channel_data:
                     # we assume here that only threads will have this attribute
                     # so from this we can reasonably know whether a channel is
-                    # a thread or not
+                    # a thread
                     channel_data['threadMessageId']
-                except KeyError:
-                    return channel.ChatChannel(state=self, **data)
-                else:
                     return channel.Thread(state=self, **data)
+                else:
+                    return channel.ChatChannel(state=self, **data)
             elif ctype is channel.ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
         else:

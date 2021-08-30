@@ -336,10 +336,11 @@ class Bot(guilded.Client):
             self.dispatch('command_error', ctx, exc)
 
     async def process_commands(self, message):
+        if not message.author:
+            return
+
         if message.author.bot:
-            # this is a bit of a hacky attr. obviously, it's impractical to tell if a user
-            # account is a bot, so this returns true if the message had either a webhookId
-            # or botId (for flow-bots) attribute.
+            # webhook or bot
             return
 
         ctx = await self.get_context(message)
