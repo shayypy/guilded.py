@@ -76,10 +76,13 @@ class Messageable(metaclass=abc.ABCMeta):
         Send a message to a Guilded channel.
 
         .. note::
-
             Guilded supports embeds/attachments/strings in any order, which is
             not practically possible with keyword arguments. For this reason,
             it is recommended that you pass arguments positionally instead.
+
+        .. warn::
+            Setting both `silent` and `private` to true (a private reply with
+            no mention) will not send the reply to the author of the message(s).
 
         Parameters
         -----------
