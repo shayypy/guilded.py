@@ -81,6 +81,21 @@ class Messageable(metaclass=abc.ABCMeta):
             not practically possible with keyword arguments. For this reason,
             it is recommended that you pass arguments positionally instead.
 
+        Parameters
+        -----------
+        content: Union[:class:`str`, :class:`Embed`, :class:`File`]
+            An argument list of the message content, passed in the order that
+            each element should display in the message.
+        reply_to: List[:class:`Message`]
+            A list of up to 5 messages to reply to.
+        silent: :class:`bool`
+            Whether this reply should not mention the authors of the messages
+            it is replying to, if any. Defaults to ``False``. There is an alias
+            for this called ``mention_author``, which has the opposite behavior.
+        private: :class:`bool`
+            Whether this message should only be visible to its author (the
+            bot) and the authors of the messages it is replying to. Defaults
+            to ``False``.
         """
         content = list(content)
         if kwargs.get('file'):
@@ -141,7 +156,8 @@ class Messageable(metaclass=abc.ABCMeta):
                 raise TypeError('reply_to must be type list, not %s' % type(kwargs['reply_to']).__name__)
 
             message_payload['repliesToIds'] = [message.id for message in kwargs['reply_to']]
-            message_payload['isSilent'] = not kwargs.get('mention_author', True)
+            message_payload['isSilent'] = kwargs.get('silent', not kwargs.get('mention_author', True))
+            message_payload['isPrivate'] = kwargs.get('private', False)
 
         share_urls = [message.share_url for message in kwargs.get('share', []) if message.share_url is not None]
         response_coro, payload = self._state.send_message(self._channel_id, content, message_payload, share_urls=share_urls)
