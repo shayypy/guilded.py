@@ -194,7 +194,7 @@ class Link:
     def __str__(self):
         return self.url
 
-class Message:
+class ChatMessage:
     """A message in Guilded.
 
     .. container:: operations
@@ -493,3 +493,5 @@ class Message:
         """
         kwargs['message'] = self
         return await self.channel.create_thread(*content, **kwargs)
+
+Message = ChatMessage

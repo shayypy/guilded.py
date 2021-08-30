@@ -60,7 +60,7 @@ from . import channel
 from .embed import Embed
 from .errors import ClientException, HTTPException, error_mapping
 from .file import File
-from .message import Message
+from .message import ChatMessage
 from .user import User, Member
 
 log = logging.getLogger(__name__)
@@ -731,4 +731,4 @@ class HTTPClient:
 
     def create_message(self, **data):
         data['channel'] = data.get('channel')
-        return Message(state=self, **data)
+        return ChatMessage(state=self, **data)
