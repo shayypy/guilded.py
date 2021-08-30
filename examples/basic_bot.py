@@ -2,6 +2,11 @@ import guilded
 from guilded.ext import commands
 import random
 
+# The source of this example bot was taken from the examples directory in the
+# discord.py repository and modified slightly to demonstrate the similarities
+# between the two packages.
+# https://github.com/Rapptz/discord.py/blob/master/examples/basic_bot.py
+
 description = '''An example bot to showcase the guilded.ext.commands extension
 module, as well as to furthermore demonstrate the similarities between
 guilded.py and discord.py.'''
