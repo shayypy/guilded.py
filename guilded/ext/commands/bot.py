@@ -168,6 +168,16 @@ class Bot(guilded.Client):
 
         return decorator
 
+    def group(self, **kwargs):
+        def decorator(coro):
+            if isinstance(coro, Group):
+                raise TypeError('Function is already a group.')
+            command = Group(coro, **kwargs)
+            self.add_command(command)
+            return command
+
+        return decorator
+
     async def close(self):
         for extension in tuple(self.__extensions):
             try:

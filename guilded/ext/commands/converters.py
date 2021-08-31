@@ -118,7 +118,7 @@ class UUIDConverter(Converter):
 class MemberConverter(BasicIDConverter):
     """Converts to a :class:`~guilded.Member`.
 
-    All lookups are via the local guild. If in a DM context, then the lookup
+    All lookups are via the current team. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):

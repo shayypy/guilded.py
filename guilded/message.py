@@ -194,7 +194,7 @@ class Link:
     def __str__(self):
         return self.url
 
-class Message:
+class ChatMessage:
     """A message in Guilded.
 
     .. container:: operations
@@ -252,6 +252,8 @@ class Message:
 
         self.replied_to = []
         self.replied_to_ids = message.get('repliesToIds', message.get('repliesTo') or [])
+        self.silent = message.get('isSilent', False)
+        self.private = message.get('isPrivate', False)
         if data.get('repliedToMessages'):
             for message_data in data['repliedToMessages']:
                 message = self._state.create_message(data=message_data)
@@ -278,13 +280,10 @@ class Message:
         return self.content
 
     def __eq__(self, other):
-        try:
-            return self.id == other.id
-        except:
-            return False
+        return isinstance(other, ChatMessage) and self.id == other.id
 
     def __repr__(self):
-        return f'<Message id={repr(self.id)} author={repr(self.author)} channel={repr(self.channel)} team={repr(self.team)}>'
+        return f'<Message id={self.id!r} author={self.author!r} channel={self.channel!r}>'
 
     @property
     def created_by_bot(self):
@@ -493,3 +492,5 @@ class Message:
         """
         kwargs['message'] = self
         return await self.channel.create_thread(*content, **kwargs)
+
+Message = ChatMessage
