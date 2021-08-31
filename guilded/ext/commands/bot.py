@@ -53,7 +53,8 @@ import collections.abc
 import inspect
 import sys
 import traceback
-import importlib
+import importlib.util
+import importlib.machinery
 import types
 import typing
 
