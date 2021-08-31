@@ -1127,7 +1127,7 @@ def dm_only():
     """
 
     def predicate(ctx: Context) -> bool:
-        if ctx.guild is not None:
+        if ctx.team is not None:
             raise PrivateMessageOnly()
         return True
 
