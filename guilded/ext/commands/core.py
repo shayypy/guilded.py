@@ -53,6 +53,8 @@ import asyncio
 import inspect
 import functools
 import typing
+import contextlib
+from typing import Any, Dict
 
 import guilded
 
@@ -116,6 +118,18 @@ class _CaseInsensitiveDict(dict):
 
 
 class Command:
+    _before_invoke = None
+    _after_invoke = None
+
+    def __new__(cls, *args: Any, **kwargs: Any):
+        # ensure we have a complete original copy of **kwargs even for classes
+        # that mess with it by popping before delegating to the subclass
+        # __init__. control instance creation and inject original kwargs
+        self = super().__new__(cls)
+
+        self.__original_kwargs__ = kwargs.copy()
+        return self
+
     def __init__(self, coro, **kwargs):
         if not asyncio.iscoroutinefunction(coro):
             raise TypeError('Function must be a coroutine.')
@@ -139,13 +153,9 @@ class Command:
         self.brief = kwargs.get('brief')
         self.usage = kwargs.get('usage')
         self.rest_is_raw = kwargs.get('rest_is_raw', False)
-        self.require_var_positional = kwargs.get(
-            'require_var_positional', False
-        )
+        self.require_var_positional = kwargs.get('require_var_positional', False)
         self.ignore_extra = kwargs.get('ignore_extra', True)
-        self.cooldown_after_parsing = kwargs.get(
-            'cooldown_after_parsing', False
-        )
+        self.cooldown_after_parsing = kwargs.get('cooldown_after_parsing', False)
         self.cog = None
         self.aliases = kwargs.get('aliases', [])
 
@@ -155,12 +165,21 @@ class Command:
                 # this may be reverted later if people attempt to pass multiple aliases in one string
                 self.aliases = [self.aliases]
             else:
-                raise TypeError(
-                    'Command aliases must be a list or a tuple of strings.'
-                )
+                raise TypeError('Command aliases must be a list or a tuple of strings.')
 
         self.description = inspect.cleandoc(kwargs.get('description', ''))
         self.hidden = kwargs.get('hidden', False)
+
+        with contextlib.suppress(AttributeError):
+            before_invoke = coro.__before_invoke__
+            self.before_invoke(before_invoke)
+
+        with contextlib.suppress(AttributeError):
+            after_invoke = coro.__after_invoke__
+            self.after_invoke(after_invoke)
+
+        parent = kwargs.get('parent')
+        self.parent = parent if isinstance(parent, Command) else None
 
         # try:
         #    checks = func.__commands_checks__
@@ -195,6 +214,67 @@ class Command:
             # if value.annotation is converters.Greedy:
             #    raise TypeError('Unparameterized Greedy[...] is disallowed in signature.')
 
+    @property
+    def full_parent_name(self) -> str:
+        """:class:`str`: Retrieves the fully qualified parent command name.
+
+        This the base command name required to execute it. For example,
+        in ``?one two three`` the parent name would be ``one two``.
+        """
+        entries = []
+        command = self
+        # command.parent is type-hinted as GroupMixin some attributes are resolved via MRO
+        while command.parent is not None: # type: ignore
+            command = command.parent # type: ignore
+            entries.append(command.name) # type: ignore
+
+        return ' '.join(reversed(entries))
+
+    @property
+    def parents(self):
+        """List[:class:`Group`]: Retrieves the parents of this command.
+
+        If the command has no parents then it returns an empty :class:`list`.
+
+        For example in commands ``?a b c test``, the parents are ``[c, b, a]``.
+
+        .. versionadded:: 1.1
+        """
+        entries = []
+        command = self
+        while command.parent is not None: # type: ignore
+            command = command.parent # type: ignore
+            entries.append(command)
+
+        return entries
+
+    @property
+    def root_parent(self):
+        """Optional[:class:`Group`]: Retrieves the root parent of this command.
+
+        If the command has no parents then it returns ``None``.
+
+        For example in commands ``?a b c test``, the root parent is ``a``.
+        """
+        if not self.parent:
+            return None
+        return self.parents[-1]
+
+    @property
+    def qualified_name(self) -> str:
+        """:class:`str`: Retrieves the fully qualified command name.
+
+        This is the full parent name with the command name as well.
+        For example, in ``?one two three`` the qualified name would be
+        ``one two three``.
+        """
+
+        parent = self.full_parent_name
+        if parent:
+            return parent + ' ' + self.name
+        else:
+            return self.name
+
     def __str__(self):
         return self.name
 
@@ -213,9 +293,7 @@ class Command:
         converter = param.annotation
         if converter is param.empty:
             if param.default is not param.empty:
-                converter = (
-                    str if param.default is None else type(param.default)
-                )
+                converter = str if param.default is None else type(param.default)
             else:
                 converter = str
         return converter
@@ -273,16 +351,9 @@ class Command:
                     # if we got to this part in the code, then the previous conversions have failed
                     # so we should just undo the view, return the default, and allow parsing to continue
                     # with the other parameters
-                    if (
-                        conv is _NoneType
-                        and param.kind != param.VAR_POSITIONAL
-                    ):
+                    if conv is _NoneType and param.kind != param.VAR_POSITIONAL:
                         ctx.view.undo()
-                        return (
-                            None
-                            if param.default is param.empty
-                            else param.default
-                        )
+                        return None if param.default is param.empty else param.default
 
                     try:
                         value = await self._actual_conversion(
@@ -308,8 +379,7 @@ class Command:
             pass
         else:
             if module is not None and (
-                module.startswith('guilded.')
-                and not module.endswith('converter')
+                module.startswith('guilded.') and not module.endswith('converter')
             ):
                 converter = getattr(
                     converters, converter.__name__ + 'Converter', converter
@@ -405,6 +475,43 @@ class Command:
             if not view.eof:
                 raise TooManyArguments(f'Too many arguments passed to {self.qualified_name}')
 
+    def _ensure_assignment_on_copy(self, other):
+        other._before_invoke = self._before_invoke
+        # other._after_invoke = self._after_invoke
+        # if self.checks != other.checks:
+        #     other.checks = self.checks.copy()
+        # if self._buckets.valid and not other._buckets.valid:
+        #     other._buckets = self._buckets.copy()
+        # if self._max_concurrency != other._max_concurrency:
+        #     # _max_concurrency won't be None at this point
+        #     other._max_concurrency = self._max_concurrency.copy()
+
+        try:
+            other.on_error = self.on_error
+        except AttributeError:
+            pass
+        return other
+
+    def copy(self):
+        """Creates a copy of this command.
+
+        Returns
+        --------
+        :class:`Command`
+            A new instance of this command.
+        """
+        ret = self.__class__(self.callback, **self.__original_kwargs__)
+        return self._ensure_assignment_on_copy(ret)
+
+    def _update_copy(self, kwargs: Dict[str, Any]):
+        if kwargs:
+            kw = kwargs.copy()
+            kw.update(self.__original_kwargs__)
+            copy = self.__class__(self.callback, **kw)
+            return self._ensure_assignment_on_copy(copy)
+        else:
+            return self.copy()
+
     async def invoke(self, ctx):
         ctx.command = self
         await self.prepare(ctx)
@@ -440,12 +547,65 @@ class Command:
             #    await self._max_concurrency.release(ctx)
             raise
 
+    def before_invoke(self, coro):
+        """A decorator that registers a coroutine as a pre-invoke hook.
 
-def command(name, cls=Command, **kwargs):
+        A pre-invoke hook is called directly before the command is
+        called. This makes it a useful function to set up database
+        connections or any type of set up required.
+
+        This pre-invoke hook takes a sole parameter, a :class:`.Context`.
+
+        See :meth:`.Bot.before_invoke` for more info.
+
+        Parameters
+        -----------
+        coro: :ref:`coroutine <coroutine>`
+            The coroutine to register as the pre-invoke hook.
+
+        Raises
+        -------
+        TypeError
+            The coroutine passed is not actually a coroutine.
+        """
+        if not asyncio.iscoroutinefunction(coro):
+            raise TypeError('The pre-invoke hook must be a coroutine.')
+
+        self._before_invoke = coro
+        return coro
+
+    def after_invoke(self, coro):
+        """A decorator that registers a coroutine as a post-invoke hook.
+
+        A post-invoke hook is called directly after the command is
+        called. This makes it a useful function to clean-up database
+        connections or any type of clean up required.
+
+        This post-invoke hook takes a sole parameter, a :class:`.Context`.
+
+        See :meth:`.Bot.after_invoke` for more info.
+
+        Parameters
+        -----------
+        coro: :ref:`coroutine <coroutine>`
+            The coroutine to register as the post-invoke hook.
+
+        Raises
+        -------
+        TypeError
+            The coroutine passed is not actually a coroutine.
+        """
+        if not asyncio.iscoroutinefunction(coro):
+            raise TypeError('The post-invoke hook must be a coroutine.')
+
+        self._after_invoke = coro
+        return coro
+
+
+def command(name: str = None, cls=Command, **kwargs):
     def decorator(coro):
         if isinstance(coro, Command):
             raise TypeError('Function is already a command.')
-
         kwargs['name'] = kwargs.get('name', name)
         return cls(coro, **kwargs)
 
@@ -459,9 +619,7 @@ class Group(Command):
 
     def __init__(self, *args: typing.Any, **attrs: typing.Any):
         super().__init__(*args, **attrs)
-        self.invoke_without_command = attrs.pop(
-            'invoke_without_command', False
-        )
+        self.invoke_without_command = attrs.pop('invoke_without_command', False)
         case_i = self.case_insensitive = attrs.pop('case_insensitive', False)
         self.all_commands = _CaseInsensitiveDict() if case_i else {}
 
@@ -506,9 +664,7 @@ class Group(Command):
             view.previous = previous
             await super().invoke(ctx)
 
-    async def reinvoke(
-        self, ctx: Context, *, call_hooks: bool = False
-    ) -> None:
+    async def reinvoke(self, ctx: Context, *, call_hooks: bool = False) -> None:
         ctx.invoked_subcommand = None
         early_invoke = not self.invoke_without_command
         if early_invoke:
@@ -529,7 +685,7 @@ class Group(Command):
 
         if early_invoke:
             try:
-                await self.callback(*ctx.args, **ctx.kwargs)  # type: ignore
+                await self.callback(*ctx.args, **ctx.kwargs)
             except:
                 ctx.command_failed = True
                 raise
@@ -537,7 +693,7 @@ class Group(Command):
                 if call_hooks:
                     await self.call_after_hooks(ctx)
 
-        ctx.invoked_parents.append(ctx.invoked_with)  # type: ignore
+        ctx.invoked_parents.append(ctx.invoked_with)
 
         if trigger and ctx.invoked_subcommand:
             ctx.invoked_with = trigger
@@ -724,7 +880,7 @@ class Group(Command):
         return decorator
 
 
-def group(name, cls=Group, **attrs):
+def group(name: str = None, cls=Group, **attrs):
     def deco(coro):
         if isinstance(coro, Group):
             raise TypeError('Function is already a group.')

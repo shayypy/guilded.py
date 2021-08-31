@@ -589,10 +589,12 @@ class Bot(guilded.Client):
         name = self._resolve_name(name, package)
         if name in self.__extensions:
             raise errors.ExtensionAlreadyLoaded(name)
-        
+
         spec = importlib.util.find_spec(name)
         if spec is None:
             raise errors.ExtensionNotFound(name)
+
+        self._load_from_module_spec(spec, name)
 
     def unload_extension(self, name: str, *, package: typing.Optional[str] = None) -> None:
         """Unloads an extension.
