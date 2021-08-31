@@ -303,7 +303,6 @@ class HelpCommand:
         If ``None``, only calls :attr:`.Command.checks` in a guild setting.
         If ``False``, never calls :attr:`.Command.checks`. Defaults to ``True``.
 
-        .. versionchanged:: 1.7
     command_attrs: :class:`dict`
         A dictionary of options to pass in for the construction of the help command.
         This allows you to change the command behaviour without actually changing
@@ -314,8 +313,8 @@ class HelpCommand:
     MENTION_TRANSFORMS = {
         '@everyone': '@\u200beveryone',
         '@here': '@\u200bhere',
-        r'<@!?[a-zA-Z]{8}>': '@deleted-user',
-        r'<@&[0-9]{17,22}>': '@deleted-role',
+        r'<@!?[a-zA-Z0-9]{8}>': '@deleted-user',
+        r'<@&[a-zA-Z0-9]{8}>': '@deleted-role',
     }
 
     MENTION_PATTERN = re.compile('|'.join(MENTION_TRANSFORMS.keys()))
