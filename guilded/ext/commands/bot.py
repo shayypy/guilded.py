@@ -408,11 +408,6 @@ class Bot(guilded.Client):
 
         A cog is a class that has its own event listeners and commands.
 
-        .. versionchanged:: 2.0
-
-            :exc:`.ClientException` is raised when a cog with the same name
-            is already loaded.
-
         Parameters
         -----------
         cog: :class:`.Cog`
