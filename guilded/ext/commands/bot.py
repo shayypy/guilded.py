@@ -394,8 +394,6 @@ class Bot(guilded.Client):
             If a previously loaded cog with the same name should be ejected
             instead of raising an error.
 
-            .. versionadded:: 2.0
-
         Raises
         -------
         TypeError
@@ -618,8 +616,6 @@ class Bot(guilded.Client):
             This is required when unloading an extension using a relative path, e.g ``.foo.test``.
             Defaults to ``None``.
 
-            .. versionadded:: 1.7
-
         Raises
         -------
         ExtensionNotFound
@@ -655,8 +651,6 @@ class Bot(guilded.Client):
             The package name to resolve relative imports with.
             This is required when reloading an extension using a relative path, e.g ``.foo.test``.
             Defaults to ``None``.
-
-            .. versionadded:: 1.7
 
         Raises
         -------

@@ -237,8 +237,6 @@ class Command:
         If the command has no parents then it returns an empty :class:`list`.
 
         For example in commands ``?a b c test``, the parents are ``[c, b, a]``.
-
-        .. versionadded:: 1.1
         """
         entries = []
         command = self
