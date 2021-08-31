@@ -54,11 +54,12 @@ import inspect
 import functools
 import typing
 import contextlib
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import guilded
 
 from . import converters
+from .cog import Cog
 from .context import Context
 from .errors import *
 
@@ -170,6 +171,14 @@ class Command:
         self.description = inspect.cleandoc(kwargs.get('description', ''))
         self.hidden = kwargs.get('hidden', False)
 
+        try:
+            checks = coro.__commands_checks__
+            checks.reverse()
+        except AttributeError:
+            checks = kwargs.get('checks', [])
+
+        self.checks = checks
+
         with contextlib.suppress(AttributeError):
             before_invoke = coro.__before_invoke__
             self.before_invoke(before_invoke)
@@ -180,14 +189,6 @@ class Command:
 
         parent = kwargs.get('parent')
         self.parent = parent if isinstance(parent, Command) else None
-
-        # try:
-        #    checks = func.__commands_checks__
-        #    checks.reverse()
-        # except AttributeError:
-        #    checks = kwargs.get('checks', [])
-        # finally:
-        #    self.checks = checks
 
     @property
     def callback(self):
@@ -272,6 +273,99 @@ class Command:
             return parent + ' ' + self.name
         else:
             return self.name
+
+    @property
+    def short_doc(self) -> str:
+        """:class:`str`: Gets the "short" documentation of a command.
+
+        By default, this is the :attr:`.brief` attribute.
+        If that lookup leads to an empty string then the first line of the
+        :attr:`.help` attribute is used instead.
+        """
+        if self.brief is not None:
+            return self.brief
+        if self.help is not None:
+            return self.help.split('\n', 1)[0]
+        return ''
+
+    @property
+    def signature(self) -> str:
+        """:class:`str`: Returns a POSIX-like signature useful for help command output."""
+        if self.usage is not None:
+            return self.usage
+
+        params = self.clean_params
+        if not params:
+            return ''
+
+        result = []
+        for name, param in params.items():
+            greedy = False
+            # isinstance(param.annotation, Greedy)
+            optional = False  # postpone evaluation of if it's an optional argument
+
+            # for typing.Literal[...], typing.Optional[typing.Literal[...]], and Greedy[typing.Literal[...]], the
+            # parameter signature is a literal list of it's values
+            annotation = param.annotation.converter if greedy else param.annotation
+            origin = getattr(annotation, '__origin__', None)
+            if not greedy and origin is Union:
+                none_cls = type(None)
+                union_args = annotation.__args__
+                optional = union_args[-1] is none_cls
+                if len(union_args) == 2 and optional:
+                    annotation = union_args[0]
+                    origin = getattr(annotation, '__origin__', None)
+
+            # typing.Literal is >=3.8 and this library supports 3.7
+            #if origin is Literal:
+            #    name = '|'.join(f'"{v}"' if isinstance(v, str) else str(v) for v in annotation.__args__)
+            if param.default is not param.empty:
+                # We don't want None or '' to trigger the [name=value] case and instead it should
+                # do [name] since [name=None] or [name=] are not exactly useful for the user.
+                should_print = param.default if isinstance(param.default, str) else param.default is not None
+                if should_print:
+                    result.append(f'[{name}={param.default}]' if not greedy else
+                                  f'[{name}={param.default}]...')
+                    continue
+                else:
+                    result.append(f'[{name}]')
+
+            elif param.kind == param.VAR_POSITIONAL:
+                if self.require_var_positional:
+                    result.append(f'<{name}...>')
+                else:
+                    result.append(f'[{name}...]')
+            elif greedy:
+                result.append(f'[{name}]...')
+            elif optional:
+                result.append(f'[{name}]')
+            else:
+                result.append(f'<{name}>')
+
+        return ' '.join(result)
+
+    @property
+    def clean_params(self) -> Dict[str, inspect.Parameter]:
+        """Dict[:class:`str`, :class:`inspect.Parameter`]:
+        Retrieves the parameter dictionary without the context or self parameters.
+
+        Useful for inspecting signature.
+        """
+        result = self.params.copy()
+        if self.cog is not None:
+            # first parameter is self
+            try:
+                del result[next(iter(result))]
+            except StopIteration:
+                raise ValueError("missing 'self' parameter") from None
+
+        try:
+            # first/second parameter is context
+            del result[next(iter(result))]
+        except StopIteration:
+            raise ValueError("missing 'context' parameter") from None
+
+        return result
 
     def __str__(self):
         return self.name
@@ -525,8 +619,8 @@ class Command:
     async def prepare(self, ctx):
         ctx.command = self
 
-        # if not await self.can_run(ctx):
-        #    raise CheckFailure('The check functions for command {0.qualified_name} failed.'.format(self))
+        if not await self.can_run(ctx):
+           raise CheckFailure(f'The check functions for command {self.qualified_name} failed.')
 
         # if self._max_concurrency is not None:
         #    await self._max_concurrency.acquire(ctx)
@@ -598,6 +692,57 @@ class Command:
 
         self._after_invoke = coro
         return coro
+
+    async def can_run(self, ctx: Context) -> bool:
+        """|coro|
+
+        Checks if the command can be executed by checking all the predicates
+        inside the :attr:`~Command.checks` attribute. This also checks whether the
+        command is disabled.
+
+        Parameters
+        -----------
+        ctx: :class:`.Context`
+            The ctx of the command currently being invoked.
+
+        Raises
+        -------
+        :class:`CommandError`
+            Any command error that was raised during a check call will be propagated
+            by this function.
+
+        Returns
+        --------
+        :class:`bool`
+            A boolean indicating if the command can be invoked.
+        """
+
+        if not self.enabled:
+            raise DisabledCommand(f'{self.name} command is disabled')
+
+        original = ctx.command
+        ctx.command = self
+
+        try:
+            if not await ctx.bot.can_run(ctx):
+                raise CheckFailure(f'The global check functions for command {self.qualified_name} failed.')
+
+            cog = self.cog
+            if cog is not None:
+                local_check = Cog._get_overridden_method(cog.cog_check)
+                if local_check is not None:
+                    ret = await guilded.utils.maybe_coroutine(local_check, ctx)
+                    if not ret:
+                        return False
+
+            predicates = self.checks
+            if not predicates:
+                # since we have no checks, then we just return True.
+                return True
+
+            return await guilded.utils.async_all(predicate(ctx) for predicate in predicates)  # type: ignore
+        finally:
+            ctx.command = original
 
 
 def command(name: str = None, cls=Command, **kwargs):

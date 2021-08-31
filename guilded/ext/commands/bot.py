@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2020-present windowsboy111, shay (shayypy)
+Copyright (c) 2020-present shay (shayypy)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -56,7 +56,7 @@ import traceback
 import importlib.util
 import importlib.machinery
 import types
-import typing
+from typing import Mapping, List, Dict, Optional
 
 import guilded
 
@@ -64,12 +64,18 @@ from . import errors
 from .core import Command, Group
 from .context import Context
 from .cog import Cog
+from .help import HelpCommand, DefaultHelpCommand
 from .view import StringView
 
 
 def _is_submodule(parent: str, child: str) -> bool:
     return parent == child or child.startswith(parent + ".")
 
+class _DefaultRepr:
+    def __repr__(self):
+        return '<default-help-command>'
+
+_default = _DefaultRepr()
 
 class Bot(guilded.Client):
     """A Guilded bot with commands.
@@ -107,13 +113,18 @@ class Bot(guilded.Client):
     owner_ids: Optional[List[:class:`str`]]
         The users' IDs who own this bot.
     """
-    def __init__(self, *, command_prefix, description=None, **options):
+    def __init__(self, *, command_prefix, help_command=_default, description=None, **options):
         super().__init__(**options)
         self.command_prefix = command_prefix
         self.description = inspect.cleandoc(description) if description else ''
-        self.__extensions = {}
-        self.__cogs = {}
+        self.__extensions: Dict[str, types.ModuleType] = {}
+        self.__cogs: Dict[str, Cog] = {}
         self._commands = {}
+        self._checks: List[Check] = []
+        self._check_once = []
+        self._before_invoke = None
+        self._after_invoke = None
+        self._help_command = None
         self.strip_after_prefix = options.pop('strip_after_prefix', False)
         self.owner_id = options.get('owner_id')
         self.owner_ids = options.get('owner_ids', set())
@@ -125,6 +136,11 @@ class Bot(guilded.Client):
 
         self._listeners = {'on_message': self.on_message, 'on_command_error': self.on_command_error}
         self.extra_events = {}
+
+        if help_command is _default:
+            self.help_command = DefaultHelpCommand()
+        else:
+            self.help_command = help_command
 
         if options.pop('self_bot', False):
             self._skip_check = lambda x, y: x != y
@@ -247,6 +263,15 @@ class Bot(guilded.Client):
 
         return decorator
 
+    async def can_run(self, ctx: Context, *, call_once: bool = False) -> bool:
+        data = self._check_once if call_once else self._checks
+
+        if len(data) == 0:
+            return True
+
+        # type-checker doesn't distinguish between functions and methods
+        return await guilded.utils.async_all(f(ctx) for f in data)  # type: ignore
+
     async def is_owner(self, user: guilded.User):
         """|coro|
 
@@ -342,10 +367,10 @@ class Bot(guilded.Client):
         if ctx.command is not None:
             self.dispatch('command', ctx)
             try:
-                #if await self.can_run(ctx, call_once=True):
-                await ctx.command.invoke(ctx)
-                #else:
-                #    raise errors.CheckFailure('The global check once functions failed.')
+                if await self.can_run(ctx, call_once=True):
+                    await ctx.command.invoke(ctx)
+                else:
+                    raise errors.CheckFailure('The global check once functions failed.')
             except errors.CommandError as exc:
                 self.dispatch('command_error', ctx, exc)
                 #await ctx.command.dispatch_error(ctx, exc)
@@ -420,7 +445,7 @@ class Bot(guilded.Client):
         cog = cog._inject(self)
         self.__cogs[cog_name] = cog
 
-    def get_cog(self, name: str) -> typing.Optional[Cog]:
+    def get_cog(self, name: str) -> Optional[Cog]:
         """Gets the cog instance requested.
 
         If the cog is not found, ``None`` is returned instead.
@@ -439,7 +464,7 @@ class Bot(guilded.Client):
         """
         return self.__cogs.get(name)
 
-    def remove_cog(self, name: str) -> typing.Optional[Cog]:
+    def remove_cog(self, name: str) -> Optional[Cog]:
         """Removes a cog from the bot and returns it.
 
         All registered commands and event listeners that the
@@ -470,7 +495,7 @@ class Bot(guilded.Client):
         return cog
 
     @property
-    def cogs(self) -> typing.Mapping[str, Cog]:
+    def cogs(self) -> Mapping[str, Cog]:
         """Mapping[:class:`str`, :class:`Cog`]: A read-only mapping of cog name to cog."""
         return types.MappingProxyType(self.__cogs)
 
@@ -596,7 +621,7 @@ class Bot(guilded.Client):
 
         self._load_from_module_spec(spec, name)
 
-    def unload_extension(self, name: str, *, package: typing.Optional[str] = None) -> None:
+    def unload_extension(self, name: str, *, package: Optional[str] = None) -> None:
         """Unloads an extension.
 
         When the extension is unloaded, all commands, listeners, and cogs are
@@ -635,7 +660,7 @@ class Bot(guilded.Client):
         self._remove_module_references(lib.__name__)
         self._call_module_finalizers(lib, name)
 
-    def reload_extension(self, name: str, *, package: typing.Optional[str] = None) -> None:
+    def reload_extension(self, name: str, *, package: Optional[str] = None) -> None:
         """Atomically reloads an extension.
 
         This replaces the extension with the same extension, only refreshed. This is
@@ -697,6 +722,27 @@ class Bot(guilded.Client):
             raise
 
     @property
-    def extensions(self) -> typing.Mapping[str, types.ModuleType]:
+    def extensions(self) -> Mapping[str, types.ModuleType]:
         """Mapping[:class:`str`, :class:`py:types.ModuleType`]: A read-only mapping of extension name to extension."""
         return types.MappingProxyType(self.__extensions)
+
+    # help command
+
+    @property
+    def help_command(self) -> Optional[HelpCommand]:
+        return self._help_command
+
+    @help_command.setter
+    def help_command(self, value: Optional[HelpCommand]) -> None:
+        if value is not None:
+            if not isinstance(value, HelpCommand):
+                raise TypeError('help_command must be a subclass of HelpCommand')
+            if self._help_command is not None:
+                self._help_command._remove_from_bot(self)
+            self._help_command = value
+            value._add_to_bot(self)
+        elif self._help_command is not None:
+            self._help_command._remove_from_bot(self)
+            self._help_command = None
+        else:
+            self._help_command = None

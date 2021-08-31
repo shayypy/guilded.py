@@ -48,13 +48,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
+
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Dict, Generator, List, Tuple
+from typing import Any, Callable, Dict, Generator, List, TYPE_CHECKING, Tuple
 
-from .context import Context
-from .core import Command
+from ._types import _BaseCommand
+
+if TYPE_CHECKING:
+    from .context import Context
+    from .core import Command
 
 
 class CogMeta(type):
@@ -145,7 +149,7 @@ class CogMeta(type):
                 is_static_method = isinstance(value, staticmethod)
                 if is_static_method:
                     value = value.__func__
-                if isinstance(value, Command):
+                if isinstance(value, _BaseCommand):
                     if is_static_method:
                         raise TypeError(
                             f"Command in method {base}.{elem!r} must not be staticmethod."

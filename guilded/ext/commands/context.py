@@ -49,6 +49,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+import re
+
 import guilded.abc
 
 
@@ -104,6 +106,20 @@ class Context(guilded.abc.Messageable):
     @property
     def me(self):
         return self.team.me if self.team else self.bot.user
+
+    @property
+    def clean_prefix(self) -> str:
+        """:class:`str`: The cleaned up invoke prefix. i.e. mentions are ``@name`` instead of ``<@id>``."""
+        if self.prefix is None:
+            return ''
+
+        user = self.me
+        # this breaks if the prefix mention is not the bot itself but I
+        # consider this to be an *incredibly* strange use case. I'd rather go
+        # for this common use case rather than waste performance for the
+        # odd one.
+        pattern = re.compile(r"<@!?%s>" % user.id)
+        return pattern.sub("@%s" % user.display_name.replace('\\', r'\\'), self.prefix)
 
     def reply(self, *content, **kwargs):
         """|coro|
