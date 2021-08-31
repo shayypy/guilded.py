@@ -414,18 +414,11 @@ class HTTPClient:
             payload['message']['content']['document']['nodes'].append(blank_node)
 
         if initial_message:
-            payload['initialThreadMessage'] = initial_message._raw['message'].copy()
+            payload['initialThreadMessage'] = initial_message._raw.get('message', initial_message._raw).copy()
             payload['initialThreadMessage']['botId'] = initial_message.bot_id
             payload['initialThreadMessage']['webhookId'] = initial_message.webhook_id
             payload['initialThreadMessage']['channelId'] = initial_message.channel_id
             payload['initialThreadMessage']['isOptimistic'] = False
-
-            #payload['initialThreadMessage'].pop('isPrivate', None)
-            #payload['initialThreadMessage'].pop('isSilent', None)
-            #payload['initialThreadMessage'].pop('repliesToIds', None)
-            #payload['initialThreadMessage'].pop('repliesTo', None)
-
-            #payload['threadMessageId'] = utils.new_uuid()
 
         return self.request(route, json=payload)
 
