@@ -207,8 +207,8 @@ class Cog(metaclass=CogMeta):
     __cog_listeners__: ClassVar[List[Tuple[str, str]]]
 
     def __new__(cls, *args: Any, **kwargs: Any):
-        # For issue 426, we need to store a copy of the command objects
-        # since we modify them to inject `self` to them.
+        # For issue Rapptz/discord.py#426, we need to store a copy of the
+        # command objects since we modify them to inject `self` to them.
         # To do this, we need to interfere with the Cog creation process.
         self = super().__new__(cls)
         cmd_attrs = cls.__cog_settings__

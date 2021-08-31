@@ -298,7 +298,8 @@ class Bot(guilded.Client):
         if self._skip_check(message.author.id, self.user.id):
             return ctx
 
-        prefix = self.command_prefix  # await self.get_prefix(message)
+        prefix = self.command_prefix
+        # later: await self.get_prefix(message)
         invoked_prefix = prefix
 
         if isinstance(prefix, str):
