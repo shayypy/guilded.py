@@ -54,7 +54,7 @@ import inspect
 import functools
 import typing
 import contextlib
-from typing import Any, Dict, Union
+from typing import Any, Callable, Dict, Union, TYPE_CHECKING, TypeVar
 
 import guilded
 
@@ -62,7 +62,9 @@ from . import converters
 from .cog import Cog
 from .context import Context
 from .errors import *
+from ._types import Check, CoroFunc
 
+T = TypeVar('T')
 
 def _convert_to_bool(argument):
     lowered = argument.lower()
@@ -1030,3 +1032,196 @@ def group(name: str = None, cls=Group, **attrs):
         return cls(coro, **attrs)
 
     return deco
+
+def check(predicate: Check) -> Callable[[T], T]:
+    r"""A decorator that adds a check to the :class:`.Command` or its
+    subclasses. These checks could be accessed via :attr:`.Command.checks`.
+
+    These checks should be predicates that take in a single parameter taking
+    a :class:`.Context`. If the check returns a ``False``\-like value then
+    during invocation a :exc:`.CheckFailure` exception is raised and sent to
+    the :func:`.on_command_error` event.
+
+    If an exception should be thrown in the predicate then it should be a
+    subclass of :exc:`.CommandError`. Any exception not subclassed from it
+    will be propagated while those subclassed will be sent to
+    :func:`.on_command_error`.
+
+    A special attribute named ``predicate`` is bound to the value
+    returned by this decorator to retrieve the predicate passed to the
+    decorator. This allows the following introspection and chaining to be done:
+
+    .. code-block:: python3
+        def owner_or_permissions(**perms):
+            original = commands.has_permissions(**perms).predicate
+            async def extended_check(ctx):
+                if ctx.team is None:
+                    return False
+                return ctx.team.owner_id == ctx.author.id or await original(ctx)
+            return commands.check(extended_check)
+
+    .. note::
+        The function returned by ``predicate`` is **always** a coroutine,
+        even if the original function was not a coroutine.
+
+    Examples
+    ---------
+    Creating a basic check to see if the command invoker is you.
+
+    .. code-block:: python3
+        def check_if_it_is_me(ctx):
+            return ctx.message.author.id == 'EdVMVKR4'
+
+        @bot.command()
+        @commands.check(check_if_it_is_me)
+        async def only_for_me(ctx):
+            await ctx.send('I know you!')
+
+    Transforming common checks into its own decorator:
+
+    .. code-block:: python3
+        def is_me():
+            def predicate(ctx):
+                return ctx.message.author.id == 'EdVMVKR4'
+            return commands.check(predicate)
+
+        @bot.command()
+        @is_me()
+        async def only_me(ctx):
+            await ctx.send('Only you!')
+
+    Parameters
+    -----------
+    predicate: Callable[[:class:`Context`], :class:`bool`]
+        The predicate to check if the command should be invoked.
+    """
+
+    def decorator(func: Union[Command, CoroFunc]) -> Union[Command, CoroFunc]:
+        if isinstance(func, Command):
+            func.checks.append(predicate)
+        else:
+            if not hasattr(func, '__commands_checks__'):
+                func.__commands_checks__ = []
+
+            func.__commands_checks__.append(predicate)
+
+        return func
+
+    if inspect.iscoroutinefunction(predicate):
+        decorator.predicate = predicate
+    else:
+        @functools.wraps(predicate)
+        async def wrapper(ctx):
+            return predicate(ctx)  # type: ignore
+        decorator.predicate = wrapper
+
+    return decorator  # type: ignore
+
+def dm_only():
+    """A :func:`.check` that indicates this command must only be used in a
+    DM context. Only private messages are allowed when
+    using the command.
+
+    This check raises a special exception, :exc:`.PrivateMessageOnly`
+    that is inherited from :exc:`.CheckFailure`.
+    """
+
+    def predicate(ctx: Context) -> bool:
+        if ctx.guild is not None:
+            raise PrivateMessageOnly()
+        return True
+
+    return check(predicate)
+
+def team_only():
+    """A :func:`.check` that indicates this command must only be used in a
+    team context only. Basically, no private messages are allowed when
+    using the command.
+
+    This check raises a special exception, :exc:`.NoPrivateMessage`
+    that is inherited from :exc:`.CheckFailure`.
+    """
+
+    def predicate(ctx: Context) -> bool:
+        if ctx.team is None:
+            raise NoPrivateMessage()
+        return True
+
+    return check(predicate)
+
+guild_only = team_only
+
+def is_owner():
+    """A :func:`.check` that checks if the person invoking this command is the
+    owner of the bot.
+
+    This is powered by :meth:`.Bot.is_owner`.
+
+    This check raises a special exception, :exc:`.NotOwner` that is derived
+    from :exc:`.CheckFailure`.
+    """
+
+    async def predicate(ctx: Context) -> bool:
+        if not await ctx.bot.is_owner(ctx.author):
+            raise NotOwner('You do not own this bot.')
+        return True
+
+    return check(predicate)
+
+def before_invoke(coro) -> Callable[[T], T]:
+    """A decorator that registers a coroutine as a pre-invoke hook.
+
+    This allows you to refer to one before invoke hook for several commands that
+    do not have to be within the same cog.
+
+    Example
+    ---------
+
+    .. code-block:: python3
+
+        async def record_usage(ctx):
+            print(ctx.author, 'used', ctx.command, 'at', ctx.message.created_at)
+
+        @bot.command()
+        @commands.before_invoke(record_usage)
+        async def who(ctx): # Output: <User> used who at <Time>
+            await ctx.send('i am a bot')
+
+        class What(commands.Cog):
+
+            @commands.before_invoke(record_usage)
+            @commands.command()
+            async def when(self, ctx): # Output: <User> used when at <Time>
+                await ctx.send(f'and i have existed since {ctx.bot.user.created_at}')
+
+            @commands.command()
+            async def where(self, ctx): # Output: <Nothing>
+                await ctx.send('on Discord')
+
+            @commands.command()
+            async def why(self, ctx): # Output: <Nothing>
+                await ctx.send('because someone made me')
+
+        bot.add_cog(What())
+    """
+    def decorator(func: Union[Command, CoroFunc]) -> Union[Command, CoroFunc]:
+        if isinstance(func, Command):
+            func.before_invoke(coro)
+        else:
+            func.__before_invoke__ = coro
+        return func
+    return decorator  # type: ignore
+
+def after_invoke(coro) -> Callable[[T], T]:
+    """A decorator that registers a coroutine as a post-invoke hook.
+
+    This allows you to refer to one after invoke hook for several commands that
+    do not have to be within the same cog.
+    """
+    def decorator(func: Union[Command, CoroFunc]) -> Union[Command, CoroFunc]:
+        if isinstance(func, Command):
+            func.after_invoke(coro)
+        else:
+            func.__after_invoke__ = coro
+        return func
+    return decorator  # type: ignore
