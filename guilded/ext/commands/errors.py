@@ -197,8 +197,6 @@ class CheckAnyFailure(CheckFailure):
 
     This inherits from :exc:`CheckFailure`.
 
-    .. versionadded:: 1.3
-
     Attributes
     ------------
     errors: List[:class:`CheckFailure`]
@@ -244,8 +242,6 @@ class MemberNotFound(BadArgument):
 
     This inherits from :exc:`BadArgument`
 
-    .. versionadded:: 1.5
-
     Attributes
     -----------
     argument: :class:`str`
@@ -259,8 +255,6 @@ class TeamNotFound(BadArgument):
     """Exception raised when the team provided was not found in the bot's cache.
 
     This inherits from :exc:`BadArgument`
-
-    .. versionadded:: 1.7
 
     Attributes
     -----------
@@ -277,8 +271,6 @@ class UserNotFound(BadArgument):
 
     This inherits from :exc:`BadArgument`
 
-    .. versionadded:: 1.5
-
     Attributes
     -----------
     argument: :class:`str`
@@ -292,8 +284,6 @@ class MessageNotFound(BadArgument):
     """Exception raised when the message provided was not found in the channel.
 
     This inherits from :exc:`BadArgument`
-
-    .. versionadded:: 1.5
 
     Attributes
     -----------
@@ -310,8 +300,6 @@ class ChannelNotReadable(BadArgument):
 
     This inherits from :exc:`BadArgument`
 
-    .. versionadded:: 1.5
-
     Attributes
     -----------
     argument: :class:`.abc.TeamChannel`
@@ -326,8 +314,6 @@ class ChannelNotFound(BadArgument):
 
     This inherits from :exc:`BadArgument`
 
-    .. versionadded:: 1.5
-
     Attributes
     -----------
     argument: :class:`str`
@@ -341,8 +327,6 @@ class BadColourArgument(BadArgument):
     """Exception raised when the colour is not valid.
 
     This inherits from :exc:`BadArgument`
-
-    .. versionadded:: 1.5
 
     Attributes
     -----------
@@ -360,8 +344,6 @@ class RoleNotFound(BadArgument):
 
     This inherits from :exc:`BadArgument`
 
-    .. versionadded:: 1.5
-
     Attributes
     -----------
     argument: :class:`str`
@@ -375,8 +357,6 @@ class BadInviteArgument(BadArgument):
     """Exception raised when the invite is invalid or expired.
 
     This inherits from :exc:`BadArgument`
-
-    .. versionadded:: 1.5
     """
     def __init__(self):
         super().__init__('Invite is invalid or expired.')
@@ -385,8 +365,6 @@ class EmojiNotFound(BadArgument):
     """Exception raised when the bot can not find the emoji.
 
     This inherits from :exc:`BadArgument`
-
-    .. versionadded:: 1.5
 
     Attributes
     -----------
@@ -401,8 +379,6 @@ class BadBoolArgument(BadArgument):
     """Exception raised when a boolean argument was not convertable.
 
     This inherits from :exc:`BadArgument`
-
-    .. versionadded:: 1.5
 
     Attributes
     -----------
@@ -480,8 +456,6 @@ class MissingRole(CheckFailure):
 
     This inherits from :exc:`CheckFailure`
 
-    .. versionadded:: 1.1
-
     Attributes
     -----------
     missing_role: Union[:class:`str`, :class:`int`]
@@ -497,8 +471,6 @@ class BotMissingRole(CheckFailure):
     """Exception raised when the bot's member lacks a role to run a command.
 
     This inherits from :exc:`CheckFailure`
-
-    .. versionadded:: 1.1
 
     Attributes
     -----------
@@ -516,8 +488,6 @@ class MissingAnyRole(CheckFailure):
     the roles specified to run a command.
 
     This inherits from :exc:`CheckFailure`
-
-    .. versionadded:: 1.1
 
     Attributes
     -----------
@@ -543,8 +513,6 @@ class BotMissingAnyRole(CheckFailure):
     the roles specified to run a command.
 
     This inherits from :exc:`CheckFailure`
-
-    .. versionadded:: 1.1
 
     Attributes
     -----------
@@ -653,8 +621,6 @@ class BadLiteralArgument(UserInputError):
     its associated values.
 
     This inherits from :exc:`UserInputError`
-
-    .. versionadded:: 2.0
 
     Attributes
     -----------
@@ -813,8 +779,6 @@ class CommandRegistrationError(ClientException):
     because the name is already taken by a different command.
 
     This inherits from :exc:`teamed.ClientException`
-
-    .. versionadded:: 1.4
 
     Attributes
     ----------
