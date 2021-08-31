@@ -51,12 +51,9 @@ DEALINGS IN THE SOFTWARE.
 
 import abc
 
-try: import discord
-except ModuleNotFoundError: discord_compat = False
-else: discord_compat = True
-
 from .activity import Activity
 from .asset import Asset
+from .colour import Colour
 from .embed import _EmptyEmbed, Embed
 from .file import MediaType, FileType, File
 from .message import Message
@@ -224,6 +221,7 @@ class User(metaclass=abc.ABCMeta):
         self.type = None
         self.id = data.get('id')
         self.name = data.get('name')
+        self.colour = Colour(0)
         self.subdomain = data.get('subdomain')
         self.email = data.get('email')
         self.service_email = data.get('serviceEmail')
@@ -249,7 +247,7 @@ class User(metaclass=abc.ABCMeta):
         self.badges = data.get('badges') or []
         self.stonks = data.get('stonks')
 
-        self.bot = extra.get('bot', False)
+        self.bot = data.get('bot', extra.get('bot', False))
 
         self.friend_status = extra.get('friend_status')
         self.friend_requested_at = ISO8601(extra.get('friend_created_at'))
@@ -288,6 +286,18 @@ class User(metaclass=abc.ABCMeta):
     @property
     def mention(self):
         return f'<@{self.id}>'
+
+    @property
+    def display_name(self):
+        return self.name
+
+    @property
+    def nickname(self):
+        return self.name
+
+    @property
+    def color(self):
+        return self.colour
 
     async def create_dm(self):
         dm = await self._state.create_dm(self.id)

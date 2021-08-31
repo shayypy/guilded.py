@@ -359,9 +359,13 @@ class ChatMessage:
                                 content += f'<@{mentioned["id"]}>'
 
                                 self.raw_mentions.append(f'<@{mentioned["id"]}>')
-                                member = self._state._get_team_member(self.team_id, mentioned['id'])
-                                if member:
-                                    self.mentions.append(member)
+                                if self.team_id:
+                                    user = self._state._get_team_member(self.team_id, mentioned['id'])
+                                else:
+                                    user = self._state._get_user(mentioned['id'])
+
+                                if user:
+                                    self.mentions.append(user)
                                 else:
                                     name = mentioned.get('name')
                                     if mentioned.get('nickname') is True and mentioned.get('matcher') is not None:
@@ -369,13 +373,26 @@ class ChatMessage:
                                         if not name.strip():
                                             # matcher might be empty, oops - no username is available
                                             name = None
-                                    self.mentions.append(self._state.create_member(data={
-                                        'name': name,
-                                        'profilePicture': mentioned.get('avatar'),
-                                        'colour': parse_hex_number(mentioned.get('color', '000000').strip('#')),
-                                        'id': mentioned.get('id'),
-                                        'nickname': mentioned.get('name') if mentioned.get('nickname') is True else None
-                                    }))
+                                    if self.team_id:
+                                        self.mentions.append(self._state.create_member(
+                                            team=self.team,
+                                            data={
+                                                'id': mentioned.get('id'),
+                                                'name': name,
+                                                'profilePicture': mentioned.get('avatar'),
+                                                'colour': parse_hex_number(mentioned.get('color', '000000').strip('#')),
+                                                'nickname': mentioned.get('name') if mentioned.get('nickname') is True else None,
+                                                'bot': self.created_by_bot
+                                            }
+                                        ))
+                                    else:
+                                        self.mentions.append(self._state.create_user(data={
+                                            'id': mentioned.get('id'),
+                                            'name': name,
+                                            'profilePicture': mentioned.get('avatar'),
+                                            'bot': self.created_by_bot
+                                        }))
+
                         elif element['type'] == 'reaction':
                             rtext = element['nodes'][0]['leaves'][0]['text']
                             content += str(rtext)
@@ -391,13 +408,12 @@ class ChatMessage:
                         elif element['type'] == 'channel':
                             channel = element['data']['channel']
                             content += f'<#{channel.get("id")}>'
-                            #self.channel_mentions.append(self._state.create_team_channel(
-                            #    group=None,
-                            #    team=self.team,
-                            #    data={
-                            #        'name': channel.get('name'),
-                            #        'id': channel.get('id')
-                            #}))
+
+                            channel = self._state._get_team_channel(self.team_id, channel.get('id'))
+                            if channel:
+                                self.channel_mentions.append(channel)
+
+                content += '\n'
 
             elif node_type == 'markdown-plain-text':
                 content += node['nodes'][0]['leaves'][0]['text']
@@ -415,6 +431,9 @@ class ChatMessage:
                 attachment = Attachment(state=self._state, data=node)
                 self.attachments.append(attachment)
 
+        content = content.rstrip('\n')
+        # strip ending of newlines in case a paragraph node ended without
+        # another paragraph node
         return content
 
     async def delete(self):
