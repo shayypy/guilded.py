@@ -57,7 +57,7 @@ from operator import attrgetter
 import unicodedata
 from uuid import uuid1
 
-from .colour import Colour
+from guilded.colour import Colour
 
 GUILDED_EPOCH_DATETIME = datetime.datetime(2016, 1, 1)
 GUILDED_EPOCH_ISO8601 = GUILDED_EPOCH_DATETIME.isoformat() + 'Z'
