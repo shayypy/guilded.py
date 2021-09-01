@@ -52,11 +52,13 @@ DEALINGS IN THE SOFTWARE.
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Dict, Generator, List, TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Tuple
 
 from ._types import _BaseCommand
 
 if TYPE_CHECKING:
+    from typing import ClassVar, Type
+
     from .context import Context
     from .core import Command
 
@@ -136,7 +138,6 @@ class CogMeta(type):
 
         commands = {}
         listeners = {}
-        no_bot_cog = "Commands or listeners must not start with cog_ or bot_ (in method {0.__name__}.{1})"
 
         new_cls = super().__new__(cls, name, bases, attrs, **kwargs)
         for base in reversed(new_cls.__mro__):
@@ -154,8 +155,6 @@ class CogMeta(type):
                         raise TypeError(
                             f"Command in method {base}.{elem!r} must not be staticmethod."
                         )
-                    if elem.startswith(("cog_", "bot_")):
-                        raise TypeError(no_bot_cog.format(base, elem))
                     commands[elem] = value
                 elif inspect.iscoroutinefunction(value):
                     try:
@@ -163,8 +162,6 @@ class CogMeta(type):
                     except AttributeError:
                         continue
                     else:
-                        if elem.startswith(("cog_", "bot_")):
-                            raise TypeError(no_bot_cog.format(base, elem))
                         listeners[elem] = value
 
         new_cls.__cog_commands__ = list(
@@ -196,6 +193,12 @@ def _cog_special_method(func):
 
 class Cog(metaclass=CogMeta):
     """The base class that all cogs must inherit from.
+
+        finally:
+            try:
+                self.cog_unload()
+            except Exception:
+                pass
 
     A cog is a collection of commands, listeners, and optional state to
     help group commands together. More information on them can be found on
