@@ -57,7 +57,7 @@ from operator import attrgetter
 import unicodedata
 from uuid import uuid1
 
-from guilded.colour import Colour
+from .colour import Colour
 
 GUILDED_EPOCH_DATETIME = datetime.datetime(2016, 1, 1)
 GUILDED_EPOCH_ISO8601 = GUILDED_EPOCH_DATETIME.isoformat() + 'Z'
@@ -143,7 +143,6 @@ _MARKDOWN_ESCAPE_SUBREGEX = '|'.join(r'\{0}(?=([\s\S]*((?<!\{0})\{0})))'.format(
                                      for c in ('*', '`', '_', '~', '|'))
 
 _MARKDOWN_ESCAPE_COMMON = r'^>(?:>>)?\s|\[.+\]\(.+\)'
-
 
 _MARKDOWN_ESCAPE_REGEX = re.compile(r'(?P<markdown>%s|%s)' % (_MARKDOWN_ESCAPE_SUBREGEX, _MARKDOWN_ESCAPE_COMMON), re.MULTILINE)
 
