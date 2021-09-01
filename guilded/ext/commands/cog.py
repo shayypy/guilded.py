@@ -52,11 +52,13 @@ DEALINGS IN THE SOFTWARE.
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Dict, Generator, List, TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Tuple
 
 from ._types import _BaseCommand
 
 if TYPE_CHECKING:
+    from typing import ClassVar, Type
+
     from .context import Context
     from .core import Command
 
@@ -160,8 +162,6 @@ class CogMeta(type):
                     except AttributeError:
                         continue
                     else:
-                        if elem.startswith(("cog_", "bot_")):
-                            raise TypeError(no_bot_cog.format(base, elem))
                         listeners[elem] = value
 
         new_cls.__cog_commands__ = list(commands.values())  # this will be copied in Cog.__new__

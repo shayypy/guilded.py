@@ -62,7 +62,7 @@ from . import converters
 from .cog import Cog
 from .context import Context
 from .errors import *
-from ._types import Check, CoroFunc
+from ._types import Check, CoroFunc, _BaseCommand
 
 T = TypeVar('T')
 
@@ -120,7 +120,7 @@ class _CaseInsensitiveDict(dict):
         super().__setitem__(k.casefold(), v)
 
 
-class Command:
+class Command(_BaseCommand):
     _before_invoke = None
     _after_invoke = None
 
