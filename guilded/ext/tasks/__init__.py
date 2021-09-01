@@ -51,7 +51,6 @@ DEALINGS IN THE SOFTWARE.
 import asyncio
 import datetime
 import inspect
-import logging
 import sys
 import traceback
 
@@ -61,20 +60,17 @@ import guilded
 from guilded.utils import sleep_until
 from guilded.utils.backoff import ExponentialBackoff
 
-logger = logging.getLogger(__name__)
-
 
 class Loop:
-    """
-    A background task helper/interface.
+    """A background task helper/interface.
 
-    It is recommended to create a loop through `loop()`.
+    It is recommended to create a loop with the :meth:`loop` decorator.
     """
 
-    def __init__(self, fn, *, seconds, hours, minutes, count, reconnect, loop):
-        self.fn = fn
+    def __init__(self, coro, *, seconds, hours, minutes, count, reconnect, loop=None):
+        self.coro = coro
         self.reconnect = reconnect
-        self.loop = loop
+        self.loop = loop or asyncio.get_event_loop()
         self.count = count
         self._current_loop = 0
         self._task = None
@@ -97,16 +93,16 @@ class Loop:
         self._next_iteration = None
 
     async def _call_loop_function(self, name, *args, **kwargs):
-        fn = getattr(self, "_" + name)
-        if fn is None:
+        coro = getattr(self, "_" + name, None)
+        if coro is None:
             return
 
         if self._injected is not None:
-            ret = fn(self._injected, *args, **kwargs)
+            ret = coro(self._injected, *args, **kwargs)
         else:
-            ret = fn(*args, **kwargs)
-        if asyncio.iscoroutinefunction(fn):
-            ret = await ret
+            ret = coro(*args, **kwargs)
+        
+        return await ret
 
     async def _loop(self, *args, **kwargs):
         backoff = ExponentialBackoff()
@@ -120,9 +116,8 @@ class Loop:
                     self._last_iteration = self._next_iteration
                     self._next_iteration = self._get_next_sleep_time()
                 try:
-                    ret = self.fn(*args, **kwargs)
-                    if asyncio.iscoroutinefunction(self.fn):
-                        await ret
+                    ret = self.coro(*args, **kwargs)
+                    await ret
                     self._last_iteration_failed = False
                     now = datetime.datetime.now(datetime.timezone.utc)
                     if now > self._next_iteration:
@@ -159,7 +154,7 @@ class Loop:
             return self
 
         copy = Loop(
-            self.fn,
+            self.coro,
             seconds=self.seconds,
             hours=self.hours,
             minutes=self.minutes,
@@ -171,29 +166,17 @@ class Loop:
         copy._before_loop = self._before_loop
         copy._after_loop = self._after_loop
         copy._error = self._error
-        setattr(obj, self.fn.__name__, copy)
+        setattr(obj, self.coro.__name__, copy)
         return copy
 
     @property
     def current_loop(self):
-        """
-        Retrieve the number of times the loop has ran
-
-        Returns
-        -------
-        int
-            The current iteration of the loop.
-        """
+        """:class:`int`: The current iteration of the loop."""
         return self._current_loop
 
     @property
     def next_iteration(self):
-        """
-        Returns
-        -------
-        Optional[:class:`datetime.datetime`]
-            When the next iteration of the loop will occur.
-        """
+        """Optional[:class:`datetime.datetime`]: When the next iteration of the loop will occur."""
         if self._task is None:
             return None
         elif self._task and self._task.done() or self._stop_next_iteration:
@@ -201,8 +184,7 @@ class Loop:
         return self._next_iteration
 
     async def __call__(self, *args, **kwargs):
-        """
-        Calls the internal callback that the task holds.
+        """Calls the internal callback that the task holds.
 
         *args: positional arguments
         **kwargs: keyword arguments
@@ -216,28 +198,28 @@ class Loop:
         if self._injected is not None:
             args = (self._injected, *args)
 
-        ret = self.fn(*args, **kwargs)
-        if asyncio.iscoroutinefunction(self.fn):
-            ret = await ret
+        ret = self.coro(*args, **kwargs)
+        ret = await ret
 
         return ret
 
     def start(self, *args, **kwargs):
-        """
-        Starts the internal task in the event loop.
+        r"""Starts the internal task in the event loop.
 
-        *args: posiitonal arguments
-        **kwargs: keyword arguments
-
-        You may call this function with the arguments for the callback.
+        Parameters
+        -----------
+        \*args
+            The posiitonal arguments to use.
+        \*\*kwargs
+            The keyword arguments to use.
 
         Returns
-        -------
-        asyncio.Task
+        --------
+        :class:`asyncio.Task`
             The task that has been created.
 
         Raises
-        ------
+        -------
         RuntimeError
             A task has already been launched and is running.
         """
@@ -257,19 +239,18 @@ class Loop:
         return self._task
 
     def stop(self):
-        """
-        Gracefully stops the task from running.
+        r"""Gracefully stops the task from running.
 
-        Unlike `cancel()`, this allows the task to finish its current
+        Unlike :meth:`cancel`\, this allows the task to finish its current
         iteration before gracefully exiting.
 
-        Note
-        ----
-        If the internal function raises an error that can be handled
-        before finishing then it will retry until it succeeds.
+        .. note::
+            If the internal function raises an error that can be handled
+            before finishing then it will retry until it succeeds.
 
-        If this is undesirable, either remove the error handling before
-        stopping via `clear_exception_types()` or use `cancel()` instead.
+            If this is undesirable, either remove the error handling before
+            stopping via :meth:`clear_exception_types` or use :meth:`cancel`
+            instead.
         """
         if self._task and not self._task.done():
             self._stop_next_iteration = True
@@ -287,19 +268,17 @@ class Loop:
             self._task.cancel()
 
     def restart(self, *args, **kwargs):
-        """
-        A convenience method to restart the internal task.
+        r"""A convenience method to restart the internal task.
 
-        Note
-        ----
-        Due to the way this function works, the task is not
-        returned like `start()`.
+        .. note::
+            Due to the way this function works, the task is not returned like
+            :meth:`start()`.
 
         Parameters
         ------------
-        *args
+        \*args
             The arguments to to use.
-        **kwargs
+        \*\*kwargs
             The keyword arguments to use.
         """
 
@@ -312,19 +291,20 @@ class Loop:
             self._task.cancel()
 
     def add_exception_type(self, *exceptions):
-        """Adds exception types to be handled during the reconnect logic.
+        r"""Adds exception types to be handled during the reconnect logic.
 
         By default the exception types handled are those handled by
-        `Client.connect`, which includes a lot of internet disconnection
-        errors.
+        :meth:`guilded.Client.connect`, which includes a lot of internet
+        disconnection errors.
 
         This function is useful if you're interacting with a 3rd party library
         that raises its own set of exceptions.
 
         Parameters
         ----------
-        *exceptions: Type[BaseException]
+        \*exceptions: Type[:class:`BaseException`]
             An argument list of exception classes to handle.
+
         Raises
         ------
         TypeError
@@ -340,27 +320,24 @@ class Loop:
         self._valid_exception = (*self._valid_exception, *exceptions)
 
     def clear_exception_types(self):
-        """
-        Removes all exception types that are handled.
+        """Removes all exception types that are handled.
 
-        Note
-        ----
-        This operation obviously cannot be undone!
+        .. note::
+            This operation obviously cannot be undone!
         """
         self._valid_exception = tuple()
 
     def remove_exception_type(self, *exceptions):
-        """
-        Removes exception types from being handled during the reconnect logic.
+        r"""Removes exception types from being handled during the reconnect logic.
 
         Parameters
-        ----------
-        *exceptions: Type[BaseException]
+        -----------
+        \*exceptions: Type[:class:`BaseException`]
             An argument list of exception classes to handle.
 
         Returns
-        -------
-        bool
+        --------
+        :class:`bool`
             Whether all exceptions were successfully removed.
         """
         old_length = len(self._valid_exception)
@@ -370,47 +347,32 @@ class Loop:
         return len(self._valid_exception) == old_length - len(exceptions)
 
     def get_task(self):
-        """
-        Fetches the internal task or `None` if there isn't one running.
+        """Fetches the internal task or `None` if there isn't one running.
 
         Returns
         -------
-        Optional[asyncio.Task]
-            The internal task or None
+        Optional[:class:`asyncio.Task`]
+            The internal task.
         """
         return self._task
 
     def is_being_cancelled(self):
-        """
-        Whether the task is being cancelled.
-
-        Returns
-        -------
-        bool
-        """
+        """:class:`bool`: Whether the task is being cancelled."""
         return self._cancelled
 
     def failed(self):
-        """
-        Whether the internal task has failed
-
-        Returns
-        -------
-        bool
-        """
+        """:class:`bool`: Whether the internal task has failed."""
         return self._failed
 
     def is_running(self):
-        """:class:`bool`: Check if the task is currently running.
-        .. versionadded:: 1.4
-        """
+        """:class:`bool`: Check if the task is currently running."""
         return not bool(self._task.done()) if self._task else False
 
     async def _error(self, *args):
         exception = args[-1]
         print(
             "Unhandled exception in internal background task "
-            f"{self.fn.__name__!r}.",
+            f"{self.coro.__name__!r}.",
             file=sys.stderr,
         )
         traceback.print_exception(
@@ -420,125 +382,116 @@ class Loop:
             file=sys.stderr,
         )
 
-    def before_loop(self, fn):
-        """
-        A decorator that registers a function to be called before the loop
+    def before_loop(self, coro):
+        """A decorator that registers a coroutine to be called before the loop
         starts running.
 
         This is useful if you want to wait for some bot state before the loop
-        starts, such as `Client.wait_until_ready`.
-        The function must take no arguments (except `self` in a class).
+        starts, such as :meth:`guilded.Client.wait_until_ready`.
+
+        The coroutine must take no arguments (except ``self`` in a class).
 
         Parameters
-        ----------
-        fn : Callable
-            The function to register before the loop runs.
+        -----------
+        coro: :ref:`coroutine <coroutine>`
+            The coroutine to register before the loop runs.
 
-        Raises
-        -----
-        TypeError
-            `fn` is not `callable()`.
-        """
-
-        if not callable(fn):
-            raise TypeError(
-                f"Expected callable, received {type(fn)!r}."
-            )
-
-        self._before_loop = fn
-        return fn
-
-    def after_loop(self, fn):
-        """
-        A decorator that register a function to be called after the loop
-        finished running.
-
-        The function must take no arguments (except `self` in a class).
-
-        Note
-        ----
-            This function is called even during cancellation. If it is
-            desirable to tell apart whether something was cancelled or not,
-            check to see whether `is_being_cancelled()` is `True` or not.
-
-        Parameters
-        ----------
-        fn : Callable
-            The function to register after the loop finishes.
-
-        Raises
-        -----
-        TypeError
-            `fn` is not `callable()`.
-        """
-
-        if not callable(fn):
-            raise TypeError(
-                f"Expected function function, received {type(fn).__name__!r}."
-            )
-
-        self._after_loop = fn
-        return fn
-
-    def error(self, fn):
-        """
-        A decorator that registers a function to be called if the task
-        encounters an unhandled exception.
-
-        The function must take only one argument the exception raised
-        (except `self` in a class).
-        By default this prints to `sys.stderr`, however
-        it could be overridden to have a different implementation.
-
-        Parameters
-        ----------
-        fn : Callable
-            The function to register in the event of an unhandled exception.
         Raises
         -------
         TypeError
-            `fn` is not `callable()`.
+            ``coro`` was not a coroutine.
         """
-        if not callable(fn):
-            raise TypeError(
-                f"Expected function, received {type(fn).__name__!r}."
-            )
 
-        self._error = fn
-        return fn
+        if not inspect.iscoroutinefunction(coro):
+            raise TypeError(f'Expected a coroutine, received {coro.__class__.__name__!r}.')
+
+        self._before_loop = coro
+        return coro
+
+    def after_loop(self, coro):
+        """A decorator that register a function to be called after the loop
+        finished running.
+
+        The function must take no arguments (except ``self`` in a class).
+
+        .. note::
+            This function is called even during cancellation. If it is
+            desirable to tell apart whether something was cancelled or not,
+            check to see whether :meth:`is_being_cancelled` is ``True`` or
+            not.
+
+        Parameters
+        -----------
+        coro: :ref:`coroutine <coroutine>`
+            The coroutine to register before the loop runs.
+
+        Raises
+        -------
+        TypeError
+            ``coro`` was not a coroutine.
+        """
+
+        if not inspect.iscoroutinefunction(coro):
+            raise TypeError(f'Expected a coroutine, received {coro.__class__.__name__!r}.')
+
+        self._after_loop = coro
+        return coro
+
+    def error(self, coro):
+        """A decorator that registers a function to be called if the task
+        encounters an unhandled exception.
+
+        The function must take only one argument the exception raised (except
+        ``self`` in a class).
+
+        By default this prints to :data:`sys.stderr`, however it could be
+        overridden to have a different implementation.
+
+        Parameters
+        -----------
+        coro: :ref:`coroutine <coroutine>`
+            The coroutine to register before the loop runs.
+
+        Raises
+        -------
+        TypeError
+            ``coro`` was not a coroutine.
+        """
+        if not inspect.iscoroutinefunction(coro):
+            raise TypeError(f'Expected a coroutine, received {coro.__class__.__name__!r}.')
+
+        self._error = coro
+        return coro
 
     def _get_next_sleep_time(self):
         return self._last_iteration + datetime.timedelta(seconds=self._sleep)
 
     def change_interval(self, *, seconds=0, minutes=0, hours=0):
-        """
-        Changes the interval for the sleep time.
+        """Changes the interval for the sleep time.
 
-        Note
-        ----
-        This only applies on the next loop iteration. If it is desirable for
-        the change of interval to be applied right away, `cancel()` the task.
+        .. note::
+            This only applies on the next loop iteration. If it is desirable
+            for the change of interval to be applied right away, you should
+            :meth:`cancel` the task.
 
         Parameters
-        ----------
-        seconds : float
+        -----------
+        seconds: :class:`float`
             The number of seconds between every iteration.
-        minutes : float
+        minutes: :class:`float`
             The number of minutes between every iteration.
-        hours : float
+        hours: :class:`float`
             The number of hours between every iteration.
 
         Raises
-        ------
+        -------
         ValueError
             An invalid value was given.
         """
 
         sleep = seconds + (minutes * 60.0) + (hours * 3600.0)
         if sleep < 0:
-            raise ValueError(
-                "Total number of seconds cannot be less than zero."
-            )
+            raise ValueError('Total number of seconds cannot be less than zero.')
 
         self._sleep = sleep
         self.seconds = seconds
@@ -553,56 +506,52 @@ def loop(
     hours: float = 0,
     count: float = None,
     reconnect: bool = True,
-    loop: asyncio.AbstractEventLoop = asyncio.get_event_loop(),
+    loop: asyncio.AbstractEventLoop = None,
 ):
-    """
-    A decorator that schedules a task in the background for you with
+    """A decorator that schedules a task in the background for you with
     optional reconnect logic.
 
-    Functions or coroutines can be supplied.
-
     Parameters
-    ----------
-    seconds : float, optional
-        The number of seconds between every iteration, by default 0
-    minutes : float, optional
-        The number of minutes between every iteration, by default 0
-    hours : float, optional
-        The number of hours between every iteration, by default 0
-    count : float, optional
-        The number of loops to do, by default None (infinite)
-    reconnect : bool, optional
+    -----------
+    seconds: :class:`float`
+        The number of seconds between every iteration.
+    minutes: :class:`float`
+        The number of minutes between every iteration.
+    hours: :class:`float`
+        The number of hours between every iteration.
+    count: :class:`float`
+        The number of loops to do. Defaults to ``None``, which means it will
+        run infinitely.
+    reconnect: :class:`bool`
         Whether to handle errors and restart the task using an exponential
         back-off algorithm similar to the one used in
-        `Client.connect`, by default True
-    loop : asyncio.AbstractEventLoop, optional
-        The loop for registering tasks, by default `asyncio.get_event_loop()`
-
-    Returns
-    -------
-    Loop
+        :meth:`guilded.Client.connect`. Defaults to ``True``.
+    loop: :class:`asyncio.AbstractEventLoop`
+        The loop for registering tasks, defaults to
+        :func:`asyncio.get_event_loop` if not provided.
 
     Raises
-    ------
+    -------
     ValueError
         An invalid value was given.
     TypeError
-        The function was not callable.
+        The function was not a coroutine.
     """
-    if count and count < 1:
-        raise ValueError("count must be greater than 0 or None.")
+    def deco(coro):
+        if count is not None and count < 1:
+            raise ValueError('count must be None or otherwise greater than 0.')
 
-    def deco(fn):
-        if not callable(fn):
-            raise TypeError(f"Expected Callables, not {type(fn).__name__!r}.")
-        kws = {
-            "seconds": seconds,
-            "minutes": minutes,
-            "hours": hours,
-            "count": count,
-            "reconnect": reconnect,
-            "loop": loop,
-        }
-        return Loop(fn, **kws)
+        if not inspect.iscoroutinefunction(coro):
+            raise TypeError('Function must be a coroutine.')
+
+        return Loop(
+            coro,
+            seconds=seconds,
+            minutes=minutes,
+            hours=hours,
+            count=count,
+            reconnect=reconnect,
+            loop=loop
+        )
 
     return deco
