@@ -194,12 +194,6 @@ def _cog_special_method(func):
 class Cog(metaclass=CogMeta):
     """The base class that all cogs must inherit from.
 
-        finally:
-            try:
-                self.cog_unload()
-            except Exception:
-                pass
-
     A cog is a collection of commands, listeners, and optional state to
     help group commands together. More information on them can be found on
     the :ref:`ext_commands_cogs` page.
