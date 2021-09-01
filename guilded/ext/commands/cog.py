@@ -136,7 +136,6 @@ class CogMeta(type):
 
         commands = {}
         listeners = {}
-        no_bot_cog = 'Commands or listeners must not start with cog_ or bot_ (in method {0.__name__}.{1})'
 
         new_cls = super().__new__(cls, name, bases, attrs, **kwargs)
         for base in reversed(new_cls.__mro__):
@@ -151,9 +150,7 @@ class CogMeta(type):
                     value = value.__func__
                 if isinstance(value, _BaseCommand):
                     if is_static_method:
-                        raise TypeError(
-                            f'Command in method {base}.{elem!r} must not be staticmethod.'
-                        )
+                        raise TypeError(f'Command in method {base}.{elem!r} must not be staticmethod.')
                     if elem.startswith(("cog_", "bot_")):
                         raise TypeError(no_bot_cog.format(base, elem))
                     commands[elem] = value
@@ -217,9 +214,7 @@ class Cog(metaclass=CogMeta):
 
         # Either update the command with the cog provided defaults or copy it.
         # r.e type ignore, type-checker complains about overriding a ClassVar
-        self.__cog_commands__ = tuple(
-            c._update_copy(cmd_attrs) for c in cls.__cog_commands__
-        )
+        self.__cog_commands__ = tuple(c._update_copy(cmd_attrs) for c in cls.__cog_commands__)
 
         lookup = {cmd.qualified_name: cmd for cmd in self.__cog_commands__}
 
