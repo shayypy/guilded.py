@@ -58,7 +58,7 @@ import aiohttp
 
 import guilded
 from guilded.utils import sleep_until
-from guilded.utils.backoff import ExponentialBackoff
+from guilded.backoff import ExponentialBackoff
 
 
 class Loop:
