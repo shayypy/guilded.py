@@ -56,7 +56,7 @@ from typing import Optional
 
 from .embed import Embed
 from .file import MediaType, Attachment
-from .utils import ISO8601
+from .utils import ISO8601, parse_hex_number
 
 log = logging.getLogger(__name__)
 
