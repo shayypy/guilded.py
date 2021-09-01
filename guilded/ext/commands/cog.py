@@ -128,13 +128,13 @@ class CogMeta(type):
 
     def __new__(cls: Type[CogMeta], *args: Any, **kwargs: Any) -> CogMeta:
         name, bases, attrs = args
-        attrs["__cog_name__"] = kwargs.pop("name", name)
-        attrs["__cog_settings__"] = kwargs.pop("command_attrs", {})
+        attrs['__cog_name__'] = kwargs.pop('name', name)
+        attrs['__cog_settings__'] = kwargs.pop('command_attrs', {})
 
-        description = kwargs.pop("description", None)
+        description = kwargs.pop('description', None)
         if description is None:
-            description = inspect.cleandoc(attrs.get("__doc__", ""))
-        attrs["__cog_description__"] = description
+            description = inspect.cleandoc(attrs.get('__doc__', ''))
+        attrs['__cog_description__'] = description
 
         commands = {}
         listeners = {}
@@ -152,21 +152,19 @@ class CogMeta(type):
                     value = value.__func__
                 if isinstance(value, _BaseCommand):
                     if is_static_method:
-                        raise TypeError(
-                            f"Command in method {base}.{elem!r} must not be staticmethod."
-                        )
+                        raise TypeError(f'Command in method {base}.{elem!r} must not be staticmethod.')
+                    if elem.startswith(("cog_", "bot_")):
+                        raise TypeError(no_bot_cog.format(base, elem))
                     commands[elem] = value
                 elif inspect.iscoroutinefunction(value):
                     try:
-                        getattr(value, "__cog_listener__")
+                        getattr(value, '__cog_listener__')
                     except AttributeError:
                         continue
                     else:
                         listeners[elem] = value
 
-        new_cls.__cog_commands__ = list(
-            commands.values()
-        )  # this will be copied in Cog.__new__
+        new_cls.__cog_commands__ = list(commands.values())  # this will be copied in Cog.__new__
 
         listeners_as_list = []
         for listener in listeners.values():
@@ -216,9 +214,7 @@ class Cog(metaclass=CogMeta):
 
         # Either update the command with the cog provided defaults or copy it.
         # r.e type ignore, type-checker complains about overriding a ClassVar
-        self.__cog_commands__ = tuple(
-            c._update_copy(cmd_attrs) for c in cls.__cog_commands__
-        )
+        self.__cog_commands__ = tuple(c._update_copy(cmd_attrs) for c in cls.__cog_commands__)
 
         lookup = {cmd.qualified_name: cmd for cmd in self.__cog_commands__}
 
