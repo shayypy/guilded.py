@@ -126,17 +126,17 @@ class CogMeta(type):
 
     def __new__(cls: Type[CogMeta], *args: Any, **kwargs: Any) -> CogMeta:
         name, bases, attrs = args
-        attrs["__cog_name__"] = kwargs.pop("name", name)
-        attrs["__cog_settings__"] = kwargs.pop("command_attrs", {})
+        attrs['__cog_name__'] = kwargs.pop('name', name)
+        attrs['__cog_settings__'] = kwargs.pop('command_attrs', {})
 
-        description = kwargs.pop("description", None)
+        description = kwargs.pop('description', None)
         if description is None:
-            description = inspect.cleandoc(attrs.get("__doc__", ""))
-        attrs["__cog_description__"] = description
+            description = inspect.cleandoc(attrs.get('__doc__', ''))
+        attrs['__cog_description__'] = description
 
         commands = {}
         listeners = {}
-        no_bot_cog = "Commands or listeners must not start with cog_ or bot_ (in method {0.__name__}.{1})"
+        no_bot_cog = 'Commands or listeners must not start with cog_ or bot_ (in method {0.__name__}.{1})'
 
         new_cls = super().__new__(cls, name, bases, attrs, **kwargs)
         for base in reversed(new_cls.__mro__):
@@ -152,14 +152,14 @@ class CogMeta(type):
                 if isinstance(value, _BaseCommand):
                     if is_static_method:
                         raise TypeError(
-                            f"Command in method {base}.{elem!r} must not be staticmethod."
+                            f'Command in method {base}.{elem!r} must not be staticmethod.'
                         )
                     if elem.startswith(("cog_", "bot_")):
                         raise TypeError(no_bot_cog.format(base, elem))
                     commands[elem] = value
                 elif inspect.iscoroutinefunction(value):
                     try:
-                        getattr(value, "__cog_listener__")
+                        getattr(value, '__cog_listener__')
                     except AttributeError:
                         continue
                     else:
@@ -167,9 +167,7 @@ class CogMeta(type):
                             raise TypeError(no_bot_cog.format(base, elem))
                         listeners[elem] = value
 
-        new_cls.__cog_commands__ = list(
-            commands.values()
-        )  # this will be copied in Cog.__new__
+        new_cls.__cog_commands__ = list(commands.values())  # this will be copied in Cog.__new__
 
         listeners_as_list = []
         for listener in listeners.values():
