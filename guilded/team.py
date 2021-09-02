@@ -154,25 +154,37 @@ class Team:
 
     @property
     def me(self):
-        """Your own member object in this team."""
+        """:class:`Member`: Your own member object in this team."""
         return self.get_member(self._state.my_id)
 
     @property
     def members(self):
-        """The cached list of members in this team. Many objects may not
-        have all the desired information due to the Get Team Members endpoint
-        returning partial objects.
+        """List[:class:`Member`]: The cached list of members in this team.
+
+        .. note::
+            Many objects may not have all the desired information due to
+            partial data returned by Guilded for some endpoints.
         """
         return list(self._state._team_members.get(self.id, {}).values())
 
     @property
     def channels(self):
-        """The cached list of channels in this team."""
-        return [channel for channel in self._state._team_channels.values() if channel.team_id == self.id]
+        """List[:class:`guilded.abc.TeamChannel`]: The cached list of channels in
+        this team.
+        """
+        return list(self._state._team_channels.get(self.id, {}).values())
 
     def get_member(self, id):
-        """Get a member by their ID from the internal cache."""
+        """Optional[:class:`guilded.Member']: Get a member by their ID from
+        the internal cache.
+        """
         return self._state._get_team_member(self.id, id)
+
+    def get_channel(self, id):
+        """Optional[:class:`guilded.abc.TeamChannel']: Get a channel by its
+        ID from the internal cache.
+        """
+        return self._state._get_team_channel(self.id, id)
 
     async def ws_connect(self, client):
         """|coro|

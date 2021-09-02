@@ -197,7 +197,7 @@ class Client:
     @property
     def team_channels(self):
         """List[:class:`.TeamChannel`]: The team channels that the connected client can see."""
-        return list(self.http._team_channels.values())
+        return list(self.http._all_team_channels.values())
 
     @property
     def channels(self):

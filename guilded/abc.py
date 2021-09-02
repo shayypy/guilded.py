@@ -312,8 +312,8 @@ class TeamChannel(Messageable):
         self.group = group
         self.group_id = data.get('groupId') or getattr(self.group, 'id', None)
 
-        self.team = extra.get('team') or getattr(group, 'team', None) or self._state._get_team(data.get('teamId'))
-        self.team_id = data.get('teamId') or self.team.id
+        self._team = extra.get('team') or getattr(group, 'team', None)
+        self.team_id = data.get('teamId') or self._team.id
 
         self.name = data.get('name')
         self.position = data.get('priority')
@@ -359,11 +359,19 @@ class TeamChannel(Messageable):
     def mention(self):
         return f'<#{self.id}>'
 
+    @property
+    def team(self):
+        return self._team or self._state._get_team(self.team_id)
+
+    @property
+    def guild(self):
+        return self.team
+
     def __str__(self):
         return self.name
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} id={repr(self.id)} name={repr(self.name)} team={repr(self.team)}>'
+        return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} team={self.team!r}>'
 
     def __eq__(self, other):
         try:

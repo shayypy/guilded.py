@@ -51,7 +51,8 @@ DEALINGS IN THE SOFTWARE.
 
 import guilded.abc
 
-from .utils import ISO8601
+from .colour import Colour
+from .utils import ISO8601, parse_hex_number
 from .file import File, MediaType
 
 
@@ -140,15 +141,28 @@ class Member(User):
     """
     def __init__(self, *, state, data, **extra):
         super().__init__(state=state, data=data)
-        self.team = extra.get('team') or data.get('team')
-        self.team_id = data.get('teamId') or (self.team.id if self.team else None)
+        self._team = extra.get('team') or data.get('team')
+        self.team_id = data.get('teamId') or (self._team.id if self._team else None)
+
         self.nick = data.get('nickname')
         self.xp = data.get('teamXp')
         self.joined_at = ISO8601(data.get('joinDate'))
-        self.colour = data.get('colour') or data.get('color')
+        colour = data.get('colour') or data.get('color')
+        if colour is not None and not isinstance(colour, Colour):
+            self.colour = parse_hex_number(colour)
+        else:
+            self.colour = colour
 
     def __repr__(self):
-        return f'<Member id={self.id} name={self.name} team={repr(self.team)}>'
+        return f'<Member id={self.id!r} name={self.name!r} team={self.team!r}>'
+
+    @property
+    def team(self):
+        return self._team or self._state._get_team(self.team_id)
+
+    @property
+    def guild(self):
+        return self.team
 
     @property
     def color(self):
