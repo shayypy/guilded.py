@@ -885,8 +885,7 @@ class Group(Command):
             self.all_commands[alias] = command
 
     def remove_command(self, name: str) -> typing.Optional[Command]:
-        """Remove a :class:`.Command` from the internal list
-        of commands.
+        """Remove a :class:`.Command` from the internal list of commands.
 
         This could also be used as a way to remove aliases.
 
@@ -919,6 +918,7 @@ class Group(Command):
             # make sure the pre-existing command is not removed.
             if cmd is not None and cmd != command:
                 self.all_commands[alias] = cmd
+
         return command
 
     def walk_commands(self) -> typing.Generator[Command, None, None]:

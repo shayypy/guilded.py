@@ -169,12 +169,92 @@ class Bot(guilded.Client):
         for event in self.extra_events.get(ev, []):
             self._schedule_event(event, ev, *args, **kwargs)
 
-    def add_command(self, command):
+    def add_command(self, command: Command):
+        """Add a :class:`.Command` to the internal list of commands.
+
+        Parameters
+        -----------
+        command: :class:`.Command`
+            The command to register.
+        
+        Raises
+        -------
+        CommandRegistrationError
+            This command has a duplicate name or alias to one that is already
+            registered.
+        """
         if command.name in self._commands.keys():
             raise errors.CommandRegistrationError(f'A command with the name {command.name} is already registered.')
         elif command.name in self._commands_by_alias.keys():
             raise errors.CommandRegistrationError(f'A command with the alias {command.name} is already registered.')
         self._commands[command.name] = command
+
+    def remove_command(self, name: str) -> Optional[Command]:
+        """Remove a :class:`.Command` from the internal list of commands.
+
+        This could also be used as a way to remove aliases.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The name of the command to remove.
+
+        Returns
+        --------
+        Optional[:class:`.Command`]
+            The command that was removed. If the name is not valid then
+            ``None`` is returned instead.
+        """
+        command = self._commands.pop(name, self._commands_by_alias.get(name))
+
+        # does not exist
+        if command is None:
+            return None
+
+        if name in command.aliases:
+            # remove only this alias
+            command.aliases.remove(name)
+            return command
+
+        return command
+
+    def get_command(self, name: str) -> Optional[Command]:
+        """Get a :class:`.Command` from the internal list of commands.
+
+        This could also be used as a way to get aliases.
+
+        The name could be fully qualified (e.g. ``'foo bar'``) will get
+        the subcommand ``bar`` of the group command ``foo``. If a
+        subcommand is not found then ``None`` is returned just as usual.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The name of the command to get.
+
+        Returns
+        --------
+        Optional[:class:`.Command`]
+            The command that was requested. If not found, returns ``None``.
+        """
+        # fast path, no space in name.
+        if ' ' not in name:
+            return self.all_commands.get(name)
+
+        names = name.split()
+        if not names:
+            return None
+        obj = self.all_commands.get(names[0])
+        if not isinstance(obj, Group):
+            return obj
+
+        for name in names[1:]:
+            try:
+                obj = obj.all_commands[name]
+            except (AttributeError, KeyError):
+                return None
+
+        return obj
 
     def command(self, **kwargs):
         def decorator(coro):
