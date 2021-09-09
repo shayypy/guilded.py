@@ -103,6 +103,16 @@ class GuildedServerError(HTTPException):
     """Thrown on status code 500"""
     pass
 
+class InvalidArgument(ClientException):
+    """Thrown when an argument to a function is invalid some way (e.g. wrong
+    value or wrong type).
+
+    This could be considered the analogous of ``ValueError`` and
+    ``TypeError`` except inherited from :exc:`ClientException` and thus
+    :exc:`GuildedException`.
+    """
+    pass
+
 error_mapping = {
     400: BadRequest,
     403: Forbidden,

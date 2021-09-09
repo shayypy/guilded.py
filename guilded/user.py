@@ -202,6 +202,27 @@ class Member(User):
         else:
             await self._state.set_team_member_xp(self.team.id, self.id, xp)
             self.xp = xp
+        
+    async def ban(self, **kwargs):
+        """|coro|
+
+        Ban this member. Equivalent to :meth:`Team.ban`.
+        """
+        return await self.team.ban(self, **kwargs)
+
+    async def unban(self):
+        """|coro|
+
+        Unban this member. Equivalent to :meth:`Team.unban`.
+        """
+        return await self.team.unban(self)
+
+    async def kick(self):
+        """|coro|
+
+        Kick this member. Equivalent to :meth:`Team.kick`.
+        """
+        return await self.team.kick(self)
 
 class ClientUser(guilded.abc.User):
     """Represents the current logged-in user.

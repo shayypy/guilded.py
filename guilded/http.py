@@ -521,7 +521,7 @@ class HTTPClient:
         else:
             payload['afterDate'] = None
 
-        return self.request(Route('DELETE', f'/teams/{team_id}/members/ban'), json=payload)
+        return self.request(Route('DELETE', f'/teams/{team_id}/members/{user_id}/ban'), json=payload)
 
     def remove_team_ban(self, team_id: str, user_id: str):
         payload = {'memberId': user_id, 'teamId': team_id}

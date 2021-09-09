@@ -52,11 +52,11 @@ DEALINGS IN THE SOFTWARE.
 import asyncio
 import datetime
 
-from guilded.abc import TeamChannel
+from guilded.abc import TeamChannel, User
 
 from .asset import Asset
 from .channel import ChatChannel, Thread
-from .errors import NotFound
+from .errors import NotFound, InvalidArgument
 from .gateway import GuildedWebSocket
 from .user import Member
 from .utils import ISO8601
@@ -358,3 +358,70 @@ class Team:
         """
         invite = await self._state.create_team_invite(self.id)
         return invite.get('invite', invite).get('id')
+    
+    async def ban(self, user: User, *,
+        reason: str = None,
+        delete_after: datetime.datetime = None,
+        delete_message_days: int = None
+    ):
+        """|coro|
+
+        Ban a user from the team.
+
+        Parameters
+        -----------
+        user: :class:`abc.User`
+            The user to ban.
+        reason: Optional[:class:`str`]
+            The reason to ban this user with. Shows up in the "bans" menu,
+            but not the audit log.
+        delete_after: Optional[:class:`datetime.datetime`]
+            The :class:`datetime.datetime` to start wiping the user's message
+            history from. If not specified, deletes no message history.
+        delete_message_days: Optional[:class:`int`]
+            How many days of the user's message history to wipe. This
+            parameter mainly exists for convenience; interally this is
+            converted into a :class:`datetime.datetime` and that is used
+            instead. If not specified, deletes no message history.
+
+        Raises
+        -------
+        InvalidArgument
+            You specified both ``delete_message_days`` and ``delete_after``
+        """
+        if delete_message_days is not None and delete_after is not None:
+            raise InvalidArgument('Specify delete_message_days or delete_after, not both.')
+
+        if delete_message_days is not None:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            diff = now - datetime.timedelta(days=delete_message_days)
+            delete_after = diff
+        
+        coro = self._state.create_team_ban(self.id, user.id, reason=reason, after=delete_after)
+        await coro
+
+    async def unban(self, user: User):
+        """|coro|
+
+        Unban a user from the team.
+
+        Parameters
+        -----------
+        user: :class:`abc.User`
+            The user to unban.
+        """
+        coro = self._state.remove_team_ban(self.id, user.id)
+        await coro
+
+    async def kick(self, user: User):
+        """|coro|
+
+        Kick a user from the team.
+
+        Parameters
+        -----------
+        user: :class:`abc.User`
+            The user to kick.
+        """
+        coro = self._state.remove_team_member(self.id, user.id)
+        await coro
