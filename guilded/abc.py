@@ -228,7 +228,7 @@ class User(metaclass=abc.ABCMeta):
         self.games = data.get('aliases', [])
         self.bio = (data.get('aboutInfo') or {}).get('bio') or ''
         self.tagline = (data.get('aboutInfo') or {}).get('tagLine') or ''
-        self.presence = Presence.from_value(data.get('userPresenceStatus', 5))
+        self.presence = Presence.from_value(data.get('userPresenceStatus')) or None
         status = data.get('userStatus', {})
         if status.get('content'):
             self.status = Activity.build(status['content'])

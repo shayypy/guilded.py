@@ -79,6 +79,14 @@ class Route:
 
         self.url = self.BASE + path
 
+class VoiceRoute(Route):
+    def __init__(self, voice_endpoint, method, path):
+        self.BASE = f'https://{voice_endpoint}'
+        self.method = method
+        self.path = path
+
+        self.url = self.BASE + path
+
 class HTTPClient:
     def __init__(self, *, session, max_messages=1000):
         self.session = session
@@ -255,6 +263,29 @@ class HTTPClient:
             )
         )
 
+    async def voice_ws_connect(self, endpoint, channel_id, token, cookie=None):
+        cookie = cookie or self.cookie
+        if not cookie:
+            raise ClientException(
+                'No authentication cookies available. Get these from '
+                'logging into the REST API at least once '
+                'on this Client.'
+            )
+        gateway_args = {
+            'channelId': channel_id,
+            'guildedClientId': cookie,
+            'token': token,
+            'type': 'voice',
+            'EIO': '3',
+            'transport': 'websocket'
+        }
+
+        return await self.session.ws_connect(
+            f'wss://{endpoint}' + '/socket.io/?{}'.format(
+                '&'.join([f'{key}={val}' for key, val in gateway_args.items()])
+            )
+        )
+
     def logout(self):
         return self.request(Route('POST', '/logout'))
 
@@ -262,7 +293,6 @@ class HTTPClient:
         return self.request(Route('PUT', '/users/me/ping'))
 
     # /channels
-    # (message interfacing)
 
     def send_message(self, channel_id: str, content, extra_payload=None, share_urls=None):
         route = Route('POST', f'/channels/{channel_id}/messages')
@@ -422,6 +452,58 @@ class HTTPClient:
 
         return self.request(route, json=payload)
 
+    def get_voice_connection_info(self, channel_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/connection'))
+
+    def get_voice_lobby(self, endpoint: str, channel_id: str):
+        return self.request(VoiceRoute(endpoint, 'GET', f'/channels/{channel_id}/voicegroups/lobby'))
+
+    def connect_to_voice_lobby(self, endpoint: str, channel_id: str, *,
+        rtp_capabilities: dict,
+        moved: bool = False,
+        supports_video: bool = False,
+        restarting: bool = False,
+        previous_channel_id: str = None
+    ):
+        route = VoiceRoute(endpoint, 'POST', f'/channels/{channel_id}/voicegroups/lobby/connect')
+        payload = {
+            'rtpCapabilities': rtp_capabilities,  # data from Get Voice Lobby
+            'wasMoved': moved,
+            'supportsVideo': supports_video,
+            'appType': 'Desktop App',
+            'isRestarting': restarting,
+            'channelIdFromPreviousConnections': previous_channel_id
+        }
+        return self.request(route, json=payload)
+
+    def connect_to_voice_transport(self, endpoint: str, channel_id: str, *,
+        transport_id: str,
+        dtls_parameters: dict
+    ):
+        route = VoiceRoute(endpoint, 'POST', f'/channels/{channel_id}/voicegroups/lobby/transport')
+        payload = {
+            # data from Connect to Voice Lobby
+            'transportId': transport_id,
+            'dtlsParameters': dtls_parameters
+        }
+        return self.request(route, json=payload)
+
+    def get_voice_producers(self, endpoint: str, channel_id: str, *,
+        transport_id: str,
+        rtp_parameters: dict
+    ):
+        route = VoiceRoute(endpoint, 'POST', f'/channels/{channel_id}/voicegroups/lobby/transport')
+        payload = {
+            'kind': 'audio',
+            'transportId': transport_id,
+            'rtpParameters': rtp_parameters
+        }
+        return self.request(route, json=payload)
+
+    def leave_voice_channel(self, endpoint: str, channel_id: str):
+        route = VoiceRoute(endpoint, 'POST', f'/channels/{channel_id}/voicegroups/lobby/leave')
+        return self.request(route, json={})
+
     # /teams
 
     def join_team(self, team_id):
@@ -568,7 +650,22 @@ class HTTPClient:
             'allowFriendRequestsFrom': str(friend_requests)
         }))
 
-    def update_activity(self, activity, *, expires: Union[int, datetime.datetime] = 0):
+    def set_presence(self, presence):
+        payload = {'status': presence}
+        return self.request(Route('POST', '/users/me/presence'), json=payload)
+
+    def set_transient_status(self, game_id: int):
+        payload = {
+            'id': 1661,
+            'gameId': game_id,
+            'type': 'gamepresence'
+        }
+        return self.request(Route('POST', '/users/me/status/transient'), json=payload)
+
+    def delete_transient_status(self):
+        return self.request(Route('DELETE', '/users/me/status/transient'))
+
+    def set_custom_status(self, status, *, expires: Union[int, datetime.datetime] = 0):
         payload = {
             'content': {'document': {
                 'object': 'document',
@@ -580,13 +677,13 @@ class HTTPClient:
             'object': 'text',
             'leaves': [{
                 'object': 'leaf',
-                'text': activity.details,
+                'text': status.details,
                 'marks': []
             }]
         })
-        if activity.emoji:
-            payload['customReactionId'] = activity.emoji.id
-            payload['customReaction'] = activity.emoji._raw
+        if status.emoji:
+            payload['customReactionId'] = status.emoji.id
+            payload['customReaction'] = status.emoji._raw
         if type(expires) == datetime.datetime:
             if expires.tzinfo is None:
                 expires = expires.replace(tzinfo=datetime.timezone.utc)
@@ -626,6 +723,9 @@ class HTTPClient:
 
     def unblock_user(self, user_id: str):
         return self.request(Route('POST', f'/users/{user_id}/unblock'))
+
+    def get_referral_statistics(self):
+        return self.request(Route('GET', '/users/me/referrals'))
 
     # /content
 

@@ -51,6 +51,7 @@ DEALINGS IN THE SOFTWARE.
 
 from enum import Enum
 
+__all__ = ('Presence',)
 
 class Presence(Enum):
     online = 1
@@ -59,25 +60,29 @@ class Presence(Enum):
     do_not_disturb = dnd
     invisible = 4
     offline = invisible
-    transparent = 5
 
     def __str__(self):
         return f'Presence.{self.name}'
 
     def __repr__(self):
-        return f'<Presence value={self.value}>'
+        return f'<Presence name={self.name!r} value={self.value!r}>'
 
     def __int__(self):
         return self.value
 
     @classmethod
     def from_value(cls, value):
-        return value_to_name.get(value, cls.transparent)
+        if value is None:
+            return None
+
+        presence = value_to_name.get(value)
+        if not presence:
+            raise ValueError('Invalid presence value: %s' % value)
+        return presence
 
 value_to_name = {
     1: Presence.online,
     2: Presence.idle,
     3: Presence.dnd,
-    4: Presence.invisible,
-    5: Presence.transparent
+    4: Presence.invisible
 }

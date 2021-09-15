@@ -61,7 +61,7 @@ from .embed import Embed
 from .gateway import GuildedWebSocket, WebSocketClosure
 from .http import HTTPClient
 from .presence import Presence
-from .status import Game
+from .status import TransientStatus, Game
 from .team import Team
 from .user import ClientUser, User
 
@@ -122,7 +122,7 @@ class Client:
         connections.
     presence: Optional[:class:`.Presence`]
         A presence to use upon logging in.
-    status: Optional[:class:`.Status`]
+    status: Optional[:class:`.TransientStatus`]
         A status (game) to use upon logging in.
     cache_on_startup: Optional[:class:`dict`]
         A mapping of types of objects to a :class:`bool` (whether to
@@ -615,20 +615,23 @@ class Client:
 
         return channel
 
-    async def fetch_game(self, id: int):
+    async def fetch_game(self, id: int) -> Game:
         """|coro|
 
-        Fetch a game from the `documentation's game list <https://guildedapi.com/resources/user/#transient-status-object>`_ (an incomplete listing of every game Guilded has a registered name for)
+        Fetch a game from the
+        `documentation's game list<https://guildedapi.com/resources/user#game-ids>`_\.
+
+        Games not in this list will be considered invalid by Guilded.
         
         Returns
         ---------
         :class:`Game`
-            The game with the ID
+            The game from the ID
         """
         if not Game.MAPPING:
             await self.fill_game_list()
 
-        game = Game(id)
+        game = Game(game_id=id)
         if game.name is None:
             raise ValueError(f'{id} is not a recognized game id.')
 
@@ -637,12 +640,12 @@ class Client:
     async def fetch_games(self):
         """|coro|
 
-        Fetch the whole documented game list.
-        
+        Fetch the list of documented games that Guilded supports.
+
         Returns
         ---------
         :class:`dict`
-            The whole game list (`viewable here <https://github.com/GuildedAPI/datatables/blob/main/games.json>`_)
+            The whole game list (`viewable here<https://github.com/GuildedAPI/datatables/blob/main/games.json>`_)
         """
         return await self.http.get_game_list()
 
@@ -673,13 +676,73 @@ class Client:
 
         return blocked
 
-    async def change_presence(self, *args):
-        pass
+    async def set_presence(self, presence: Presence):
+        """|coro|
+
+        Set your presence.
+
+        "Presence" in a Guilded context refers to the colored circle next to
+        your profile picture, as opposed to the equivalent "status" concept in
+        the Discord API.
+        """
+        if presence is None:
+            presence = Presence.online
+        if isinstance(presence, Presence):
+            await self.http.set_presence(presence.value)
+        else:
+            raise TypeError('presence must be of type Presence or be None, not %s' % presence.__class__.__name__)
+
+    async def set_status(self, status: TransientStatus):
+        """|coro|
+
+        Set your status.
+
+        "Status" in a Guilded context refers to your custom status or game
+        activity rather than the colored circle next to your profile picture.
+        """
+        if isinstance(status, Game):
+            await self.http.set_transient_status(status.game_id)
+        elif isinstance(status, TransientStatus):
+            await self.http.set_custom_status(status.name)
+        elif status is None:
+            await self.http.delete_transient_status()
+        else:
+            raise TypeError('status must inherit from TransientStatus (Game, CustomStatus) or be None, not %s' % status.__class__.__name__)
+
+    async def change_presence(self, **kwargs):
+        """|coro|
+        
+        Change your presence.
+        
+        This method exists only for backwards compatibility with discord.py
+        bots. When writing new bots, it is generally recommended to use the
+        :meth:`set_presence` and :meth:`set_status` methods instead.
+
+        Parameters
+        -----------
+        status: Optional[:class:`Presence`]
+            The presence to display. If ``None``, :attr:`Presence.online` is
+            used.
+        activity: Optional[:class:`TransientStatus`]
+            The activity to display. If ``None``, no activity will be
+            displayed.
+        """
+        try:
+            presence = kwargs.pop('status')
+            await self.set_presence(presence)
+        except KeyError:
+            pass
+
+        try:
+            status = kwargs.pop('activity')
+            await self.set_status(status)
+        except KeyError:
+            pass
 
     async def fetch_subdomain(self, subdomain: str):
         """|coro|
 
-        Check if a subdomain (profile/team vanity url) is available.
+        Check if a subdomain (profile or team vanity url) is available.
 
         Returns
         --------
@@ -687,9 +750,9 @@ class Client:
             The user or team that is using this subdomain.
         """
         value = await self.http.check_subdomain(subdomain)
-        if (value or {}).get('exists') == True:
+        if (value or {}).get('exists') is True:
             # currently this endpoint returns {} if the subdomain does not
-            # exist, but just in case it eventually returns 204 or whatever,
+            # exist, but just in case it eventually returns 204 or something,
             # we check more explicitly instead.
             if value.get('teamId'):
                 using_subdomain = await self.getch_team(value.get('teamId'))
@@ -718,8 +781,8 @@ class Client:
         """|coro|
 
         Fetch the OpenGraph data for a URL. The request made here is to
-        Guilded, not directly to the website, so any images will contain
-        proxy URLs.
+        Guilded, not directly to the webpage, so any images will be proxy
+        URLs.
 
         Returns
         --------
@@ -728,3 +791,10 @@ class Client:
         data = await self.http.get_embed_for_url(url)
         embed = Embed.from_unfurl_dict(data)
         return embed
+
+    async def fetch_referrals(self):
+        """|coro|
+
+        Get your referral statistics.
+        """
+        data = await self.http.get_referral_statistics()

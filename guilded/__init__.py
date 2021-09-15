@@ -25,7 +25,7 @@ from .errors import (
 from .file import File, FileType, MediaType, Attachment
 from .message import ChatMessage, Message, MessageMention, MentionType
 from .presence import Presence
-from .status import Game, TransientStatus
+from .status import TransientStatus, Game
 from .team import SocialInfo, Team, TeamTimezone
 from .user import ClientUser, Device, Member, User
 
