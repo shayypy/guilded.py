@@ -53,9 +53,17 @@ from enum import Enum
 
 import guilded.abc
 
+#from .gateway import GuildedVoiceWebSocket
 from .message import Message
 from .utils import ISO8601
 
+__all__ = (
+    'ChannelType',
+    'ChatChannel',
+    'VoiceChannel',
+    'DMChannel',
+    'Thread'
+)
 
 class ChannelType(Enum):
     chat = 'chat'
@@ -108,6 +116,42 @@ class VoiceChannel(guilded.abc.TeamChannel):
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.voice
+        self._ws = None
+
+    #async def connect(self):
+    #    state = self._state
+
+    #    connection_info = await state.get_voice_connection_info(self.id)
+    #    endpoint = connection_info['endpoint']
+    #    token = connection_info['token']
+
+    #    ws_build = GuildedVoiceWebSocket.build( loop=self.loop)
+    #    gws = await asyncio.wait_for(ws_build, timeout=60)
+    #    if type(gws) != GuildedVoiceWebSocket:
+    #        self.dispatch('error', gws)
+    #        return
+
+    #    self._ws = gws
+    #    self.dispatch('connect')
+
+    #    lobby = await state.get_voice_lobby(endpoint, self.id)
+    #    lobby_connection_data = await state.connect_to_voice_lobby(
+    #        endpoint,
+    #        self.id,
+    #        rtp_capabilities=lobby['routerRtpCapabilities']
+    #    )
+
+    #    dtls_parameters = lobby_connection_data['sendTransportOptions']['dtlsParameters']
+    #    # The client transforms the default "auto" to "server" and sends only
+    #    # the fingerprint where algorithm is "sha-256"
+    #    dtls_parameters['role'] = 'server'
+
+    #    transport = await state.connect_to_voice_transport(
+    #        endpoint,
+    #        self.id,
+    #        transport_id=lobby_connection_data['sendTransportOptions']['id'],
+    #        dtls_parameters=dtls_parameters
+    #    )
 
 class Thread(guilded.abc.TeamChannel):
     def __init__(self, **fields):
@@ -183,15 +227,18 @@ class Thread(guilded.abc.TeamChannel):
 
 class DMChannel(guilded.abc.Messageable):
     def __init__(self, *, state, data):
+        data = data.get('channel', data)
         super().__init__(state=state, data=data)
         self.type = ChannelType.dm
-        self.users = []
-        self.recipient = None
         self.team = None
+        self.group = None
+
+        self._users = {}
+        self.recipient = None
         for user_data in data.get('users', []):
-            user = self._state._get_user(user_data.get('id'))
+            user = self._state.create_user(data=user_data)
             if user:
-                self.users.append(user)
+                self._users[user.id] = user
                 if user.id != self._state.my_id:
                     self.recipient = user
 
@@ -204,6 +251,13 @@ class DMChannel(guilded.abc.Messageable):
         self.last_message = None
         if data.get('lastMessage'):
             message_data = data.get('lastMessage')
-            author = self._state._get_user(message_data.get('createdBy'))
-            message = self._state._get_message(message_data.get('id')) or Message(state=self._state, channel=self, data=message_data, author=author)
+            author = self._users.get(message_data.get('createdBy'))
+            message = self._state.create_message(channel=self, data=message_data, author=author)
             self.last_message = message
+
+    @property
+    def users(self):
+        return list(self._users.values())
+
+    def __repr__(self):
+        return f'<DMChannel id={self.id!r} recipient={self.recipient!r}>'

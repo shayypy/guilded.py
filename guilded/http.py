@@ -727,6 +727,13 @@ class HTTPClient:
     def get_referral_statistics(self):
         return self.request(Route('GET', '/users/me/referrals'))
 
+    def create_dm_channel(self, user_ids: list):
+        payload = {'users': [{'id': user_id} for user_id in user_ids]}
+        return self.request(Route('POST', f'/users/{self.my_id}/channels'), json=payload)
+
+    def hide_dm_channel(self, channel_id: str):
+        return self.request(Route('PUT', f'/users/{self.my_id}/channels/{channel_id}/hide'))
+
     # /content
 
     def get_metadata(self, route: str):
@@ -805,8 +812,8 @@ class HTTPClient:
 
     def create_channel(self, **data):
         channel_data = data.get('data', data)
-        data['group'] = data.get('group')
         if channel_data.get('type', '').lower() == 'team':
+            data['group'] = data.get('group')
             ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
             if ctype is channel.ChannelType.chat:
                 if 'threadMessageId' in channel_data:

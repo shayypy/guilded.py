@@ -50,6 +50,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import abc
+from typing import List
 
 from .activity import Activity
 from .asset import Asset
@@ -60,6 +61,7 @@ from .message import Message
 from .presence import Presence
 from .utils import ISO8601
 
+
 class Messageable(metaclass=abc.ABCMeta):
     def __init__(self, *, state, data):
         self._state = state
@@ -67,7 +69,7 @@ class Messageable(metaclass=abc.ABCMeta):
         self._channel_id = data.get('id')
         self.type = None
 
-    async def send(self, *content, **kwargs):
+    async def send(self, *content, **kwargs) -> Message:
         """|coro|
 
         Send a message to a Guilded channel.
@@ -185,7 +187,11 @@ class Messageable(metaclass=abc.ABCMeta):
             except:
                 author = None
 
-        return Message(state=self._state, channel=self, data=payload, author=author)
+        if isinstance(self, User):
+            channel = self.dm_channel
+        else:
+            channel = self
+        return self._state.create_message(channel=channel, data=payload, author=author)
 
     async def trigger_typing(self):
         """|coro|
@@ -194,22 +200,45 @@ class Messageable(metaclass=abc.ABCMeta):
         """
         return await self._state.trigger_typing(self._channel_id)
 
-    async def history(self, *, limit: int = 50):
+    async def history(self, *, limit: int = 50) -> List[Message]:
         """|coro|
 
         Fetch the message history of this channel.
+
+        Parameters
+        -----------
+        limit: Optional[:class:`int`]
+            The maximum number of messages to fetch. Defaults to 50.
+
+        Returns
+        --------
+        List[:class:`Message`]
         """
         history = await self._state.get_channel_messages(self._channel_id, limit=limit)
         messages = []
         for message in history.get('messages', []):
             try:
-                messages.append(Message(state=self._state, channel=self, data=message))
+                messages.append(self._state.create_message(channel=self, data=message))
             except:
                 pass
 
         return messages
 
-    async def fetch_message(self, id: str):
+    async def fetch_message(self, id: str) -> Message:
+        """|coro|
+
+        Fetch a message.
+
+        Parameters
+        -----------
+        id: :class:`str`
+            The message's ID to fetch.
+
+        Returns
+        --------
+        :class:`Message`
+            The message from the ID.
+        """
         message = await self._state.get_channel_message(self._channel_id, id)
         return message
 
@@ -220,6 +249,7 @@ class User(metaclass=abc.ABCMeta):
 
         self.type = None
         self.id = data.get('id')
+        self.dm_channel = None
         self.name = data.get('name')
         self.colour = Colour(0)
         self.subdomain = data.get('subdomain')
@@ -299,15 +329,52 @@ class User(metaclass=abc.ABCMeta):
     def color(self):
         return self.colour
 
-    async def create_dm(self):
-        dm = await self._state.create_dm(self.id)
-        self._channel_id = dm._channel_id
-        return Messageable(state=self._state, data=dm)
+    @property
+    def _channel_id(self):
+        return self.dm_channel.id if self.dm_channel else None
+
+    async def create_dm(self) -> Messageable:
+        """|coro|
+
+        Create a DM channel with this user.
+
+        Returns
+        --------
+        :class:`DMChannel`
+            The DM channel you created.
+        """
+        data = await self._state.create_dm_channel([self.id])
+        channel = self._state.create_channel(data=data)
+        self.dm_channel = channel
+        return channel
+
+    async def hide_dm(self):
+        """|coro|
+
+        Visually hide your DM channel with this user in the client.
+
+        The channel's content will still exist, and the channel can be
+        re-obtained with :meth:`create_dm`\.
+
+        Raises
+        -------
+        ValueError
+            Your DM channel with this user is not available or does not exist.
+        """
+        if self.dm_channel is None:
+            raise ValueError('No DM channel is cached for this user. You may want to first run the create_dm coroutine.')
+        await self._state.hide_dm_channel(self.dm_channel.id)
+        self.dm_channel = None
+
+    async def send(self, *content, **kwargs) -> Message:
+        if self.dm_channel is None:
+            await self.create_dm()
+
+        return await super().send(*content, **kwargs)
 
 class TeamChannel(Messageable):
     def __init__(self, *, state, group, data, **extra):
         super().__init__(state=state, data=data)
-        #self._state = state
         data = data.get('data') or data.get('channel') or data
         self.group = group
         self.group_id = data.get('groupId') or getattr(self.group, 'id', None)
@@ -380,4 +447,8 @@ class TeamChannel(Messageable):
             return False
 
     async def delete(self):
+        """|coro|
+
+        Delete this channel.
+        """
         return await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
