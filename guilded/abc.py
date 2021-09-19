@@ -412,6 +412,7 @@ class User(metaclass=abc.ABCMeta):
         data = await self._state.create_dm_channel([self.id])
         channel = self._state.create_channel(data=data)
         self.dm_channel = channel
+        self._state.add_to_dm_channel_cache(channel)
         return channel
 
     async def hide_dm(self):
@@ -428,9 +429,6 @@ class User(metaclass=abc.ABCMeta):
         """
         if self.dm_channel is None:
             raise ValueError('No DM channel is cached for this user. You may want to first run the create_dm coroutine.')
-
-        if self.dm_channel.recipient is None:
-            self.dm_channel.recipient = self
 
         await self.dm_channel.hide()
 

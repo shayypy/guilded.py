@@ -128,7 +128,8 @@ class Client:
     cache_on_startup: Optional[:class:`dict`]
         A mapping of types of objects to a :class:`bool` (whether to
         cache the type on startup). Currently accepts ``members``,
-        ``channels``, and ``groups``. By default, all are enabled.
+        ``channels``, ``dm_channels``, and ``groups``.
+        By default, all are enabled.
 
     Attributes
     -----------
@@ -152,6 +153,7 @@ class Client:
         self.cache_on_startup = {
             'members': cache_on_startup.get('members', True),
             'channels': cache_on_startup.get('channels', True),
+            'dm_channels': cache_on_startup.get('dm_channels', True),
             'groups': cache_on_startup.get('groups', True)
         }
 
@@ -322,12 +324,14 @@ class Client:
 
         Log into the REST API with a user account email and password.
 
-        This method fills the internal cache with your teams and their
-        members and channels, as opposed to a Discord bot, where this
-        would be filled on gateway connection.
+        This method fills the internal cache according to
+        :attr:`.cache_on_startup`\. This is in contrast to a Discord
+        application, where this would be done on connection to the gateway.
         """
         self.http = self.http or HTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
         data = await self.http.login(email, password)
+        self.user: ClientUser = ClientUser(state=self.http, data=data)
+        self.http.my_id = self.user.id
 
         for team_data in data.get('teams'):
             team = Team(state=self.http, data=team_data)
@@ -349,9 +353,12 @@ class Client:
 
             self.http.add_to_team_cache(team)
 
-        me = ClientUser(state=self.http, data=data)
-        self.http.my_id = me.id
-        self.user = me
+        if self.cache_on_startup['dm_channels'] is True:
+            dm_channels = await self.fetch_dm_channels()
+            for dm_channel in dm_channels:
+                self.http.add_to_dm_channel_cache(dm_channel)
+                if dm_channel.recipient is not None:
+                    dm_channel.recipient.dm_channel = dm_channel
 
     async def connect(self):
         """|coro|
@@ -493,7 +500,8 @@ class Client:
         return self.http._get_user(id)
 
     def get_channel(self, id: str):
-        """Optional[:class:`~.abc.Messageable`]: Get a user from your :attr:`.channels`.
+        """Optional[:class:`~.abc.Messageable`]: Get a team or DM channel from
+        your :attr:`.channels`.
 
         Parameters
         ------------
@@ -860,3 +868,9 @@ class Client:
         i.e. called :meth:`DMChannel.hide` on.
         """
         data = await self.http.get_dm_channels()
+        channels = []
+        for dm_channel_data in data.get('channels', data):
+            dm_channel = self.http.create_channel(data=dm_channel_data)
+            channels.append(dm_channel)
+
+        return channels

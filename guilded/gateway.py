@@ -82,18 +82,14 @@ class GuildedWebSocket:
         self.loop = loop
         self._heartbeater = None
 
-        # ws
+        # socket
         self.socket = socket
         self._close_code = None
         self.team_id = None
 
-        # actual gateway garbage
+        # gateway hello data
         self.sid = None
         self.upgrades = []
-
-        # I'm aware of the python-engineio package but 
-        # have opted not to use it so as to have fewer 
-        # dependencies, and thus fewer links in the chain.
 
     async def send(self, payload, *, raw=False):
         if raw is False:
@@ -138,8 +134,10 @@ class GuildedWebSocket:
 
     def _full_event_parse(self, payload):
         for char in payload:
-            if char.isdigit(): payload = payload.replace(char, '', 1)
-            else: break
+            if char.isdigit():
+                payload = payload.replace(char, '', 1)
+            else:
+                break
         data = json.loads(payload)
         return self._pretty_event(data)
 
@@ -195,6 +193,33 @@ class GuildedWebSocket:
         await self.send(['logout'])
         await self.socket.close(code=code)
 
+class GuildedVoiceWebSocket(GuildedWebSocket):
+    """Implements websocket connections to Guilded voice channels."""
+    def __init__(self, socket, client, *, endpoint, channel_id, token, loop):
+        super().__init__(socket, client, loop=loop)
+
+        self.endpoint = endpoint
+        self.channel_id = channel_id
+        self.token = token
+
+    @classmethod
+    async def build(cls, client, *, endpoint, channel_id, token, loop=None):
+        log.info('Connecting to the voice gateway %s for channel %s', endpoint, channel_id)
+        try:
+            socket = await client.http.voice_ws_connect(endpoint, channel_id, token)
+        except aiohttp.client_exceptions.WSServerHandshakeError as exc:
+            log.error('Failed to connect: %s', exc)
+            return exc
+        else:
+            log.info('Connected')
+
+        ws = cls(socket, client, endpoint=endpoint, channel_id=channel_id, token=token, loop=loop or asyncio.get_event_loop())
+        ws._parsers = WebSocketEventParsers(client)
+        await ws.send(GuildedWebSocket.HEARTBEAT_PAYLOAD, raw=True)
+        await ws.poll_event()
+
+        return ws
+
 class WebSocketEventParsers:
     def __init__(self, client):
         self.client = client
@@ -234,7 +259,8 @@ class WebSocketEventParsers:
             if team:
                 channel = await team.getch_channel(channelId)
             else:
-                channel = DMChannel(state=self._state, data={'id': channelId, 'users': []})
+                dm_channel_data = await self._state.get_channel(channelId)
+                channel = self._state.create_channel(data=dm_channel_data['metadata']['channel'])
 
         message = self._state.create_message(channel=channel, data=data, author=author, team=team)
         self._state.add_to_message_cache(message)
@@ -362,6 +388,13 @@ class WebSocketEventParsers:
         member = Member(state=self._state, data=data['user'], team=team)
         self._state.add_to_member_cache(member)
         self.client.dispatch('member_join', member)
+
+    async def ChatChannelHidden(self, data):
+        channel_id = data['channelId']
+        dm_channel = self._state._get_dm_channel(channel_id)
+        if dm_channel:
+            self.client.dispatch('dm_channel_hide', dm_channel)
+            self._state.remove_from_dm_channel_cache(channel_id)
 
     async def USER_UPDATED(self, data):
         # transient status update handling

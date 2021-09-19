@@ -277,5 +277,3 @@ class DMChannel(guilded.abc.Messageable):
         channel is associated with.
         """
         await self._state.hide_dm_channel(self.id)
-        if self.recipient is not None:
-            self.recipient.dm_channel = None

@@ -167,11 +167,13 @@ class HTTPClient:
         self._team_channels[channel.team_id][channel.id] = channel
 
     def remove_from_team_channel_cache(self, channel_id):
-        try: del self._team_channels[channel_id]
-        except KeyError: pass
+        self._team_channels.pop(channel_id, None)
 
     def add_to_dm_channel_cache(self, channel):
         self._dm_channels[channel.id] = channel
+
+    def remove_from_dm_channel_cache(self, channel_id):
+        self._dm_channels.pop(channel_id, None)
 
     @property
     def credentials(self):
