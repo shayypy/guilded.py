@@ -78,7 +78,7 @@ def ISO8601(string: str):
             return datetime.datetime.strptime(string, '%Y-%m-%dT%H:%M:%SZ')
         except:
             # get rid of milliseconds since datetime.fromisoformat doesn't accept them
-            string = re.sub(r'\.\d{1,5}', '', string)
+            string = re.sub(r'\.\d{1,6}', '', string)
             try:
                 return datetime.datetime.fromisoformat(string)
             except:
