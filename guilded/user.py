@@ -78,6 +78,7 @@ class Device:
         self.active = data.get('isActive', False)
 
 class User(guilded.abc.User, guilded.abc.Messageable):
+    """Represents a user in Guilded."""
     async def block(self):
         """|coro|
 

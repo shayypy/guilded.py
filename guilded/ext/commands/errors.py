@@ -87,7 +87,6 @@ __all__ = (
     'BotMissingPermissions',
     'ConversionError',
     'BadUnionArgument',
-    'BadLiteralArgument',
     'ArgumentParsingError',
     'UnexpectedQuoteError',
     'InvalidEndOfQuotedStringError',
@@ -104,7 +103,7 @@ __all__ = (
 class CommandError(GuildedException):
     r"""The base exception type for all command related errors.
 
-    This inherits from :exc:`teamed.GuildedException`.
+    This inherits from :exc:`guilded.GuildedException`.
 
     This exception and exceptions inherited from it are handled
     in a special way as they are caught and passed into a special event
@@ -125,7 +124,7 @@ class ConversionError(CommandError):
 
     Attributes
     ----------
-    converter: :class:`teamed.ext.commands.Converter`
+    converter: :class:`guilded.ext.commands.Converter`
         The converter that failed.
     original: :exc:`Exception`
         The original exception that was raised. You can also get this via
@@ -616,34 +615,6 @@ class BadUnionArgument(UserInputError):
 
         super().__init__(f'Could not convert "{param.name}" into {fmt}.')
 
-class BadLiteralArgument(UserInputError):
-    """Exception raised when a :data:`typing.Literal` converter fails for all
-    its associated values.
-
-    This inherits from :exc:`UserInputError`
-
-    Attributes
-    -----------
-    param: :class:`inspect.Parameter`
-        The parameter that failed being converted.
-    literals: Tuple[Any, ...]
-        A tuple of values compared against in conversion, in order of failure.
-    errors: List[:class:`CommandError`]
-        A list of errors that were caught from failing the conversion.
-    """
-    def __init__(self, param, literals, errors):
-        self.param = param
-        self.literals = literals
-        self.errors = errors
-
-        to_string = [repr(l) for l in literals]
-        if len(to_string) > 2:
-            fmt = '{}, or {}'.format(', '.join(to_string[:-1]), to_string[-1])
-        else:
-            fmt = ' or '.join(to_string)
-
-        super().__init__(f'Could not convert "{param.name}" into the literal {fmt}.')
-
 class ArgumentParsingError(UserInputError):
     """An exception raised when the parser fails to parse a user's input.
 
@@ -701,7 +672,7 @@ class ExpectedClosingQuoteError(ArgumentParsingError):
 class ExtensionError(GuildedException):
     """Base exception for extension related errors.
 
-    This inherits from :exc:`~teamed.GuildedException`.
+    This inherits from :exc:`~guilded.GuildedException`.
 
     Attributes
     ------------
@@ -762,9 +733,6 @@ class ExtensionNotFound(ExtensionError):
 
     This inherits from :exc:`ExtensionError`
 
-    .. versionchanged:: 1.3
-        Made the ``original`` attribute always None.
-
     Attributes
     -----------
     name: :class:`str`
@@ -778,7 +746,7 @@ class CommandRegistrationError(ClientException):
     """An exception raised when the command can't be added
     because the name is already taken by a different command.
 
-    This inherits from :exc:`teamed.ClientException`
+    This inherits from :exc:`guilded.ClientException`
 
     Attributes
     ----------

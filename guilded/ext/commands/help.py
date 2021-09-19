@@ -284,7 +284,7 @@ class HelpCommand:
 
         Internally instances of this class are deep copied every time
         the command itself is invoked to prevent a race condition
-        mentioned in :issue:`2123`.
+        mentioned in :dpyissue:`2123`.
 
         This means that relying on the state of this class to be
         the same between command invocations would not work as expected.
@@ -323,7 +323,7 @@ class HelpCommand:
         # To prevent race conditions of a single instance while also allowing
         # for settings to be passed the original arguments passed must be assigned
         # to allow for easier copies (which will be made when the help command is actually called)
-        # see issue 2123
+        # see Rapptz/discord.py issue 2123
         self = super().__new__(cls)
 
         # Shallow copies cannot be used in this case since it is not unusual to pass

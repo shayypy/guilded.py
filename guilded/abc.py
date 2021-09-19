@@ -261,9 +261,53 @@ class User(metaclass=abc.ABCMeta):
 
     The following implement this ABC:
 
-        * :class:`.User`
+        * :class:`guilded.User`
         * :class:`.Member`
         * :class:`.ClientUser`
+
+    Attributes
+    -----------
+    id: :class:`str`
+        The user's id.
+    name: :class:`str`
+        The user's name.
+    subdomain: Optional[:class:`str`]
+        The user's "subdomain", or vanity code. Referred to as a "URL" in the
+        client.
+    email: Optional[:class:`str`]
+        The user's email address. This value should only be present when
+        accessing this on your own :class:`.ClientUser`\.
+    service_email: Optional[:class:`str`]
+        The user's "service email".
+    bio: :class:`str`
+        The user's bio. This is referred to as "About" in the client.
+    tagline: :class:`str`
+        The user's tagline. This is the text under the user's name on their
+        profile page in the client.
+    presence: Optional[:class:`Presence`]
+        The user's presence.
+    dm_channel: Optional[:class:`DMChannel`]
+        The user's DM channel with you, if fetched/created and/or cached
+        during this session.
+    online_at: :class:`datetime.datetime`
+        When the user was last online.
+    created_at: Optional[:class:`datetime.datetime`]
+        When the user's account was created.
+
+        .. warning::
+            Due to API ambiguities, this may erroneously be the same as
+            :attr:`.joined_at` if this is a :class:`.Member`\.
+
+    blocked_at: Optional[:class:`datetime.datetime`]
+        When you blocked the user.
+    bot: :class:`bool`
+        Whether this user is a bot (Webhook or flow bot).
+    moderation_status: Optional[Any]
+        The user's moderation status.
+    badges: List[:class:`str`]
+        The user's badges.
+    stonks: Optional[:class:`int`]
+        How many "stonks" the user has.
     """
     def __init__(self, *, state, data, **extra):
         self._state = state
