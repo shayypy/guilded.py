@@ -124,6 +124,11 @@ class Group:
             return Game(game_id=self.game_id)
         return None
 
+    @property
+    def archived(self) -> bool:
+        """:class:`bool`: Whether this group is archived."""
+        return self.archived_at is not None or self.archived_by is not None
+
     def __str__(self):
         return self.name
 

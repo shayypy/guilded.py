@@ -544,4 +544,43 @@ class Team:
         coro = self._state.remove_team_member(self.id, user.id)
         await coro
 
+    def get_group(self, id: str) -> Optional[Group]:
+        """Optional[:class:`Group`]: Get a group by its ID from the internal cache."""
+        return self._groups.get(id)
+
+    async def fetch_group(self, id: str) -> Group:
+        """|coro|
+
+        Fetch a :class:`Group` in this team by its ID.
+
+        Parameters
+        -----------
+        id: :class:`str`
+            The group's id to fetch.
+        """
+        data = await self._state.get_team_group(self.id, id)
+        group = Group(state=self._state, team=self, data=data)
+        return group
+
+    async def fetch_groups(self, *, cache: bool = True) -> List[Group]:
+        """|coro|
+
+        Fetch the list of :class:`Group`\s in this team.
+
+        Parameters
+        -----------
+        cache: Optional[:class:`bool`]
+            Whether to cache the fetched groups. Replaces the existing object
+            for each group, if present. Defaults to ``True`` if not provided.
+        """
+        data = await self._state.get_team_groups(self.id)
+        groups = []
+        for group_data in data.get('groups', data):
+            group = Group(state=self._state, team=self, data=group_data)
+            groups.append(group)
+            if cache is True:
+                self._groups[group.id] = group
+
+        return groups
+
 Guild = Team

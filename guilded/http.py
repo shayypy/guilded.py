@@ -554,47 +554,49 @@ class HTTPClient:
     def reset_team_member_nickname(self, team_id: str, user_id: str):
         return self.request(Route('DELETE', f'/teams/{team_id}/members/{user_id}/nickname'))
 
+    def get_team_groups(self, team_id: str):
+        return self.request(Route('GET', f'/teams/{team_id}/groups'))
+
+    def get_team_group(self, team_id: str, group_id: str):
+        return self.request(Route('GET', f'/teams/{team_id}/groups/{group_id}'))
+
     def create_team_group(self, team_id: str, *,
         name: str, description: str, icon_url: str = None, game_id: int = None,
         membership_role_id: int = None,  additional_membership_role_ids: list = [],
         emoji_id: int = None, public: bool = True, base: bool = False, users: list = []
     ):
-        return self.request(
-            Route('POST', f'/teams{team_id}/groups'),
-            json={
-                'name': name,
-                'description': description,
-                'avatar': icon_url,
-                'gameId': game_id,
-                'membershipTeamRoleId': membership_role_id,
-                'additionalMembershipTeamRoleIds': additional_membership_role_ids,
-                'customReactionId': emoji_id,
-                'isPublic': public,
-                'isBase': base,
-                'users': users
-            }
-        )
+        payload = {
+            'name': name,
+            'description': description,
+            'avatar': icon_url,
+            'gameId': game_id,
+            'membershipTeamRoleId': membership_role_id,
+            'additionalMembershipTeamRoleIds': additional_membership_role_ids,
+            'customReactionId': emoji_id,
+            'isPublic': public,
+            'isBase': base,
+            'users': users
+        }
+        return self.request(Route('POST', f'/teams{team_id}/groups'), json=payload)
 
     def update_team_group(self, team_id: str, group_id: str, *,
         name: str, description: str, icon_url: str = None, game_id: int = None,
         membership_role_id: int = None,  additional_membership_role_ids: list = [],
         emoji_id: int = None, public: bool = True, base: bool = False, users: list = []
     ):
-        return self.request(
-            Route('PUT', f'/teams{team_id}/groups/{group_id}'),
-            json={
-                'name': name,
-                'description': description,
-                'avatar': icon_url,
-                'gameId': game_id,
-                'membershipTeamRoleId': membership_role_id,
-                'additionalMembershipTeamRoleIds': additional_membership_role_ids,
-                'customReactionId': emoji_id,
-                'isPublic': public,
-                'isBase': base,
-                'users': users
-            }
-        )
+        payload = {
+            'name': name,
+            'description': description,
+            'avatar': icon_url,
+            'gameId': game_id,
+            'membershipTeamRoleId': membership_role_id,
+            'additionalMembershipTeamRoleIds': additional_membership_role_ids,
+            'customReactionId': emoji_id,
+            'isPublic': public,
+            'isBase': base,
+            'users': users
+        }
+        return self.request(Route('PUT', f'/teams{team_id}/groups/{group_id}'), json=payload)
 
     def delete_team_group(self, team_id: str, group_id: str):
         return self.request(Route('DELETE', f'/teams/{team_id}/groups/{group_id}'))
