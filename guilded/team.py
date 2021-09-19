@@ -51,24 +51,43 @@ DEALINGS IN THE SOFTWARE.
 
 import asyncio
 import datetime
+from typing import Optional, List
 
-from guilded.abc import TeamChannel, User
+from .abc import TeamChannel, User
 
 from .asset import Asset
-from .channel import ChatChannel, Thread
+from .channel import ChannelType, ChatChannel, Thread
 from .errors import NotFound, InvalidArgument
 from .gateway import GuildedWebSocket
+from .group import Group
 from .user import Member
 from .utils import ISO8601
 
 
 class SocialInfo:
-    """Represents the set social media connections for a :class:`Team`."""
+    """Represents the set social media connections for a :class:`Team`\.
+
+    .. note::
+        An instance of this class may have more attributes than listed below
+        due to them being added dynamically using whatever the library
+        receives from Guilded.
+
+    Attributes
+    -----------
+    twitter: Optional[:class:`str`]
+        The team's Twitter handle, including an ``@``\.
+    facebook: Optional[:class:`str`]
+        The team's Facebook page's name.
+    youtube: Optional[:class:`str`]
+        The full URL of the team's YouTube channel.
+    twitch: Optional[:class:`str`]
+        The full URL of the team's Twitch channel.
+    """
     def __init__(self, **fields):
-        self.twitter = None
-        self.facebook = None
-        self.youtube = None
-        self.twitch = None
+        self.twitter: Optional[str] = None
+        self.facebook: Optional[str] = None
+        self.youtube: Optional[str] = None
+        self.twitch: Optional[str] = None
 
         for social, name in fields.items():
             # set dynamically so as to futureproof new social 
@@ -80,22 +99,82 @@ class TeamTimezone(datetime.tzinfo):
     pass
 
 class Team:
-    """Represents a team (or "server") in Guilded."""
+    """Represents a team (or "guild") in Guilded.
+
+    This is usually referred to as a "server" in the client.
+
+    There is an alias for this class called ``Guild``\.
+
+    Attributes
+    -----------
+    id: :class:`str`
+        The team's id.
+    name: :class:`str`
+        The team's name.
+    owner_id: :class:`str`
+        The team's owner's id.
+    created_at: :class:`datetime.datetime`
+        When the team was created.
+    bio: :class:`str`
+        The team's bio. Seems to be unused in favor of :attr:`.description`\.
+    description: :class:`str`
+        The team's "About" section.
+    social_info: :class:`SocialInfo`
+        The team's linked social media pages.
+    recruiting: :class:`bool`
+        Whether the team's moderators are recruiting new members.
+    verified: :class:`bool`
+        Whether the team is verified.
+    public: :class:`bool`
+        Whether the team is public.
+    pro: :class:`bool`
+        Whether the team is "pro".
+    user_is_applicant: :class:`bool`
+        Whether the current user is an applicant to the team.
+    user_is_invited: :class:`bool`
+        Whether the current user has been invited to the team.
+    user_is_banned: :class:`bool`
+        Whether the current user is banned from the team.
+    user_is_following: :class:`bool`
+        Whether the current user is following the team.
+    subdomain: Optional[:class:`str`]
+        The team's "subdomain", or vanity code. Referred to as a "Server URL"
+        in the client.
+    discord_guild_id: Optional[:class:`str`]
+        The id of the linked Discord guild.
+    discord_guild_name: Optional[:class:`str`]
+        The name of the linked Discord guild.
+    base_group: Optional[:class:`Group`]
+        The team's base or "home" group.
+    """
     def __init__(self, *, state, data, ws=None):
         self._state = state
         self.ws = ws
         data = data.get('team', data)
 
-        self.id = data.get('id')
-        self.owner_id = data.get('ownerId')
-        self.name = data.get('name')
-        self.subdomain = data.get('subdomain')
-        self.created_at = ISO8601(data.get('createdAt'))
-        self.bio = data.get('bio') or ''
-        self.description = data.get('description') or ''
+        self.id: str = data.get('id')
+        self.owner_id: str = data.get('ownerId')
+        self.name: str = data.get('name')
+        self.subdomain: str = data.get('subdomain')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.bio: str = data.get('bio') or ''
+        self.description: str = data.get('description') or ''
         self.discord_guild_id = data.get('discordGuildId')
-        self.discord_guild_name = data.get('discordServerName')
-        self.socials = SocialInfo(**data.get('socialInfo', {}))
+        self.discord_guild_name: str = data.get('discordServerName')
+
+        self.base_group: Optional[Group] = None
+        self._groups = {}
+        for group_data in data.get('groups') or []:
+            group = Group(state=self._state, team=self, data=group_data)
+            self._groups[group_data['id']] = group
+            if group.base:
+                self.base_group: Group = group
+
+        if self.base_group is None and data.get('baseGroup') is not None:
+            self.base_group: Group = Group(state=self._state, team=self, data=data['baseGroup'])
+            self._groups[self.base_group.id] = self.base_group
+
+        self.social_info: SocialInfo = SocialInfo(**data.get('socialInfo', {}))
         self.timezone = data.get('timezone') # TeamTimezone(data.get('timezone'))
 
         for member in data.get('members', []):
@@ -107,19 +186,19 @@ class Team:
                 self._state._get_team_channel(self.id, channel.get('id')) or self._state.create_channel(data=channel)
             )
 
-        self.bots = data.get('bots', [])
+        self.bots: list = data.get('bots', [])
 
-        self.recruiting = data.get('isRecruiting', False)
-        self.verified = data.get('isVerified', False)
-        self.public = data.get('isPublic', False)
-        self.pro = data.get('isPro', False)
-        self.user_is_applicant = data.get('isUserApplicant', False)
-        self.user_is_invited = data.get('isUserInvited', False)
-        self.user_is_banned = data.get('isUserBannedFromTeam', False)
-        self.user_is_following = data.get('userFollowsTeam', False)
+        self.recruiting: bool = data.get('isRecruiting', False)
+        self.verified: bool = data.get('isVerified', False)
+        self.public: bool = data.get('isPublic', False)
+        self.pro: bool = data.get('isPro', False)
+        self.user_is_applicant: bool = data.get('isUserApplicant', False)
+        self.user_is_invited: bool = data.get('isUserInvited', False)
+        self.user_is_banned: bool = data.get('isUserBannedFromTeam', False)
+        self.user_is_following: bool = data.get('userFollowsTeam', False)
 
-        self.icon_url = Asset('profilePicture', state=self._state, data=data)
-        self.banner_url = Asset('homeBannerImage', state=self._state, data=data)
+        self.icon_url: Asset = Asset('profilePicture', state=self._state, data=data)
+        self.banner_url: Asset = Asset('homeBannerImage', state=self._state, data=data)
 
         self._follower_count = data.get('followerCount') or 0
         self._member_count = data.get('memberCount') or data.get('measurements', {}).get('numMembers') or 0
@@ -131,34 +210,51 @@ class Team:
         return f'<Team id={repr(self.id)} name={repr(self.name)}>'
 
     @property
-    def slug(self):
+    def slug(self) -> Optional[str]:
+        """Optional[:class:`str`]: This is an alias of :attr:`.subdomain`\."""
         # it's not a subdomain >:(
         return self.subdomain
 
     @property
-    def vanity_url(self):
+    def vanity_url(self) -> Optional[str]:
+        """Optional[:class:`str`]: The team's vanity URL."""
         return f'https://guilded.gg/{self.subdomain}' if self.subdomain is not None else None
 
     @property
-    def member_count(self):
+    def member_count(self) -> int:
+        """:class:`int`: The team's member count.
+
+        .. note::
+            This may be inaccurate; it does not update during the bot's
+            lifetime unless the team is re-fetched and the attribute is
+            replaced.
+        """
         # this attribute is only returned by the api sometimes.
         return int(self._member_count) or len(self.members)
 
     @property
-    def follower_count(self):
+    def follower_count(self) -> int:
+        """:class:`int`: The team's follower count.
+
+        .. note::
+            This may be inaccurate; it does not update during the bot's
+            lifetime unless the team is re-fetched and the attribute is
+            replaced.
+        """
         return int(self._follower_count)
 
     @property
-    def owner(self):
+    def owner(self) -> Member:
+        """Optional[Union[:class:`Member`, :class:`User`]]: The team's owner."""
         return self.get_member(self.owner_id) or self._state._get_user(self.owner_id)
 
     @property
-    def me(self):
+    def me(self) -> Member:
         """:class:`Member`: Your own member object in this team."""
         return self.get_member(self._state.my_id)
 
     @property
-    def members(self):
+    def members(self) -> List[Member]:
         """List[:class:`Member`]: The cached list of members in this team.
 
         .. note::
@@ -168,28 +264,37 @@ class Team:
         return list(self._state._team_members.get(self.id, {}).values())
 
     @property
-    def channels(self):
-        """List[:class:`guilded.abc.TeamChannel`]: The cached list of channels in
-        this team.
+    def channels(self) -> TeamChannel:
+        """List[:class:`~.abc.TeamChannel`]: The cached list of channels
+        in this team.
         """
         return list(self._state._team_channels.get(self.id, {}).values())
 
-    def get_member(self, id):
-        """Optional[:class:`guilded.Member']: Get a member by their ID from
-        the internal cache.
+    @property
+    def groups(self) -> List[Group]:
+        """List[:class:`Group`]: The cached list of groups in this team."""
+        return list(self._groups.values())
+
+    def get_member(self, id) -> Optional[Member]:
+        """Optional[:class:`Member`]: Get a member by their ID from the
+        internal cache.
         """
         return self._state._get_team_member(self.id, id)
 
-    def get_channel(self, id):
-        """Optional[:class:`guilded.abc.TeamChannel']: Get a channel by its
-        ID from the internal cache.
+    def get_channel(self, id) -> Optional[TeamChannel]:
+        """Optional[:class:`~.abc.TeamChannel`]: Get a channel by its ID
+        from the internal cache.
         """
         return self._state._get_team_channel(self.id, id)
 
     async def ws_connect(self, client):
         """|coro|
 
-        Connect to the team's websocket.
+        Connect to the team's gateway.
+
+        .. warning::
+            This method does not start listening to the websocket, so you
+            shouldn't call it yourself.
         """
         if self.ws is None:
             team_ws_build = GuildedWebSocket.build(client, loop=client.loop, teamId=self.id)
@@ -209,7 +314,7 @@ class Team:
         """
         return await self._state.leave_team(self.id)
 
-    async def create_chat_channel(self, *, name: str, category=None, public=False, group=None):
+    async def create_chat_channel(self, *, name: str, category=None, public=False, group=None) -> ChatChannel:
         """|coro|
 
         Create a new chat (text) channel in the team.
@@ -217,38 +322,48 @@ class Team:
         Parameters
         -----------
         name: :class:`str`
-            the channel's name. can include spaces.
+            The channel's name. Can include spaces.
         category: :class:`TeamCategory`
-            the :class:`TeamCategory` to create this channel under. if not provided, it will be created under the "Channels" header in the interface (no category).
+            The :class:`TeamCategory` to create this channel under. If not
+            provided, it will be shown under the "Channels" header in the
+            client (no category).
         public: :class:`bool`
-            whether or not this channel and its contents should be visible to people who aren't part of the server. defaults to false.
+            Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
         group: :class:`Group`
-            the :class:`Group` to create this channel in. if not provided, defaults to the base group.
+            The :class:`Group` to create this channel in. If not provided, defaults to the base group.
 
         Returns
         --------
         :class:`ChatChannel`
+            The created channel
         """
-
-        return await self._state.create_team_channel(
-            type='chat',
-            team_id=self.id, 
-            group_id=group.id if group is not None else self.base_group.id,
-            category_id=category.id if category is not None else None,
+        group = group or self.base_group
+        data = await self._state.create_team_channel(
+            content_type=ChannelType.chat.value,
             name=name,
-            public=public
+            public=public,
+            team_id=self.id,
+            group_id=group.id,
+            category_id=category.id if category is not None else None,
         )
+        channel = self._state.create_channel(data=data['channel'], group=group, team=self)
+        self._state.add_to_team_channel_cache(channel)
+        return channel
 
-    async def fetch_channels(self):
+    async def fetch_channels(self) -> List[TeamChannel]:
         """|coro|
 
-        Fetch the list of :class:`TeamChannel`s in this team.
+        Fetch the list of :class:`TeamChannel`\s in this team.
+
+        This method is an API call. For general usage, consider
+        :attr:`channels` instead.
         """
         channels = await self._state.get_team_channels(self.id)
         channel_list = []
-        data = {'state': self._state, 'group': None, 'team': self}
         for channel_data in channels.get('channels', []):
-            channel = self._state.create_channel(data=channel_data)
+            channel_data = channel_data.get('channel', channel_data)
+            channel_data['type'] = 'team'
+            channel = self._state.create_channel(data=channel_data, group=None, team=self)
             channel_list.append(channel)
 
         #for thread_data in channels.get('temporalChannels', []):
@@ -266,35 +381,38 @@ class Team:
 
         return channel_list
 
-    async def fetch_channel(self, id):
+    async def fetch_channel(self, id) -> TeamChannel:
         """|coro|
 
         Fetch a channel.
 
+        This method is an API call. For general usage, consider
+        :meth:`get_channel` instead.
+
         .. note::
-            The channel doesn't actually have to be part of the current team
-            because this endpoint just fetches the channel globally, and this
-            method will not artificially raise on team mismatch. If you want
-            to use this method to check if a channel is part of this team,
-            check the :attr:`abc.TeamChannel.team` attribute afterwards or use
-            :meth:`Team.get_channel` if your channel cache is enabled.
+            The channel does not have to be part of the current team because
+            there is no team-specific "get channel" endpoint. Therefore,
+            guilded.py will not raise any explicit indication that you have
+            fetched a channel not part of the current team.
         """
         request = self._state.get_channel(id)
         data = await request
-        channel = self._state.create_channel(data)
+        data = data.get('channel', data)
+        data['type'] = 'team'
+        channel = self._state.create_channel(data=data, group=None, team=self)
         return channel
 
-    async def getch_channel(self, id):
+    async def getch_channel(self, id) -> TeamChannel:
         return self.get_channel(id) or await self.fetch_channel(id)
 
-    async def fetch_members(self):
+    async def fetch_members(self) -> List[Member]:
         """|coro|
 
-        Fetch the list of :class:`guilded.Member`s in this team.
+        Fetch the list of :class:`Member`\s in this team.
         """
-        team = await self._state.get_team(self.id)
+        data = await self._state.get_team(self.id)
         member_list = []
-        for member in team['team']['members']:
+        for member in data['team']['members']:
             try:
                 member_obj = self._state.create_member(team=self, data=member)
             except:
@@ -304,10 +422,10 @@ class Team:
 
         return member_list
 
-    async def fetch_member(self, id: str, *, full=True):
+    async def fetch_member(self, id: str, *, full=True) -> Member:
         """|coro|
 
-        Fetch a specific :class:`guilded.Member` in this team.
+        Fetch a specific :class:`Member` in this team.
 
         Parameters
         -----------
@@ -343,10 +461,10 @@ class Team:
         self._state.add_to_member_cache(member)
         return member
 
-    async def getch_member(self, id: str):
+    async def getch_member(self, id: str) -> Member:
         return self.get_member(id) or await self.fetch_member(id)
 
-    async def create_invite(self):
+    async def create_invite(self) -> str:
         """|coro|
 
         Create an invite to this team.
@@ -425,3 +543,5 @@ class Team:
         """
         coro = self._state.remove_team_member(self.id, user.id)
         await coro
+
+Guild = Team

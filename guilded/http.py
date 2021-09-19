@@ -533,6 +533,15 @@ class HTTPClient:
                 return Member(state=self, data=data[user_id])
             return get_team_member_as_object()
 
+    def create_team_channel(self, team_id: str, name: str, content_type: str, group_id: str = None, category_id: int = None, public: bool = False):
+        payload = {
+            'name': name,
+            'channelCategoryId': category_id,
+            'contentType': content_type,
+            'isPublic': public
+        }
+        return self.request(Route('POST', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels'), json=payload)
+
     def get_team_channels(self, team_id: str):
         return self.request(Route('GET', f'/teams/{team_id}/channels'))
 
@@ -640,6 +649,9 @@ class HTTPClient:
                 data = await self.request(Route('GET', f'/users/{user_id}'))
                 return User(state=self, data=data)
             return get_user_as_object()
+
+    def get_user_profile(self, user_id: str, *, v: int = 3):
+        return self.request(Route('GET', f'/users/{user_id}/profilev{v}'))
 
     def get_privacy_settings(self):
         return self.request(Route('GET', '/users/me/privacysettings'))
