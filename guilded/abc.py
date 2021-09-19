@@ -419,8 +419,7 @@ class User(metaclass=abc.ABCMeta):
 
         Visually hide your DM channel with this user in the client.
 
-        The channel's content will still exist, and the channel can be
-        re-obtained with :meth:`create_dm`\.
+        Equivalent to :meth:`DMChannel.hide`\.
 
         Raises
         -------
@@ -429,8 +428,11 @@ class User(metaclass=abc.ABCMeta):
         """
         if self.dm_channel is None:
             raise ValueError('No DM channel is cached for this user. You may want to first run the create_dm coroutine.')
-        await self._state.hide_dm_channel(self.dm_channel.id)
-        self.dm_channel = None
+
+        if self.dm_channel.recipient is None:
+            self.dm_channel.recipient = self
+
+        await self.dm_channel.hide()
 
     async def send(self, *content, **kwargs) -> Message:
         if self.dm_channel is None:

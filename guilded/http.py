@@ -741,6 +741,9 @@ class HTTPClient:
     def get_referral_statistics(self):
         return self.request(Route('GET', '/users/me/referrals'))
 
+    def get_dm_channels(self):
+        return self.request(Route('GET', f'/users/{self.my_id}/channels'))
+
     def create_dm_channel(self, user_ids: list):
         payload = {'users': [{'id': user_id} for user_id in user_ids]}
         return self.request(Route('POST', f'/users/{self.my_id}/channels'), json=payload)

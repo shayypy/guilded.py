@@ -850,3 +850,13 @@ class Client:
         Get your referral statistics.
         """
         data = await self.http.get_referral_statistics()
+
+    async def fetch_dm_channels(self):
+        """|coro|
+
+        Fetch your DM channels.
+
+        This endpoint will only return channels that you have not "hidden",
+        i.e. called :meth:`DMChannel.hide` on.
+        """
+        data = await self.http.get_dm_channels()

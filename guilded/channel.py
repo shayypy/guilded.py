@@ -266,3 +266,16 @@ class DMChannel(guilded.abc.Messageable):
 
     def __repr__(self):
         return f'<DMChannel id={self.id!r} recipient={self.recipient!r}>'
+
+    async def hide(self):
+        """|coro|
+
+        Visually hide this DM channel in the client.
+
+        The channel's content will still exist, and the channel can be
+        re-fetched with :meth:`User.create_dm` on whichever :class:`User` this
+        channel is associated with.
+        """
+        await self._state.hide_dm_channel(self.id)
+        if self.recipient is not None:
+            self.recipient.dm_channel = None
