@@ -567,6 +567,9 @@ class Team:
 
         Fetch the list of :class:`Group`\s in this team.
 
+        Some groups may not be returned due to inadequate permissions. There
+        is no real way to know if this has happened.
+
         Parameters
         -----------
         cache: Optional[:class:`bool`]
