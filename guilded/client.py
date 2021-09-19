@@ -53,6 +53,7 @@ import asyncio
 import logging
 import sys
 import traceback
+from typing import Optional
 
 import aiohttp
 
@@ -126,8 +127,8 @@ class Client:
         A status (game) to use upon logging in.
     cache_on_startup: Optional[:class:`dict`]
         A mapping of types of objects to a :class:`bool` (whether to
-        cache the type on startup). Currently accepts ``members`` and
-        ``channels``. By default, both are enabled.
+        cache the type on startup). Currently accepts ``members``,
+        ``channels``, and ``groups``. By default, all are enabled.
 
     Attributes
     -----------
@@ -140,21 +141,22 @@ class Client:
     def __init__(self, **options):
         # internal
         self.loop = options.pop('loop', asyncio.get_event_loop())
-        self.user = None
-        self.max_messages = options.pop('max_messages', 1000)
-        self.disable_team_websockets = options.pop('disable_team_websockets', False)
+        self.user: Optional[ClientUser] = None
+        self.max_messages: int = options.pop('max_messages', 1000)
+        self.disable_team_websockets: bool = options.pop('disable_team_websockets', False)
         self._login_presence = options.pop('presence', None)
         self._login_status = options.pop('status', None)
         self._listeners = {}
 
         cache_on_startup = options.pop('cache_on_startup', {})
         self.cache_on_startup = {
-            'members': cache_on_startup.get('members') or True,
-            'channels': cache_on_startup.get('channels') or True
+            'members': cache_on_startup.get('members', True),
+            'channels': cache_on_startup.get('channels', True),
+            'groups': cache_on_startup.get('groups', True)
         }
 
         # state
-        self.http = None
+        self.http: HTTPClient = None
         self._closed = False
         self._ready = asyncio.Event()
 
@@ -330,6 +332,9 @@ class Client:
                     if channel is None:
                         continue
                     self.http.add_to_team_channel_cache(channel)
+
+            if self.cache_on_startup['groups'] is True:
+                await team.fetch_groups(cache=True)
 
             self.http.add_to_team_cache(team)
 
