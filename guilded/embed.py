@@ -77,17 +77,23 @@ class EmbedProxy:
 
 class Embed:
     """Represents a Discord embed.
+
     .. container:: operations
+
         .. describe:: len(x)
+
             Returns the total size of the embed.
             Useful for checking if it's within the 6000 character limit.
+
     Certain properties return an ``EmbedProxy``, a type
     that acts similar to a regular :class:`dict` except using dotted access,
     e.g. ``embed.author.icon_url``. If the attribute
     is invalid or empty, then a special sentinel value is returned,
     :attr:`Embed.Empty`.
+
     For ease of use, all parameters that expect a :class:`str` are implicitly
     casted to :class:`str` for you.
+
     Attributes
     -----------
     title: :class:`str`
@@ -342,12 +348,12 @@ class Embed:
         """Sets the image for the embed content.
         This function returns the class instance to allow for fluent-style
         chaining.
-        .. versionchanged:: 1.4
-            Passing :attr:`Empty` removes the image.
+
         Parameters
         -----------
         url: :class:`str`
-            The source URL for the image. Only HTTP(S) is supported.
+            The source URL for the image. Only HTTP(S) or an
+            ``attachment://`` is supported.
         """
 
         if url is EmptyEmbed:
@@ -378,12 +384,12 @@ class Embed:
         """Sets the thumbnail for the embed content.
         This function returns the class instance to allow for fluent-style
         chaining.
-        .. versionchanged:: 1.4
-            Passing :attr:`Empty` removes the thumbnail.
+
         Parameters
         -----------
         url: :class:`str`
-            The source URL for the thumbnail. Only HTTP(S) is supported.
+            The source URL for the thumbnail. Only HTTP(S) or an
+            ``attachment://`` is supported.
         """
 
         if url is EmptyEmbed:
@@ -429,6 +435,7 @@ class Embed:
         """Sets the author for the embed content.
         This function returns the class instance to allow for fluent-style
         chaining.
+
         Parameters
         -----------
         name: :class:`str`
@@ -465,7 +472,8 @@ class Embed:
 
     @property
     def fields(self):
-        """Union[List[:class:`EmbedProxy`], :attr:`Empty`]: Returns a :class:`list` of ``EmbedProxy`` denoting the field contents.
+        """Union[List[:class:`EmbedProxy`], :attr:`Empty`]: Returns a
+        :class:`list` of ``EmbedProxy`` denoting the field contents.
         See :meth:`add_field` for possible values you can access.
         If the attribute has no value then :attr:`Empty` is returned.
         """
@@ -475,6 +483,7 @@ class Embed:
         """Adds a field to the embed object.
         This function returns the class instance to allow for fluent-style
         chaining.
+
         Parameters
         -----------
         name: :class:`str`
@@ -502,6 +511,7 @@ class Embed:
         """Inserts a field before a specified index to the embed.
         This function returns the class instance to allow for fluent-style
         chaining.
+
         Parameters
         -----------
         index: :class:`int`
@@ -538,9 +548,11 @@ class Embed:
         """Removes a field at a specified index.
         If the index is invalid or out of bounds then the error is
         silently swallowed.
+
         .. note::
             When deleting a field by index, the index of the other fields
             shift to fill the gap just like a regular list.
+
         Parameters
         -----------
         index: :class:`int`
@@ -556,6 +568,7 @@ class Embed:
         The index must point to a valid pre-existing field.
         This function returns the class instance to allow for fluent-style
         chaining.
+
         Parameters
         -----------
         index: :class:`int`
@@ -566,6 +579,7 @@ class Embed:
             The value of the field.
         inline: :class:`bool`
             Whether the field should be displayed inline.
+
         Raises
         -------
         IndexError
@@ -586,13 +600,11 @@ class Embed:
         """Converts this embed object into a dict.
 
         .. note::
-
             The resulting dict will be more or less identical to Discord's
             format for embeds, with the exception that an ``iconUrl`` key is
-            used in place of ``icon_url``s. This is because ``icon_url``s do
+            used in place of ``icon_url``\s. This is because ``icon_url``\s do
             not display on Desktop clients.
         """
-
         # add in the raw data into the dict
         result = {
             key[1:]: getattr(self, key)

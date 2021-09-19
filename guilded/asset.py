@@ -53,6 +53,38 @@ from io import BytesIO
 
 
 class Asset:
+    """An asset in Guilded.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two assets are equal (have the same URL and type).
+
+        .. describe:: x != y
+
+            Checks if two assets are not equal.
+
+        .. describe:: str(x)
+
+            Returns the URL of the asset.
+
+        .. describe:: len(x)
+
+            Returns the length of the asset's URL.
+
+        .. describe:: bool(x)
+
+            Returns ``True`` if the asset has a URL.
+
+    Attributes
+    -----------
+    type: :class:`str`
+        The type of asset, like ``profilePicture``. This is mostly for
+        internal use.
+    url: Optional[:class:`str`]
+        The URL of the asset.
+    """
     FRIENDLY = {
         'sm': 'small',
         'md': 'medium',
@@ -81,10 +113,30 @@ class Asset:
         return len(str(self))
 
     def __eq__(self, other):
-        return self.url is not None and other.url is not None and self.url == other.url
+        return isinstance(other, Asset) and self.url is not None and other.url is not None and self.url == other.url and self.type == other.type
 
     async def read(self):
+        """|coro|
+
+        Fetches the raw data of this asset as a :class:`bytes`.
+
+        Returns
+        --------
+        :class:`bytes`
+            The raw data of this asset.
+        """
         return await self._state.read_filelike_data(self)
 
     async def bytesio(self):
-        return BytesIO(await self._state.read_filelike_data(self))
+        """|coro|
+
+        Fetches the raw data of this asset and wraps it in a
+        :class:`io.BytesIO` object.
+
+        Returns
+        --------
+        :class:`io.BytesIO`
+            The asset as a ``BytesIO`` object.
+        """
+        data = await self.read()
+        return BytesIO(data)

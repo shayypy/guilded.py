@@ -197,6 +197,8 @@ class Link:
 class ChatMessage:
     """A message in Guilded.
 
+    There is an alias for this class called ``Message``.
+
     .. container:: operations
 
         .. describe:: x == y
@@ -206,6 +208,10 @@ class ChatMessage:
         .. describe:: x != y
 
             Checks if two messages are not equal.
+
+        .. describe:: str(x)
+
+            Returns the string content of the message.
 
     Attributes
     ------------

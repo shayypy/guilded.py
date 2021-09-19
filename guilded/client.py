@@ -134,11 +134,8 @@ class Client:
     loop: :class:`asyncio.AbstractEventLoop`
         The event loop that the client uses for HTTP requests and websocket
         operations.
-    user: :class:`ClientUser`
+    user: :class:`.ClientUser`
         The currently logged-in user.
-    ws: Optional[:class:`GuildedWebsocket`]
-        The websocket gateway the client is currently connected to. Could be
-        ``None``.
     """
     def __init__(self, **options):
         # internal
@@ -163,27 +160,52 @@ class Client:
 
     @property
     def cached_messages(self):
+        """List[:class:`.ChatMessage`]: A list of cached messages received from
+        the gateway.
+        """
         return list(self.http._messages.values())
 
     @property
     def emojis(self):
+        """List[:class:`.Emoji`]: The cached emojis that the connected client
+        can see.
+        """
         return list(self.http._emojis.values())
 
     @property
     def teams(self):
+        """List[:class:`.Team`]: The cached teams that the connected client
+        can see.
+        """
         return list(self.http._teams.values())
 
     @property
+    def guilds(self):
+        """List[:class:`.Team`]: |dpyattr|
+
+        This is an alias of :attr:`.teams`.
+        """
+        return self.teams
+
+    @property
     def users(self):
+        """List[:class:`guilded.User`]: The cached users that the connected client
+        can see.
+        """
         return list(self.http._users.values())
 
     @property
     def members(self):
+        """List[:class:`.Member`]: The cached team members that the connected
+        client can see.
+        """
         return list(self.http._team_members.values())
 
     @property
     def dm_channels(self):
-        """List[:class:`.DMChannel`]: The private/dm channels that the connected client can see."""
+        """List[:class:`.DMChannel`]: The cached DM channels that the
+        connected client can see.
+        """
         return list(self.http._dm_channels.values())
 
     @property
@@ -196,21 +218,17 @@ class Client:
 
     @property
     def team_channels(self):
-        """List[:class:`.TeamChannel`]: The team channels that the connected client can see."""
+        """List[:class:`.TeamChannel`]: The cached team channels that the
+        connected client can see.
+        """
         return list(self.http._all_team_channels.values())
 
     @property
     def channels(self):
-        """List[Union[:class:`.TeamChannel`, :class:`.DMChannel`]]: The channels (Team and DM included) that the connected client can see."""
-        return [*self.dm_channels, *self.team_channels]
-
-    @property
-    def guilds(self):
-        """List[:class:`.Team`]: |dpyattr|
-
-        This is an alias of :attr:`.teams`.
+        """List[Union[:class:`.TeamChannel`, :class:`.DMChannel`]]: All cached
+        channels (Team and DM) that the connected client can see.
         """
-        return self.teams
+        return [*self.dm_channels, *self.team_channels]
 
     @property
     def latency(self):
@@ -218,12 +236,16 @@ class Client:
 
     @property
     def closed(self):
+        """:class:`bool`: Whether the Client's connections are currently open."""
         return self._closed
 
     def is_ready(self):
         return self._ready.is_set()
 
     async def wait_until_ready(self):
+        """Waits until the Client is ready. This should happen at roughly the
+        same time as :func:`.on_ready`\.
+        """
         await self._ready.wait()
 
     async def _run_event(self, coro, event_name, *args, **kwargs):
@@ -283,6 +305,14 @@ class Client:
         await self.connect()
 
     async def login(self, email, password):
+        """|coro|
+
+        Log into the REST API with a user account email and password.
+
+        This method fills the internal cache with your teams and their
+        members and channels, as opposed to a Discord bot, where this
+        would be filled on gateway connection.
+        """
         self.http = self.http or HTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
         data = await self.http.login(email, password)
 
@@ -308,6 +338,15 @@ class Client:
         self.user = me
 
     async def connect(self):
+        """|coro|
+
+        Connect to the main Guilded gateway and subsequent team gateways for
+        team-specific events.
+
+        You must log into the REST API (:meth:`login`) before calling this
+        method due to the required authentication data that is automatically
+        collected in that method.
+        """
         if not self.http:
             raise ClientException('You must log in via REST before connecting to the gateway.')
 
@@ -374,7 +413,10 @@ class Client:
             )
 
     async def close(self):
-        """|coro|"""
+        """|coro|
+
+        Log out and close any active gateway connections.
+        """
         if self._closed: return
 
         await self.http.logout()
@@ -403,64 +445,44 @@ class Client:
             exit()
 
     def get_message(self, id: str):
-        """Optional[:class:`Message`]: Get a message from your :attr:`.cached_messages`. 
+        """Optional[:class:`.ChatMessage`]: Get a message from your :attr:`.cached_messages`. 
         As messages are often frequently going in and out of cache, you should
-        not rely on this method, and instead use :meth:`abc.Messageable.fetch_message`.
+        not rely on this method, and instead use :meth:`~.abc.Messageable.fetch_message`.
         
         Parameters
         ------------
         id: :class:`str`
             the id of the message
-
-        Returns
-        ---------
-        Optional[:class:`Message`]
-            The message from the ID
         """
         return self.http._get_message(id)
 
     def get_team(self, id: str):
-        """Optional[:class:`Team`]: Get a team from your :attr:`.teams`.
+        """Optional[:class:`.Team`]: Get a team from your :attr:`.teams`.
 
         Parameters
         ------------
         id: :class:`str`
             the id of the team
-
-        Returns
-        ---------
-        Optional[:class:`Team`]
-            The team from the ID
         """
         return self.http._get_team(id)
 
     def get_user(self, id: str):
-        """Optional[:class:`User`]: Get a user from your :attr:`.users`.
+        """Optional[:class:`guilded.User`]: Get a user from your :attr:`.users`.
 
         Parameters
         ------------
         id: :class:`str`
             the id of the user
-
-        Returns
-        ---------
-        Optional[:class:`User`]
-            The user from the ID
         """
         return self.http._get_user(id)
 
     def get_channel(self, id: str):
-        """Optional[:class:`Messageable`]: Get a user from your :attr:`.channels`.
+        """Optional[:class:`~.abc.Messageable`]: Get a user from your :attr:`.channels`.
 
         Parameters
         ------------
         id: :class:`str`
             the id of the team or dm channel
-
-        Returns
-        ---------
-        Optional[:class:`abc.Messageable`]
-            The channel from the ID
         """
         return self.http._get_global_team_channel(id) or self.http._get_dm_channel(id)
 
@@ -479,13 +501,13 @@ class Client:
             Query to use while searching
         max_results: Optional[:class:`int`]
             The maximum number of results to return. Defaults to 20.
-        exclude: Optional[List[:class:`User`]]
-            A list of users to exclude from results. A common for this
-            could be your list of :attr:`Client.users`.
+        exclude: Optional[List[:class:`guilded.User`]]
+            A list of users to exclude from results. A common value for this
+            could be your list of :attr:`.users`.
 
         Returns
         ---------
-        List[:class:`User`]
+        List[:class:`guilded.User`]
             The users from the query
         """
         results = await self.http.search(query,
@@ -510,13 +532,13 @@ class Client:
             Query to use while searching
         max_results: Optional[:class:`int`]
             The maximum number of results to return. Defaults to 20.
-        exclude: Optional[List[:class:`Team`]]
+        exclude: Optional[List[:class:`.Team`]]
             A list of teams to exclude from results. A common value for this
-            could be your list of :attr:`Client.teams`.
+            could be your list of :attr:`.teams`.
 
         Returns
         ---------
-        List[:class:`Team`]
+        List[:class:`.Team`]
             The teams from the query
         """
         results = await self.http.search(query,
@@ -539,7 +561,7 @@ class Client:
 
         Returns
         ---------
-        :class:`Team`
+        :class:`.Team`
             The team you joined from the ID
         """
         await self.http.join_team(id)
@@ -553,7 +575,7 @@ class Client:
 
         Returns
         ---------
-        :class:`Team`
+        :class:`.Team`
             The team from the ID
         """
         team = await self.http.get_team(id)
@@ -566,7 +588,7 @@ class Client:
         
         Returns
         ---------
-        :class:`Team`
+        :class:`.Team`
             The team from the ID
         """
         return self.get_team(id) or await self.fetch_team(id)
@@ -578,7 +600,7 @@ class Client:
 
         Returns
         ---------
-        :class:`User`
+        :class:`guilded.User`
             The user from the ID
         """
         user = await self.http.get_user(id)
@@ -591,7 +613,7 @@ class Client:
         
         Returns
         ---------
-        :class:`User`
+        :class:`guilded.User`
             The user from the ID
         """
         return self.get_user(id) or await self.fetch_user(id)
@@ -603,7 +625,7 @@ class Client:
 
         Returns
         ---------
-        Union[:class:`TeamChannel`, :class:`DMChannel`]
+        Union[:class:`~.abc.TeamChannel`, :class:`.DMChannel`]
             The channel from the ID
         """
         channel = self.get_channel(id)
@@ -619,13 +641,13 @@ class Client:
         """|coro|
 
         Fetch a game from the
-        `documentation's game list<https://guildedapi.com/resources/user#game-ids>`_\.
+        `documentation's game list <https://guildedapi.com/resources/user#game-ids>`_\.
 
         Games not in this list will be considered invalid by Guilded.
         
         Returns
         ---------
-        :class:`Game`
+        :class:`.Game`
             The game from the ID
         """
         if not Game.MAPPING:
@@ -645,7 +667,7 @@ class Client:
         Returns
         ---------
         :class:`dict`
-            The whole game list (`viewable here<https://github.com/GuildedAPI/datatables/blob/main/games.json>`_)
+            The whole game list (`viewable here <https://github.com/GuildedAPI/datatables/blob/main/games.json>`_)
         """
         return await self.http.get_game_list()
 
@@ -658,6 +680,10 @@ class Client:
         Game.MAPPING = games
 
     async def update_privacy_settings(self, *, dms, friend_requests):
+        """|coro|
+
+        Update your privacy settings.
+        """
         await self.http.set_privacy_settings(dms=dms, friend_requests=friend_requests)
 
     async def fetch_blocked_users(self):
@@ -667,7 +693,7 @@ class Client:
 
         Returns
         ---------
-        List[:class:`User`]
+        List[:class:`guilded.User`]
         """
         settings = await self.http.get_privacy_settings()
         blocked = []
@@ -684,6 +710,11 @@ class Client:
         "Presence" in a Guilded context refers to the colored circle next to
         your profile picture, as opposed to the equivalent "status" concept in
         the Discord API.
+
+        Parameters
+        -----------
+        presence: :class:`.Presence`
+            The presence to use.
         """
         if presence is None:
             presence = Presence.online
@@ -699,6 +730,11 @@ class Client:
 
         "Status" in a Guilded context refers to your custom status or game
         activity rather than the colored circle next to your profile picture.
+
+        Parameters
+        -----------
+        status: :class:`.TransientStatus`
+            The transient status to use.
         """
         if isinstance(status, Game):
             await self.http.set_transient_status(status.game_id)
@@ -715,15 +751,15 @@ class Client:
         Change your presence.
         
         This method exists only for backwards compatibility with discord.py
-        bots. When writing new bots, it is generally recommended to use the
+        bots. When writing new bots, it is generally preferred to use the
         :meth:`set_presence` and :meth:`set_status` methods instead.
 
         Parameters
         -----------
-        status: Optional[:class:`Presence`]
+        status: Optional[:class:`.Presence`]
             The presence to display. If ``None``, :attr:`Presence.online` is
             used.
-        activity: Optional[:class:`TransientStatus`]
+        activity: Optional[:class:`.TransientStatus`]
             The activity to display. If ``None``, no activity will be
             displayed.
         """
@@ -746,7 +782,7 @@ class Client:
 
         Returns
         --------
-        Optional[Union[:class:`User`, :class:`Team`]]
+        Optional[Union[:class:`guilded.User`, :class:`.Team`]]
             The user or team that is using this subdomain.
         """
         value = await self.http.check_subdomain(subdomain)

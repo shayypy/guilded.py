@@ -62,7 +62,6 @@ class AllowDMsFrom(Enum):
         return self.value
 
 class AllowFriendRequestsFrom(Enum):
-    friends_and_members = 'friendsAndServerMembers'
     members = 'serverMembersOnly'
     everyone = 'everyone'
 

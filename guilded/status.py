@@ -59,6 +59,18 @@ __all__ = (
 )
 
 class TransientStatus:
+    """Represents a transient status of a user.
+
+    This is displayed under the user's name in the sidebar, analogous to an
+    "activity" on Discord.
+
+    Attributes
+    -----------
+    id: Optional[:class:`int`]
+        The id of the status.
+    game_id: Optional[:class:`int`]
+        The id of the game that this status is for.
+    """
     def __init__(self, *, state, data, **extra):
         self.id = data.get('id')
         self.game_id = data.get('id')
@@ -67,11 +79,11 @@ class Game(TransientStatus):
     """A transient status representing a game. This shows up next to
     "Playing" in the client.
 
-    .. warn::
+    .. warning::
         You cannot pass custom strings to this class. To avoid hard-coding
         every Guilded-supported game into this library as an enum, you can
         find a list of valid game IDs next to their names
-        `on the API docs<https://guildedapi.com/resources/user#game-ids>`_\.
+        `on the API docs <https://guildedapi.com/resources/user#game-ids>`_\.
 
     Parameters
     -----------
@@ -84,20 +96,20 @@ class Game(TransientStatus):
     Raises
     -------
     ValueError
-        You passed neither ``id`` nor ``name``, or you passed an unknown game
+        You passed neither ``game_id`` nor ``name``, or you passed an unknown game
         name.
 
     Attributes
     -----------
-    MAPPING: :class`dict`
-        The internal mapping of valid game IDs to game names. This list can be
-        found externally `right here<https://github.com/GuildedAPI/datatables/blob/main/games.json>`_\.
-        It is not fetched on startup, so it is recommended for you to do so
-        if you prefer to pass names to this class instead of IDs.
     game_id: :class:`int`
         The game's ID.
     name: :class:`str`
         The game's name, displays in the client alongside "Playing".
+    MAPPING: :class:`dict`
+        The internal mapping of valid game IDs to game names. This list can be
+        found externally `right here <https://github.com/GuildedAPI/datatables/blob/main/games.json>`_\.
+        It is not fetched on startup, so it is recommended for you to do so
+        if you prefer to pass names to this class instead of IDs.
     """
     MAPPING = {}
     def __init__(self, name: str = None, game_id: int = None):

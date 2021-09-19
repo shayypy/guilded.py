@@ -63,6 +63,18 @@ from .utils import ISO8601
 
 
 class Messageable(metaclass=abc.ABCMeta):
+    """An ABC for models that messages can be sent to.
+
+    The following implement this ABC:
+
+        * :class:`.ChatChannel`
+        * :class:`.VoiceChannel`
+        * :class:`.Thread`
+        * :class:`.DMChannel`
+        * :class:`.User`
+        * :class:`.Member`
+        * :class:`.ext.commands.Context`
+    """
     def __init__(self, *, state, data):
         self._state = state
         self.id = data.get('id')
@@ -79,9 +91,10 @@ class Messageable(metaclass=abc.ABCMeta):
             not practically possible with keyword arguments. For this reason,
             it is recommended that you pass arguments positionally instead.
 
-        .. warn::
-            Setting both `silent` and `private` to true (a private reply with
-            no mention) will not send the reply to the author of the message(s).
+        .. warning::
+            Setting both ``silent`` and ``private`` to ``True`` (a private
+            reply with no mention) will not send the reply to the author of
+            the message(s) unless they refresh the channel.
 
         Parameters
         -----------
@@ -97,7 +110,8 @@ class Messageable(metaclass=abc.ABCMeta):
         private: :class:`bool`
             Whether this message should only be visible to its author (the
             bot) and the authors of the messages it is replying to. Defaults
-            to ``False``.
+            to ``False``. You should not include sensitive data in these
+            because private replies can still be visible to server moderators.
         """
         content = list(content)
         if kwargs.get('file'):
@@ -243,6 +257,14 @@ class Messageable(metaclass=abc.ABCMeta):
         return message
 
 class User(metaclass=abc.ABCMeta):
+    """An ABC for user-type models.
+
+    The following implement this ABC:
+
+        * :class:`.User`
+        * :class:`.Member`
+        * :class:`.ClientUser`
+    """
     def __init__(self, *, state, data, **extra):
         self._state = state
         data = data.get('user', data)
@@ -372,7 +394,15 @@ class User(metaclass=abc.ABCMeta):
 
         return await super().send(*content, **kwargs)
 
-class TeamChannel(Messageable):
+class TeamChannel:
+    """An ABC for the various types of team channels.
+
+    The following implement this ABC:
+
+        * :class:`.ChatChannel`
+        * :class:`.VoiceChannel`
+        * :class:`.Thread`
+    """
     def __init__(self, *, state, group, data, **extra):
         super().__init__(state=state, data=data)
         data = data.get('data') or data.get('channel') or data

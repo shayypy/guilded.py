@@ -67,6 +67,7 @@ __all__ = (
 
 class ChannelType(Enum):
     chat = 'chat'
+    text = chat
     voice = 'voice'
     forum = 'forum'
     docs = 'doc'
@@ -79,7 +80,8 @@ class ChannelType(Enum):
     def from_str(self, string):
         return getattr(self, string, None)
 
-class ChatChannel(guilded.abc.TeamChannel):
+class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
+    """Represents a chat channel in a team."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.chat
@@ -112,7 +114,8 @@ class ChatChannel(guilded.abc.TeamChannel):
         thread = Thread(data=data.get('thread', data), state=self._state, group=self.group, team=self.team)
         return thread
 
-class VoiceChannel(guilded.abc.TeamChannel):
+class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
+    """Represents a voice channel in a team."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.voice
@@ -153,7 +156,8 @@ class VoiceChannel(guilded.abc.TeamChannel):
     #        dtls_parameters=dtls_parameters
     #    )
 
-class Thread(guilded.abc.TeamChannel):
+class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
+    """Represents a thread in a team."""
     def __init__(self, **fields):
         super().__init__(**fields)
         data = fields.get('data') or fields.get('channel', {})
@@ -218,7 +222,8 @@ class Thread(guilded.abc.TeamChannel):
 
         Roughly equivilent to:
 
-        .. python3::
+        .. code-block:: python3
+
             initial_message = await thread.fetch_message(thread.initial_message_id)
         """
         data = await self._state.get_message(self.id, self.initial_message_id)

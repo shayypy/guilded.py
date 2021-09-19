@@ -86,7 +86,7 @@ class FileType(Enum):
     """Represents a type of file in Guilded. In the case of uploading
     files, this usually does not have to be set manually, but if the
     library fails to detect the type of file from its extension, you
-    can pass this into :class:`File` ``file_type`` keyword arguement.
+    can pass this into :class:`File`\'s ``file_type`` keyword argument.
     """
     image = 'image'
     video = 'video'
@@ -98,39 +98,38 @@ class FileType(Enum):
         return f'<FileType name={self.name} value={self.value}>'
 
 class File:
+    """Wraps media pre-and-mid-upload.
+
+    .. warning::
+        Non-image/video filetypes are not supported by Guilded.
+
+    Parameters
+    ------------
+    fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
+        The file to upload. If passing a file with ``open``, the file
+        should be opened in ``rb`` mode.
+    filename: Optional[:class:`str`]
+        The name of this file. Not required unless also using the
+        ``attachment://`` URI in an accompanying embed.
+    file_type: :class:`FileType`
+        The type of file (image, video). It this could not be detected by
+        the library, defaults to :attr:`FileType.image`. 
+
+    Attributes
+    ------------
+    fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
+        The file to upload.
+    filename: Optional[:class:`str`]
+        The name of this file.
+    type: Optional[:class:`MediaType`]
+        The file's media type (attachment, emoji, ...).
+    file_type: :class:`FileType`
+        The type of file (image, video).
+    url: Optional[:class:`str`]
+        The URL to the file on Guilded's CDN after being uploaded by the
+        library.
+    """
     def __init__(self, fp: Union[str, io.BufferedIOBase], *, filename=None, file_type: FileType = None):
-        """Wraps media pre-and-mid-upload.
-
-        .. warning::
-
-            Non-image/video filetypes are not supported by Guilded.
-
-        Parameters
-        ------------
-        fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
-            The file to upload. If passing a file with ``open``, the file
-            should be opened in ``rb`` mode.
-        filename: Optional[:class:`str`]
-            The name of this file. Not required unless also using the
-            ``attachment://`` URI in an accompanying embed.
-        file_type: :class:`FileType`
-            The type of file (image, video). It this could not be detected by
-            the library, defaults to :attr:`FileType.image`. 
-
-        Attributes
-        ------------
-        fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
-            The file to upload.
-        filename: Optional[:class:`str`]
-            The name of this file.
-        type: Optional[:class:`MediaType`]
-            The file's media type (attachment, emoji, ...).
-        file_type: :class:`FileType`
-            The type of file (image, video).
-        url: Optional[:class:`str`]
-            The URL to the file on Guilded's CDN after being uploaded by the
-            library.
-        """
         self.fp = fp
         self.type = None
         self.url = None

@@ -84,29 +84,54 @@ def ISO8601(string: str):
         raise TypeError(f'{string} is not a valid ISO8601 datetime.')
 
 
-def hyperlink(link: str, *, title=None):
-    """A helper function to make links clickable when sent into chat."""
+def hyperlink(link: str, *, title: str = None) -> str:
+    """A helper function to make links clickable when sent into chat.
+
+    Returns a markdown "named link", e.g. ``[Guilded](https://guilded.gg)``.
+    """
     return f'[{title or link}]({link})'
 
 
-def link(link: str, *, title=None):
-    """Alias of :func:hyperlink."""
+def link(link: str, *, title: str = None) -> str:
+    """Alias of :func:`hyperlink`\."""
     return hyperlink(link, title=title)
 
 
-def new_uuid():
-    """Generate a new, compliant UUID."""
+def new_uuid() -> str:
+    """Generate a new, Guilded-compliant UUID."""
     return str(uuid1())
 
 
 def find(predicate, sequence):
+    """Iterate through ``sequence`` to find a matching object for ``predicate``.
+
+    If nothing is found, ``None`` is returned.
+
+    Parameters
+    -----------
+    predicate: Callable
+        A function that returns a boolean or boolean-like result.
+    sequence
+        An iterable to search through.
+    """
     for element in sequence:
         if predicate(element):
             return element
     return None
 
 
-def get(item, **attributes):
+def get(sequence, **attributes):
+    """Return an object from ``sequence`` that matches the ``attributes``.
+
+    If nothing is found, ``None`` is returned.
+
+    Parameters
+    -----------
+    sequence
+        An iterable to search through.
+    **attrs
+        Keyword arguments representing attributes of each item to match with.
+    """
     # global -> local
     _all = all
     attrget = attrgetter
@@ -115,7 +140,7 @@ def get(item, **attributes):
     if len(attributes) == 1:
         k, v = attributes.popitem()
         pred = attrget(k.replace('__', '.'))
-        for elem in item:
+        for elem in sequence:
             if pred(elem) == v:
                 return elem
         return None
@@ -125,13 +150,24 @@ def get(item, **attributes):
         for attr, value in attributes.items()
     ]
 
-    for elem in item:
+    for elem in sequence:
         if _all(pred(elem) == value for pred, value in converted):
             return elem
     return None
 
 
 async def sleep_until(when, result=None):
+    """|coro|
+
+    Sleep until a specified time.
+
+    Parameters
+    -----------
+    when: :class:`datetime.datetime`
+        The datetime to sleep until.
+    result: Any
+        Returned when the function finishes, if provided.
+    """
     if when.tzinfo is None:
         when = when.replace(tzinfo=datetime.timezone.utc)
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -152,6 +188,7 @@ _MARKDOWN_ESCAPE_REGEX = re.compile(r'(?P<markdown>%s|%s)' % (_MARKDOWN_ESCAPE_S
 
 def escape_markdown(text, *, as_needed=False, ignore_links=True):
     r"""A helper function that escapes markdown.
+
     Parameters
     -----------
     text: :class:`str`
@@ -167,6 +204,7 @@ def escape_markdown(text, *, as_needed=False, ignore_links=True):
         if a URL in the text contains characters such as ``_`` then it will
         be left alone. This option is not supported with ``as_needed``.
         Defaults to ``True``.
+
     Returns
     --------
     :class:`str`

@@ -49,15 +49,30 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+__all__ = (
+    'GuildedException',
+    'ClientException',
+    'HTTPException',
+    'BadRequest',
+    'Forbidden',
+    'NotFound',
+    'TooManyRequests',
+    'GuildedServerError',
+    'InvalidArgument'
+)
+
+
 class GuildedException(Exception):
     """Base class for all guilded.py exceptions."""
     pass
 
 class ClientException(GuildedException):
+    """Thrown when an operation in the :class:`Client` fails."""
     pass
 
 class HTTPException(GuildedException):
-    """A non-ok response from Guilded was returned whilst performing an HTTP request.
+    """A non-ok response from Guilded was returned whilst performing an HTTP
+    request.
 
     Attributes
     -----------
@@ -103,6 +118,14 @@ class GuildedServerError(HTTPException):
     """Thrown on status code 500"""
     pass
 
+error_mapping = {
+    400: BadRequest,
+    403: Forbidden,
+    404: NotFound,
+    429: TooManyRequests,
+    500: GuildedServerError
+}
+
 class InvalidArgument(ClientException):
     """Thrown when an argument to a function is invalid some way (e.g. wrong
     value or wrong type).
@@ -112,11 +135,3 @@ class InvalidArgument(ClientException):
     :exc:`GuildedException`.
     """
     pass
-
-error_mapping = {
-    400: BadRequest,
-    403: Forbidden,
-    404: NotFound,
-    429: TooManyRequests,
-    500: GuildedServerError
-}
