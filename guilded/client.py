@@ -233,6 +233,17 @@ class Client:
         return [*self.dm_channels, *self.team_channels]
 
     @property
+    def groups(self):
+        """List[:class:`Group`]: A list of all cached team groups that the
+        connected client can see.
+        """
+        groups = []
+        for team in self.teams:
+            groups = groups + team.groups
+
+        return groups
+
+    @property
     def latency(self):
         return float('nan') if self.ws is None else self.ws.latency
 

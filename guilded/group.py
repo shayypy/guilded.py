@@ -133,7 +133,7 @@ class Group:
         return self.name
 
     def __repr__(self):
-        return f'<Group id={self.id!r} name={self.name!r}>'
+        return f'<Group id={self.id!r} name={self.name!r} team_id={self.team_id!r}>'
 
     async def delete(self):
         """|coro|
