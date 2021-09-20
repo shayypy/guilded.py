@@ -77,7 +77,9 @@ def ISO8601(string: str):
         try:
             return datetime.datetime.strptime(string, '%Y-%m-%dT%H:%M:%SZ')
         except:
-            # get rid of milliseconds since datetime.fromisoformat doesn't accept them
+            # get rid of milliseconds entirely since Guilded may sometimes
+            # send a number of digits that datetime.fromisoformat does not
+            # accept
             string = re.sub(r'\.\d{1,6}', '', string)
             try:
                 return datetime.datetime.fromisoformat(string)
