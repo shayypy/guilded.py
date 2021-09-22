@@ -57,6 +57,7 @@ from typing import Union
 
 from . import utils
 from . import channel
+from .abc import User as abc_User
 from .embed import Embed
 from .emoji import Emoji
 from .errors import ClientException, HTTPException, error_mapping
@@ -336,14 +337,29 @@ class HTTPClient:
             else:
                 # inline text content
                 if isinstance(node, Emoji):
-                    node = {
+                    raw_node = {
                         'object': 'inline',
                         'type': 'reaction',
                         'data': {'reaction': {'id': node.id, 'customReactionId': node.id}},
                         'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': f':{node.name}:', 'marks': []}]}]
                     }
+                elif isinstance(node, abc_User):
+                    raw_node = {
+                        'object': 'inline',
+                        'type': 'mention',
+                        'data': {'mention': {
+                            'type': 'person',
+                            'id': node.id,
+                            'matcher': f'@{node.display_name}',
+                            'name': node.display_name,
+                            'avatar': str(node.avatar_url),
+                            'color': str(node.colour),
+                            'nickname': node.nickname == node.name
+                        }},
+                        'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': f'@{node.display_name}', 'marks': []}]}]
+                    }
                 else:
-                    node = {
+                    raw_node = {
                         'object': 'text',
                         'leaves': [{'object': 'leaf', 'text': str(node), 'marks': []}]
                     }
@@ -362,7 +378,7 @@ class HTTPClient:
                     # append to the previous node for inline emoji usage
                     blank_node = previous_node
 
-                blank_node['nodes'].append(node)
+                blank_node['nodes'].append(raw_node)
 
             if blank_node not in payload['content']['document']['nodes']:
                 # we don't want to duplicate the node in the case of inline content
