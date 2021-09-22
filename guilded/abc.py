@@ -203,6 +203,8 @@ class Messageable(metaclass=abc.ABCMeta):
 
         if isinstance(self, User):
             channel = self.dm_channel
+        elif hasattr(self, 'channel'):
+            channel = self.channel
         else:
             channel = self
         return self._state.create_message(channel=channel, data=payload, author=author)
