@@ -10,7 +10,7 @@ from .channel import ChannelType, ChatChannel, DMChannel, Thread, VoiceChannel
 from .client import Client
 from .colour import Color, Colour
 from .embed import Embed, EmbedProxy, EmptyEmbed
-from .emoji import Emoji
+from .emoji import DiscordEmoji, Emoji
 from .enums import *
 from .errors import *
 from .file import Attachment, File, FileType, MediaType

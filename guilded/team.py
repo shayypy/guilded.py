@@ -58,6 +58,7 @@ from .abc import TeamChannel, User
 from .asset import Asset
 from .channel import ChannelType, ChatChannel, Thread
 from .errors import NotFound, InvalidArgument
+from .emoji import Emoji
 from .gateway import GuildedWebSocket
 from .group import Group
 from .user import Member
@@ -203,6 +204,8 @@ class Team:
         self._follower_count = data.get('followerCount') or 0
         self._member_count = data.get('memberCount') or data.get('measurements', {}).get('numMembers') or 0
 
+        self._emojis = {}
+
     def __str__(self):
         return self.name
 
@@ -275,6 +278,11 @@ class Team:
         """List[:class:`Group`]: The cached list of groups in this team."""
         return list(self._groups.values())
 
+    @property
+    def emojis(self) -> List[Emoji]:
+        """List[:class:`Emoji`]: The cached list of emojis in this team."""
+        return list(self._emojis.values())
+
     def get_member(self, id) -> Optional[Member]:
         """Optional[:class:`Member`]: Get a member by their ID from the
         internal cache.
@@ -286,6 +294,12 @@ class Team:
         from the internal cache.
         """
         return self._state._get_team_channel(self.id, id)
+
+    def get_emoji(self, id) -> Optional[Emoji]:
+        """Optional[:class:`.Emoji`]: Get an emoji by its ID from the internal
+        cache.
+        """
+        return self._emojis.get(id)
 
     async def ws_connect(self, client):
         """|coro|
@@ -562,28 +576,68 @@ class Team:
         group = Group(state=self._state, team=self, data=data)
         return group
 
-    async def fetch_groups(self, *, cache: bool = True) -> List[Group]:
+    async def fetch_groups(self) -> List[Group]:
         """|coro|
 
         Fetch the list of :class:`Group`\s in this team.
 
         Some groups may not be returned due to inadequate permissions. There
         is no real way to know if this has happened.
-
-        Parameters
-        -----------
-        cache: Optional[:class:`bool`]
-            Whether to cache the fetched groups. Replaces the existing object
-            for each group, if present. Defaults to ``True`` if not provided.
         """
         data = await self._state.get_team_groups(self.id)
         groups = []
         for group_data in data.get('groups', data):
             group = Group(state=self._state, team=self, data=group_data)
             groups.append(group)
-            if cache is True:
-                self._groups[group.id] = group
 
         return groups
+
+    async def fetch_emojis(self, *,
+        limit: int = None,
+        search: str = None,
+        created_by: User = None,
+        when_upper: datetime.datetime = None,
+        when_lower: datetime.datetime = None,
+        created_before: Emoji = None
+    ) -> List[Emoji]:
+        """|coro|
+
+        Fetch the list of :class:`Emoji`\s in this team.
+
+        All parameters are optional.
+
+        Parameters
+        -----------
+        limit: :class:`int`
+            The maximum number of emojis to return.
+        search: :class:`str`
+            Filter by a search term, matching emoji names.
+        created_by: :class:`~.abc.User`
+            Filter by a user, matching emoji authors.
+        when_upper: :class:`datetime.datetime`
+            Filter by an upper limit (later datetime), matching emoji creation
+            date.
+        when_lower: :class:`datetime.datetime`
+            Filter by a lower limit (earlier datetime), matching emoji creation
+            date.
+        created_before: :class:`Emoji`
+            Filter by a timeframe, matching emojis created before this emoji.
+            This is likely intended to be used for pagination by the client.
+        """
+        data = await self._state.get_team_emojis(
+            self.id,
+            limit=limit,
+            search=search,
+            created_by=created_by,
+            when_upper=when_upper,
+            when_lower=when_lower,
+            created_before=created_before
+        )
+        emojis = []
+        for emoji_data in data:
+            emoji = Emoji(team=self, data=emoji_data, state=self._state)
+            emojis.append(emoji)
+
+        return emojis
 
 Guild = Team

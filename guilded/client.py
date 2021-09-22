@@ -53,18 +53,19 @@ import asyncio
 import logging
 import sys
 import traceback
-from typing import Optional
+from typing import Optional, List
 
 import aiohttp
 
 from .errors import NotFound, ClientException
 from .embed import Embed
+from .emoji import Emoji
 from .gateway import GuildedWebSocket, WebSocketClosure
 from .http import HTTPClient
 from .presence import Presence
 from .status import TransientStatus, Game
 from .team import Team
-from .user import ClientUser, User
+from .user import ClientUser, User, Member
 
 log = logging.getLogger(__name__)
 
@@ -125,10 +126,10 @@ class Client:
         A presence to use upon logging in.
     status: Optional[:class:`.TransientStatus`]
         A status (game) to use upon logging in.
-    cache_on_startup: Optional[:class:`dict`]
+    cache_on_startup: Optional[Dict[:class:`str`, :class:`bool`]
         A mapping of types of objects to a :class:`bool` (whether to
-        cache the type on startup). Currently accepts ``members``,
-        ``channels``, ``dm_channels``, and ``groups``.
+        cache the type upon logging in via REST). Currently accepts
+        ``members``, ``channels``, ``dm_channels``, ``groups``, and ``emojis``.
         By default, all are enabled.
 
     Attributes
@@ -138,6 +139,9 @@ class Client:
         operations.
     user: :class:`.ClientUser`
         The currently logged-in user.
+    cache_on_startup: Dict[:class:`str`, :class:`bool`]
+        The values passed to the ``cache_on_startup`` parameter, each
+        defaulting to ``True`` if not specified.
     """
     def __init__(self, **options):
         # internal
@@ -154,7 +158,8 @@ class Client:
             'members': cache_on_startup.get('members', True),
             'channels': cache_on_startup.get('channels', True),
             'dm_channels': cache_on_startup.get('dm_channels', True),
-            'groups': cache_on_startup.get('groups', True)
+            'groups': cache_on_startup.get('groups', True),
+            'emojis': cache_on_startup.get('emojis', True)
         }
 
         # state
@@ -170,21 +175,25 @@ class Client:
         return list(self.http._messages.values())
 
     @property
-    def emojis(self):
+    def emojis(self) -> List[Emoji]:
         """List[:class:`.Emoji`]: The cached emojis that the connected client
         can see.
         """
-        return list(self.http._emojis.values())
+        emojis = []
+        for team in self.teams:
+            emojis += team.emojis
+
+        return emojis
 
     @property
-    def teams(self):
+    def teams(self) -> List[Team]:
         """List[:class:`.Team`]: The cached teams that the connected client
         can see.
         """
         return list(self.http._teams.values())
 
     @property
-    def guilds(self):
+    def guilds(self) -> List[Team]:
         """List[:class:`.Team`]: |dpyattr|
 
         This is an alias of :attr:`.teams`.
@@ -192,14 +201,14 @@ class Client:
         return self.teams
 
     @property
-    def users(self):
+    def users(self) -> List[User]:
         """List[:class:`guilded.User`]: The cached users that the connected client
         can see.
         """
         return list(self.http._users.values())
 
     @property
-    def members(self):
+    def members(self) -> List[Member]:
         """List[:class:`.Member`]: The cached team members that the connected
         client can see.
         """
@@ -246,15 +255,15 @@ class Client:
         return groups
 
     @property
-    def latency(self):
+    def latency(self) -> float:
         return float('nan') if self.ws is None else self.ws.latency
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         """:class:`bool`: Whether the Client's connections are currently open."""
         return self._closed
 
-    def is_ready(self):
+    def is_ready(self) -> bool:
         return self._ready.is_set()
 
     async def wait_until_ready(self):
@@ -349,7 +358,9 @@ class Client:
                     self.http.add_to_team_channel_cache(channel)
 
             if self.cache_on_startup['groups'] is True:
-                await team.fetch_groups(cache=True)
+                groups = await team.fetch_groups()
+                for group in groups:
+                    team._groups[group.id] = group
 
             self.http.add_to_team_cache(team)
 
@@ -359,6 +370,11 @@ class Client:
                 self.http.add_to_dm_channel_cache(dm_channel)
                 if dm_channel.recipient is not None:
                     dm_channel.recipient.dm_channel = dm_channel
+
+        if self.cache_on_startup['emojis'] is True:
+            emojis = await self.fetch_emojis()
+            for emoji in emojis:
+                emoji.team._emojis[emoji.id] = emoji
 
     async def connect(self):
         """|coro|
@@ -475,7 +491,7 @@ class Client:
         Parameters
         ------------
         id: :class:`str`
-            the id of the message
+            The ID of the message.
         """
         return self.http._get_message(id)
 
@@ -485,7 +501,7 @@ class Client:
         Parameters
         ------------
         id: :class:`str`
-            the id of the team
+            The ID of the team.
         """
         return self.http._get_team(id)
 
@@ -495,7 +511,7 @@ class Client:
         Parameters
         ------------
         id: :class:`str`
-            the id of the user
+            The ID of the user.
         """
         return self.http._get_user(id)
 
@@ -506,9 +522,24 @@ class Client:
         Parameters
         ------------
         id: :class:`str`
-            the id of the team or dm channel
+            The ID of the team or dm channel.
         """
         return self.http._get_global_team_channel(id) or self.http._get_dm_channel(id)
+
+    def get_emoji(self, id: int) -> Optional[Emoji]:
+        """Optional[:class:`.Emoji`]: Get an emoji from your :attr:`.emojis`.
+
+        Parameters
+        ------------
+        id: :class:`str`
+            The ID of the emoji.
+        """
+        for team in self.teams:
+            emoji = team.get_emoji(id)
+            if emoji:
+                return emoji
+
+        return None
 
     async def on_error(self, event_method, *args, **kwargs):
         print(f'Ignoring exception in {event_method}:', file=sys.stderr)
@@ -874,3 +905,17 @@ class Client:
             channels.append(dm_channel)
 
         return channels
+
+    async def fetch_emojis(self):
+        """|coro|
+
+        Fetch your emojis.
+        """
+        data = await self.http.get_emojis()
+        emojis = []
+        for emoji_data in data['customReactions']:
+            team = self.get_team(emoji_data['teamId'])
+            emoji = Emoji(team=team, data=emoji_data, state=self.http)
+            emojis.append(emoji)
+
+        return emojis

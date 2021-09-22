@@ -100,7 +100,6 @@ class HTTPClient:
         self._max_messages = max_messages
         self._users = {}
         self._teams = {}
-        self._emojis = {}
         self._messages = {}
         self._team_members = {}
         self._team_channels = {}
@@ -643,6 +642,33 @@ class HTTPClient:
     def restore_team_thread(self, team_id: str, group_id: str, thread_id: str):
         return self.request(Route('PUT', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{thread_id}/restore'))
 
+    def get_team_emojis(self, team_id: str, *,
+        limit=None,
+        search=None,
+        created_by=None,
+        when_upper=None,
+        when_lower=None,
+        created_before=None
+    ):
+        params = {}
+
+        if limit is not None:
+            params['maxItems'] = limit
+        else:
+            params['maxItems'] = ''
+        if search is not None:
+            params['searchTerm'] = search
+        if created_by is not None:
+            params['createdBy'] = created_by.id
+        if when_upper is not None:
+            params['when[upperValue]'] = when_upper.isoformat()
+        if when_lower is not None:
+            params['when[lowerValue]'] = when_lower.isoformat()
+        if created_before is not None:
+            params['beforeId'] = created_before.id
+
+        return self.request(Route('GET', f'/teams/{team_id}/customReactions'), params=params)
+
     # /users
 
     def get_user(self, user_id: str, *, as_object=False):
@@ -752,6 +778,9 @@ class HTTPClient:
 
     def hide_dm_channel(self, channel_id: str):
         return self.request(Route('PUT', f'/users/{self.my_id}/channels/{channel_id}/hide'))
+
+    def get_emojis(self):
+        return self.request(Route('GET', '/users/me/custom_reactions'))
 
     # /content
 
