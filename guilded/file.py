@@ -202,8 +202,9 @@ class Attachment:
     type: :class:`MediaType`
         The file's media type (should only ever be :attr:`MediaType.attachment`).
     filename: Optional[:class:`str`]
-        The file's name (``hash-Size.ext``). Automatically parsed from
-        :attr:`.url`. Could be :class:`None` if :attr:`.url` is too.
+        The file's name (``{hash}-{Size}.{extension}``). Automatically parsed
+        from :attr:`.url`, so this will be ``None`` if :attr:`.url` is also
+        ``None``.
     file_type: Optional[:class:`FileType`]
         The type of file (image, video).
     caption: Optional[:class:`str`]
