@@ -58,6 +58,7 @@ from typing import Union
 from . import utils
 from . import channel
 from .embed import Embed
+from .emoji import Emoji
 from .errors import ClientException, HTTPException, error_mapping
 from .file import File
 from .message import ChatMessage
@@ -173,6 +174,17 @@ class HTTPClient:
 
     def remove_from_dm_channel_cache(self, channel_id):
         self._dm_channels.pop(channel_id, None)
+
+    @property
+    def _emojis(self):
+        emojis = {}
+        for team in self._teams.values():
+            emojis = {**emojis, **team._emojis}
+
+        return emojis
+
+    def _get_emoji(self, id):
+        return self._emojis.get(id)
 
     @property
     def credentials(self):
@@ -322,11 +334,39 @@ class HTTPClient:
                 blank_node['data'] = {'src': node.url}
 
             else:
-                # stringify anything else, similar to prev. behavior
-                blank_node['type'] = 'markdown-plain-text'
-                blank_node['nodes'].append({'object':'text', 'leaves': [{'object': 'leaf', 'text': str(node), 'marks': []}]})
+                # inline text content
+                if isinstance(node, Emoji):
+                    node = {
+                        'object': 'inline',
+                        'type': 'reaction',
+                        'data': {'reaction': {'id': node.id, 'customReactionId': node.id}},
+                        'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': f':{node.name}:', 'marks': []}]}]
+                    }
+                else:
+                    node = {
+                        'object': 'text',
+                        'leaves': [{'object': 'leaf', 'text': str(node), 'marks': []}]
+                    }
 
-            payload['content']['document']['nodes'].append(blank_node)
+                previous_node = None
+                try:
+                    previous_node = payload['content']['document']['nodes'][-1]
+                except IndexError:
+                    pass
+
+                if (previous_node and previous_node['type'] != 'markdown-plain-text') or not previous_node:
+                    # use a new node; the previous one is not suitable for
+                    # inline content or it does not exist
+                    blank_node['type'] = 'markdown-plain-text'
+                else:
+                    # append to the previous node for inline emoji usage
+                    blank_node = previous_node
+
+                blank_node['nodes'].append(node)
+
+            if blank_node not in payload['content']['document']['nodes']:
+                # we don't want to duplicate the node in the case of inline content
+                payload['content']['document']['nodes'].append(blank_node)
 
         return self.request(route, json=payload), payload
 

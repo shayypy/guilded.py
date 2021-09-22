@@ -98,7 +98,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        content: Union[:class:`str`, :class:`Embed`, :class:`File`]
+        content: Union[:class:`str`, :class:`Embed`, :class:`File`, :class:`Emoji`]
             An argument list of the message content, passed in the order that
             each element should display in the message.
         reply_to: List[:class:`Message`]

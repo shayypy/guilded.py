@@ -179,11 +179,7 @@ class Client:
         """List[:class:`.Emoji`]: The cached emojis that the connected client
         can see.
         """
-        emojis = []
-        for team in self.teams:
-            emojis += team.emojis
-
-        return emojis
+        return list(self.http._emojis.values())
 
     @property
     def teams(self) -> List[Team]:
