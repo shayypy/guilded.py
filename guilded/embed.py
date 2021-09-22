@@ -160,7 +160,7 @@ class Embed:
 
         This format is identical to Discord's format for embeds, but you can
         find `documentation about it here <https://guildedapi.com/resources/
-        channel/embed-object>`_ anyway.
+        channel#embed-object>`_ anyway.
 
         Parameters
         -----------
