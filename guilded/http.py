@@ -62,7 +62,7 @@ from .embed import Embed
 from .emoji import Emoji
 from .errors import ClientException, HTTPException, error_mapping
 from .file import File
-from .message import ChatMessage
+from .message import ChatMessage, Mention
 from .user import User, Member
 
 log = logging.getLogger(__name__)
@@ -326,6 +326,12 @@ class HTTPClient:
                 'data': {},
                 'nodes': []
             }
+            blank_mention_node = {
+                'object': 'inline',
+                'type': 'mention',
+                'data': {},
+                'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': None, 'marks': []}]}]
+            }
             if isinstance(node, Embed):
                 blank_node['type'] = 'webhookMessage'
                 blank_node['data'] = {'embeds': [node.to_dict()]}
@@ -344,20 +350,21 @@ class HTTPClient:
                         'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': f':{node.name}:', 'marks': []}]}]
                     }
                 elif isinstance(node, abc_User):
-                    raw_node = {
-                        'object': 'inline',
-                        'type': 'mention',
-                        'data': {'mention': {
-                            'type': 'person',
-                            'id': node.id,
-                            'matcher': f'@{node.display_name}',
-                            'name': node.display_name,
-                            'avatar': str(node.avatar_url),
-                            'color': str(node.colour),
-                            'nickname': node.nickname == node.name
-                        }},
-                        'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': f'@{node.display_name}', 'marks': []}]}]
+                    raw_node = blank_mention_node
+                    raw_node['data']['mention'] = {
+                        'type': 'person',
+                        'id': node.id,
+                        'matcher': f'@{node.display_name}',
+                        'name': node.display_name,
+                        'avatar': str(node.avatar_url),
+                        'color': str(node.colour),
+                        'nickname': node.nickname == node.name
                     }
+                    raw_node['nodes'][0]['leaves'][0]['text'] = f'@{node.display_name}'
+                elif isinstance(node, Mention):
+                    raw_node = blank_mention_node
+                    raw_node['data']['mention'] = node.value
+                    raw_node['nodes'][0]['leaves'][0]['text'] = str(node)
                 else:
                     raw_node = {
                         'object': 'text',

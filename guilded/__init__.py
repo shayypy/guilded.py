@@ -15,7 +15,7 @@ from .enums import *
 from .errors import *
 from .file import Attachment, File, FileType, MediaType
 from .group import Group
-from .message import ChatMessage, Message, MessageMention, MentionType
+from .message import ChatMessage, Mention, MentionType, Message, MessageMention
 from .presence import Presence
 from .status import TransientStatus, Game
 from .team import Guild, SocialInfo, Team, TeamTimezone

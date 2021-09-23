@@ -184,6 +184,16 @@ class MessageMention:
     def __str__(self):
         return self.name or ''
 
+class Mention(Enum):
+    """Used for passing special types of mentions to
+    :meth:`~.abc.Messageable.send`\.
+    """
+    everyone = {'type': 'everyone', 'matcher': '@everyone', 'name': 'everyone', 'description': 'Notify everyone in the channel', 'color': '#ffffff', 'id': 'everyone'}
+    here = {'type': 'here', 'matcher': '@here', 'name': 'here', 'description': 'Notify everyone in this channel that is online and not idle', 'color': '#f5c400', 'id': 'here'}
+
+    def __str__(self):
+        return f'@{self.name}'
+
 class Link:
     """A link within a message. Basically represents a markdown link."""
     def __init__(self, url, *, name=None, title=None):
@@ -399,6 +409,13 @@ class ChatMessage:
                                             'profilePicture': mentioned.get('avatar'),
                                             'bot': self.created_by_bot
                                         }))
+                            elif mentioned['type'] in ('everyone', 'here'):
+                                # grab the actual display content of the node instead of using a static string
+                                try:
+                                    content += element['nodes'][0]['leaves'][0]['text']
+                                except KeyError:
+                                    # give up trying to be fancy and use a static string
+                                    content += f'@{mentioned["type"]}'
 
                         elif element['type'] == 'reaction':
                             rtext = element['nodes'][0]['leaves'][0]['text']
