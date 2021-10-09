@@ -109,6 +109,83 @@ class HTTPClient:
         self._threads = {}
         self._dm_channels = {}
 
+    def compatible_content(self, content):
+        compatible = {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}}
+
+        for node in content:
+            blank_node = {
+                'object': 'block',
+                'type': None,
+                'data': {},
+                'nodes': []
+            }
+            blank_mention_node = {
+                'object': 'inline',
+                'type': 'mention',
+                'data': {},
+                'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': None, 'marks': []}]}]
+            }
+            if isinstance(node, Embed):
+                blank_node['type'] = 'webhookMessage'
+                blank_node['data'] = {'embeds': [node.to_dict()]}
+
+            elif isinstance(node, File):
+                blank_node['type'] = node.file_type
+                blank_node['data'] = {'src': node.url}
+
+            else:
+                # inline text content
+                if isinstance(node, Emoji):
+                    raw_node = {
+                        'object': 'inline',
+                        'type': 'reaction',
+                        'data': {'reaction': {'id': node.id, 'customReactionId': node.id}},
+                        'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': f':{node.name}:', 'marks': []}]}]
+                    }
+                elif isinstance(node, abc_User):
+                    raw_node = blank_mention_node
+                    raw_node['data']['mention'] = {
+                        'type': 'person',
+                        'id': node.id,
+                        'matcher': f'@{node.display_name}',
+                        'name': node.display_name,
+                        'avatar': str(node.avatar_url),
+                        'color': str(node.colour),
+                        'nickname': node.nickname == node.name
+                    }
+                    raw_node['nodes'][0]['leaves'][0]['text'] = f'@{node.display_name}'
+                elif isinstance(node, Mention):
+                    raw_node = blank_mention_node
+                    raw_node['data']['mention'] = node.value
+                    raw_node['nodes'][0]['leaves'][0]['text'] = str(node)
+                else:
+                    raw_node = {
+                        'object': 'text',
+                        'leaves': [{'object': 'leaf', 'text': str(node), 'marks': []}]
+                    }
+
+                previous_node = None
+                try:
+                    previous_node = compatible['document']['nodes'][-1]
+                except IndexError:
+                    pass
+
+                if (previous_node and previous_node['type'] != 'markdown-plain-text') or not previous_node:
+                    # use a new node; the previous one is not suitable for
+                    # inline content or it does not exist
+                    blank_node['type'] = 'markdown-plain-text'
+                else:
+                    # append to the previous node for inline emoji usage
+                    blank_node = previous_node
+
+                blank_node['nodes'].append(raw_node)
+
+            if blank_node not in compatible['document']['nodes']:
+                # we don't want to duplicate the node in the case of inline content
+                compatible['document']['nodes'].append(blank_node)
+
+        return compatible
+
     def _get_user(self, id):
         return self._users.get(id)
 
@@ -312,84 +389,12 @@ class HTTPClient:
         route = Route('POST', f'/channels/{channel_id}/messages')
         payload = {
             'messageId': utils.new_uuid(),
-            'content': {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}},
+            'content': self.compatible_content(content),
             **(extra_payload or {})
         }
 
         if share_urls:
             payload['content']['document']['data']['shareUrls'] = share_urls
-
-        for node in content:
-            blank_node = {
-                'object': 'block',
-                'type': None,
-                'data': {},
-                'nodes': []
-            }
-            blank_mention_node = {
-                'object': 'inline',
-                'type': 'mention',
-                'data': {},
-                'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': None, 'marks': []}]}]
-            }
-            if isinstance(node, Embed):
-                blank_node['type'] = 'webhookMessage'
-                blank_node['data'] = {'embeds': [node.to_dict()]}
-
-            elif isinstance(node, File):
-                blank_node['type'] = node.file_type
-                blank_node['data'] = {'src': node.url}
-
-            else:
-                # inline text content
-                if isinstance(node, Emoji):
-                    raw_node = {
-                        'object': 'inline',
-                        'type': 'reaction',
-                        'data': {'reaction': {'id': node.id, 'customReactionId': node.id}},
-                        'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': f':{node.name}:', 'marks': []}]}]
-                    }
-                elif isinstance(node, abc_User):
-                    raw_node = blank_mention_node
-                    raw_node['data']['mention'] = {
-                        'type': 'person',
-                        'id': node.id,
-                        'matcher': f'@{node.display_name}',
-                        'name': node.display_name,
-                        'avatar': str(node.avatar_url),
-                        'color': str(node.colour),
-                        'nickname': node.nickname == node.name
-                    }
-                    raw_node['nodes'][0]['leaves'][0]['text'] = f'@{node.display_name}'
-                elif isinstance(node, Mention):
-                    raw_node = blank_mention_node
-                    raw_node['data']['mention'] = node.value
-                    raw_node['nodes'][0]['leaves'][0]['text'] = str(node)
-                else:
-                    raw_node = {
-                        'object': 'text',
-                        'leaves': [{'object': 'leaf', 'text': str(node), 'marks': []}]
-                    }
-
-                previous_node = None
-                try:
-                    previous_node = payload['content']['document']['nodes'][-1]
-                except IndexError:
-                    pass
-
-                if (previous_node and previous_node['type'] != 'markdown-plain-text') or not previous_node:
-                    # use a new node; the previous one is not suitable for
-                    # inline content or it does not exist
-                    blank_node['type'] = 'markdown-plain-text'
-                else:
-                    # append to the previous node for inline emoji usage
-                    blank_node = previous_node
-
-                blank_node['nodes'].append(raw_node)
-
-            if blank_node not in payload['content']['document']['nodes']:
-                # we don't want to duplicate the node in the case of inline content
-                payload['content']['document']['nodes'].append(blank_node)
 
         return self.request(route, json=payload), payload
 
@@ -567,6 +572,88 @@ class HTTPClient:
     def leave_voice_channel(self, endpoint: str, channel_id: str):
         route = VoiceRoute(endpoint, 'POST', f'/channels/{channel_id}/voicegroups/lobby/leave')
         return self.request(route, json={})
+
+    def get_forum_topics(self, channel_id: str, *, limit: int, page: int, before: datetime.datetime):
+        route = Route('GET', f'/channels/{channel_id}/forums')
+        params = {
+            'maxItems': limit,
+            'page': page,
+            'beforeDate': before.isoformat()
+        }
+        return self.request(route, params=params)
+
+    def get_forum_topic(self, channel_id: str, topic_id: int):
+        route = Route('GET', f'/channels/{channel_id}/forums/{topic_id}')
+        return self.request(route)
+
+    def create_forum_topic(self, channel_id: str, *, title, content):
+        route = Route('POST', f'/channels/{channel_id}/forums')
+        payload = {
+            # The client passes an ID here but it is optional
+            'title': title,
+            'message': self.compatible_content(content)
+        }
+        return self.request(route, json=payload)
+
+    def delete_forum_topic(self, channel_id: str, topic_id: int):
+        route = Route('DELETE', f'/channels/{channel_id}/forums/{topic_id}')
+        return self.request(route)
+
+    def move_forum_topic(self, channel_id: str, topic_id: int, to_channel_id: str):
+        route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/move')
+        payload = {'moveToChannelId': to_channel_id}
+        return self.request(route)
+
+    def sticky_forum_topic(self, channel_id: str, topic_id: int):
+        route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/sticky')
+        payload = {'isSticky': True}
+        return self.request(route)
+
+    def unsticky_forum_topic(self, channel_id: str, topic_id: int):
+        route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/sticky')
+        payload = {'isSticky': False}
+        return self.request(route)
+
+    def lock_forum_topic(self, channel_id: str, topic_id: int):
+        route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/lock')
+        payload = {'isLocked': True}
+        return self.request(route)
+
+    def unlock_forum_topic(self, channel_id: str, topic_id: int):
+        route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/lock')
+        payload = {'isLocked': False}
+        return self.request(route)
+
+    def get_forum_topic_replies(self, channel_id: str, topic_id: int, *, limit: int):
+        route = Route('GET', f'/channels/{channel_id}/forums/{topic_id}/replies')
+        params = {'maxItems': limit}
+        return self.request(route, params=params)
+
+    def create_forum_topic_reply(self, channel_id: str, forum_id: int, *, content, reply_to=None):
+        route = Route('POST', f'/channels/{channel_id}/forums/{forum_id}/replies')
+        payload = {
+            # The client passes an ID here but it is optional
+            'message': self.compatible_content(content)
+        }
+        if reply_to is not None:
+            payload['message']['document']['nodes'].insert(0, {
+                'object': 'block',
+                'type': 'replying-to-user-header',
+                'data': {
+                    'createdBy': reply_to.author_id,
+                    'postId': reply_to.id,
+                    'type': 'reply'
+                },
+                'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': '', 'marks': []}]}]
+            })
+        return self.request(route, json=payload)
+
+    def delete_forum_topic_reply(self, channel_id: str, topic_id: int, reply_id: int):
+        route = Route('DELETE', f'/channels/{channel_id}/forums/{topic_id}/replies/{reply_id}')
+        return self.request(route)
+
+    def get_forum_topic_reply(self, channel_id: str, topic_id: int, reply_id: int):
+        return self.get_metadata(f'//channels/{channel_id}/forums/{topic_id}?replyId={reply_id}')
 
     # /teams
 
@@ -935,6 +1022,8 @@ class HTTPClient:
                     return channel.Thread(state=self, **data)
                 else:
                     return channel.ChatChannel(state=self, **data)
+            elif ctype is channel.ChannelType.forum:
+                return channel.ForumChannel(state=self, **data)
             elif ctype is channel.ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
         else:

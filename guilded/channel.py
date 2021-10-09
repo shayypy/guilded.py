@@ -49,17 +49,27 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+import datetime
 from enum import Enum
+from typing import Optional, Union, List
 
 import guilded.abc
 
+from .embed import Embed
+from .emoji import Emoji
+from .file import Attachment
 #from .gateway import GuildedVoiceWebSocket
-from .message import Message
-from .utils import ISO8601
+from .message import Message, Link
+from .user import Member, User
+from .utils import ISO8601, parse_hex_number
+from .status import Game
 
 __all__ = (
     'ChannelType',
     'ChatChannel',
+    'ForumChannel',
+    'ForumTopic',
+    'ForumReply',
     'VoiceChannel',
     'DMChannel',
     'Thread'
@@ -113,6 +123,686 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
         data = await self._state.create_thread(self.id, content, name=name, initial_message=message)
         thread = Thread(data=data.get('thread', data), state=self._state, group=self.group, team=self.team)
         return thread
+
+class ForumTopic:
+    """Represents a forum topic.
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The topic's ID.
+    title: :class:`str`
+        The topic's title.
+    content: :class:`str`
+        The topic's content.
+    team: :class:`.Team`
+        The team that the topic is in.
+    forum: :class:`.ForumChannel`
+        The forum channel that the topic is in.
+    created_at: :class:`datetime.datetime`
+        When the topic was created.
+    bumped_at: :class:`datetime.datetime`
+        When the topic was last bumped. This may be the same as
+        :attr:`.created_at`.
+    edited_at: Optional[:class:`datetime.datetime`]
+        When the topic was last edited.
+    stickied: :class:`bool`
+        Whether the topic is stickied (pinned) in its channel.
+    locked: :class:`bool`
+        Whether the topic is locked.
+    deleted: :class:`bool`
+        Whether the topic is deleted.
+    reply_count: :class:`int`
+        How many replies the topic has.
+    """
+    def __init__(self, *, state, data, forum, group=None, team=None):
+        self._state = state
+        self.forum = forum
+        self.forum_id = data.get('channelId')
+        self.team = team or state._get_team(data.get('teamId'))
+        self.team_id = data.get('teamId') or (self.team.id if self.team else None)
+        self._group = group
+        self.group_id = data.get('groupId')
+
+        self.id: int = data['id']
+        self.title: str = data['title']
+        self.mentions: list = []
+        self.emojis: list = []
+        self.raw_mentions: list = []
+        self.channel_mentions: list = []
+        self.raw_channel_mentions: list = []
+        self.role_mentions: list = []
+        self.raw_role_mentions: list = []
+        self.embeds: list = []
+        self.attachments: list = []
+        self.links: list = []
+        self.content: str = self._get_full_content(data['message'])
+
+        self.author_id: str = data.get('createdBy')
+        self.game_id: Optional[int] = data.get('gameId')
+        self.created_by_bot_id: Optional[int] = data.get('createdByBotId')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+        self.bumped_at: Optional[datetime.datetime] = ISO8601(data.get('bumpedAt'))
+        self.visibility: str = data.get('visibility')
+        self.stickied: bool = data.get('isSticky')
+        self.locked: bool = data.get('isLocked')
+        self.shared: bool = data.get('isShare')
+        self.deleted: bool = data.get('isDeleted')
+        self.reply_count: int = int(data.get('replyCount', 0))
+        self._replies = {}
+
+    def __str__(self):
+        return self.title
+
+    def __repr__(self):
+        return f'<ForumTopic id={self.id!r} title={self.title!r} forum={self.forum!r}>'
+
+    @property
+    def group(self):
+        """Optional[:class:`.Group`]: The group that the topic is in."""
+        return self._group or self.team.get_group(self.group_id)
+
+    @property
+    def game(self) -> Game:
+        """Optional[:class:`.Game`]: The game that the topic is for."""
+        return Game(game_id=self.game_id)
+
+    @property
+    def author(self) -> Optional[Union[Member, User]]:
+        """Optional[Union[:class:`.Member`, :class:`.User`]]:
+        The :class:`.Member` that created the topic. If the member is no
+        longer in the server (and they are cached), this will be a
+        :class:`.User`.
+        """
+        return self.team.get_member(self.author_id) or self._state.get_user(self.author_id)
+
+    @property
+    def replies(self):
+        return list(self._replies.values())
+
+    def _get_full_content(self, data):
+        try:
+            nodes = data['document']['nodes']
+        except KeyError:
+            return ''
+
+        content = ''
+        for node in nodes:
+            node_type = node['type']
+            if node_type == 'paragraph':
+                for element in node['nodes']:
+                    if element['object'] == 'text':
+                        for leaf in element['leaves']:
+                            if not leaf['marks']:
+                                content += leaf['text']
+                            else:
+                                to_mark = '{unmarked_content}'
+                                marks = leaf['marks']
+                                for mark in marks:
+                                    if mark['type'] == 'bold':
+                                        to_mark = '**' + to_mark + '**'
+                                    elif mark['type'] == 'italic':
+                                        to_mark = '*' + to_mark + '*'
+                                    elif mark['type'] == 'underline':
+                                        to_mark = '__' + to_mark + '__'
+                                    elif mark['type'] == 'strikethrough':
+                                        to_mark = '~~' + to_mark + '~~'
+                                    elif mark['type'] == 'spoiler':
+                                        to_mark = '||' + to_mark + '||'
+                                    else:
+                                        pass
+                                content += to_mark.format(
+                                    unmarked_content=str(leaf['text'])
+                                )
+                    if element['object'] == 'inline':
+                        if element['type'] == 'mention':
+                            mentioned = element['data']['mention']
+                            if mentioned['type'] == 'role':
+                                content += f'<@{mentioned["id"]}>'
+                            elif mentioned['type'] == 'person':
+                                content += f'<@{mentioned["id"]}>'
+
+                                self.raw_mentions.append(f'<@{mentioned["id"]}>')
+                                if self.team_id:
+                                    user = self._state._get_team_member(self.team_id, mentioned['id'])
+                                else:
+                                    user = self._state._get_user(mentioned['id'])
+
+                                if user:
+                                    self.mentions.append(user)
+                                else:
+                                    name = mentioned.get('name')
+                                    if mentioned.get('nickname') is True and mentioned.get('matcher') is not None:
+                                        name = name.strip('@').strip(name).strip('@')
+                                        if not name.strip():
+                                            # matcher might be empty, oops - no username is available
+                                            name = None
+                                    if self.team_id:
+                                        self.mentions.append(self._state.create_member(
+                                            team=self.team,
+                                            data={
+                                                'id': mentioned.get('id'),
+                                                'name': name,
+                                                'profilePicture': mentioned.get('avatar'),
+                                                'colour': parse_hex_number(mentioned.get('color', '000000').strip('#')),
+                                                'nickname': mentioned.get('name') if mentioned.get('nickname') is True else None,
+                                                'bot': self.created_by_bot
+                                            }
+                                        ))
+                                    else:
+                                        self.mentions.append(self._state.create_user(data={
+                                            'id': mentioned.get('id'),
+                                            'name': name,
+                                            'profilePicture': mentioned.get('avatar'),
+                                            'bot': self.created_by_bot
+                                        }))
+                            elif mentioned['type'] in ('everyone', 'here'):
+                                # grab the actual display content of the node instead of using a static string
+                                try:
+                                    content += element['nodes'][0]['leaves'][0]['text']
+                                except KeyError:
+                                    # give up trying to be fancy and use a static string
+                                    content += f'@{mentioned["type"]}'
+
+                        elif element['type'] == 'reaction':
+                            rtext = element['nodes'][0]['leaves'][0]['text']
+                            content += str(rtext)
+                        elif element['type'] == 'link':
+                            link_text = element['nodes'][0]['leaves'][0]['text']
+                            link_href = element['data']['href']
+                            link = Link(link_href, name=link_text)
+                            self.links.append(link)
+                            if link.url != link.name:
+                                content += f'[{link.name}]({link.url})'
+                            else:
+                                content += link.url
+                        elif element['type'] == 'channel':
+                            channel = element['data']['channel']
+                            content += f'<#{channel.get("id")}>'
+
+                            channel = self._state._get_team_channel(self.team_id, channel.get('id'))
+                            if channel:
+                                self.channel_mentions.append(channel)
+
+                content += '\n'
+
+            elif node_type == 'markdown-plain-text':
+                try:
+                    content += node['nodes'][0]['leaves'][0]['text']
+                except KeyError:
+                    # probably an "inline" non-text node - their leaves are another node deeper
+                    content += node['nodes'][0]['nodes'][0]['leaves'][0]['text']
+
+                    if 'reaction' in node['nodes'][0].get('data', {}):
+                        emoji_id = node['nodes'][0]['data']['reaction']['id']
+                        emoji = (
+                            self._state._get_emoji(emoji_id) or
+                            Emoji(
+                                data={'id': emoji_id, 'name': node['nodes'][0]['nodes'][0]['leaves'][0]['text']},
+                                state=self._state
+                                # we do not pass team here because we have no
+                                # way of knowing if the emoji is from the
+                                # current team
+                            )
+                        )
+                        self.emojis.append(emoji)
+
+            elif node_type == 'webhookMessage':
+                if node['data'].get('embeds'):
+                    for msg_embed in node['data']['embeds']:
+                        self.embeds.append(Embed.from_dict(msg_embed))
+
+            elif node_type == 'block-quote-container':
+                text = str(node['nodes'][0]['nodes'][0]['leaves'][0]['text'])
+                content += f'\n> {text}\n'
+
+            elif node_type in ['image', 'video']:
+                attachment = Attachment(state=self._state, data=node)
+                self.attachments.append(attachment)
+
+        content = content.rstrip('\n')
+        # strip ending of newlines in case a paragraph node ended without
+        # another paragraph node
+        return content
+
+    def get_reply(self, id):
+        """Optional[:class:`.ForumReply`]: Get a reply by its ID."""
+        return self._replies.get(id)
+
+    async def fetch_replies(self, *, limit=50):
+        """|coro|
+
+        Fetch the replies to this topic.
+
+        Returns
+        --------
+        List[:class:`.ForumReply`]
+        """
+        replies = []
+        data = await self._state.get_forum_topic_replies(self.forum_id, self.id, limit=limit)
+        for reply_data in data.get('threadReplies', data) or []:
+            reply = ForumReply(data=reply_data, forum=self.forum, state=self._state)
+            replies.append(reply)
+
+        return replies
+
+    async def fetch_reply(self, id: int):
+        """|coro|
+
+        Fetch a reply to this topic.
+
+        Returns
+        --------
+        :class:`.ForumReply`
+        """
+        data = await self._state.get_forum_topic_reply(self.forum_id, self.id, id)
+        reply = ForumReply(data=data['metadata']['reply'], forum=self.forum, state=self._state)
+        return reply
+
+    async def reply(self, *content, **kwargs) -> int:
+        """|coro|
+
+        Create a new reply to this topic.
+
+        Parameters
+        ------------
+        content: Any
+            The content to create the reply with.
+        reply_to: Optional[:class:`.ForumReply`]
+            An existing reply to reply to.
+
+        Returns
+        --------
+        :class:`int`
+            The ID of the created reply.
+
+            .. note::
+                Guilded does not return the full object in response to this.
+                Nevertheless, if you are connected to the gateway, it should
+                end up getting cached and accessible via :meth:`.get_reply`.
+        """
+        data = await self._state.create_forum_topic_reply(self.forum_id or self.forum.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+        return data['replyId']
+
+    async def delete(self):
+        """|coro|
+
+        Delete this topic.
+        """
+        await self._state.delete_forum_topic(self.forum_id, self.id)
+
+    async def move(self, to):
+        """|coro|
+
+        Move this topic to another :class:`.ForumChannel`.
+
+        Parameters
+        -----------
+        to: :class:`.ForumChannel`
+            The forum to move this topic to.
+        """
+        await self._state.move_forum_topic(self.forum_id, self.id, to.id)
+
+    async def lock(self):
+        """|coro|
+
+        Lock this topic.
+        """
+        await self._state.lock_forum_topic(self.forum_id, self.id)
+
+    async def unlock(self):
+        """|coro|
+
+        Unlock this topic.
+        """
+        await self._state.unlock_forum_topic(self.forum_id, self.id)
+
+    async def sticky(self):
+        """|coro|
+
+        Sticky (pin) this topic.
+        """
+        await self._state.sticky_forum_topic(self.forum_id, self.id)
+
+    async def unsticky(self):
+        """|coro|
+
+        Unsticky (unpin) this topic.
+        """
+        await self._state.unsticky_forum_topic(self.forum_id, self.id)
+
+class ForumChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
+    """Represents a forum channel in a team."""
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.forum
+        self._topics = {}
+
+    @property
+    def topics(self):
+        return list(self._topics.values())
+
+    def get_topic(self, id):
+        """Optional[:class:`.ForumTopic`]: Get a topic by its ID."""
+        return self._topics.get(id)
+
+    async def create_topic(self, *content, **kwargs) -> ForumTopic:
+        """|coro|
+
+        Create a new topic in this forum.
+
+        Parameters
+        ------------
+        content: Any
+            The content to create the topic with.
+        title: :class:`str`
+            The title to create the topic with.
+
+        Returns
+        --------
+        :class:`.ForumTopic`
+            The topic that was created.
+        """
+        title = kwargs['title']
+        data = await self._state.create_forum_topic(self.id, title=title, content=content)
+        topic = ForumTopic(data=data, state=self._state, group=self.group, team=self.team, forum=self)
+        return topic
+
+    async def fetch_topic(self, id: int) -> ForumTopic:
+        """|coro|
+
+        Fetch a topic from this forum.
+
+        Parameters
+        -----------
+        id: :class:`int`
+            The topic's ID.
+
+        Returns
+        --------
+        :class:`.ForumTopic`
+            The topic by its ID.
+        """
+        data = await self._state.get_forum_topic(self.id, id)
+        topic = ForumTopic(data=data.get('thread', data), state=self._state, group=self.group, team=self.team, forum=self)
+        return topic
+
+    async def getch_topic(self, id: int) -> ForumTopic:
+        return self.get_topic(id) or await self.fetch_topic(id)
+
+    async def fetch_topics(self, *, limit: int = 50, page: int = 1, before: datetime.datetime = None) -> List[ForumTopic]:
+        """|coro|
+
+        Fetch the topics in this forum.
+
+        All parameters are optional.
+
+        Parameters
+        -----------
+        limit: :class:`int`
+            The maximum number of topics to return. Defaults to 50.
+        before: :class:`datetime.datetime`
+            The latest date that a topic can be from. Defaults to the current
+            time.
+
+        Returns
+        --------
+        List[:class:`.ForumTopic`]
+            The topics in this forum.
+        """
+        before = before or datetime.datetime.now(datetime.timezone.utc)
+        data = await self._state.get_forum_topics(self.id, limit=limit, page=page, before=before)
+        topics = []
+        for topic_data in data.get('threads', data):
+            topic = ForumTopic(data=topic_data, state=self._state, group=self.group, team=self.team, forum=self)
+
+        return topics
+
+class ForumReply:
+    """Represents a forum reply.
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The reply's ID.
+    content: :class:`str`
+        The reply's content.
+    topic: :class:`.ForumTopic`
+        The topic that the reply is in.
+    forum: :class:`.ForumChannel`
+        The forum channel that the reply is in.
+    created_at: :class:`datetime.datetime`
+        When the reply was created.
+    edited_at: Optional[:class:`datetime.datetime`]
+        When the reply was last edited.
+    """
+    def __init__(self, *, state, data, forum):
+        self._state = state
+        self.forum = forum
+        self.topic_id = data.get('repliesTo')
+
+        self.id: int = data['id']
+        self.mentions: list = []
+        self.emojis: list = []
+        self.raw_mentions: list = []
+        self.channel_mentions: list = []
+        self.raw_channel_mentions: list = []
+        self.role_mentions: list = []
+        self.raw_role_mentions: list = []
+        self.embeds: list = []
+        self.attachments: list = []
+        self.links: list = []
+        self.content: str = self._get_full_content(data['message'])
+
+        self.author_id: str = data.get('createdBy')
+        self.created_by_bot_id: Optional[int] = data.get('createdByBotId')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+
+        self.replied_to_id: Optional[int] = None
+        self.replied_to_author_id: Optional[str] = None
+
+    def __str__(self):
+        return self.title
+
+    def __repr__(self):
+        return f'<ForumReply id={self.id!r} topic={self.topic!r}>'
+
+    @property
+    def team_id(self):
+        return self.forum.team_id
+
+    @property
+    def team(self):
+        return self.forum.team
+
+    @property
+    def author(self) -> Optional[Union[Member, User]]:
+        """Optional[Union[:class:`.Member`, :class:`.User`]]:
+        The :class:`.Member` that created the reply. If the member is no
+        longer in the server (and they are cached), this will be a
+        :class:`.User`.
+        """
+        return self.team.get_member(self.author_id) or self._state.get_user(self.author_id)
+
+    @property
+    def topic(self) -> Optional[ForumTopic]:
+        """Optional[:class:`.ForumTopic`]: The :class:`.ForumTopic` that this
+        reply is to. Will be ``None`` if the topic is not cached.
+        """
+        return self.forum.get_topic(self.topic_id)
+
+    @property
+    def replied_to(self):
+        if self.replied_to_id:
+            return self.topic.get_reply(self.replied_to_id)
+        return None
+
+    def _get_full_content(self, data):
+        try:
+            nodes = data['document']['nodes']
+        except KeyError:
+            return ''
+
+        content = ''
+        for node in nodes:
+            node_type = node['type']
+            if node_type == 'paragraph':
+                for element in node['nodes']:
+                    if element['object'] == 'text':
+                        for leaf in element['leaves']:
+                            if not leaf['marks']:
+                                content += leaf['text']
+                            else:
+                                to_mark = '{unmarked_content}'
+                                marks = leaf['marks']
+                                for mark in marks:
+                                    if mark['type'] == 'bold':
+                                        to_mark = '**' + to_mark + '**'
+                                    elif mark['type'] == 'italic':
+                                        to_mark = '*' + to_mark + '*'
+                                    elif mark['type'] == 'underline':
+                                        to_mark = '__' + to_mark + '__'
+                                    elif mark['type'] == 'strikethrough':
+                                        to_mark = '~~' + to_mark + '~~'
+                                    elif mark['type'] == 'spoiler':
+                                        to_mark = '||' + to_mark + '||'
+                                    else:
+                                        pass
+                                content += to_mark.format(
+                                    unmarked_content=str(leaf['text'])
+                                )
+                    if element['object'] == 'inline':
+                        if element['type'] == 'mention':
+                            mentioned = element['data']['mention']
+                            if mentioned['type'] == 'role':
+                                content += f'<@{mentioned["id"]}>'
+                            elif mentioned['type'] == 'person':
+                                content += f'<@{mentioned["id"]}>'
+
+                                self.raw_mentions.append(f'<@{mentioned["id"]}>')
+                                if self.team_id:
+                                    user = self._state._get_team_member(self.team_id, mentioned['id'])
+                                else:
+                                    user = self._state._get_user(mentioned['id'])
+
+                                if user:
+                                    self.mentions.append(user)
+                                else:
+                                    name = mentioned.get('name')
+                                    if mentioned.get('nickname') is True and mentioned.get('matcher') is not None:
+                                        name = name.strip('@').strip(name).strip('@')
+                                        if not name.strip():
+                                            # matcher might be empty, oops - no username is available
+                                            name = None
+                                    if self.team_id:
+                                        self.mentions.append(self._state.create_member(
+                                            team=self.team,
+                                            data={
+                                                'id': mentioned.get('id'),
+                                                'name': name,
+                                                'profilePicture': mentioned.get('avatar'),
+                                                'colour': parse_hex_number(mentioned.get('color', '000000').strip('#')),
+                                                'nickname': mentioned.get('name') if mentioned.get('nickname') is True else None,
+                                                'bot': self.created_by_bot
+                                            }
+                                        ))
+                                    else:
+                                        self.mentions.append(self._state.create_user(data={
+                                            'id': mentioned.get('id'),
+                                            'name': name,
+                                            'profilePicture': mentioned.get('avatar'),
+                                            'bot': self.created_by_bot
+                                        }))
+                            elif mentioned['type'] in ('everyone', 'here'):
+                                # grab the actual display content of the node instead of using a static string
+                                try:
+                                    content += element['nodes'][0]['leaves'][0]['text']
+                                except KeyError:
+                                    # give up trying to be fancy and use a static string
+                                    content += f'@{mentioned["type"]}'
+
+                        elif element['type'] == 'reaction':
+                            rtext = element['nodes'][0]['leaves'][0]['text']
+                            content += str(rtext)
+                        elif element['type'] == 'link':
+                            link_text = element['nodes'][0]['leaves'][0]['text']
+                            link_href = element['data']['href']
+                            link = Link(link_href, name=link_text)
+                            self.links.append(link)
+                            if link.url != link.name:
+                                content += f'[{link.name}]({link.url})'
+                            else:
+                                content += link.url
+                        elif element['type'] == 'channel':
+                            channel = element['data']['channel']
+                            content += f'<#{channel.get("id")}>'
+
+                            channel = self._state._get_team_channel(self.team_id, channel.get('id'))
+                            if channel:
+                                self.channel_mentions.append(channel)
+
+                content += '\n'
+
+            elif node_type == 'markdown-plain-text':
+                try:
+                    content += node['nodes'][0]['leaves'][0]['text']
+                except KeyError:
+                    # probably an "inline" non-text node - their leaves are another node deeper
+                    content += node['nodes'][0]['nodes'][0]['leaves'][0]['text']
+
+                    if 'reaction' in node['nodes'][0].get('data', {}):
+                        emoji_id = node['nodes'][0]['data']['reaction']['id']
+                        emoji = (
+                            self._state._get_emoji(emoji_id) or
+                            Emoji(
+                                data={'id': emoji_id, 'name': node['nodes'][0]['nodes'][0]['leaves'][0]['text']},
+                                state=self._state
+                                # we do not pass team here because we have no
+                                # way of knowing if the emoji is from the
+                                # current team
+                            )
+                        )
+                        self.emojis.append(emoji)
+
+            elif node_type == 'webhookMessage':
+                if node['data'].get('embeds'):
+                    for msg_embed in node['data']['embeds']:
+                        self.embeds.append(Embed.from_dict(msg_embed))
+
+            elif node_type == 'block-quote-container':
+                text = str(node['nodes'][0]['nodes'][0]['leaves'][0]['text'])
+                content += f'\n> {text}\n'
+
+            elif node_type in ['image', 'video']:
+                attachment = Attachment(state=self._state, data=node)
+                self.attachments.append(attachment)
+
+            elif node_type == 'replying-to-user-header':
+                self.replied_to_id: Optional[int] = node['data']['postId']
+                self.replied_to_author_id: Optional[str] = node['data']['createdBy']
+
+        content = content.rstrip('\n')
+        # strip ending of newlines in case a paragraph node ended without
+        # another paragraph node
+        return content
+
+    async def delete(self):
+        """|coro|
+
+        Delete this reply.
+        """
+        await self._state.delete_forum_topic_reply(self.forum.id, self.topic.id, self.id)
+
+    async def reply(self, *content) -> int:
+        """|coro|
+
+        Reply to this reply.
+
+        This method is identical to :meth:`.ForumTopic.reply`.
+        """
+        return self.topic.reply(*content, reply_to=self)
 
 class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
     """Represents a voice channel in a team."""

@@ -62,7 +62,7 @@ import traceback
 from guilded.abc import TeamChannel
 
 from .errors import GuildedException
-from .channel import DMChannel, Thread
+from .channel import ChannelType, DMChannel, ForumTopic, ForumReply, Thread
 from .message import Message
 from .presence import Presence
 from .user import Member, User
@@ -409,6 +409,35 @@ class WebSocketEventParsers:
         #self.client.dispatch('self_presence_set', self.client.user.presence)
         # not sure if an event should be dispatched for this
         # it happens when you set your own presence
+
+    async def TEAM_CHANNEL_CONTENT_CREATED(self, data):
+        try:
+            team = await self.client.getch_team(data['teamId'])
+        except:
+            return
+        channel = team.get_channel(data['channelId'])
+        if channel.type is ChannelType.forum and data.get('thread') is not None:
+            topic = ForumTopic(data=data['thread'], forum=channel, team=team, state=self._state)
+            channel._topics[topic.id] = topic
+            self.client.dispatch('forum_topic_create', topic)
+            return
+
+    async def TEAM_CHANNEL_CONTENT_REPLY_CREATED(self, data):
+        try:
+            team = await self.client.getch_team(data['teamId'])
+        except:
+            return
+        channel = team.get_channel(data['channelId'])
+        if channel.type is ChannelType.forum and data.get('reply') is not None:
+            try:
+                topic = await channel.getch_topic(data['reply']['repliesTo'])
+                channel._topics[topic.id] = topic
+            except:
+                return
+            reply = ForumReply(data=data['reply'], forum=channel, state=self._state)
+            reply.topic._replies[reply.id] = reply
+            self.client.dispatch('forum_reply_create', reply)
+            return
 
 class Heartbeater(threading.Thread):
     def __init__(self, ws, *, interval):
