@@ -346,7 +346,7 @@ class HasContentMixin:
                         quote_content.append(text)
 
                 if quote_content:
-                    content += '\n> {}\n'.format('\n'.join(quote_content))
+                    content += '\n> {}\n'.format('\n> '.join(quote_content))
 
             elif node_type in ['image', 'video']:
                 attachment = Attachment(state=self._state, data=node)
