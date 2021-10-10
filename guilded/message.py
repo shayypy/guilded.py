@@ -204,141 +204,14 @@ class Link:
     def __str__(self):
         return self.url
 
-class ChatMessage:
-    """A message in Guilded.
-
-    There is an alias for this class called ``Message``.
-
-    .. container:: operations
-
-        .. describe:: x == y
-
-            Checks if two messages are equal.
-
-        .. describe:: x != y
-
-            Checks if two messages are not equal.
-
-        .. describe:: str(x)
-
-            Returns the string content of the message.
-
-    Attributes
-    ------------
-    id: :class:`str`
-        The message's ID.
-    channel: Union[:class:`abc.TeamChannel`, :class:`DMChannel`]
-        The channel this message was sent in.
-    team: Optional[:class:`Team`]
-        The team this message was sent in. ``None`` if the message is in a DM.
-    webhook_id: Optional[:class:`str`]
-        The webhook's ID that sent the message, if applicable.
-    bot_id: Optional[:class:`str`]
-        The bot's ID that sent the message, if applicable.
-    """
-    def __init__(self, *, state, channel, data, **extra):
-        self._state = state
-        self._raw = data
-
-        message = data.get('message', data)
-        self.id = data.get('contentId') or message.get('id')
-        self.webhook_id = data.get('webhookId')
-        self.bot_id = data.get('botId')
-        self.channel = channel
-        self.channel_id = data.get('channelId') or (channel.id if channel else None)
-        self.team_id = data.get('teamId')
-        self.team = extra.get('team') or getattr(channel, 'team', None) or self._state._get_team(self.team_id)
-
-        self.created_at = ISO8601(data.get('createdAt'))
-        self.edited_at = ISO8601(message.get('editedAt'))
-        self.deleted_at = extra.get('deleted_at') or ISO8601(data.get('deletedAt'))
-
-        self.author = extra.get('author')
-        self.author_id = data.get('createdBy') or message.get('createdBy')
-        if self.author is None:
-            if data.get('channelType', '').lower() == 'team' and self.team is not None:
-                self.author = self._state._get_team_member(self.team_id, self.author_id)
-            elif data.get('channelType', '').lower() == 'dm' or self.team is None:
-                self.author = self._state._get_user(self.author_id)
-            elif data.get('createdByInfo'):
-                self.author = self._state.create_user(data=data['createdByInfo'])
-
-        if self.author is not None:
-            self.author.bot = self.created_by_bot
-
-        self.replied_to = []
-        self.replied_to_ids = message.get('repliesToIds', message.get('repliesTo') or [])
-        self.silent = message.get('isSilent', False)
-        self.private = message.get('isPrivate', False)
-        if data.get('repliedToMessages'):
-            for message_data in data['repliedToMessages']:
-                message = self._state.create_message(data=message_data)
-                self.replied_to.append(message)
-        else:
-            for message_id in self.replied_to_ids:
-                message = self._state._get_message(message_id)
-                if not message:
-                    continue
-                self.replied_to.append(message)
-
-        self.mentions = []
-        self.emojis = []
-        self.raw_mentions = []
-        self.channel_mentions = []
-        self.raw_channel_mentions = []
-        self.role_mentions = []
-        self.raw_role_mentions = []
-        self.embeds = []
-        self.attachments = []
-        self.links = []
-        self.content = self._get_full_content(data)
-
-    def __str__(self):
-        return self.content
-
-    def __eq__(self, other):
-        return isinstance(other, ChatMessage) and self.id == other.id
-
-    def __repr__(self):
-        return f'<Message id={self.id!r} author={self.author!r} channel={self.channel!r}>'
-
-    @property
-    def created_by_bot(self):
-        return self.author.bot if self.author else (self.webhook_id is not None or self.bot_id is not None)
-
-    @property
-    def share_url(self):
-        if self.team and self.channel:
-            return f'https://guilded.gg//groups/{self.channel.group_id}/channels/{self.channel.id}/chat?messageId={self.id}'
-        else:
-            return None
-
-    @property
-    def jump_url(self):
-        return self.share_url
-
-    @property
-    def embed(self):
-        return self.embeds[0] if self.embeds else None
-
-    @property
-    def guild(self):
-        # basic compatibility w/ discord bot code, plan on deprecating in the future
-        return self.team
-
+class HasContentMixin:
     def _get_full_content(self, data):
-        """Get the content of this message in an easy to use single string.
-        Attempts to append mentions, embeds, and attachments to the Message as well.
-
-        .. warning::
-
-            Intended for internal use only.
-        """
         try:
-            nodes = data.get('message', data)['content']['document']['nodes']
+            nodes = data['document']['nodes']
         except KeyError:
             # empty message
             return ''
+
         content = ''
         for node in nodes:
             node_type = node['type']
@@ -477,6 +350,128 @@ class ChatMessage:
         # strip ending of newlines in case a paragraph node ended without
         # another paragraph node
         return content
+
+class ChatMessage(HasContentMixin):
+    """A message in Guilded.
+
+    There is an alias for this class called ``Message``.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two messages are equal.
+
+        .. describe:: x != y
+
+            Checks if two messages are not equal.
+
+        .. describe:: str(x)
+
+            Returns the string content of the message.
+
+    Attributes
+    ------------
+    id: :class:`str`
+        The message's ID.
+    channel: Union[:class:`abc.TeamChannel`, :class:`DMChannel`]
+        The channel this message was sent in.
+    team: Optional[:class:`Team`]
+        The team this message was sent in. ``None`` if the message is in a DM.
+    webhook_id: Optional[:class:`str`]
+        The webhook's ID that sent the message, if applicable.
+    bot_id: Optional[:class:`str`]
+        The bot's ID that sent the message, if applicable.
+    """
+    def __init__(self, *, state, channel, data, **extra):
+        self._state = state
+        self._raw = data
+
+        message = data.get('message', data)
+        self.id = data.get('contentId') or message.get('id')
+        self.webhook_id = data.get('webhookId')
+        self.bot_id = data.get('botId')
+        self.channel = channel
+        self.channel_id = data.get('channelId') or (channel.id if channel else None)
+        self.team_id = data.get('teamId')
+        self.team = extra.get('team') or getattr(channel, 'team', None) or self._state._get_team(self.team_id)
+
+        self.created_at = ISO8601(data.get('createdAt'))
+        self.edited_at = ISO8601(message.get('editedAt'))
+        self.deleted_at = extra.get('deleted_at') or ISO8601(data.get('deletedAt'))
+
+        self.author = extra.get('author')
+        self.author_id = data.get('createdBy') or message.get('createdBy')
+        if self.author is None:
+            if data.get('channelType', '').lower() == 'team' and self.team is not None:
+                self.author = self._state._get_team_member(self.team_id, self.author_id)
+            elif data.get('channelType', '').lower() == 'dm' or self.team is None:
+                self.author = self._state._get_user(self.author_id)
+            elif data.get('createdByInfo'):
+                self.author = self._state.create_user(data=data['createdByInfo'])
+
+        if self.author is not None:
+            self.author.bot = self.created_by_bot
+
+        self.replied_to = []
+        self.replied_to_ids = message.get('repliesToIds', message.get('repliesTo') or [])
+        self.silent = message.get('isSilent', False)
+        self.private = message.get('isPrivate', False)
+        if data.get('repliedToMessages'):
+            for message_data in data['repliedToMessages']:
+                message = self._state.create_message(data=message_data)
+                self.replied_to.append(message)
+        else:
+            for message_id in self.replied_to_ids:
+                message = self._state._get_message(message_id)
+                if not message:
+                    continue
+                self.replied_to.append(message)
+
+        self.mentions: list = []
+        self.emojis: list = []
+        self.raw_mentions: list = []
+        self.channel_mentions: list = []
+        self.raw_channel_mentions: list = []
+        self.role_mentions: list = []
+        self.raw_role_mentions: list = []
+        self.embeds: list = []
+        self.attachments: list = []
+        self.links: list = []
+        self.content: str = self._get_full_content(message['content'])
+
+    def __str__(self):
+        return self.content
+
+    def __eq__(self, other):
+        return isinstance(other, ChatMessage) and self.id == other.id
+
+    def __repr__(self):
+        return f'<Message id={self.id!r} author={self.author!r} channel={self.channel!r}>'
+
+    @property
+    def created_by_bot(self):
+        return self.author.bot if self.author else (self.webhook_id is not None or self.bot_id is not None)
+
+    @property
+    def share_url(self):
+        if self.team and self.channel:
+            return f'https://guilded.gg//groups/{self.channel.group_id}/channels/{self.channel.id}/chat?messageId={self.id}'
+        else:
+            return None
+
+    @property
+    def jump_url(self):
+        return self.share_url
+
+    @property
+    def embed(self):
+        return self.embeds[0] if self.embeds else None
+
+    @property
+    def guild(self):
+        # basic compatibility w/ discord bot code, plan on deprecating in the future
+        return self.team
 
     async def delete(self):
         """|coro|
