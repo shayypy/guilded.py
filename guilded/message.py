@@ -339,8 +339,14 @@ class HasContentMixin:
                         self.embeds.append(Embed.from_dict(msg_embed))
 
             elif node_type == 'block-quote-container':
-                text = str(node['nodes'][0]['nodes'][0]['leaves'][0]['text'])
-                content += f'\n> {text}\n'
+                quote_content = []
+                for quote_node in node['nodes'][0]['nodes']:
+                    if quote_node.get('leaves'):
+                        text = str(quote_node['leaves'][0]['text'])
+                        quote_content.append(text)
+
+                if quote_content:
+                    content += '\n> {}\n'.format('\n'.join(quote_content))
 
             elif node_type in ['image', 'video']:
                 attachment = Attachment(state=self._state, data=node)
