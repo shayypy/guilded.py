@@ -416,10 +416,28 @@ class WebSocketEventParsers:
         except:
             return
         channel = team.get_channel(data['channelId'])
-        if channel.type is ChannelType.forum and data.get('thread') is not None:
+        if channel is not None and channel.type is ChannelType.forum and data.get('thread') is not None:
             topic = ForumTopic(data=data['thread'], forum=channel, team=team, state=self._state)
             channel._topics[topic.id] = topic
             self.client.dispatch('forum_topic_create', topic)
+            return
+
+    async def TEAM_CHANNEL_CONTENT_DELETED(self, data):
+        try:
+            team = await self.client.getch_team(data['teamId'])
+        except:
+            return
+        channel = team.get_channel(data['channelId'])
+        if channel is not None and channel.type is ChannelType.forum and data.get('contentId') is not None:
+            self.client.dispatch('raw_forum_topic_delete', channel, int(data['contentId']))
+            topic = channel.get_topic(int(data['contentId']))
+            if topic is not None:
+                try:
+                    topic.deleted_by = await team.getch_member(data.get('deletedBy'))
+                except:
+                    pass
+                self.client.dispatch('forum_topic_delete', topic)
+                channel._topics.pop(topic.id)
             return
 
     async def TEAM_CHANNEL_CONTENT_REPLY_CREATED(self, data):
@@ -428,7 +446,7 @@ class WebSocketEventParsers:
         except:
             return
         channel = team.get_channel(data['channelId'])
-        if channel.type is ChannelType.forum and data.get('reply') is not None:
+        if channel is not None and channel.type is ChannelType.forum and data.get('reply') is not None:
             try:
                 topic = await channel.getch_topic(data['reply']['repliesTo'])
                 channel._topics[topic.id] = topic
@@ -437,6 +455,29 @@ class WebSocketEventParsers:
             reply = ForumReply(data=data['reply'], forum=channel, state=self._state)
             reply.topic._replies[reply.id] = reply
             self.client.dispatch('forum_reply_create', reply)
+            return
+
+    async def TEAM_CHANNEL_CONTENT_REPLY_DELETED(self, data):
+        try:
+            team = await self.client.getch_team(data['teamId'])
+        except:
+            return
+        channel = team.get_channel(data['channelId'])
+        if channel is not None and channel.type is ChannelType.forum and data.get('contentReplyId') is not None:
+            self.client.dispatch('raw_forum_reply_delete', channel, int(data['contentId']), int(data['contentReplyId']))
+            try:
+                topic = await channel.getch_topic(int(data['contentId']))
+                channel._topics[topic.id] = topic
+            except:
+                return
+            reply = topic.get_reply(int(data['contentReplyId']))
+            if reply is not None:
+                try:
+                    reply.deleted_by = await team.getch_member(data.get('deletedBy'))
+                except:
+                    pass
+                self.client.dispatch('forum_reply_delete', reply)
+                reply.topic._replies.pop(reply.id)
             return
 
 class Heartbeater(threading.Thread):

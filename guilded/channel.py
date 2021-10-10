@@ -152,6 +152,9 @@ class ForumTopic(HasContentMixin):
         Whether the topic is locked.
     deleted: :class:`bool`
         Whether the topic is deleted.
+    deleted_by: Optional[:class:`.Member`]
+        Who deleted this topic. This will only be present through
+        :meth:`on_forum_topic_delete`.
     reply_count: :class:`int`
         How many replies the topic has.
     """
@@ -189,6 +192,7 @@ class ForumTopic(HasContentMixin):
         self.locked: bool = data.get('isLocked')
         self.shared: bool = data.get('isShare')
         self.deleted: bool = data.get('isDeleted')
+        self.deleted_by: Optional[Member] = None
         self.reply_count: int = int(data.get('replyCount', 0))
         self._replies = {}
 
@@ -431,6 +435,9 @@ class ForumReply(HasContentMixin):
         When the reply was created.
     edited_at: Optional[:class:`datetime.datetime`]
         When the reply was last edited.
+    deleted_by: Optional[:class:`.Member`]
+        Who deleted this reply. This will only be present through
+        :meth:`on_forum_reply_delete`.
     """
     def __init__(self, *, state, data, forum):
         self._state = state
@@ -454,6 +461,7 @@ class ForumReply(HasContentMixin):
         self.created_by_bot_id: Optional[int] = data.get('createdByBotId')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+        self.deleted_by: Optional[Member] = None
 
         self.replied_to_id: Optional[int] = None
         self.replied_to_author_id: Optional[str] = None
