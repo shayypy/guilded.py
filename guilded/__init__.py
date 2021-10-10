@@ -6,7 +6,7 @@ import logging
 
 from . import abc, utils
 from .asset import Asset
-from .channel import ChannelType, ChatChannel, DMChannel, Thread, VoiceChannel
+from .channel import *
 from .client import Client
 from .colour import Color, Colour
 from .embed import Embed, EmbedProxy, EmptyEmbed
