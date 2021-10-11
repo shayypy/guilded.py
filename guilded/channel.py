@@ -159,6 +159,10 @@ class Doc(HasContentMixin):
         self.links: list = []
         self.content: str = self._get_full_content(data['content'])
 
+    @property
+    def replies(self):
+        return list(self._replies.values())
+
     async def add_reaction(self, emoji):
         await self._state.add_doc_reaction(self.id, emoji.id)
 
@@ -167,6 +171,56 @@ class Doc(HasContentMixin):
 
     async def delete(self):
         await self._state.delete_doc(self.channel.id, self.id)
+
+    async def reply(self, *content, **kwargs):
+        data = await self._state.create_doc_reply(self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+        reply = DocReply(data=data['reply'], doc=self, state=self._state)
+        return reply
+
+    def get_reply(self, id: int):
+        return self._replies.get(id)
+
+    async def fetch_reply(self, id: int):
+        data = await self._state.get_doc_reply(self.id, id)
+        reply = DocReply(data=data['reply'], doc=self, state=self._state)
+        return reply
+
+class DocReply(HasContentMixin):
+    """Represents a reply to a :class:`Doc`."""
+    def __init__(self, *, state, data, doc):
+        self._state = state
+        self.doc = doc
+        self.channel = doc.channel
+        self.team = doc.team
+
+        self.author_id: str = data.get('createdBy')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+
+        self.id: int = int(data['id'])
+        self.mentions: list = []
+        self.emojis: list = []
+        self.raw_mentions: list = []
+        self.channel_mentions: list = []
+        self.raw_channel_mentions: list = []
+        self.role_mentions: list = []
+        self.raw_role_mentions: list = []
+        self.embeds: list = []
+        self.attachments: list = []
+        self.links: list = []
+        self.content: str = self._get_full_content(data['message'])
+
+    def __repr__(self):
+        return f'<DocReply id={self.id!r} author_id={self.author_id!r} doc={self.doc!r}>'
+
+    async def add_reaction(self, emoji):
+        await self._state.add_doc_reply_reaction(self.id, emoji.id)
+
+    async def remove_self_reaction(self, emoji):
+        await self._state.remove_self_doc_reply_reaction(self.id, emoji.id)
+
+    async def delete(self):
+        await self._state.delete_doc_reply(self.team.id, self.doc.id, self.id)
 
 class DocsChannel(guilded.abc.TeamChannel):
     """Represents a docs channel in a team."""
@@ -178,6 +232,9 @@ class DocsChannel(guilded.abc.TeamChannel):
     @property
     def docs(self):
         return list(self._docs.values())
+
+    def get_doc(self, id: int):
+        return self._docs.get(id)
 
     async def create_doc(self, *content, **kwargs):
         title = kwargs.pop('title')

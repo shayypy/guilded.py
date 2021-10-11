@@ -186,6 +186,18 @@ class HTTPClient:
 
         return compatible
 
+    def insert_reply_header(self, message, reply_to):
+        message['document']['nodes'].insert(0, {
+            'object': 'block',
+            'type': 'replying-to-user-header',
+            'data': {
+                'createdBy': reply_to.author_id,
+                'postId': reply_to.id,
+                'type': 'reply'
+            },
+            'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': '', 'marks': []}]}]
+        })
+
     def _get_user(self, id):
         return self._users.get(id)
 
@@ -636,16 +648,8 @@ class HTTPClient:
             'message': self.compatible_content(content)
         }
         if reply_to is not None:
-            payload['message']['document']['nodes'].insert(0, {
-                'object': 'block',
-                'type': 'replying-to-user-header',
-                'data': {
-                    'createdBy': reply_to.author_id,
-                    'postId': reply_to.id,
-                    'type': 'reply'
-                },
-                'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': '', 'marks': []}]}]
-            })
+            self.insert_reply_header(payload['message'], reply_to)
+
         return self.request(route, json=payload)
 
     def delete_forum_topic_reply(self, channel_id: str, topic_id: int, reply_id: int):
@@ -987,6 +991,28 @@ class HTTPClient:
     #    #    if option.type is None:pass
 
     #    return self.request(Route('PUT', f'/content/custom_forms/{form_id}/responses'), json=payload)
+
+    def get_doc_replies(self, doc_id: int):
+        return self.request(Route('GET', f'/content/doc/{doc_id}/replies'))
+
+    def get_doc_reply(self, doc_id: int, reply_id: int):
+        return self.request(Route('GET', f'/content/doc/{doc_id}/replies/{reply_id}'))
+
+    def create_doc_reply(self, team_id: str, doc_id: int, *, content, reply_to=None):
+        payload = {
+            'message': self.compatible_content(content),
+            'teamId': team_id
+        }
+        if reply_to is not None:
+            self.insert_reply_header(payload['message'], reply_to)
+
+        return self.request(Route('POST', f'/content/doc/{doc_id}/replies'), json=payload)
+
+    def delete_doc_reply(self, team_id: str, doc_id: int, reply_id: int):
+        payload = {
+            'teamId': team_id
+        }
+        return self.request(Route('DELETE', f'/content/doc/{doc_id}/replies/{reply_id}'), json=payload)
 
     # media.guilded.gg
 
