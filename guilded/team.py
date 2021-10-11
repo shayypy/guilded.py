@@ -349,7 +349,7 @@ class Team:
         Returns
         --------
         :class:`ChatChannel`
-            The created channel
+            The created channel.
         """
         group = group or self.base_group
         data = await self._state.create_team_channel(
@@ -367,7 +367,7 @@ class Team:
     async def create_forum_channel(self, *, name: str, category=None, public=False, group=None) -> ForumChannel:
         """|coro|
 
-        Create a new chat (text) channel in the team.
+        Create a new forum channel in the team.
 
         Parameters
         -----------
@@ -384,8 +384,8 @@ class Team:
 
         Returns
         --------
-        :class:`ChatChannel`
-            The created channel
+        :class:`ForumChannel`
+            The created channel.
         """
         group = group or self.base_group
         data = await self._state.create_team_channel(
