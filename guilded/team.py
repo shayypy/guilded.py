@@ -56,7 +56,7 @@ from typing import Optional, List
 from .abc import TeamChannel, User
 
 from .asset import Asset
-from .channel import ChannelType, ChatChannel, ForumChannel, Thread
+from .channel import ChannelType, ChatChannel, DocsChannel, ForumChannel, Thread
 from .errors import NotFound, InvalidArgument
 from .emoji import Emoji
 from .gateway import GuildedWebSocket
@@ -390,6 +390,42 @@ class Team:
         group = group or self.base_group
         data = await self._state.create_team_channel(
             content_type=ChannelType.forum.value,
+            name=name,
+            public=public,
+            team_id=self.id,
+            group_id=group.id,
+            category_id=category.id if category is not None else None,
+        )
+        channel = self._state.create_channel(data=data['channel'], group=group, team=self)
+        self._state.add_to_team_channel_cache(channel)
+        return channel
+
+    async def create_docs_channel(self, *, name: str, category=None, public=False, group=None) -> DocsChannel:
+        """|coro|
+
+        Create a new docs channel in the team.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The channel's name. Can include spaces.
+        category: :class:`TeamCategory`
+            The :class:`TeamCategory` to create this channel under. If not
+            provided, it will be shown under the "Channels" header in the
+            client (no category).
+        public: :class:`bool`
+            Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+        group: :class:`Group`
+            The :class:`Group` to create this channel in. If not provided, defaults to the base group.
+
+        Returns
+        --------
+        :class:`DocsChannel`
+            The created channel.
+        """
+        group = group or self.base_group
+        data = await self._state.create_team_channel(
+            content_type=ChannelType.docs.value,
             name=name,
             public=public,
             team_id=self.id,

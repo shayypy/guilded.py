@@ -440,17 +440,19 @@ class User(metaclass=abc.ABCMeta):
 
         return await super().send(*content, **kwargs)
 
-class TeamChannel:
+class TeamChannel(metaclass=abc.ABCMeta):
     """An ABC for the various types of team channels.
 
     The following implement this ABC:
 
         * :class:`.ChatChannel`
+        * :class:`.DocsChannel`
+        * :class:`.ForumChannel`
         * :class:`.VoiceChannel`
         * :class:`.Thread`
     """
     def __init__(self, *, state, group, data, **extra):
-        super().__init__(state=state, data=data)
+        self._state = state
         data = data.get('data') or data.get('channel') or data
         self.group = group
         self.group_id = data.get('groupId') or getattr(self.group, 'id', None)
@@ -458,6 +460,7 @@ class TeamChannel:
         self._team = extra.get('team') or getattr(group, 'team', None)
         self.team_id = data.get('teamId') or self._team.id
 
+        self.id = data.get('id')
         self.name = data.get('name')
         self.position = data.get('priority')
         self.description = data.get('description')

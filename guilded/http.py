@@ -655,6 +655,33 @@ class HTTPClient:
     def get_forum_topic_reply(self, channel_id: str, topic_id: int, reply_id: int):
         return self.get_metadata(f'//channels/{channel_id}/forums/{topic_id}?replyId={reply_id}')
 
+    def create_doc(self, channel_id: str, *, title, content, game_id, draft):
+        payload = {
+            # The client passes an ID here but it is optional
+            'gameId': game_id,
+            'isDraft': draft,
+            'title': title,
+            'content': self.compatible_content(content)
+        }
+        return self.request(Route('POST', f'/channels/{channel_id}/docs'), json=payload)
+
+    def delete_doc(self, channel_id: str, doc_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}'))
+
+    # /reactions
+
+    def add_doc_reaction(self, doc_id: int, emoji_id: int):
+        payload = {
+            'customReactionId': emoji_id
+        }
+        return self.request(Route('PUT', f'/reactions/doc/{doc_id}/undefined'), json=payload)
+
+    def remove_self_doc_reaction(self, doc_id: int, emoji_id: int):
+        payload = {
+            'customReactionId': emoji_id
+        }
+        return self.request(Route('DELETE', f'/reactions/doc/{doc_id}/undefined'), json=payload)
+
     # /teams
 
     def join_team(self, team_id):
@@ -1024,6 +1051,8 @@ class HTTPClient:
                     return channel.ChatChannel(state=self, **data)
             elif ctype is channel.ChannelType.forum:
                 return channel.ForumChannel(state=self, **data)
+            elif ctype is channel.ChannelType.docs:
+                return channel.DocsChannel(state=self, **data)
             elif ctype is channel.ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
         else:

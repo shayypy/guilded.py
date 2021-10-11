@@ -81,6 +81,7 @@ class ChannelType(Enum):
     voice = 'voice'
     forum = 'forum'
     docs = 'doc'
+    doc = docs
     announcements = 'announcements'
     news = announcements
     thread = 'temporal'
@@ -123,6 +124,75 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
         data = await self._state.create_thread(self.id, content, name=name, initial_message=message)
         thread = Thread(data=data.get('thread', data), state=self._state, group=self.group, team=self.team)
         return thread
+
+class Doc(HasContentMixin):
+    """Represents a doc in a :class:`DocsChannel`."""
+    def __init__(self, *, state, data, channel, game=None):
+        self._state = state
+        self.channel = channel
+        self.team = channel.team
+        self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
+        self.tags: str = data.get('tags')
+        self._replies = {}
+
+        self.public: bool = data.get('isPublic', False)
+        self.credentialed: bool = data.get('isCredentialed', False)
+        self.draft: bool = data.get('isDraft', False)
+
+        self.author_id: str = data.get('createdBy')
+        self.edited_by_id: Optional[str] = data.get('modifiedBy')
+
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('modifiedAt'))
+
+        self.id: int = int(data['id'])
+        self.title: str = data['title']
+        self.mentions: list = []
+        self.emojis: list = []
+        self.raw_mentions: list = []
+        self.channel_mentions: list = []
+        self.raw_channel_mentions: list = []
+        self.role_mentions: list = []
+        self.raw_role_mentions: list = []
+        self.embeds: list = []
+        self.attachments: list = []
+        self.links: list = []
+        self.content: str = self._get_full_content(data['content'])
+
+    async def add_reaction(self, emoji):
+        await self._state.add_doc_reaction(self.id, emoji.id)
+
+    async def remove_self_reaction(self, emoji):
+        await self._state.remove_self_doc_reaction(self.id, emoji.id)
+
+    async def delete(self):
+        await self._state.delete_doc(self.channel.id, self.id)
+
+class DocsChannel(guilded.abc.TeamChannel):
+    """Represents a docs channel in a team."""
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.docs
+        self._docs = {}
+
+    @property
+    def docs(self):
+        return list(self._docs.values())
+
+    async def create_doc(self, *content, **kwargs):
+        title = kwargs.pop('title')
+        game = kwargs.pop('game', None)
+        draft = kwargs.pop('draft', False)
+
+        data = await self._state.create_doc(
+            self.id,
+            title=title,
+            content=content,
+            game_id=(game.id if game else None),
+            draft=draft
+        )
+        doc = Doc(data=data, channel=self, game=game, state=self._state)
+        return doc
 
 class ForumTopic(HasContentMixin):
     """Represents a forum topic.
@@ -331,7 +401,7 @@ class ForumTopic(HasContentMixin):
         """
         await self._state.unsticky_forum_topic(self.forum_id, self.id)
 
-class ForumChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
+class ForumChannel(guilded.abc.TeamChannel):
     """Represents a forum channel in a team."""
     def __init__(self, **fields):
         super().__init__(**fields)
