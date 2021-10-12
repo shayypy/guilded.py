@@ -116,7 +116,7 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
         name: :class:`str`
             The name to create the thread with.
         message: Optional[:class:`ChatMessage`]
-            The message to create this thread from. Passing either this or
+            The message to create the thread from. Passing either this or
             values for ``content`` is required.
         """
         name = kwargs.get('name')
@@ -161,15 +161,15 @@ class Doc(HasContentMixin):
     team: :class:`.Team`
         The team that the doc is in.
     public: :class:`bool`
-        Whether this doc is public.
+        Whether the doc is public.
     draft: :class:`bool`
-        Whether this doc is a draft.
+        Whether the doc is a draft.
     created_at: :class:`datetime.datetime`
         When the doc was created.
     edited_at: Optional[:class:`datetime.datetime`]
         When the doc was last modified.
     game: Optional[:class:`.Game`]
-        The game associated with this doc.
+        The game associated with the doc.
     """
     def __init__(self, *, state, data, channel, game=None):
         super().__init__()
@@ -442,9 +442,9 @@ class DocsChannel(guilded.abc.TeamChannel):
         title: :class:`str`
             The doc's title.
         game: Optional[:class:`.Game`]
-            The game associated with this doc.
+            The game associated with the doc.
         draft: Optional[:class:`bool`]
-            Whether this doc should be a draft.
+            Whether the doc should be a draft.
 
         Returns
         --------
