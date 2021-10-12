@@ -128,6 +128,7 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
 class Doc(HasContentMixin):
     """Represents a doc in a :class:`DocsChannel`."""
     def __init__(self, *, state, data, channel, game=None):
+        super().__init__()
         self._state = state
         self.channel = channel
         self.team = channel.team
@@ -147,16 +148,6 @@ class Doc(HasContentMixin):
 
         self.id: int = int(data['id'])
         self.title: str = data['title']
-        self.mentions: list = []
-        self.emojis: list = []
-        self.raw_mentions: list = []
-        self.channel_mentions: list = []
-        self.raw_channel_mentions: list = []
-        self.role_mentions: list = []
-        self.raw_role_mentions: list = []
-        self.embeds: list = []
-        self.attachments: list = []
-        self.links: list = []
         self.content: str = self._get_full_content(data['content'])
 
     @property
@@ -188,6 +179,7 @@ class Doc(HasContentMixin):
 class DocReply(HasContentMixin):
     """Represents a reply to a :class:`Doc`."""
     def __init__(self, *, state, data, doc):
+        super().__init__()
         self._state = state
         self.doc = doc
         self.channel = doc.channel
@@ -198,16 +190,6 @@ class DocReply(HasContentMixin):
         self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
 
         self.id: int = int(data['id'])
-        self.mentions: list = []
-        self.emojis: list = []
-        self.raw_mentions: list = []
-        self.channel_mentions: list = []
-        self.raw_channel_mentions: list = []
-        self.role_mentions: list = []
-        self.raw_role_mentions: list = []
-        self.embeds: list = []
-        self.attachments: list = []
-        self.links: list = []
         self.content: str = self._get_full_content(data['message'])
 
     def __repr__(self):
@@ -286,6 +268,7 @@ class ForumTopic(HasContentMixin):
         How many replies the topic has.
     """
     def __init__(self, *, state, data, forum, group=None, team=None):
+        super().__init__()
         self._state = state
         self.forum = forum
         self.forum_id = data.get('channelId')
@@ -296,16 +279,6 @@ class ForumTopic(HasContentMixin):
         self.id: int = data['id']
 
         self.title: str = data['title']
-        self.mentions: list = []
-        self.emojis: list = []
-        self.raw_mentions: list = []
-        self.channel_mentions: list = []
-        self.raw_channel_mentions: list = []
-        self.role_mentions: list = []
-        self.raw_role_mentions: list = []
-        self.embeds: list = []
-        self.attachments: list = []
-        self.links: list = []
         self.content: str = self._get_full_content(data['message'])
 
         self.author_id: str = data.get('createdBy')
@@ -567,21 +540,11 @@ class ForumReply(HasContentMixin):
         :meth:`on_forum_reply_delete`.
     """
     def __init__(self, *, state, data, forum):
+        super().__init__()
         self._state = state
         self.forum = forum
         self.topic_id = data.get('repliesTo')
-        self.id: int = data['id']
-
-        self.mentions: list = []
-        self.emojis: list = []
-        self.raw_mentions: list = []
-        self.channel_mentions: list = []
-        self.raw_channel_mentions: list = []
-        self.role_mentions: list = []
-        self.raw_role_mentions: list = []
-        self.embeds: list = []
-        self.attachments: list = []
-        self.links: list = []
+        self.id: int = int(data['id'])
         self.content: str = self._get_full_content(data['message'])
 
         self.author_id: str = data.get('createdBy')

@@ -205,6 +205,18 @@ class Link:
         return self.url
 
 class HasContentMixin:
+    def __init__(self):
+        self.mentions: list = []
+        self.emojis: list = []
+        self.raw_mentions: list = []
+        self.channel_mentions: list = []
+        self.raw_channel_mentions: list = []
+        self.role_mentions: list = []
+        self.raw_role_mentions: list = []
+        self.embeds: list = []
+        self.attachments: list = []
+        self.links: list = []
+
     def _get_full_content(self, data):
         try:
             nodes = data['document']['nodes']
@@ -390,6 +402,7 @@ class ChatMessage(HasContentMixin):
         The bot's ID that sent the message, if applicable.
     """
     def __init__(self, *, state, channel, data, **extra):
+        super().__init__()
         self._state = state
         self._raw = data
 
@@ -434,16 +447,6 @@ class ChatMessage(HasContentMixin):
                     continue
                 self.replied_to.append(message)
 
-        self.mentions: list = []
-        self.emojis: list = []
-        self.raw_mentions: list = []
-        self.channel_mentions: list = []
-        self.raw_channel_mentions: list = []
-        self.role_mentions: list = []
-        self.raw_role_mentions: list = []
-        self.embeds: list = []
-        self.attachments: list = []
-        self.links: list = []
         self.content: str = self._get_full_content(message['content'])
 
     def __str__(self):
