@@ -132,7 +132,45 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
 
 
 class Doc(HasContentMixin):
-    """Represents a doc in a :class:`DocsChannel`."""
+    """Represents a doc in a :class:`DocsChannel`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two docs are equal.
+
+        .. describe:: x != y
+
+            Checks if two docs are not equal.
+
+        .. describe:: str(x)
+
+            Returns the title of the doc.
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The doc's ID.
+    title: :class:`str`
+        The doc's title.
+    content: :class:`str`
+        The doc's text content.
+    channel: :class:`.DocsChannel`
+        The channel that the doc is in.
+    team: :class:`.Team`
+        The team that the doc is in.
+    public: :class:`bool`
+        Whether this doc is public.
+    draft: :class:`bool`
+        Whether this doc is a draft.
+    created_at: :class:`datetime.datetime`
+        When the doc was created.
+    edited_at: Optional[:class:`datetime.datetime`]
+        When the doc was last modified.
+    game: Optional[:class:`.Game`]
+        The game associated with this doc.
+    """
     def __init__(self, *, state, data, channel, game=None):
         super().__init__()
         self._state = state
@@ -158,6 +196,12 @@ class Doc(HasContentMixin):
 
     def __repr__(self):
         return f'<Doc id={self.id!r} title={self.title!r} author={self.author!r} channel={self.channel!r}>'
+
+    def __eq__(self, other):
+        return isinstance(other, Doc) and other.id == self.id
+
+    def __str__(self):
+        return self.title
 
     @property
     def replies(self):
@@ -266,7 +310,39 @@ class Doc(HasContentMixin):
 
 
 class DocReply(HasContentMixin):
-    """Represents a reply to a :class:`Doc`."""
+    """Represents a reply to a :class:`Doc`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two replies are equal.
+
+        .. describe:: x != y
+
+            Checks if two replies are not equal.
+
+        .. describe:: str(x)
+
+            Returns the string content of the reply.
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The reply's ID.
+    content: :class:`str`
+        The reply's text content.
+    doc: :class:`.Doc`
+        The doc that the reply is to.
+    channel: :class:`.DocsChannel`
+        The channel that the reply's :attr:`.doc` is in.
+    team: :class:`.Team`
+        The team that the reply's :attr:`.doc` is in.
+    created_at: :class:`datetime.datetime`
+        When the reply was created.
+    edited_at: Optional[:class:`datetime.datetime`]
+        When the reply was last edited.
+    """
     def __init__(self, *, state, data, doc):
         super().__init__()
         self._state = state
@@ -283,6 +359,12 @@ class DocReply(HasContentMixin):
 
     def __repr__(self):
         return f'<DocReply id={self.id!r} author={self.author!r} doc={self.doc!r}>'
+
+    def __eq__(self, other):
+        return isinstance(other, DocReply) and other.id == self.id
+
+    def __str__(self):
+        return self.content
 
     @property
     def author(self) -> Optional[Member]:
@@ -341,12 +423,34 @@ class DocsChannel(guilded.abc.TeamChannel):
 
     @property
     def docs(self):
+        """List[:class:`.Doc`]: The list of cached docs in this channel."""
         return list(self._docs.values())
 
     def get_doc(self, id: int):
+        """Optional[:class:`.Doc`]: Get a cached doc in this channel."""
         return self._docs.get(id)
 
     async def create_doc(self, *content, **kwargs):
+        """|coro|
+
+        Create a new doc in this channel.
+
+        Parameters
+        -----------
+        content: Any
+            The content to create the doc with.
+        title: :class:`str`
+            The doc's title.
+        game: Optional[:class:`.Game`]
+            The game associated with this doc.
+        draft: Optional[:class:`bool`]
+            Whether this doc should be a draft.
+
+        Returns
+        --------
+        :class:`.Doc`
+            The created doc.
+        """
         title = kwargs.pop('title')
         game = kwargs.pop('game', None)
         draft = kwargs.pop('draft', False)
