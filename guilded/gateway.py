@@ -419,15 +419,23 @@ class WebSocketEventParsers:
         if channel is None:
             return
 
+        moved = data.get('contentMoved', False)
+
         if channel.type is ChannelType.forum and data.get('thread') is not None:
             topic = ForumTopic(data=data['thread'], forum=channel, team=team, state=self._state)
             channel._topics[topic.id] = topic
-            self.client.dispatch('forum_topic_create', topic)
+            if moved:
+                self.client.dispatch('forum_topic_move', topic)
+            else:
+                self.client.dispatch('forum_topic_create', topic)
             return
         elif channel.type is ChannelType.docs and data.get('doc') is not None:
             doc = Doc(data=data['doc'], channel=channel, state=self._state)
             channel._docs[doc.id] = doc
-            self.client.dispatch('doc_create', doc)
+            if moved:
+                self.client.dispatch('doc_move', doc)
+            else:
+                self.client.dispatch('doc_create', doc)
             return
 
     async def TEAM_CHANNEL_CONTENT_DELETED(self, data):

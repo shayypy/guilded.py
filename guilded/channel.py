@@ -67,13 +67,17 @@ from .status import Game
 __all__ = (
     'ChannelType',
     'ChatChannel',
-    'ForumChannel',
-    'ForumTopic',
-    'ForumReply',
-    'VoiceChannel',
     'DMChannel',
-    'Thread'
+    'Doc',
+    'DocsChannel',
+    'DocReply',
+    'ForumChannel',
+    'ForumReply',
+    'ForumTopic',
+    'Thread',
+    'VoiceChannel'
 )
+
 
 class ChannelType(Enum):
     chat = 'chat'
@@ -90,6 +94,7 @@ class ChannelType(Enum):
     @classmethod
     def from_str(self, string):
         return getattr(self, string, None)
+
 
 class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
     """Represents a chat channel in a team."""
@@ -124,6 +129,7 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
         data = await self._state.create_thread(self.id, content, name=name, initial_message=message)
         thread = Thread(data=data.get('thread', data), state=self._state, group=self.group, team=self.team)
         return thread
+
 
 class Doc(HasContentMixin):
     """Represents a doc in a :class:`DocsChannel`."""
@@ -246,6 +252,19 @@ class Doc(HasContentMixin):
         reply = DocReply(data=data['reply'], doc=self, state=self._state)
         return reply
 
+    async def move(self, id: int):
+        """|coro|
+
+        Move this doc to another :class:`.DocsChannel`.
+
+        Parameters
+        -----------
+        to: :class:`.DocsChannel`
+            The docs channel to move this topic to.
+        """
+        await self._state.move_doc(self.channel.id, self.id, to.id)
+
+
 class DocReply(HasContentMixin):
     """Represents a reply to a :class:`Doc`."""
     def __init__(self, *, state, data, doc):
@@ -312,6 +331,7 @@ class DocReply(HasContentMixin):
         """
         return await self.doc.reply(*content, **kwargs)
 
+
 class DocsChannel(guilded.abc.TeamChannel):
     """Represents a docs channel in a team."""
     def __init__(self, **fields):
@@ -340,6 +360,7 @@ class DocsChannel(guilded.abc.TeamChannel):
         )
         doc = Doc(data=data, channel=self, game=game, state=self._state)
         return doc
+
 
 class ForumTopic(HasContentMixin):
     """Represents a forum topic.
@@ -537,6 +558,7 @@ class ForumTopic(HasContentMixin):
         """
         await self._state.unsticky_forum_topic(self.forum_id, self.id)
 
+
 class ForumChannel(guilded.abc.TeamChannel):
     """Represents a forum channel in a team."""
     def __init__(self, **fields):
@@ -623,6 +645,7 @@ class ForumChannel(guilded.abc.TeamChannel):
             topic = ForumTopic(data=topic_data, state=self._state, group=self.group, team=self.team, forum=self)
 
         return topics
+
 
 class ForumReply(HasContentMixin):
     """Represents a forum reply.
@@ -715,6 +738,7 @@ class ForumReply(HasContentMixin):
         data = await self._state.create_forum_topic_reply(self.forum.id, self.topic_id, content=content, reply_to=self)
         return data['replyId']
 
+
 class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
     """Represents a voice channel in a team."""
     def __init__(self, **fields):
@@ -756,6 +780,7 @@ class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
     #        transport_id=lobby_connection_data['sendTransportOptions']['id'],
     #        dtls_parameters=dtls_parameters
     #    )
+
 
 class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
     """Represents a thread in a team."""
@@ -830,6 +855,7 @@ class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
         data = await self._state.get_message(self.id, self.initial_message_id)
         message = self._state.create_message(data)
         return message
+
 
 class DMChannel(guilded.abc.Messageable):
     def __init__(self, *, state, data):

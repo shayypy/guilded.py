@@ -614,27 +614,27 @@ class HTTPClient:
     def move_forum_topic(self, channel_id: str, topic_id: int, to_channel_id: str):
         route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/move')
         payload = {'moveToChannelId': to_channel_id}
-        return self.request(route)
+        return self.request(route, json=payload)
 
     def sticky_forum_topic(self, channel_id: str, topic_id: int):
         route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/sticky')
         payload = {'isSticky': True}
-        return self.request(route)
+        return self.request(route, json=payload)
 
     def unsticky_forum_topic(self, channel_id: str, topic_id: int):
         route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/sticky')
         payload = {'isSticky': False}
-        return self.request(route)
+        return self.request(route, json=payload)
 
     def lock_forum_topic(self, channel_id: str, topic_id: int):
         route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/lock')
         payload = {'isLocked': True}
-        return self.request(route)
+        return self.request(route, json=payload)
 
     def unlock_forum_topic(self, channel_id: str, topic_id: int):
         route = Route('PUT', f'/channels/{channel_id}/forums/{topic_id}/lock')
         payload = {'isLocked': False}
-        return self.request(route)
+        return self.request(route, json=payload)
 
     def get_forum_topic_replies(self, channel_id: str, topic_id: int, *, limit: int):
         route = Route('GET', f'/channels/{channel_id}/forums/{topic_id}/replies')
@@ -671,6 +671,11 @@ class HTTPClient:
 
     def delete_doc(self, channel_id: str, doc_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}'))
+
+    def move_doc(self, channel_id: str, doc_id: int, to_channel_id: str):
+        route = Route('PUT', f'/channels/{channel_id}/docs/{doc_id}/move')
+        payload = {'moveToChannelId': to_channel_id}
+        return self.request(route, json=payload)
 
     # /reactions
 
