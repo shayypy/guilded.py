@@ -150,28 +150,98 @@ class Doc(HasContentMixin):
         self.title: str = data['title']
         self.content: str = self._get_full_content(data['content'])
 
+    def __repr__(self):
+        return f'<Doc id={self.id!r} title={self.title!r} author={self.author!r} channel={self.channel!r}>'
+
     @property
     def replies(self):
+        """List[:class:`.DocReply`]: The list of cached replies to this doc."""
         return list(self._replies.values())
 
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the
+        doc, if they are cached.
+        """
+        return self.team.get_member(self.author_id)
+
+    @property
+    def edited_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that last edited the
+        doc, if they are cached.
+        """
+        return self.team.get_member(self.author_id)
+
     async def add_reaction(self, emoji):
+        """|coro|
+
+        Add a reaction to this doc.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to add.
+        """
         await self._state.add_doc_reaction(self.id, emoji.id)
 
     async def remove_self_reaction(self, emoji):
+        """|coro|
+
+        Remove your reaction from this doc.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to remove.
+        """
         await self._state.remove_self_doc_reaction(self.id, emoji.id)
 
     async def delete(self):
+        """|coro|
+
+        Delete this doc.
+        """
         await self._state.delete_doc(self.channel.id, self.id)
 
     async def reply(self, *content, **kwargs):
+        """|coro|
+
+        Reply to this doc.
+
+        Parameters
+        ------------
+        content: Any
+            The content to create the reply with.
+        reply_to: Optional[:class:`.DocReply`]
+            An existing reply to reply to.
+
+        Returns
+        --------
+        :class:`.DocReply`
+            The created reply.
+        """
         data = await self._state.create_doc_reply(self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
         reply = DocReply(data=data['reply'], doc=self, state=self._state)
         return reply
 
     def get_reply(self, id: int):
+        """Optional[:class:`.DocReply`]: Get a cached reply to this doc."""
         return self._replies.get(id)
 
     async def fetch_reply(self, id: int):
+        """|coro|
+
+        Fetch a reply to this doc.
+
+        Parameters
+        -----------
+        id: :class:`int`
+            The ID of the reply.
+
+        Returns
+        --------
+        :class:`.DocReply`
+        """
         data = await self._state.get_doc_reply(self.id, id)
         reply = DocReply(data=data['reply'], doc=self, state=self._state)
         return reply
@@ -193,16 +263,54 @@ class DocReply(HasContentMixin):
         self.content: str = self._get_full_content(data['message'])
 
     def __repr__(self):
-        return f'<DocReply id={self.id!r} author_id={self.author_id!r} doc={self.doc!r}>'
+        return f'<DocReply id={self.id!r} author={self.author!r} doc={self.doc!r}>'
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the
+        reply, if they are cached.
+        """
+        return self.team.get_member(self.author_id)
 
     async def add_reaction(self, emoji):
+        """|coro|
+
+        Add a reaction to this reply.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to add.
+        """
         await self._state.add_doc_reply_reaction(self.id, emoji.id)
 
     async def remove_self_reaction(self, emoji):
+        """|coro|
+
+        Remove your reaction from this reply.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to remove.
+        """
         await self._state.remove_self_doc_reply_reaction(self.id, emoji.id)
 
     async def delete(self):
+        """|coro|
+
+        Delete this reply.
+        """
         await self._state.delete_doc_reply(self.team.id, self.doc.id, self.id)
+
+    async def reply(self, *content, **kwargs):
+        """|coro|
+
+        Reply to this reply.
+
+        This method is identical to :meth:`.Doc.reply`.
+        """
+        return await self.doc.reply(*content, **kwargs)
 
 class DocsChannel(guilded.abc.TeamChannel):
     """Represents a docs channel in a team."""
@@ -313,13 +421,11 @@ class ForumTopic(HasContentMixin):
         return Game(game_id=self.game_id)
 
     @property
-    def author(self) -> Optional[Union[Member, User]]:
-        """Optional[Union[:class:`.Member`, :class:`.User`]]:
-        The :class:`.Member` that created the topic. If the member is no
-        longer in the server (and they are cached), this will be a
-        :class:`.User`.
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the
+        topic, if they are cached.
         """
-        return self.team.get_member(self.author_id) or self._state.get_user(self.author_id)
+        return self.team.get_member(self.author_id)
 
     @property
     def replies(self):
