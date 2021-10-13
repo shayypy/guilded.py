@@ -35,3 +35,13 @@ Guilded.py has a support channel under its dedicated group for any questions you
 2. Navigate to #library-list
 3. Click on the guilded.py role and click "Add me to role"
 4. You should see a new group pop up in your sidebar - you are now in the Guilded.py group
+
+
+## Development
+
+To develop for guilded.py, follow these steps:
+```bash
+python -m venv venv
+source venv/bin/activate
+make develop
+```
