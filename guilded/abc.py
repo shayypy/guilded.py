@@ -493,17 +493,27 @@ class TeamChannel(metaclass=abc.ABCMeta):
             self.parent = None
 
     @property
-    def topic(self):
+    def topic(self) -> str:
         return self.description
 
     @property
-    def vanity_url(self):
+    def vanity_url(self) -> str:
         if self.slug and self.team.vanity_url:
             return f'{self.team.vanity_url}/blog/{self.slug}'
         return None
 
     @property
-    def mention(self):
+    def share_url(self) -> str:
+        type_ = 'chat'
+        if hasattr(self, 'type'):
+            # any type will work for all types of share URLs, but we try
+            # to return the 'proper' value here just to be fancy
+            type_ = self.type.value
+
+        return f'https://guilded.gg//groups/{self.group_id}/channels/{self.id}/{type_}'
+
+    @property
+    def mention(self) -> str:
         return f'<#{self.id}>'
 
     @property

@@ -459,18 +459,17 @@ class ChatMessage(HasContentMixin):
         return f'<Message id={self.id!r} author={self.author!r} channel={self.channel!r}>'
 
     @property
-    def created_by_bot(self):
+    def created_by_bot(self) -> bool:
         return self.author.bot if self.author else (self.webhook_id is not None or self.bot_id is not None)
 
     @property
-    def share_url(self):
-        if self.team and self.channel:
-            return f'https://guilded.gg//groups/{self.channel.group_id}/channels/{self.channel.id}/chat?messageId={self.id}'
-        else:
-            return None
+    def share_url(self) -> str:
+        if self.channel:
+            return f'{self.channel.share_url}?messageId={self.id}'
+        return None
 
     @property
-    def jump_url(self):
+    def jump_url(self) -> str:
         return self.share_url
 
     @property
