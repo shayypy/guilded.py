@@ -449,6 +449,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
         * :class:`.DocsChannel`
         * :class:`.ForumChannel`
         * :class:`.VoiceChannel`
+        * :class:`.AnnouncementChannel`
         * :class:`.Thread`
     """
     def __init__(self, *, state, group, data, **extra):

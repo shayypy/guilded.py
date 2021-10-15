@@ -8,3 +8,4 @@ testing/
 .vscode/
 *.pyc
 *.log
+venv/

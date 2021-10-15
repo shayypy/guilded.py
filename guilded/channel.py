@@ -86,8 +86,9 @@ class ChannelType(Enum):
     forum = 'forum'
     docs = 'doc'
     doc = docs
-    announcements = 'announcements'
-    news = announcements
+    announcements = 'announcement'
+    announcement = announcements
+    news = announcement
     thread = 'temporal'
     dm = 'DM'
 
@@ -1008,3 +1009,88 @@ class DMChannel(guilded.abc.Messageable):
         channel is associated with.
         """
         await self._state.hide_dm_channel(self.id)
+
+
+
+class Announcement(HasContentMixin):
+    """Represents an announcement
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The announcement's ID.
+    title: :class:`str`
+        The announcement's title.
+    content: :class:`str`
+        The announcement's text content.
+    channel: :class:`.DocsChannel`
+        The channel that the announcement is in.
+    team: :class:`.Team`
+        The team that the announcement is in.
+    public: :class:`bool`
+        Whether the announcement is public.
+    draft: :class:`bool`
+        Whether the announcement is a draft.
+    created_at: :class:`datetime.datetime`
+        When the announcement was created.
+    edited_at: Optional[:class:`datetime.datetime`]
+        When the announcement was last modified.
+    game: Optional[:class:`.Game`]
+        The game associated with the announcement.
+    """
+
+    def __init__(self, *, state, data, channel, game=None):
+        super().__init__()
+        data = data['announcement']
+        self._state = state
+        self.channel = channel
+        self.team = channel.team
+        self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
+        self.tags: str = data.get('tags')
+        self._replies = {}
+
+        self.public: bool = data.get('isPublic', False)
+        self.credentialed: bool = data.get('isCredentialed', False)
+        self.draft: bool = data.get('isDraft', False)
+
+        self.author_id: str = data.get('createdBy')
+        self.edited_by_id: Optional[str] = data.get('modifiedBy')
+
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('modifiedAt'))
+
+        self.id: str = data['id']
+        self.title: str = data['title']
+        self.content: str = self._get_full_content(data['content'])
+
+
+
+
+class AnnouncementChannel(guilded.abc.TeamChannel):
+    """Represents an announcements channel in a team"""
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.announcements
+        self._announcements = {}
+
+    @property
+    def announcements(self):
+        return list(self._announcements.values())
+
+    def get_announcement(self, id):
+        return self._announcements.get(id)
+
+    async def create_announcement(self, *content, **kwargs) -> Announcement:
+        title = kwargs.pop('title')
+        game = kwargs.pop('game', None)
+        draft = kwargs.pop('draft', False)
+
+        data = await self._state.create_announcement(
+            self.id,
+            title=title,
+            content=content,
+            game_id=(game.id if game else None),
+            draft=draft
+        )
+        announcement = Announcement(data=data, channel=self, game=game, state=self._state)
+        return announcement

@@ -677,6 +677,15 @@ class HTTPClient:
         payload = {'moveToChannelId': to_channel_id}
         return self.request(route, json=payload)
 
+    def create_announcement(self, channel_id: str, title, content, game_id, draft):
+        payload = {
+            'title': title,
+            'content': self.compatible_content(content),
+            'gameId': game_id,
+            'isDraft': draft
+        }
+        return self.request(Route('POST', f'/channels/{channel_id}/announcements'), json=payload)
+
     # /reactions
 
     def add_doc_reaction(self, doc_id: int, emoji_id: int):
@@ -1086,6 +1095,8 @@ class HTTPClient:
                 return channel.DocsChannel(state=self, **data)
             elif ctype is channel.ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
+            elif ctype is channel.ChannelType.announcements:
+                return channel.AnnouncementChannel(state=self, **data)
         else:
             return channel.DMChannel(state=self, **data)
 
