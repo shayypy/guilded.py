@@ -705,19 +705,29 @@ class HTTPClient:
         }
         return self.request(Route('GET', f'/channels/{channel_id}/announcements'), params=params)
 
+    def get_pinned_announcements(self, channel_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/pinnedannouncements'))
+
+    def toggle_announcement_pin(self, channel_id: str, announcement_id: str, *, pinned: bool):
+        route = Route('PUT', f'/channels/{channel_id}/toggleannouncementpin/{announcement_id}')
+        payload = {
+            'isPinned': pinned
+        }
+        return self.request(route, json=payload)
+
     # /reactions
 
-    def add_doc_reaction(self, doc_id: int, emoji_id: int):
+    def add_content_reaction(self, content_type: str, content_id, emoji_id: int):
         payload = {
             'customReactionId': emoji_id
         }
-        return self.request(Route('PUT', f'/reactions/doc/{doc_id}/undefined'), json=payload)
+        return self.request(Route('PUT', f'/reactions/{content_type}/{content_id}/undefined'), json=payload)
 
-    def remove_self_doc_reaction(self, doc_id: int, emoji_id: int):
+    def remove_self_content_reaction(self, content_type: str, content_id, emoji_id: int):
         payload = {
             'customReactionId': emoji_id
         }
-        return self.request(Route('DELETE', f'/reactions/doc/{doc_id}/undefined'), json=payload)
+        return self.request(Route('DELETE', f'/reactions/{content_type}/{content_id}/undefined'), json=payload)
 
     # /teams
 
@@ -1025,13 +1035,13 @@ class HTTPClient:
 
     #    return self.request(Route('PUT', f'/content/custom_forms/{form_id}/responses'), json=payload)
 
-    def get_doc_replies(self, doc_id: int):
-        return self.request(Route('GET', f'/content/doc/{doc_id}/replies'))
+    def get_content_replies(self, content_type: str, content_id: int):
+        return self.request(Route('GET', f'/content/{content_type}/{content_id}/replies'))
 
-    def get_doc_reply(self, doc_id: int, reply_id: int):
-        return self.request(Route('GET', f'/content/doc/{doc_id}/replies/{reply_id}'))
+    def get_content_reply(self, content_type: str, content_id: int, reply_id: int):
+        return self.request(Route('GET', f'/content/{content_type}/{content_id}/replies/{reply_id}'))
 
-    def create_doc_reply(self, team_id: str, doc_id: int, *, content, reply_to=None):
+    def create_content_reply(self, content_type: str, team_id: str, content_id, *, content, reply_to=None):
         payload = {
             'message': self.compatible_content(content),
             'teamId': team_id
@@ -1039,35 +1049,13 @@ class HTTPClient:
         if reply_to is not None:
             self.insert_reply_header(payload['message'], reply_to)
 
-        return self.request(Route('POST', f'/content/doc/{doc_id}/replies'), json=payload)
+        return self.request(Route('POST', f'/content/{content_type}/{content_id}/replies'), json=payload)
 
-    def delete_doc_reply(self, team_id: str, doc_id: int, reply_id: int):
+    def delete_content_reply(self, content_type: str, team_id: str, content_id: int, reply_id: int):
         payload = {
             'teamId': team_id
         }
-        return self.request(Route('DELETE', f'/content/doc/{doc_id}/replies/{reply_id}'), json=payload)
-
-    def get_announcement_replies(self, announcement_id: str):
-        return self.request(Route('GET', f'/content/announcement/{announcement_id}/replies'))
-
-    def get_announcement_reply(self, announcement_id: int, reply_id: int):
-        return self.request(Route('GET', f'/content/announcement/{announcement_id}/replies/{reply_id}'))
-
-    def create_announcement_reply(self, team_id: str, announcement_id: int, *, content, reply_to=None):
-        payload = {
-            'message': self.compatible_content(content),
-            'teamId': team_id
-        }
-        if reply_to is not None:
-            self.insert_reply_header(payload['message'], reply_to)
-
-        return self.request(Route('POST', f'/content/announcement/{announcement_id}/replies'), json=payload)
-
-    def delete_announcement_reply(self, team_id: str, announcement_id: int, reply_id: int):
-        payload = {
-            'teamId': team_id
-        }
-        return self.request(Route('DELETE', f'/content/announcement/{announcement_id}/replies/{reply_id}'), json=payload)
+        return self.request(Route('DELETE', f'/content/{content_type}/{content_id}/replies/{reply_id}'), json=payload)
 
     # media.guilded.gg
 
