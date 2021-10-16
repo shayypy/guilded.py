@@ -433,19 +433,19 @@ class ChatMessage(HasContentMixin):
             self.author.bot = self.created_by_bot
 
         self.replied_to = []
-        self.replied_to_ids = message.get('repliesToIds', message.get('repliesTo') or [])
+        self.replied_to_ids = message.get('repliesToIds') or message.get('repliesTo') or []
         self.silent = message.get('isSilent', False)
         self.private = message.get('isPrivate', False)
         if data.get('repliedToMessages'):
             for message_data in data['repliedToMessages']:
-                message = self._state.create_message(data=message_data)
-                self.replied_to.append(message)
+                message_ = self._state.create_message(data=message_data)
+                self.replied_to.append(message_)
         else:
             for message_id in self.replied_to_ids:
-                message = self._state._get_message(message_id)
-                if not message:
+                message_ = self._state._get_message(message_id)
+                if not message_:
                     continue
-                self.replied_to.append(message)
+                self.replied_to.append(message_)
 
         self.content: str = self._get_full_content(message['content'])
 
