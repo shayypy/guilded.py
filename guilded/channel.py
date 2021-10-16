@@ -1078,6 +1078,13 @@ class Announcement(HasContentMixin):
             return f'{self.channel.share_url}/{self.id}'
         return None
 
+    async def delete(self):
+        """|coro|
+
+        Delete this announcement.
+        """
+        await self._state.delete_announcement(self.channel.id, self.id)
+
 
 class AnnouncementChannel(guilded.abc.TeamChannel):
     """Represents an announcements channel in a team"""
@@ -1088,9 +1095,11 @@ class AnnouncementChannel(guilded.abc.TeamChannel):
 
     @property
     def announcements(self):
+        """List[:class:`.Announcement`]: The list of cached announcements in this channel."""
         return list(self._announcements.values())
 
     def get_announcement(self, id):
+        """Optional[:class:`.Announcement`]: Get a cached announcement in this channel."""
         return self._announcements.get(id)
 
     async def fetch_announcement(self, id: str) -> Announcement:

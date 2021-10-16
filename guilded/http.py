@@ -705,6 +705,9 @@ class HTTPClient:
         }
         return self.request(Route('GET', f'/channels/{channel_id}/announcements'), params=params)
 
+    def delete_announcement(self, channel_id: str, announcement_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}'))
+
     # /reactions
 
     def add_doc_reaction(self, doc_id: int, emoji_id: int):
