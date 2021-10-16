@@ -62,7 +62,7 @@ import traceback
 from guilded.abc import TeamChannel
 
 from .errors import GuildedException
-from .channel import ChannelType, DMChannel, Doc, DocReply, ForumTopic, ForumReply, Thread
+from .channel import *
 from .message import Message
 from .presence import Presence
 from .user import Member, User
@@ -421,22 +421,26 @@ class WebSocketEventParsers:
 
         moved = data.get('contentMoved', False)
 
-        if channel.type is ChannelType.forum and data.get('thread') is not None:
-            topic = ForumTopic(data=data['thread'], forum=channel, team=team, state=self._state)
-            channel._topics[topic.id] = topic
+        if channel.type is ChannelType.forum:
+            content = ForumTopic(data=data['thread'], channel=channel, state=self._state)
+            channel._topics[content.id] = content
             if moved:
-                self.client.dispatch('forum_topic_move', topic)
+                self.client.dispatch('forum_topic_move', content)
             else:
-                self.client.dispatch('forum_topic_create', topic)
-            return
-        elif channel.type is ChannelType.docs and data.get('doc') is not None:
-            doc = Doc(data=data['doc'], channel=channel, state=self._state)
-            channel._docs[doc.id] = doc
+                self.client.dispatch('forum_topic_create', content)
+
+        elif channel.type is ChannelType.doc:
+            content = Doc(data=data['doc'], channel=channel, state=self._state)
+            channel._docs[content.id] = content
             if moved:
-                self.client.dispatch('doc_move', doc)
+                self.client.dispatch('doc_move', content)
             else:
-                self.client.dispatch('doc_create', doc)
-            return
+                self.client.dispatch('doc_create', content)
+
+        elif channel.type is ChannelType.announcement:
+            content = Announcement(data=data['announcement'], channel=channel, state=self._state)
+            channel._announcements[content.id] = content
+            self.client.dispatch('announcement_create', content)
 
     async def TEAM_CHANNEL_CONTENT_DELETED(self, data):
         try:
@@ -447,28 +451,36 @@ class WebSocketEventParsers:
         if channel is None:
             return
 
-        if channel.type is ChannelType.forum and data.get('contentId') is not None:
-            self.client.dispatch('raw_forum_topic_delete', channel, int(data['contentId']))
-            topic = channel.get_topic(int(data['contentId']))
+        try:
+            deleted_by = await team.getch_member(data['deletedBy'])
+        except:
+            deleted_by = None
+
+        content_id = data['contentId']
+
+        if channel.type is ChannelType.forum:
+            self.client.dispatch('raw_forum_topic_delete', channel, int(content_id))
+            content = channel.get_topic(int(content_id))
             if topic is not None:
-                try:
-                    topic.deleted_by = await team.getch_member(data.get('deletedBy'))
-                except:
-                    pass
-                self.client.dispatch('forum_topic_delete', topic)
-                channel._topics.pop(topic.id)
-            return
-        elif channel.type is ChannelType.docs and data.get('contentId') is not None:
-            self.client.dispatch('raw_doc_delete', channel, int(data['contentId']))
-            doc = channel.get_doc(int(data['contentId']))
-            if doc is not None:
-                try:
-                    doc.deleted_by = await team.getch_member(data.get('deletedBy'))
-                except:
-                    pass
-                self.client.dispatch('doc_delete', doc)
-                channel._docs.pop(doc.id)
-            return
+                content.deleted_by = deleted_by
+                self.client.dispatch('forum_topic_delete', content)
+                channel._topics.pop(content.id)
+
+        elif channel.type is ChannelType.doc:
+            self.client.dispatch('raw_doc_delete', channel, int(content_id))
+            content = channel.get_doc(int(content_id))
+            if content is not None:
+                content.deleted_by = deleted_by
+                self.client.dispatch('doc_delete', content)
+                channel._docs.pop(content.id)
+
+        elif channel.type is ChannelType.announcement:
+            self.client.dispatch('raw_announcement_delete', channel, content_id)
+            content = channel.get_announcement(content_id)
+            if content is not None:
+                content.deleted_by = deleted_by
+                self.client.dispatch('announcement_delete', content)
+                channel._announcements.pop(content.id)
 
     async def TEAM_CHANNEL_CONTENT_REPLY_CREATED(self, data):
         try:
@@ -479,26 +491,37 @@ class WebSocketEventParsers:
         if channel is None:
             return
 
-        if channel.type is ChannelType.forum and data.get('reply') is not None:
+        parent_id = data['contentId']
+
+        if channel.type is ChannelType.forum:
             try:
-                topic = await channel.getch_topic(data['reply']['repliesTo'])
-                channel._topics[topic.id] = topic
+                parent = await channel.getch_topic(int(parent_id))
+                channel._topics[parent.id] = parent
             except:
                 return
-            reply = ForumReply(data=data['reply'], forum=channel, state=self._state)
-            reply.topic._replies[reply.id] = reply
+            reply = ForumReply(data=data['reply'], parent=parent, state=self._state)
+            reply.parent._replies[reply.id] = reply
             self.client.dispatch('forum_reply_create', reply)
-            return
-        elif channel.type is ChannelType.forum and data.get('reply') is not None:
+
+        elif channel.type is ChannelType.doc:
             try:
-                doc = await channel.getch_doc(data['reply']['contentId'])
-                channel._docs[doc.id] = doc
+                parent = await channel.getch_doc(int(parent_id))
+                channel._docs[parent.id] = parent
             except:
                 return
-            reply = DocReply(data=data['reply'], doc=doc, state=self._state)
-            reply.doc._replies[reply.id] = reply
+            reply = DocReply(data=data['reply'], parent=parent, state=self._state)
+            parent._replies[reply.id] = reply
             self.client.dispatch('doc_reply_create', reply)
-            return
+
+        elif channel.type is ChannelType.announcement:
+            try:
+                parent = await channel.getch_announcement(parent_id)
+                channel._docs[parent.id] = parent
+            except:
+                return
+            reply = AnnouncementReply(data=data['reply'], parent=parent, state=self._state)
+            parent._replies[reply.id] = reply
+            self.client.dispatch('announcement_reply_create', reply)
 
     async def TEAM_CHANNEL_CONTENT_REPLY_DELETED(self, data):
         try:
@@ -509,38 +532,53 @@ class WebSocketEventParsers:
         if channel is None:
             return
 
-        if channel.type is ChannelType.forum and data.get('contentReplyId') is not None:
-            self.client.dispatch('raw_forum_reply_delete', channel, int(data['contentId']), int(data['contentReplyId']))
+        try:
+            deleted_by = await team.getch_member(data['deletedBy'])
+        except:
+            deleted_by = None
+
+        parent_id = data['contentId']
+        reply_id = int(data['contentReplyId'])
+
+        if channel.type is ChannelType.forum:
+            self.client.dispatch('raw_forum_reply_delete', channel, int(parent_id), reply_id)
             try:
-                topic = await channel.getch_topic(int(data['contentId']))
-                channel._topics[topic.id] = topic
+                parent = await channel.getch_topic(int(parent_id))
+                channel._topics[parent.id] = parent
             except:
                 return
-            reply = topic.get_reply(int(data['contentReplyId']))
+            reply = parent.get_reply(reply_id)
             if reply is not None:
-                try:
-                    reply.deleted_by = await team.getch_member(data.get('deletedBy'))
-                except:
-                    pass
+                reply.deleted_by = deleted_by
                 self.client.dispatch('forum_reply_delete', reply)
-                reply.topic._replies.pop(reply.id)
-            return
-        elif channel.type is ChannelType.docs and data.get('contentReplyId') is not None:
-            self.client.dispatch('raw_doc_reply_delete', channel, int(data['contentId']), int(data['contentReplyId']))
+                parent._replies.pop(reply.id)
+
+        elif channel.type is ChannelType.doc:
+            self.client.dispatch('raw_doc_reply_delete', channel, int(parent_id), reply_id)
             try:
-                doc = await channel.getch_doc(int(data['contentId']))
-                channel._docs[doc.id] = doc
+                parent = await channel.getch_doc(int(parent_id))
+                channel._docs[parent.id] = parent
             except:
                 return
-            reply = doc.get_reply(int(data['contentReplyId']))
+            reply = parent.get_reply(reply_id)
             if reply is not None:
-                try:
-                    reply.deleted_by = await team.getch_member(data.get('deletedBy'))
-                except:
-                    pass
+                reply.deleted_by = deleted_by
                 self.client.dispatch('doc_reply_delete', reply)
-                reply.doc._replies.pop(reply.id)
-            return
+                parent._replies.pop(reply.id)
+
+        elif channel.type is ChannelType.announcement:
+            self.client.dispatch('raw_announcement_reply_delete', channel, parent_id, reply_id)
+            try:
+                parent = await channel.getch_announcement(parent_id)
+                channel._announcements[parent.id] = parent
+            except:
+                return
+            reply = parent.get_reply(reply_id)
+            if reply is not None:
+                reply.deleted_by = deleted_by
+                self.client.dispatch('announcement_reply_delete', reply)
+                parent._replies.pop(reply.id)
+
 
 class Heartbeater(threading.Thread):
     def __init__(self, ws, *, interval):

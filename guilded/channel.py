@@ -65,6 +65,9 @@ from .utils import ISO8601, parse_hex_number
 from .status import Game
 
 __all__ = (
+    'Announcement',
+    'AnnouncementChannel',
+    'AnnouncementReply',
     'ChannelType',
     'ChatChannel',
     'DMChannel',
@@ -84,10 +87,11 @@ class ChannelType(Enum):
     text = chat
     voice = 'voice'
     forum = 'forum'
-    docs = 'doc'
-    doc = docs
-    announcements = 'announcements'
-    news = announcements
+    doc = 'doc'
+    docs = doc
+    announcement = 'announcement'
+    announcements = announcement
+    news = announcement
     thread = 'temporal'
     dm = 'DM'
 
@@ -158,6 +162,8 @@ class Doc(HasContentMixin):
         The doc's text content.
     channel: :class:`.DocsChannel`
         The channel that the doc is in.
+    group: :class:`.Group`
+        The group that the doc is in.
     team: :class:`.Team`
         The team that the doc is in.
     public: :class:`bool`
@@ -175,6 +181,7 @@ class Doc(HasContentMixin):
         super().__init__()
         self._state = state
         self.channel = channel
+        self.group = channel.group
         self.team = channel.team
         self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
         self.tags: str = data.get('tags')
@@ -275,7 +282,7 @@ class Doc(HasContentMixin):
         return reply
 
     def get_reply(self, id: int):
-        """Optional[:class:`.DocReply`]: Get a cached reply to this doc."""
+        """Optional[:class:`.DocReply`]: Get a reply by its ID."""
         return self._replies.get(id)
 
     async def fetch_reply(self, id: int):
@@ -307,111 +314,6 @@ class Doc(HasContentMixin):
             The docs channel to move this topic to.
         """
         await self._state.move_doc(self.channel.id, self.id, to.id)
-
-
-class DocReply(HasContentMixin):
-    """Represents a reply to a :class:`Doc`.
-
-    .. container:: operations
-
-        .. describe:: x == y
-
-            Checks if two replies are equal.
-
-        .. describe:: x != y
-
-            Checks if two replies are not equal.
-
-        .. describe:: str(x)
-
-            Returns the string content of the reply.
-
-    Attributes
-    -----------
-    id: :class:`int`
-        The reply's ID.
-    content: :class:`str`
-        The reply's text content.
-    doc: :class:`.Doc`
-        The doc that the reply is to.
-    channel: :class:`.DocsChannel`
-        The channel that the reply's :attr:`.doc` is in.
-    team: :class:`.Team`
-        The team that the reply's :attr:`.doc` is in.
-    created_at: :class:`datetime.datetime`
-        When the reply was created.
-    edited_at: Optional[:class:`datetime.datetime`]
-        When the reply was last edited.
-    """
-    def __init__(self, *, state, data, doc):
-        super().__init__()
-        self._state = state
-        self.doc = doc
-        self.channel = doc.channel
-        self.team = doc.team
-
-        self.author_id: str = data.get('createdBy')
-        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
-
-        self.id: int = int(data['id'])
-        self.content: str = self._get_full_content(data['message'])
-
-    def __repr__(self):
-        return f'<DocReply id={self.id!r} author={self.author!r} doc={self.doc!r}>'
-
-    def __eq__(self, other):
-        return isinstance(other, DocReply) and other.id == self.id
-
-    def __str__(self):
-        return self.content
-
-    @property
-    def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        reply, if they are cached.
-        """
-        return self.team.get_member(self.author_id)
-
-    async def add_reaction(self, emoji):
-        """|coro|
-
-        Add a reaction to this reply.
-
-        Parameters
-        -----------
-        emoji: :class:`.Emoji`
-            The emoji to add.
-        """
-        await self._state.add_doc_reply_reaction(self.id, emoji.id)
-
-    async def remove_self_reaction(self, emoji):
-        """|coro|
-
-        Remove your reaction from this reply.
-
-        Parameters
-        -----------
-        emoji: :class:`.Emoji`
-            The emoji to remove.
-        """
-        await self._state.remove_self_doc_reply_reaction(self.id, emoji.id)
-
-    async def delete(self):
-        """|coro|
-
-        Delete this reply.
-        """
-        await self._state.delete_doc_reply(self.team.id, self.doc.id, self.id)
-
-    async def reply(self, *content, **kwargs):
-        """|coro|
-
-        Reply to this reply.
-
-        This method is identical to :meth:`.Doc.reply`.
-        """
-        return await self.doc.reply(*content, **kwargs)
 
 
 class DocsChannel(guilded.abc.TeamChannel):
@@ -465,6 +367,51 @@ class DocsChannel(guilded.abc.TeamChannel):
         doc = Doc(data=data, channel=self, game=game, state=self._state)
         return doc
 
+    async def fetch_doc(self, id: int) -> Doc:
+        """|coro|
+
+        Fetch an doc in this channel.
+
+        Parameters
+        -----------
+        id: :class:`int`
+            The doc's ID.
+
+        Returns
+        --------
+        :class:`.Doc`
+        """
+        data = await self._state.get_doc(self.id, id)
+        doc = Doc(data=data, channel=self, state=self._state)
+        return doc
+
+    async def fetch_docs(self, *, limit: int = 50, before: datetime.datetime = None) -> List[Doc]:
+        """|coro|
+
+        Fetch multiple docs in this channel.
+
+        All parameters are optional.
+
+        Parameters
+        -----------
+        limit: :class:`int`
+            The maximum number of docs to return. Defaults to 50.
+        before: :class:`datetime.datetime`
+            The latest date that an doc can be from. Defaults to the
+            current time.
+
+        Returns
+        --------
+        List[:class:`.Doc`]
+        """
+        before = before or datetime.datetime.now(datetime.timezone.utc)
+        data = await self._state.get_docs(self.id, limit=limit, before=before)
+        docs = []
+        for doc_data in data:
+            docs.append(Doc(data=doc_data, channel=self, state=self._state))
+
+        return docs
+
 
 class ForumTopic(HasContentMixin):
     """Represents a forum topic.
@@ -479,7 +426,7 @@ class ForumTopic(HasContentMixin):
         The topic's content.
     team: :class:`.Team`
         The team that the topic is in.
-    forum: :class:`.ForumChannel`
+    channel: :class:`.ForumChannel`
         The forum channel that the topic is in.
     created_at: :class:`datetime.datetime`
         When the topic was created.
@@ -500,17 +447,18 @@ class ForumTopic(HasContentMixin):
     reply_count: :class:`int`
         How many replies the topic has.
     """
-    def __init__(self, *, state, data, forum, group=None, team=None):
+    def __init__(self, *, state, data, channel):
         super().__init__()
         self._state = state
-        self.forum = forum
-        self.forum_id = data.get('channelId')
-        self.team = team or state._get_team(data.get('teamId'))
-        self.team_id = data.get('teamId') or (self.team.id if self.team else None)
-        self._group = group
-        self.group_id = data.get('groupId')
-        self.id: int = data['id']
+        self.channel = channel
+        self.group = channel.group
+        self.team = channel.team
 
+        self.channel_id = data.get('channelId') or self.channel.id
+        self.team_id = data.get('teamId') or (self.team.id if self.team else None)
+        self.group_id = data.get('groupId') or (self.group.id if self.group else None)
+
+        self.id: int = data['id']
         self.title: str = data['title']
         self.content: str = self._get_full_content(data['message'])
 
@@ -534,11 +482,6 @@ class ForumTopic(HasContentMixin):
 
     def __repr__(self):
         return f'<ForumTopic id={self.id!r} title={self.title!r} forum={self.forum!r}>'
-
-    @property
-    def group(self):
-        """Optional[:class:`.Group`]: The group that the topic is in."""
-        return self._group or self.team.get_group(self.group_id)
 
     @property
     def game(self) -> Game:
@@ -570,7 +513,7 @@ class ForumTopic(HasContentMixin):
         List[:class:`.ForumReply`]
         """
         replies = []
-        data = await self._state.get_forum_topic_replies(self.forum_id, self.id, limit=limit)
+        data = await self._state.get_forum_topic_replies(self.channel.id, self.id, limit=limit)
         for reply_data in data.get('threadReplies', data) or []:
             reply = ForumReply(data=reply_data, forum=self.forum, state=self._state)
             replies.append(reply)
@@ -586,7 +529,7 @@ class ForumTopic(HasContentMixin):
         --------
         :class:`.ForumReply`
         """
-        data = await self._state.get_forum_topic_reply(self.forum_id, self.id, id)
+        data = await self._state.get_forum_topic_reply(self.channel.id, self.id, id)
         reply = ForumReply(data=data['metadata']['reply'], forum=self.forum, state=self._state)
         return reply
 
@@ -612,7 +555,7 @@ class ForumTopic(HasContentMixin):
                 Nevertheless, if you are connected to the gateway, it should
                 end up getting cached and accessible via :meth:`.get_reply`.
         """
-        data = await self._state.create_forum_topic_reply(self.forum_id or self.forum.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+        data = await self._state.create_forum_topic_reply(self.channel.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
         return data['replyId']
 
     async def delete(self):
@@ -620,7 +563,7 @@ class ForumTopic(HasContentMixin):
 
         Delete this topic.
         """
-        await self._state.delete_forum_topic(self.forum_id, self.id)
+        await self._state.delete_forum_topic(self.channel.id, self.id)
 
     async def move(self, to):
         """|coro|
@@ -632,35 +575,49 @@ class ForumTopic(HasContentMixin):
         to: :class:`.ForumChannel`
             The forum to move this topic to.
         """
-        await self._state.move_forum_topic(self.forum_id, self.id, to.id)
+        await self._state.move_forum_topic(self.channel.id, self.id, to.id)
 
     async def lock(self):
         """|coro|
 
         Lock this topic.
         """
-        await self._state.lock_forum_topic(self.forum_id, self.id)
+        await self._state.lock_forum_topic(self.channel.id, self.id)
 
     async def unlock(self):
         """|coro|
 
         Unlock this topic.
         """
-        await self._state.unlock_forum_topic(self.forum_id, self.id)
+        await self._state.unlock_forum_topic(self.channel.id, self.id)
 
     async def sticky(self):
         """|coro|
 
         Sticky (pin) this topic.
         """
-        await self._state.sticky_forum_topic(self.forum_id, self.id)
+        await self._state.sticky_forum_topic(self.channel.id, self.id)
 
     async def unsticky(self):
         """|coro|
 
         Unsticky (unpin) this topic.
         """
-        await self._state.unsticky_forum_topic(self.forum_id, self.id)
+        await self._state.unsticky_forum_topic(self.channel.id, self.id)
+
+    async def pin(self):
+        """|coro|
+
+        Pin (sticky) this topic. This is an alias of :meth:`.sticky`.
+        """
+        return await self.sticky()
+
+    async def unpin(self):
+        """|coro|
+
+        Unpin (unsticky) this topic. This is an alias of :meth:`.sticky`.
+        """
+        return await self.unsticky()
 
 
 class ForumChannel(guilded.abc.TeamChannel):
@@ -697,7 +654,7 @@ class ForumChannel(guilded.abc.TeamChannel):
         """
         title = kwargs['title']
         data = await self._state.create_forum_topic(self.id, title=title, content=content)
-        topic = ForumTopic(data=data, state=self._state, group=self.group, team=self.team, forum=self)
+        topic = ForumTopic(data=data, channel=self, state=self._state)
         return topic
 
     async def fetch_topic(self, id: int) -> ForumTopic:
@@ -716,7 +673,7 @@ class ForumChannel(guilded.abc.TeamChannel):
             The topic by its ID.
         """
         data = await self._state.get_forum_topic(self.id, id)
-        topic = ForumTopic(data=data.get('thread', data), state=self._state, group=self.group, team=self.team, forum=self)
+        topic = ForumTopic(data=data.get('thread', data), channel=self, state=self._state)
         return topic
 
     async def getch_topic(self, id: int) -> ForumTopic:
@@ -746,101 +703,9 @@ class ForumChannel(guilded.abc.TeamChannel):
         data = await self._state.get_forum_topics(self.id, limit=limit, page=page, before=before)
         topics = []
         for topic_data in data.get('threads', data):
-            topic = ForumTopic(data=topic_data, state=self._state, group=self.group, team=self.team, forum=self)
+            topic = ForumTopic(data=topic_data, channel=self, state=self._state)
 
         return topics
-
-
-class ForumReply(HasContentMixin):
-    """Represents a forum reply.
-
-    Attributes
-    -----------
-    id: :class:`int`
-        The reply's ID.
-    content: :class:`str`
-        The reply's content.
-    topic: :class:`.ForumTopic`
-        The topic that the reply is in.
-    forum: :class:`.ForumChannel`
-        The forum channel that the reply is in.
-    created_at: :class:`datetime.datetime`
-        When the reply was created.
-    edited_at: Optional[:class:`datetime.datetime`]
-        When the reply was last edited.
-    deleted_by: Optional[:class:`.Member`]
-        Who deleted this reply. This will only be present through
-        :meth:`on_forum_reply_delete`.
-    """
-    def __init__(self, *, state, data, forum):
-        super().__init__()
-        self._state = state
-        self.forum = forum
-        self.topic_id = data.get('repliesTo')
-        self.id: int = int(data['id'])
-        self.content: str = self._get_full_content(data['message'])
-
-        self.author_id: str = data.get('createdBy')
-        self.created_by_bot_id: Optional[int] = data.get('createdByBotId')
-        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
-        self.deleted_by: Optional[Member] = None
-
-        self.replied_to_id: Optional[int] = None
-        self.replied_to_author_id: Optional[str] = None
-
-    def __str__(self):
-        return self.title
-
-    def __repr__(self):
-        return f'<ForumReply id={self.id!r} topic={self.topic!r}>'
-
-    @property
-    def team_id(self):
-        return self.forum.team_id
-
-    @property
-    def team(self):
-        return self.forum.team
-
-    @property
-    def author(self) -> Optional[Union[Member, User]]:
-        """Optional[Union[:class:`.Member`, :class:`.User`]]:
-        The :class:`.Member` that created the reply. If the member is no
-        longer in the server (and they are cached), this will be a
-        :class:`.User`.
-        """
-        return self.team.get_member(self.author_id) or self._state.get_user(self.author_id)
-
-    @property
-    def topic(self) -> Optional[ForumTopic]:
-        """Optional[:class:`.ForumTopic`]: The :class:`.ForumTopic` that this
-        reply is to. Will be ``None`` if the topic is not cached.
-        """
-        return self.forum.get_topic(self.topic_id)
-
-    @property
-    def replied_to(self):
-        if self.replied_to_id:
-            return self.topic.get_reply(self.replied_to_id)
-        return None
-
-    async def delete(self):
-        """|coro|
-
-        Delete this reply.
-        """
-        await self._state.delete_forum_topic_reply(self.forum.id, self.topic_id, self.id)
-
-    async def reply(self, *content) -> int:
-        """|coro|
-
-        Reply to this reply.
-
-        This method is identical to :meth:`.ForumTopic.reply`.
-        """
-        data = await self._state.create_forum_topic_reply(self.forum.id, self.topic_id, content=content, reply_to=self)
-        return data['replyId']
 
 
 class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
@@ -1008,3 +873,256 @@ class DMChannel(guilded.abc.Messageable):
         channel is associated with.
         """
         await self._state.hide_dm_channel(self.id)
+
+
+class Announcement(HasContentMixin):
+    """Represents an announcement in an :class:`AnnouncementChannel`.
+
+    Attributes
+    -----------
+    id: :class:`str`
+        The announcement's ID.
+    title: :class:`str`
+        The announcement's title.
+    content: :class:`str`
+        The announcement's text content.
+    channel: :class:`.AnnouncementChannel`
+        The channel that the announcement is in.
+    group: :class:`.Group`
+        The group that the announcement is in.
+    team: :class:`.Team`
+        The team that the announcement is in.
+    public: :class:`bool`
+        Whether the announcement is public.
+    pinned: :class:`bool`
+        Whether the announcement is pinned.
+    created_at: :class:`datetime.datetime`
+        When the announcement was created.
+    edited_at: Optional[:class:`datetime.datetime`]
+        When the announcement was last edited.
+    slug: Optional[:class:`str`]
+        The announcement's URL slug.
+    game: Optional[:class:`.Game`]
+        The game associated with the announcement.
+    """
+    def __init__(self, *, state, data, channel, game=None):
+        super().__init__()
+        self._state = state
+        self.channel = channel
+        self.group = channel.group
+        self.team = channel.team
+        self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
+        self.tags: str = data.get('tags')
+        self._replies = {}
+
+        for reply_data in data.get('replies', []):
+            reply = AnnouncementReply(data=reply_data, parent=self, state=self._state)
+            self._replies[reply.id] = reply
+
+        self.public: bool = data.get('isPublic', False)
+        self.pinned: bool = data.get('isPinned', False)
+        self.slug: Optional[str] = data.get('slug')
+
+        self.author_id: str = data.get('createdBy')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+
+        self.id: str = data['id']
+        self.title: str = data['title']
+        self.content: str = self._get_full_content(data['content'])
+
+    def __repr__(self):
+        return f'<Announcement id={self.id!r} title={self.title!r} author={self.author!r}>'
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the
+        topic, if they are cached.
+        """
+        return self.team.get_member(self.author_id)
+
+    @property
+    def blog_url(self) -> Optional[str]:
+        if self.channel.vanity_url and self.slug:
+            return f'{self.channel.vanity_url}/{self.slug}'
+        return None
+
+    @property
+    def share_url(self) -> str:
+        if self.channel:
+            return f'{self.channel.share_url}/{self.id}'
+        return None
+
+    @property
+    def replies(self):
+        return list(self._replies.values())
+
+    def get_reply(self, id):
+        """Optional[:class:`.AnnouncementReply`]: Get a reply by its ID."""
+        return self._replies.get(id)
+
+    async def sticky(self):
+        """|coro|
+
+        Sticky (pin) this announcement.
+        """
+        await self._state.toggle_announcement_pin(self.channel.id, self.id, pinned=True)
+        self.pinned = True
+
+    async def unsticky(self):
+        """|coro|
+
+        Unsticky (unpin) this announcement.
+        """
+        await self._state.toggle_announcement_pin(self.channel.id, self.id, pinned=False)
+        self.pinned = False
+
+    async def pin(self):
+        """|coro|
+
+        Pin (sticky) this announcement. This is an alias of :meth:`.sticky`.
+        """
+        return await self.sticky()
+
+    async def unpin(self):
+        """|coro|
+
+        Unpin (unsticky) this announcement. This is an alias of :meth:`.sticky`.
+        """
+        return await self.unsticky()
+
+    async def delete(self):
+        """|coro|
+
+        Delete this announcement.
+        """
+        await self._state.delete_announcement(self.channel.id, self.id)
+
+
+class AnnouncementChannel(guilded.abc.TeamChannel):
+    """Represents an announcements channel in a team"""
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.announcements
+        self._announcements = {}
+
+    @property
+    def announcements(self):
+        """List[:class:`.Announcement`]: The list of cached announcements in this channel."""
+        return list(self._announcements.values())
+
+    def get_announcement(self, id):
+        """Optional[:class:`.Announcement`]: Get a cached announcement in this channel."""
+        return self._announcements.get(id)
+
+    async def fetch_announcement(self, id: str) -> Announcement:
+        """|coro|
+
+        Fetch an announcement in this channel.
+
+        Parameters
+        -----------
+        id: :class:`str`
+            The announcement's ID.
+
+        Returns
+        --------
+        :class:`.Announcement`
+        """
+        data = await self._state.get_announcement(self.id, id)
+        announcement = Announcement(data=data['announcement'], channel=self, state=self._state)
+        return announcement
+
+    async def fetch_announcements(self, *, limit: int = 50, before: datetime.datetime = None) -> List[Announcement]:
+        """|coro|
+
+        Fetch multiple announcements in this channel.
+
+        All parameters are optional.
+
+        Parameters
+        -----------
+        limit: :class:`int`
+            The maximum number of announcements to return. Defaults to 50.
+        before: :class:`datetime.datetime`
+            The latest date that an announcement can be from. Defaults to the
+            current time.
+
+        Returns
+        --------
+        List[:class:`.Announcement`]
+        """
+        before = before or datetime.datetime.now(datetime.timezone.utc)
+        data = await self._state.get_announcements(self.id, limit=limit, before=before)
+        announcements = []
+        for announcement_data in data['announcements']:
+            announcements.append(Announcement(data=announcement_data, channel=self, state=self._state))
+
+        return announcements
+
+    async def fetch_pinned_announcements(self) -> List[Announcement]:
+        """|coro|
+
+        Fetch all pinned announcements in this channel.
+
+        Returns
+        --------
+        List[:class:`.Announcement`]
+        """
+        data = await self._state.get_pinned_announcements(self.id)
+        announcements = []
+        for announcement_data in data['announcements']:
+            announcements.append(Announcement(data=announcement_data, channel=self, state=self._state))
+
+        return announcements
+
+    async def create_announcement(self, *content, **kwargs) -> Announcement:
+        """|coro|
+
+        Create an announcement in this channel.
+
+        Parameters
+        -----------
+        content: Any
+            The content of the announcement.
+        title: :class:`str`
+            The title of the announcement.
+        game: Optional[:class:`.Game`]
+            The game to be associated with this announcement.
+        send_notifications: Optional[:class:`bool`]
+            Whether to send notifications to all members ("Notify all
+            members" in the client). Defaults to ``True`` if not specified.
+
+        Returns
+        --------
+        :class:`.Announcement`
+            The created announcement.
+        """
+        title = kwargs.pop('title')
+        game = kwargs.pop('game', None)
+        dont_send_notifications = not kwargs.pop('send_notifications', True)
+
+        data = await self._state.create_announcement(
+            self.id,
+            title=title,
+            content=content,
+            game_id=(game.id if game else None),
+            dont_send_notifications=dont_send_notifications
+        )
+        announcement = Announcement(data=data['announcement'], channel=self, game=game, state=self._state)
+        return announcement
+
+
+class AnnouncementReply(guilded.abc.Reply):
+    """Represents a reply to an :class:`Announcement`."""
+    pass
+
+
+class DocReply(guilded.abc.Reply):
+    """Represents a reply to a :class:`Doc`."""
+    pass
+
+
+class ForumReply(guilded.abc.Reply):
+    """Represents a reply to a :class:`ForumTopic`."""
+    pass

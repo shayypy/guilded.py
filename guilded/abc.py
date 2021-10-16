@@ -50,14 +50,14 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import abc
-from typing import List
+from typing import List, Optional
 
 from .activity import Activity
 from .asset import Asset
 from .colour import Colour
 from .embed import _EmptyEmbed, Embed
 from .file import MediaType, FileType, File
-from .message import Message
+from .message import HasContentMixin, Message
 from .presence import Presence
 from .utils import ISO8601
 
@@ -258,6 +258,7 @@ class Messageable(metaclass=abc.ABCMeta):
         message = await self._state.get_channel_message(self._channel_id, id)
         return message
 
+
 class User(metaclass=abc.ABCMeta):
     """An ABC for user-type models.
 
@@ -440,6 +441,7 @@ class User(metaclass=abc.ABCMeta):
 
         return await super().send(*content, **kwargs)
 
+
 class TeamChannel(metaclass=abc.ABCMeta):
     """An ABC for the various types of team channels.
 
@@ -449,6 +451,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
         * :class:`.DocsChannel`
         * :class:`.ForumChannel`
         * :class:`.VoiceChannel`
+        * :class:`.AnnouncementChannel`
         * :class:`.Thread`
     """
     def __init__(self, *, state, group, data, **extra):
@@ -492,17 +495,27 @@ class TeamChannel(metaclass=abc.ABCMeta):
             self.parent = None
 
     @property
-    def topic(self):
+    def topic(self) -> str:
         return self.description
 
     @property
-    def vanity_url(self):
+    def vanity_url(self) -> str:
         if self.slug and self.team.vanity_url:
             return f'{self.team.vanity_url}/blog/{self.slug}'
         return None
 
     @property
-    def mention(self):
+    def share_url(self) -> str:
+        type_ = 'chat'
+        if hasattr(self, 'type'):
+            # any type will work for all types of share URLs, but we try
+            # to return the 'proper' value here just to be fancy
+            type_ = self.type.value
+
+        return f'https://guilded.gg//groups/{self.group_id}/channels/{self.id}/{type_}'
+
+    @property
+    def mention(self) -> str:
         return f'<#{self.id}>'
 
     @property
@@ -531,3 +544,119 @@ class TeamChannel(metaclass=abc.ABCMeta):
         Delete this channel.
         """
         return await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
+
+
+class Reply(HasContentMixin, metaclass=abc.ABCMeta):
+    """An ABC for replies to posts.
+
+    The following implement this ABC:
+
+        * :class:`.AnnouncementReply`
+        * :class:`.DocReply`
+        * :class:`.ForumReply`
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two replies are equal.
+
+        .. describe:: x != y
+
+            Checks if two replies are not equal.
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The reply's ID.
+    content: :class:`str`
+        The reply's content.
+    parent: Union[:class:`Announcement`, :class:`Doc`, :class:`ForumTopic`]
+        The parent that the reply is under.
+    created_at: :class:`datetime.datetime`
+        When the reply was created.
+    edited_at: Optional[:class:`datetime.datetime`]
+        When the reply was last edited.
+    deleted_by: Optional[:class:`.Member`]
+        Who deleted this reply. This will only be present through a delete
+        event, e.g. :func:`on_forum_reply_delete`.
+    """
+    def __init__(self, *, state, data, parent):
+        super().__init__()
+        self._state = state
+        self.parent = parent
+        self.channel = parent.channel
+        self.group = parent.group
+        self.team = parent.team
+
+        self.id: int = data['id']
+        self.content: str = self._get_full_content(data['message'])
+
+        self.author_id: str = data.get('createdBy')
+        self.created_by_bot_id: Optional[int] = data.get('createdByBotId')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+        self.deleted_by: Optional[User] = None
+
+        self.replied_to_id: Optional[int] = None
+        self.replied_to_author_id: Optional[str] = None
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} id={self.id!r} author={self.author!r} parent={self.parent!r}>'
+
+    def __eq__(self, other):
+        return isinstance(other, Reply) and other.id == self.id and other.parent == self.parent
+
+    @property
+    def author(self) -> Optional[User]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the
+        reply, if they are cached.
+        """
+        return self.team.get_member(self.author_id)
+
+    @property
+    def replied_to(self):
+        if self.replied_to_id:
+            return self.parent.get_reply(self.replied_to_id)
+        return None
+
+    async def add_reaction(self, emoji):
+        """|coro|
+
+        Add a reaction to this reply.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to add.
+        """
+        await self._state.add_content_reaction(self.channel.type.value, self.id, emoji.id)
+
+    async def remove_self_reaction(self, emoji):
+        """|coro|
+
+        Remove your reaction from this reply.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to remove.
+        """
+        await self._state.remove_self_content_reaction(self.channel.type.value, self.id, emoji.id)
+
+    async def delete(self):
+        """|coro|
+
+        Delete this reply.
+        """
+        await self._state.delete_content_reply(self.channel.type.value, self.team.id, self.parent.id, self.id)
+
+    async def reply(self, *content, **kwargs):
+        """|coro|
+
+        Reply to this reply.
+
+        This method is identical to the reply method of its parent.
+        """
+        kwargs['reply_to'] = self
+        return await self.parent.reply(*content, **kwargs)

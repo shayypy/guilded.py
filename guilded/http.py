@@ -53,6 +53,7 @@ import asyncio
 import datetime
 import json
 import logging
+import re
 from typing import Union
 
 from . import utils
@@ -197,6 +198,14 @@ class HTTPClient:
             },
             'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': '', 'marks': []}]}]
         })
+
+    def valid_ISO8601(self, timestamp):
+        """Manually construct a datetime's ISO8601 representation so that
+        Guilded will accept it. Guilded rejects isoformat()'s 6-digit
+        microseconds and UTC offset (+00:00).
+        """
+        # Valid example: 2021-10-15T23:58:44.537Z
+        return timestamp.strftime('%Y-%m-%dT%H:%M:%S.000Z')
 
     def _get_user(self, id):
         return self._users.get(id)
@@ -590,7 +599,7 @@ class HTTPClient:
         params = {
             'maxItems': limit,
             'page': page,
-            'beforeDate': before.isoformat()
+            'beforeDate': self.valid_ISO8601(before)
         }
         return self.request(route, params=params)
 
@@ -677,19 +686,51 @@ class HTTPClient:
         payload = {'moveToChannelId': to_channel_id}
         return self.request(route, json=payload)
 
+    def create_announcement(self, channel_id: str, title: str, content, game_id: int, dont_send_notifications: bool):
+        payload = {
+            'title': title,
+            'content': self.compatible_content(content),
+            'gameId': game_id,
+            'dontSendNotifications': dont_send_notifications
+        }
+        return self.request(Route('POST', f'/channels/{channel_id}/announcements'), json=payload)
+
+    def get_announcement(self, channel_id: str, announcement_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/announcements/{announcement_id}'))
+
+    def get_announcements(self, channel_id: str, *, limit: int, before: datetime.datetime):
+        params = {
+            'maxItems': limit,
+            'beforeDate': self.valid_ISO8601(before)
+        }
+        return self.request(Route('GET', f'/channels/{channel_id}/announcements'), params=params)
+
+    def get_pinned_announcements(self, channel_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/pinnedannouncements'))
+
+    def toggle_announcement_pin(self, channel_id: str, announcement_id: str, *, pinned: bool):
+        route = Route('PUT', f'/channels/{channel_id}/toggleannouncementpin/{announcement_id}')
+        payload = {
+            'isPinned': pinned
+        }
+        return self.request(route, json=payload)
+
+    def delete_announcement(self, channel_id: str, announcement_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}'))
+
     # /reactions
 
-    def add_doc_reaction(self, doc_id: int, emoji_id: int):
+    def add_content_reaction(self, content_type: str, content_id, emoji_id: int):
         payload = {
             'customReactionId': emoji_id
         }
-        return self.request(Route('PUT', f'/reactions/doc/{doc_id}/undefined'), json=payload)
+        return self.request(Route('PUT', f'/reactions/{content_type}/{content_id}/undefined'), json=payload)
 
-    def remove_self_doc_reaction(self, doc_id: int, emoji_id: int):
+    def remove_self_content_reaction(self, content_type: str, content_id, emoji_id: int):
         payload = {
             'customReactionId': emoji_id
         }
-        return self.request(Route('DELETE', f'/reactions/doc/{doc_id}/undefined'), json=payload)
+        return self.request(Route('DELETE', f'/reactions/{content_type}/{content_id}/undefined'), json=payload)
 
     # /teams
 
@@ -997,13 +1038,13 @@ class HTTPClient:
 
     #    return self.request(Route('PUT', f'/content/custom_forms/{form_id}/responses'), json=payload)
 
-    def get_doc_replies(self, doc_id: int):
-        return self.request(Route('GET', f'/content/doc/{doc_id}/replies'))
+    def get_content_replies(self, content_type: str, content_id: int):
+        return self.request(Route('GET', f'/content/{content_type}/{content_id}/replies'))
 
-    def get_doc_reply(self, doc_id: int, reply_id: int):
-        return self.request(Route('GET', f'/content/doc/{doc_id}/replies/{reply_id}'))
+    def get_content_reply(self, content_type: str, content_id: int, reply_id: int):
+        return self.request(Route('GET', f'/content/{content_type}/{content_id}/replies/{reply_id}'))
 
-    def create_doc_reply(self, team_id: str, doc_id: int, *, content, reply_to=None):
+    def create_content_reply(self, content_type: str, team_id: str, content_id, *, content, reply_to=None):
         payload = {
             'message': self.compatible_content(content),
             'teamId': team_id
@@ -1011,13 +1052,13 @@ class HTTPClient:
         if reply_to is not None:
             self.insert_reply_header(payload['message'], reply_to)
 
-        return self.request(Route('POST', f'/content/doc/{doc_id}/replies'), json=payload)
+        return self.request(Route('POST', f'/content/{content_type}/{content_id}/replies'), json=payload)
 
-    def delete_doc_reply(self, team_id: str, doc_id: int, reply_id: int):
+    def delete_content_reply(self, content_type: str, team_id: str, content_id: int, reply_id: int):
         payload = {
             'teamId': team_id
         }
-        return self.request(Route('DELETE', f'/content/doc/{doc_id}/replies/{reply_id}'), json=payload)
+        return self.request(Route('DELETE', f'/content/{content_type}/{content_id}/replies/{reply_id}'), json=payload)
 
     # media.guilded.gg
 
@@ -1086,6 +1127,8 @@ class HTTPClient:
                 return channel.DocsChannel(state=self, **data)
             elif ctype is channel.ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
+            elif ctype is channel.ChannelType.announcements:
+                return channel.AnnouncementChannel(state=self, **data)
         else:
             return channel.DMChannel(state=self, **data)
 
