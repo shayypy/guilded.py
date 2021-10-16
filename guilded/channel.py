@@ -65,6 +65,8 @@ from .utils import ISO8601, parse_hex_number
 from .status import Game
 
 __all__ = (
+    'Announcement',
+    'AnnouncementChannel',
     'ChannelType',
     'ChatChannel',
     'DMChannel',
@@ -1011,37 +1013,34 @@ class DMChannel(guilded.abc.Messageable):
         await self._state.hide_dm_channel(self.id)
 
 
-
 class Announcement(HasContentMixin):
-    """Represents an announcement
+    """Represents an announcement in an :class:`AnnouncementChannel`.
 
     Attributes
     -----------
-    id: :class:`int`
+    id: :class:`str`
         The announcement's ID.
     title: :class:`str`
         The announcement's title.
     content: :class:`str`
         The announcement's text content.
-    channel: :class:`.DocsChannel`
+    channel: :class:`.AnnouncementChannel`
         The channel that the announcement is in.
     team: :class:`.Team`
         The team that the announcement is in.
     public: :class:`bool`
         Whether the announcement is public.
-    draft: :class:`bool`
-        Whether the announcement is a draft.
     created_at: :class:`datetime.datetime`
         When the announcement was created.
     edited_at: Optional[:class:`datetime.datetime`]
-        When the announcement was last modified.
+        When the announcement was last edited.
+    slug: Optional[:class:`str`]
+        The announcement's URL slug.
     game: Optional[:class:`.Game`]
         The game associated with the announcement.
     """
-
     def __init__(self, *, state, data, channel, game=None):
         super().__init__()
-        data = data['announcement']
         self._state = state
         self.channel = channel
         self.team = channel.team
@@ -1050,20 +1049,34 @@ class Announcement(HasContentMixin):
         self._replies = {}
 
         self.public: bool = data.get('isPublic', False)
-        self.credentialed: bool = data.get('isCredentialed', False)
-        self.draft: bool = data.get('isDraft', False)
+        self.slug: Optional[str] = data.get('slug')
 
         self.author_id: str = data.get('createdBy')
-        self.edited_by_id: Optional[str] = data.get('modifiedBy')
-
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('modifiedAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
 
         self.id: str = data['id']
         self.title: str = data['title']
         self.content: str = self._get_full_content(data['content'])
 
+    def __repr__(self):
+        return f'<Announcement id={self.id!r} title={self.title!r} author={self.author!r}>'
 
+    @property
+    def author(self) -> Optional[Member]:
+        return self.team.get_member(self.author_id)
+
+    @property
+    def blog_url(self) -> Optional[str]:
+        if self.channel.vanity_url and self.slug:
+            return f'{self.channel.vanity_url}/{self.slug}'
+        return None
+
+    @property
+    def share_url(self) -> str:
+        if self.channel:
+            return f'{self.channel.share_url}/{self.id}'
+        return None
 
 
 class AnnouncementChannel(guilded.abc.TeamChannel):
@@ -1080,17 +1093,83 @@ class AnnouncementChannel(guilded.abc.TeamChannel):
     def get_announcement(self, id):
         return self._announcements.get(id)
 
+    async def fetch_announcement(self, id: str) -> Announcement:
+        """|coro|
+
+        Fetch an announcement in this channel.
+
+        Parameters
+        -----------
+        id: :class:`str`
+            The announcement's ID.
+
+        Returns
+        --------
+        :class:`.Announcement`
+        """
+        data = await self._state.get_announcement(self.id, id)
+        announcement = Announcement(data=data['announcement'], channel=self, state=self._state)
+        return announcement
+
+    async def fetch_announcements(self, *, limit: int = 50, before: datetime.datetime = None) -> Announcement:
+        """|coro|
+
+        Fetch multiple announcements in this channel.
+
+        All parameters are optional.
+
+        Parameters
+        -----------
+        limit: :class:`int`
+            The maximum number of announcements to return. Defaults to 50.
+        before: :class:`datetime.datetime`
+            The latest date that an announcement can be from. Defaults to the
+            current time.
+
+        Returns
+        --------
+        List[:class:`.Announcement`]
+        """
+        before = before or datetime.datetime.now(datetime.timezone.utc)
+        data = await self._state.get_announcements(self.id, limit=limit, before=before)
+        announcements = []
+        for announcement_data in data['announcements']:
+            announcements.append(Announcement(data=announcement_data, channel=self, state=self._state))
+
+        return announcements
+
     async def create_announcement(self, *content, **kwargs) -> Announcement:
+        """|coro|
+
+        Create an announcement in this channel.
+
+        Parameters
+        -----------
+        content: Any
+            The content of the announcement.
+        title: :class:`str`
+            The title of the announcement.
+        game: Optional[:class:`.Game`]
+            The game to be associated with this announcement.
+        send_notifications: Optional[:class:`bool`]
+            Whether to send notifications to all members ("Notify all
+            members" in the client). Defaults to ``True`` if not specified.
+
+        Returns
+        --------
+        :class:`.Announcement`
+            The created announcement.
+        """
         title = kwargs.pop('title')
         game = kwargs.pop('game', None)
-        draft = kwargs.pop('draft', False)
+        dont_send_notifications = not kwargs.pop('send_notifications', True)
 
         data = await self._state.create_announcement(
             self.id,
             title=title,
             content=content,
             game_id=(game.id if game else None),
-            draft=draft
+            dont_send_notifications=dont_send_notifications
         )
-        announcement = Announcement(data=data, channel=self, game=game, state=self._state)
+        announcement = Announcement(data=data['announcement'], channel=self, game=game, state=self._state)
         return announcement
