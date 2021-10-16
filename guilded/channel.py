@@ -83,17 +83,21 @@ __all__ = (
 
 
 class ChannelType(Enum):
-    chat = 'chat'
-    text = chat
-    voice = 'voice'
-    forum = 'forum'
-    doc = 'doc'
-    docs = doc
     announcement = 'announcement'
     announcements = announcement
-    news = announcement
-    thread = 'temporal'
+    chat = 'chat'
+    doc = 'doc'
+    docs = doc
     dm = 'DM'
+    forum = 'forum'
+    media = 'media'
+    news = announcement
+    list = 'list'
+    scheduling = 'scheduling'
+    streaming = 'streaming'
+    text = chat
+    thread = 'temporal'
+    voice = 'voice'
 
     @classmethod
     def from_str(self, string):
