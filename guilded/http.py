@@ -715,6 +715,9 @@ class HTTPClient:
         }
         return self.request(route, json=payload)
 
+    def delete_announcement(self, channel_id: str, announcement_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}'))
+
     # /reactions
 
     def add_content_reaction(self, content_type: str, content_id, emoji_id: int):

@@ -333,6 +333,7 @@ class Client:
         :attr:`.cache_on_startup`\. This is in contrast to a Discord
         application, where this would be done on connection to the gateway.
         """
+        import pudb; pu.db
         self.http = self.http or HTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
         data = await self.http.login(email, password)
         self.user: ClientUser = ClientUser(state=self.http, data=data)
