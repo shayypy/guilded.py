@@ -105,34 +105,7 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.chat
-
-    async def create_thread(self, *content, **kwargs):
-        """|coro|
-
-        Create a new thread in this channel.
-
-        Parameters
-        ------------
-        content: Any
-            The content of the message that should be created as the initial
-            message of the newly-created thread. Passing either this or
-            ``message`` is required.
-        name: :class:`str`
-            The name to create the thread with.
-        message: Optional[:class:`ChatMessage`]
-            The message to create the thread from. Passing either this or
-            values for ``content`` is required.
-        """
-        name = kwargs.get('name')
-        message = kwargs.get('message')
-        if not name:
-            raise TypeError('name is a required argument that is missing.')
-        if not message and not content:
-            raise TypeError('Must include message, an argument list of content, or both.')
-
-        data = await self._state.create_thread(self.id, content, name=name, initial_message=message)
-        thread = Thread(data=data.get('thread', data), state=self._state, group=self.group, team=self.team)
-        return thread
+        self._channel_id = self.id
 
 
 class Doc(HasContentMixin):
@@ -713,6 +686,7 @@ class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.voice
+        self._channel_id = self.id
         self._ws = None
 
     #async def connect(self):

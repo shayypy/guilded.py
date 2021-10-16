@@ -1117,7 +1117,6 @@ class HTTPClient:
                     # we assume here that only threads will have this attribute
                     # so from this we can reasonably know whether a channel is
                     # a thread
-                    channel_data['threadMessageId']
                     return channel.Thread(state=self, **data)
                 else:
                     return channel.ChatChannel(state=self, **data)

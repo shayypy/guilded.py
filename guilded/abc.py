@@ -79,7 +79,6 @@ class Messageable(metaclass=abc.ABCMeta):
         self._state = state
         self.id = data.get('id')
         self._channel_id = data.get('id')
-        self.type = None
 
     async def send(self, *content, **kwargs) -> Message:
         """|coro|
@@ -257,6 +256,34 @@ class Messageable(metaclass=abc.ABCMeta):
         """
         message = await self._state.get_channel_message(self._channel_id, id)
         return message
+
+    async def create_thread(self, *content, **kwargs):
+        """|coro|
+
+        Create a new thread in this channel.
+
+        Parameters
+        ------------
+        content: Any
+            The content of the message that should be created as the initial
+            message of the newly-created thread. Passing either this or
+            ``message`` is required.
+        name: :class:`str`
+            The name to create the thread with.
+        message: Optional[:class:`ChatMessage`]
+            The message to create the thread from. Passing either this or
+            values for ``content`` is required.
+        """
+        name = kwargs.get('name')
+        message = kwargs.get('message')
+        if not name:
+            raise TypeError('name is a required argument that is missing.')
+        if not message and not content:
+            raise TypeError('Must include message, an argument list of content, or both.')
+
+        data = await self._state.create_thread(self._channel_id, content, name=name, initial_message=message)
+        thread = self._state.create_channel(data=data.get('thread', data), group=self.group, team=self.team)
+        return thread
 
 
 class User(metaclass=abc.ABCMeta):
@@ -456,6 +483,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
     """
     def __init__(self, *, state, group, data, **extra):
         self._state = state
+        self.type = None
         data = data.get('data') or data.get('channel') or data
         self.group = group
         self.group_id = data.get('groupId') or getattr(self.group, 'id', None)
@@ -507,7 +535,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
     @property
     def share_url(self) -> str:
         type_ = 'chat'
-        if hasattr(self, 'type'):
+        if self.type is not None:
             # any type will work for all types of share URLs, but we try
             # to return the 'proper' value here just to be fancy
             type_ = self.type.value
