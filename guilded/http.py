@@ -62,7 +62,7 @@ from .abc import User as abc_User
 from .embed import Embed
 from .emoji import Emoji
 from .errors import ClientException, HTTPException, error_mapping
-from .file import File
+from .file import File, MediaType
 from .message import ChatMessage, Mention
 from .user import User, Member
 
@@ -718,19 +718,59 @@ class HTTPClient:
     def delete_announcement(self, channel_id: str, announcement_id: str):
         return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}'))
 
+    def get_media(self, channel_id: str, media_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/media/{media_id}'))
+
+    def get_medias(self, channel_id: str, *, limit: int):
+        params = {
+            'pageSize': limit
+        }
+        return self.request(Route('GET', f'/channels/{channel_id}/media'), params=params)
+
+    def create_media(self, channel_id: str, *, file_type, title, src_data, description=None, game_id=None, tags=None):
+        route = Route('POST', f'/channels/{channel_id}/media')
+        payload = {
+            'type': str(file_type),
+            'title': title,
+            'description': description,
+            'tags': tags or [],
+            **src_data
+        }
+        return self.request(route, json=payload)
+
+    def move_media(self, channel_id: str, media_id: int, to_channel_id: str):
+        route = Route('PUT', f'/channels/{channel_id}/media/{media_id}/move')
+        payload = {'moveToChannelId': to_channel_id}
+        return self.request(route, json=payload)
+
+    def delete_media(self, channel_id: str, media_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/media/{media_id}'))
+
     # /reactions
 
-    def add_content_reaction(self, content_type: str, content_id, emoji_id: int):
+    def add_content_reaction(self, content_type: str, content_id, emoji_id: int, *, reply: bool = False):
+        route = Route('PUT', f'/reactions/{content_type}/{content_id}/undefined')
         payload = {
             'customReactionId': emoji_id
         }
-        return self.request(Route('PUT', f'/reactions/{content_type}/{content_id}/undefined'), json=payload)
+        params = {}
+        if reply is True:
+            # Guilded will throw a 500 if this is specified as false, even if
+            # that value is correct
+            params['isContentReply'] = 'true'
+        return self.request(route, json=payload, params=params)
 
-    def remove_self_content_reaction(self, content_type: str, content_id, emoji_id: int):
+    def remove_self_content_reaction(self, content_type: str, content_id, emoji_id: int, *, reply: bool = False):
+        route = Route('DELETE', f'/reactions/{content_type}/{content_id}/undefined')
         payload = {
             'customReactionId': emoji_id
         }
-        return self.request(Route('DELETE', f'/reactions/{content_type}/{content_id}/undefined'), json=payload)
+        params = {}
+        if reply is True:
+            # Guilded will throw a 500 if this is specified as false, even if
+            # that value is correct
+            params['isContentReply'] = 'true'
+        return self.request(route, json=payload, params=params)
 
     # /teams
 
@@ -1068,8 +1108,17 @@ class HTTPClient:
             params={'dynamicMediaTypeId': str(file.type)}
         )
 
+    def upload_third_party_media(self, url):
+        route = Route('PUT', '/media/upload/third_party_media', override_base=Route.MEDIA_BASE)
+        payload = {
+            'mediaInfo': {'src': url},
+            'dynamicMediaTypeId': str(MediaType.media_channel_upload)
+        }
+        return self.request(route, json=payload)
+
     def execute_webhook(self, webhook_id: str, webhook_token: str, data: dict):
-        return self.request(Route('POST', f'/webhooks/{webhook_id}/{webhook_token}', override_base=Route.MEDIA_BASE), json=data)
+        route = Route('POST', f'/webhooks/{webhook_id}/{webhook_token}', override_base=Route.MEDIA_BASE)
+        return self.request(route, json=data)
 
     # one-off
 
@@ -1112,7 +1161,9 @@ class HTTPClient:
         if channel_data.get('type', '').lower() == 'team':
             data['group'] = data.get('group')
             ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
-            if ctype is channel.ChannelType.chat:
+            if ctype is channel.ChannelType.announcements:
+                return channel.AnnouncementChannel(state=self, **data)
+            elif ctype is channel.ChannelType.chat:
                 if 'threadMessageId' in channel_data:
                     # we assume here that only threads will have this attribute
                     # so from this we can reasonably know whether a channel is
@@ -1120,14 +1171,14 @@ class HTTPClient:
                     return channel.Thread(state=self, **data)
                 else:
                     return channel.ChatChannel(state=self, **data)
-            elif ctype is channel.ChannelType.forum:
-                return channel.ForumChannel(state=self, **data)
             elif ctype is channel.ChannelType.docs:
                 return channel.DocsChannel(state=self, **data)
+            elif ctype is channel.ChannelType.forum:
+                return channel.ForumChannel(state=self, **data)
+            elif ctype is channel.ChannelType.media:
+                return channel.MediaChannel(state=self, **data)
             elif ctype is channel.ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
-            elif ctype is channel.ChannelType.announcements:
-                return channel.AnnouncementChannel(state=self, **data)
         else:
             return channel.DMChannel(state=self, **data)
 

@@ -51,13 +51,15 @@ DEALINGS IN THE SOFTWARE.
 
 import datetime
 from enum import Enum
+import re
 from typing import Optional, Union, List
 
 import guilded.abc
 
+from .asset import Asset
 from .embed import Embed
 from .emoji import Emoji
-from .file import Attachment
+from .file import Attachment, File, FileType, MediaType
 #from .gateway import GuildedVoiceWebSocket
 from .message import HasContentMixin, Message, Link
 from .user import Member, User
@@ -77,6 +79,9 @@ __all__ = (
     'ForumChannel',
     'ForumReply',
     'ForumTopic',
+    'Media',
+    'MediaChannel',
+    'MediaReply',
     'Thread',
     'VoiceChannel'
 )
@@ -216,7 +221,7 @@ class Doc(HasContentMixin):
         emoji: :class:`.Emoji`
             The emoji to add.
         """
-        await self._state.add_doc_reaction(self.id, emoji.id)
+        await self._state.add_content_reaction('doc', self.id, emoji.id)
 
     async def remove_self_reaction(self, emoji):
         """|coro|
@@ -228,7 +233,7 @@ class Doc(HasContentMixin):
         emoji: :class:`.Emoji`
             The emoji to remove.
         """
-        await self._state.remove_self_doc_reaction(self.id, emoji.id)
+        await self._state.remove_self_content_reaction('doc', self.id, emoji.id)
 
     async def delete(self):
         """|coro|
@@ -254,8 +259,8 @@ class Doc(HasContentMixin):
         :class:`.DocReply`
             The created reply.
         """
-        data = await self._state.create_doc_reply(self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
-        reply = DocReply(data=data['reply'], doc=self, state=self._state)
+        data = await self._state.create_content_reply('doc', self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+        reply = DocReply(data=data['reply'], parent=self, state=self._state)
         return reply
 
     def get_reply(self, id: int):
@@ -276,8 +281,8 @@ class Doc(HasContentMixin):
         --------
         :class:`.DocReply`
         """
-        data = await self._state.get_doc_reply(self.id, id)
-        reply = DocReply(data=data['reply'], doc=self, state=self._state)
+        data = await self._state.get_content_reply('doc', self.id, id)
+        reply = DocReply(data=data['reply'], parent=self, state=self._state)
         return reply
 
     async def move(self, id: int):
@@ -976,6 +981,69 @@ class Announcement(HasContentMixin):
         """
         await self._state.delete_announcement(self.channel.id, self.id)
 
+    async def add_reaction(self, emoji):
+        """|coro|
+
+        Add a reaction to this announcement.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to add.
+        """
+        await self._state.add_content_reaction('announcement', self.id, emoji.id)
+
+    async def remove_self_reaction(self, emoji):
+        """|coro|
+
+        Remove your reaction from this announcement.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to remove.
+        """
+        await self._state.remove_self_content_reaction('announcement', self.id, emoji.id)
+
+    async def fetch_reply(self, id: int):
+        """|coro|
+
+        Fetch a reply to this announcement.
+
+        Parameters
+        -----------
+        id: :class:`int`
+            The ID of the reply.
+
+        Returns
+        --------
+        :class:`.AnnouncementReply`
+        """
+        data = await self._state.get_content_reply('announcement', self.id, id)
+        reply = AnnouncementReply(data=data['reply'], parent=self, state=self._state)
+        return reply
+
+    async def reply(self, *content, **kwargs):
+        """|coro|
+
+        Reply to this announcement.
+
+        Parameters
+        ------------
+        content: Any
+            The content to create the reply with.
+        reply_to: Optional[:class:`.AnnouncementReply`]
+            An existing reply to reply to.
+
+        Returns
+        --------
+        :class:`.AnnouncementReply`
+            The created reply.
+        """
+        data = await self._state.create_content_reply('announcement', self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+        reply = AnnouncementReply(data=data['reply'], parent=self, state=self._state)
+        return reply
+
 
 class AnnouncementChannel(guilded.abc.TeamChannel):
     """Represents an announcements channel in a team"""
@@ -1091,6 +1159,337 @@ class AnnouncementChannel(guilded.abc.TeamChannel):
         return announcement
 
 
+class Media(HasContentMixin):
+    """Represents a media post in a :class:`.MediaChannel`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two medias are equal.
+
+        .. describe:: x != y
+
+            Checks if two medias are not equal.
+
+        .. describe:: str(x)
+
+            Returns the URL of the media.
+
+        .. describe:: len(x)
+
+            Returns the length of the media's URL.
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The media's ID.
+    title: :class:`str`
+        The media's title.
+    description: :class:`str`
+        The media's description.
+    url: :class:`str`
+        The media's URL on Guilded's CDN.
+    thumbnail: Optional[:class:`.Asset`]
+        An asset for the media's thumbnail.
+    channel: :class:`.MediaChannel`
+        The channel that the media is in.
+    group: :class:`.Group`
+        The group that the media is in.
+    team: :class:`.Team`
+        The team that the media is in.
+    public: :class:`bool`
+        Whether the media is public.
+    created_at: :class:`datetime.datetime`
+        When the media was created.
+    reply_count: :class:`int`
+        How many replies the media has.
+    game: Optional[:class:`.Game`]
+        The game associated with the media.
+    """
+    def __init__(self, *, state, data, channel, game=None):
+        super().__init__()
+        self._state = state
+        self.type = getattr(FileType, (data.get('type', 'image')), None)
+        self.channel = channel
+        self.group = channel.group
+        self.team = channel.team
+        self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
+        self.tags: List[str] = list(data.get('tags') or [])  # sometimes an empty string is present instead of a list
+        self._replies = {}
+
+        self.public: bool = data.get('isPublic', False)
+        self.url: str = data.get('src')
+        if data.get('srcThumbnail'):
+            self.thumbnail: Optional[Asset] = Asset('mediaThumbnail', state=self._state, data={'mediaThumbnail': data['srcThumbnail']})
+        else:
+            self.thumbnail: Optional[Asset] = None
+
+        self.author_id: str = data.get('createdBy')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+
+        self.id: str = data['id']
+        self.title: str = data['title']
+        self.description: str = data.get('description', '')
+
+        self.reply_count: int = int(data.get('replyCount', 0))
+
+        if data.get('additionalInfo', {}).get('externalVideoSrc'):
+            self.youtube_embed_url = data['additionalInfo']['externalVideoSrc']
+            self.youtube_video_id = re.sub(r'^https?:\/\/(www\.)youtube\.com\/embed\/', '', self.youtube_embed_url)
+
+    def __repr__(self):
+        return f'<Media id={self.id!r} title={self.title!r} author={self.author!r}>'
+
+    def __str__(self):
+        return self.url
+
+    def __len__(self):
+        return len(str(self))
+
+    def __eq__(self, other):
+        return isinstance(other, Media) and self.id == other.id and self.url == other.url
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the
+        topic, if they are cached.
+        """
+        return self.team.get_member(self.author_id)
+
+    @property
+    def share_url(self) -> str:
+        if self.channel:
+            return f'{self.channel.share_url}/{self.id}'
+        return None
+
+    @property
+    def replies(self):
+        return list(self._replies.values())
+
+    def get_reply(self, id):
+        """Optional[:class:`.MediaReply`]: Get a reply by its ID."""
+        return self._replies.get(id)
+
+    async def add_reaction(self, emoji):
+        """|coro|
+
+        Add a reaction to this media post.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to add.
+        """
+        await self._state.add_content_reaction(self.channel.content_type, self.id, emoji.id)
+
+    async def remove_self_reaction(self, emoji):
+        """|coro|
+
+        Remove your reaction from this media post.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to remove.
+        """
+        await self._state.remove_self_content_reaction(self.channel.content_type, self.id, emoji.id)
+
+    async def reply(self, *content, **kwargs):
+        """|coro|
+
+        Reply to this media.
+
+        Parameters
+        ------------
+        content: Any
+            The content to create the reply with.
+        reply_to: Optional[:class:`.MediaReply`]
+            An existing reply to reply to.
+
+        Returns
+        --------
+        :class:`.MediaReply`
+            The created reply.
+        """
+        data = await self._state.create_content_reply(self.channel.content_type, self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+        reply = MediaReply(data=data['reply'], parent=self, state=self._state)
+        return reply
+
+    def get_reply(self, id: int):
+        """Optional[:class:`.MediaReply`]: Get a reply by its ID."""
+        return self._replies.get(id)
+
+    async def fetch_reply(self, id: int):
+        """|coro|
+
+        Fetch a reply to this media.
+
+        Parameters
+        -----------
+        id: :class:`int`
+            The ID of the reply.
+
+        Returns
+        --------
+        :class:`.MediaReply`
+        """
+        data = await self._state.get_content_reply(self.channel.content_type, self.id, id)
+        reply = MediaReply(data=data['reply'], parent=self, state=self._state)
+        return reply
+
+    async def move(self, id: int):
+        """|coro|
+
+        Move this media post to another :class:`.DocsChannel`.
+
+        Parameters
+        -----------
+        to: :class:`.DocsChannel`
+            The media channel to move this topic to.
+        """
+        await self._state.move_media(self.channel.id, self.id, to.id)
+
+    async def delete(self):
+        """|coro|
+
+        Delete this media post.
+        """
+        return await self._state.delete_media(self.id)
+
+    async def read(self):
+        """|coro|
+
+        Fetches the raw data of this media as a :class:`bytes`.
+
+        Returns
+        --------
+        :class:`bytes`
+            The raw data of this media.
+        """
+        return await self._state.read_filelike_data(self)
+
+
+class MediaChannel(guilded.abc.TeamChannel):
+    """Represents a media channel in a team."""
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.media
+        self.content_type = 'team_media'
+        self._medias = {}
+
+    @property
+    def medias(self):
+        """List[:class:`.Media`]: The list of cached medias in this channel."""
+        return list(self._medias.values())
+
+    def get_media(self, id):
+        """Optional[:class:`.Media`]: Get a cached media post in this channel."""
+        return self._medias.get(id)
+
+    async def fetch_media(self, id: str) -> Media:
+        """|coro|
+
+        Fetch a media post in this channel.
+
+        Parameters
+        -----------
+        id: :class:`int`
+            The media's ID.
+
+        Returns
+        --------
+        :class:`.Media`
+        """
+        data = await self._state.get_media(self.id, id)
+        media = Media(data=data, channel=self, state=self._state)
+        return media
+
+    async def fetch_medias(self, *, limit: int = 50) -> List[Media]:
+        """|coro|
+
+        Fetch multiple media posts in this channel.
+
+        All parameters are optional.
+
+        Parameters
+        -----------
+        limit: :class:`int`
+            The maximum number of media posts to return. Defaults to 50.
+
+        Returns
+        --------
+        List[:class:`.Media`]
+        """
+        data = await self._state.get_medias(self.id, limit=limit)
+        medias = []
+        for media_data in data:
+            medias.append(Media(data=media_data, channel=self, state=self._state))
+
+        return medias
+
+    async def create_media(self, *,
+        title: str,
+        description: str = None,
+        file: Optional[File] = None,
+        youtube_url: Optional[str] = None,
+        tags: List[str] = None,
+        game: Optional[Game] = None
+    ) -> Media:
+        """|coro|
+
+        Create a media post in this channel.
+
+        Parameters
+        -----------
+        title: :class:`str`
+            The title of the media.
+        description: Optional[:class:`str`]
+            The description of the media. Does not accept markdown or any
+            inline content.
+        file: :class:`.File`
+            The file to upload. Either this or ``youtube_url`` is required.
+        youtube_url: :class:`str`
+            The YouTube embed URL to use (``https://www.youtube.com/embed/...``).
+            Either this or ``file`` is required.
+        game: Optional[:class:`.Game`]
+            The game to be associated with this media.
+
+        Returns
+        --------
+        :class:`.Media`
+            The created media.
+        """
+        if file and youtube_url:
+            raise ValueError('Must not specify both file and youtube_url')
+        if not file and not youtube_url:
+            raise ValueError('Must specify either file or youtube_url')
+
+        src_data = {}
+        file_type = FileType.image
+        if file:
+            file.set_media_type(MediaType.media_channel_upload)
+            await file._upload(self._state)
+            src_data = {'src': file.url}
+            file_type = file.file_type
+        elif youtube_url:
+            data = await self._state.upload_third_party_media(youtube_url)
+            src_data = {'src': data['url'], 'additionalInfo': {'externalVideoSrc': youtube_url}}
+            file_type = FileType.video
+
+        data = await self._state.create_media(
+            self.id,
+            file_type=file_type,
+            title=title,
+            src_data=src_data,
+            description=description,
+            tags=(tags or []),
+            game_id=(game.id if game else None)
+        )
+        media = Media(data=data, channel=self, game=game, state=self._state)
+        return media
+
+
 class AnnouncementReply(guilded.abc.Reply):
     """Represents a reply to an :class:`Announcement`."""
     pass
@@ -1103,4 +1502,9 @@ class DocReply(guilded.abc.Reply):
 
 class ForumReply(guilded.abc.Reply):
     """Represents a reply to a :class:`ForumTopic`."""
+    pass
+
+
+class MediaReply(guilded.abc.Reply):
+    """Represents a reply to a :class:`Media`."""
     pass

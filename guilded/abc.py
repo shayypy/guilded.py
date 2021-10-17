@@ -636,6 +636,10 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         return isinstance(other, Reply) and other.id == self.id and other.parent == self.parent
 
     @property
+    def _content_type(self):
+        return getattr(self.channel, 'content_type', self.channel.type.value)
+
+    @property
     def author(self) -> Optional[User]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
         reply, if they are cached.
@@ -658,7 +662,7 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         emoji: :class:`.Emoji`
             The emoji to add.
         """
-        await self._state.add_content_reaction(self.channel.type.value, self.id, emoji.id)
+        await self._state.add_content_reaction(self._content_type, self.id, emoji.id, reply=True)
 
     async def remove_self_reaction(self, emoji):
         """|coro|
@@ -670,14 +674,14 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         emoji: :class:`.Emoji`
             The emoji to remove.
         """
-        await self._state.remove_self_content_reaction(self.channel.type.value, self.id, emoji.id)
+        await self._state.remove_self_content_reaction(self._content_type, self.id, emoji.id, reply=True)
 
     async def delete(self):
         """|coro|
 
         Delete this reply.
         """
-        await self._state.delete_content_reply(self.channel.type.value, self.team.id, self.parent.id, self.id)
+        await self._state.delete_content_reply(self._content_type, self.team.id, self.parent.id, self.id)
 
     async def reply(self, *content, **kwargs):
         """|coro|
