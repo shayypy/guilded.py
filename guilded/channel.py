@@ -1189,8 +1189,6 @@ class ListItem(HasContentMixin):
         When the item was marked as completed.
     deleted_at: Optional[:class:`datetime.datetime`]
         When the item was deleted.
-    assigned_to: List[:class:`Member`]
-        Who the item is assigned to.
     """
     def __init__(self, *, state, data, channel):
         super().__init__()
@@ -1198,6 +1196,11 @@ class ListItem(HasContentMixin):
         self.channel = channel
         self.group = channel.group
         self.team = channel.team
+
+        self.parent_id: Optional[str] = data.get('parentId')
+        self.team_id: str = data.get('teamId')
+        self.webhook_id: Optional[str] = data.get('webhookId')
+        self.bot_id: Optional[int] = data.get('botId')
 
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
@@ -1207,12 +1210,13 @@ class ListItem(HasContentMixin):
         self.completed_at: Optional[datetime.datetime] = ISO8601(data.get('completedAt'))
         self.deleted_by_id: Optional[str] = data.get('deletedBy')
         self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
+        self._assigned_to = data.get('assignedTo') or []
 
         self.id: str = data['id']
         self.priority: int = data.get('priority')
 
         self._raw_message = data['message']
-        self.message: str = self._get_full_content(data['message'])
+        self.message: str = self._get_full_content(self._raw_message)
 
         self.has_note: bool = data.get('hasNote', False)
         self.note_author_id: Optional[str] = data.get('noteCreatedBy')
@@ -1225,14 +1229,8 @@ class ListItem(HasContentMixin):
         else:
             self.note: Optional[ListItemNote] = None
 
-        self.parent_id: str = data.get('parentId')
-        self.team_id: str = data.get('teamId')
-        self.webhook_id: Optional[str] = data.get('webhookId')
-        self.bot_id: Optional[int] = data.get('botId')
-        self.assigned_to: list = data.get('assignedTo')
-
     def __repr__(self):
-        return f'<ListItem id={self.id!r} title={self.message!r} author={self.author!r}>'
+        return f'<ListItem id={self.id!r} author={self.author!r} has_note={self.has_note!r}>'
 
     @property
     def author(self) -> Optional[Member]:
@@ -1266,6 +1264,39 @@ class ListItem(HasContentMixin):
     def share_url(self) -> Optional[str]:
         return f'{self.channel.share_url}?listItemId={self.id}'
 
+    @property
+    def assigned_to(self) -> List[Member]:
+        """List[:class:`.Member`]: The members that the item is assigned to,
+        designated by mentions in :attr:`message`.
+        """
+        members = []
+        for assigned in self._assigned_to:
+            id_ = assigned.get('mentionId')
+            if assigned.get('mentionType') == 'person':
+                members.append(self.team.get_member(id_))
+
+            # TODO: get members of role if mentionType == role
+
+        return members
+
+    @property
+    def parent(self):
+        """Optional[:class:`.ListItem`]: The item that this item is a child of,
+        if it exists and is cached.
+        """
+        return self.channel.get_item(self.parent_id)
+
+    async def fetch_parent(self):
+        """|coro|
+        
+        Fetch the item that this item is a child of, if it exists.
+
+        Returns
+        --------
+        :class:`.ListItem`
+        """
+        return await self.channel.fetch_item(self.parent_id)
+
     async def fetch_note(self) -> ListItemNote:
         item = await self.channel.fetch_item(self.id)
         self.note = item.note
@@ -1282,12 +1313,6 @@ class ListItem(HasContentMixin):
         raise NotImplementedError
 
     async def uncomplete(self):
-        raise NotImplementedError
-
-    async def assign_user(self, user: Member):
-        raise NotImplementedError
-
-    async def unassign_user(self, user: Member):
         raise NotImplementedError
 
 
