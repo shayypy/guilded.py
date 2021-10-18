@@ -421,13 +421,10 @@ class WebSocketEventParsers:
 
         moved = data.get('contentMoved', False)
 
-        if channel.type is ChannelType.forum:
-            content = ForumTopic(data=data['thread'], channel=channel, state=self._state)
-            channel._topics[content.id] = content
-            if moved:
-                self.client.dispatch('forum_topic_move', content)
-            else:
-                self.client.dispatch('forum_topic_create', content)
+        if channel.type is ChannelType.announcement:
+            content = Announcement(data=data['announcement'], channel=channel, state=self._state)
+            channel._announcements[content.id] = content
+            self.client.dispatch('announcement_create', content)
 
         elif channel.type is ChannelType.doc:
             content = Doc(data=data['doc'], channel=channel, state=self._state)
@@ -437,10 +434,21 @@ class WebSocketEventParsers:
             else:
                 self.client.dispatch('doc_create', content)
 
-        elif channel.type is ChannelType.announcement:
-            content = Announcement(data=data['announcement'], channel=channel, state=self._state)
-            channel._announcements[content.id] = content
-            self.client.dispatch('announcement_create', content)
+        elif channel.type is ChannelType.forum:
+            content = ForumTopic(data=data['thread'], channel=channel, state=self._state)
+            channel._topics[content.id] = content
+            if moved:
+                self.client.dispatch('forum_topic_move', content)
+            else:
+                self.client.dispatch('forum_topic_create', content)
+
+        elif channel.type is ChannelType.media:
+            content = Media(data=data['media'], channel=channel, state=self._state)
+            channel._medias[content.id] = content
+            if moved:
+                self.client.dispatch('media_move', content)
+            else:
+                self.client.dispatch('media_create', content)
 
     async def TEAM_CHANNEL_CONTENT_DELETED(self, data):
         try:
@@ -458,13 +466,13 @@ class WebSocketEventParsers:
 
         content_id = data['contentId']
 
-        if channel.type is ChannelType.forum:
-            self.client.dispatch('raw_forum_topic_delete', channel, int(content_id))
-            content = channel.get_topic(int(content_id))
-            if topic is not None:
+        if channel.type is ChannelType.announcement:
+            self.client.dispatch('raw_announcement_delete', channel, content_id)
+            content = channel.get_announcement(content_id)
+            if content is not None:
                 content.deleted_by = deleted_by
-                self.client.dispatch('forum_topic_delete', content)
-                channel._topics.pop(content.id)
+                self.client.dispatch('announcement_delete', content)
+                channel._announcements.pop(content.id)
 
         elif channel.type is ChannelType.doc:
             self.client.dispatch('raw_doc_delete', channel, int(content_id))
@@ -474,13 +482,21 @@ class WebSocketEventParsers:
                 self.client.dispatch('doc_delete', content)
                 channel._docs.pop(content.id)
 
-        elif channel.type is ChannelType.announcement:
-            self.client.dispatch('raw_announcement_delete', channel, content_id)
-            content = channel.get_announcement(content_id)
+        elif channel.type is ChannelType.forum:
+            self.client.dispatch('raw_forum_topic_delete', channel, int(content_id))
+            content = channel.get_topic(int(content_id))
+            if topic is not None:
+                content.deleted_by = deleted_by
+                self.client.dispatch('forum_topic_delete', content)
+                channel._topics.pop(content.id)
+
+        elif channel.type is ChannelType.media:
+            self.client.dispatch('raw_media_delete', channel, int(content_id))
+            content = channel.get_media(int(content_id))
             if content is not None:
                 content.deleted_by = deleted_by
-                self.client.dispatch('announcement_delete', content)
-                channel._announcements.pop(content.id)
+                self.client.dispatch('media_delete', content)
+                channel._medias.pop(content.id)
 
     async def TEAM_CHANNEL_CONTENT_REPLY_CREATED(self, data):
         try:
@@ -493,15 +509,15 @@ class WebSocketEventParsers:
 
         parent_id = data['contentId']
 
-        if channel.type is ChannelType.forum:
+        if channel.type is ChannelType.announcement:
             try:
-                parent = await channel.getch_topic(int(parent_id))
-                channel._topics[parent.id] = parent
+                parent = await channel.getch_announcement(parent_id)
+                channel._docs[parent.id] = parent
             except:
                 return
-            reply = ForumReply(data=data['reply'], parent=parent, state=self._state)
-            reply.parent._replies[reply.id] = reply
-            self.client.dispatch('forum_reply_create', reply)
+            reply = AnnouncementReply(data=data['reply'], parent=parent, state=self._state)
+            parent._replies[reply.id] = reply
+            self.client.dispatch('announcement_reply_create', reply)
 
         elif channel.type is ChannelType.doc:
             try:
@@ -513,15 +529,25 @@ class WebSocketEventParsers:
             parent._replies[reply.id] = reply
             self.client.dispatch('doc_reply_create', reply)
 
-        elif channel.type is ChannelType.announcement:
+        elif channel.type is ChannelType.forum:
             try:
-                parent = await channel.getch_announcement(parent_id)
-                channel._docs[parent.id] = parent
+                parent = await channel.getch_topic(int(parent_id))
+                channel._topics[parent.id] = parent
             except:
                 return
-            reply = AnnouncementReply(data=data['reply'], parent=parent, state=self._state)
-            parent._replies[reply.id] = reply
-            self.client.dispatch('announcement_reply_create', reply)
+            reply = ForumReply(data=data['reply'], parent=parent, state=self._state)
+            reply.parent._replies[reply.id] = reply
+            self.client.dispatch('forum_reply_create', reply)
+
+        elif channel.type is ChannelType.media:
+            try:
+                parent = await channel.getch_media(int(parent_id))
+                channel._medias[parent.id] = parent
+            except:
+                return
+            reply = MediaReply(data=data['reply'], parent=parent, state=self._state)
+            reply.parent._replies[reply.id] = reply
+            self.client.dispatch('media_reply_create', reply)
 
     async def TEAM_CHANNEL_CONTENT_REPLY_DELETED(self, data):
         try:
@@ -540,17 +566,17 @@ class WebSocketEventParsers:
         parent_id = data['contentId']
         reply_id = int(data['contentReplyId'])
 
-        if channel.type is ChannelType.forum:
-            self.client.dispatch('raw_forum_reply_delete', channel, int(parent_id), reply_id)
+        if channel.type is ChannelType.announcement:
+            self.client.dispatch('raw_announcement_reply_delete', channel, parent_id, reply_id)
             try:
-                parent = await channel.getch_topic(int(parent_id))
-                channel._topics[parent.id] = parent
+                parent = await channel.getch_announcement(parent_id)
+                channel._announcements[parent.id] = parent
             except:
                 return
             reply = parent.get_reply(reply_id)
             if reply is not None:
                 reply.deleted_by = deleted_by
-                self.client.dispatch('forum_reply_delete', reply)
+                self.client.dispatch('announcement_reply_delete', reply)
                 parent._replies.pop(reply.id)
 
         elif channel.type is ChannelType.doc:
@@ -566,17 +592,30 @@ class WebSocketEventParsers:
                 self.client.dispatch('doc_reply_delete', reply)
                 parent._replies.pop(reply.id)
 
-        elif channel.type is ChannelType.announcement:
-            self.client.dispatch('raw_announcement_reply_delete', channel, parent_id, reply_id)
+        elif channel.type is ChannelType.forum:
+            self.client.dispatch('raw_forum_reply_delete', channel, int(parent_id), reply_id)
             try:
-                parent = await channel.getch_announcement(parent_id)
-                channel._announcements[parent.id] = parent
+                parent = await channel.getch_topic(int(parent_id))
+                channel._topics[parent.id] = parent
             except:
                 return
             reply = parent.get_reply(reply_id)
             if reply is not None:
                 reply.deleted_by = deleted_by
-                self.client.dispatch('announcement_reply_delete', reply)
+                self.client.dispatch('forum_reply_delete', reply)
+                parent._replies.pop(reply.id)
+
+        elif channel.type is ChannelType.media:
+            self.client.dispatch('raw_media_reply_delete', channel, int(parent_id), reply_id)
+            try:
+                parent = await channel.getch_media(int(parent_id))
+                channel._medias[parent.id] = parent
+            except:
+                return
+            reply = parent.get_reply(reply_id)
+            if reply is not None:
+                reply.deleted_by = deleted_by
+                self.client.dispatch('media_reply_delete', reply)
                 parent._replies.pop(reply.id)
 
 

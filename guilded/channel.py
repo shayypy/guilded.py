@@ -314,6 +314,9 @@ class DocsChannel(guilded.abc.TeamChannel):
         """Optional[:class:`.Doc`]: Get a cached doc in this channel."""
         return self._docs.get(id)
 
+    async def getch_doc(self, id: int):
+        return self.get_doc(id) or await self.fetch_doc(id)
+
     async def create_doc(self, *content, **kwargs):
         """|coro|
 
@@ -613,7 +616,7 @@ class ForumChannel(guilded.abc.TeamChannel):
     def topics(self):
         return list(self._topics.values())
 
-    def get_topic(self, id):
+    def get_topic(self, id) -> Optional[ForumTopic]:
         """Optional[:class:`.ForumTopic`]: Get a topic by its ID."""
         return self._topics.get(id)
 
@@ -1053,13 +1056,16 @@ class AnnouncementChannel(guilded.abc.TeamChannel):
         self._announcements = {}
 
     @property
-    def announcements(self):
+    def announcements(self) -> List[Announcement]:
         """List[:class:`.Announcement`]: The list of cached announcements in this channel."""
         return list(self._announcements.values())
 
-    def get_announcement(self, id):
+    def get_announcement(self, id) -> Optional[Announcement]:
         """Optional[:class:`.Announcement`]: Get a cached announcement in this channel."""
         return self._announcements.get(id)
+
+    async def getch_announcement(self, id: str) -> Announcement:
+        return self.get_announcement(id) or await self.fetch_announcement(id)
 
     async def fetch_announcement(self, id: str) -> Announcement:
         """|coro|
@@ -1228,7 +1234,7 @@ class Media(HasContentMixin):
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
 
-        self.id: str = data['id']
+        self.id: int = int(data['id'])
         self.title: str = data['title']
         self.description: str = data.get('description', '')
 
@@ -1387,7 +1393,10 @@ class MediaChannel(guilded.abc.TeamChannel):
         """Optional[:class:`.Media`]: Get a cached media post in this channel."""
         return self._medias.get(id)
 
-    async def fetch_media(self, id: str) -> Media:
+    async def getch_media(self, id: int) -> Media:
+        return self.get_media(id) or await self.fetch_media(id)
+
+    async def fetch_media(self, id: int) -> Media:
         """|coro|
 
         Fetch a media post in this channel.
