@@ -283,7 +283,7 @@ class Doc(HasContentMixin):
         reply = DocReply(data=data['reply'], doc=self, state=self._state)
         return reply
 
-    async def move(self, id: int):
+    async def move(self, to):
         """|coro|
 
         Move this doc to another :class:`.DocsChannel`.
@@ -291,7 +291,7 @@ class Doc(HasContentMixin):
         Parameters
         -----------
         to: :class:`.DocsChannel`
-            The docs channel to move this topic to.
+            The channel to move this doc to.
         """
         await self._state.move_doc(self.channel.id, self.id, to.id)
 
@@ -1213,19 +1213,20 @@ class ListItem(HasContentMixin):
         self._assigned_to = data.get('assignedTo') or []
 
         self.id: str = data['id']
-        self.priority: int = data.get('priority')
+        self.position: int = data.get('priority')
 
         self._raw_message = data['message']
         self.message: str = self._get_full_content(self._raw_message)
 
         self.has_note: bool = data.get('hasNote', False)
         self.note_author_id: Optional[str] = data.get('noteCreatedBy')
-        self.note_created_by_bot_id: Optional[str] = data.get('noteCreatedByBotId')
+        self.note_created_by_bot_id: Optional[int] = data.get('noteCreatedByBotId')
         self.note_created_at: Optional[datetime.datetime] = ISO8601(data.get('noteCreatedAt'))
         self.note_edited_by_id: Optional[str] = data.get('noteUpdatedBy')
         self.note_edited_at: Optional[datetime.datetime] = ISO8601(data.get('noteUpdatedAt'))
-        if data.get('note'):
-            self.note: Optional[ListItemNote] = ListItemNote(data=data['note'], parent=self)
+        self._raw_note = data.get('note')
+        if self._raw_note:
+            self.note: Optional[ListItemNote] = ListItemNote(data=self._raw_note, parent=self)
         else:
             self.note: Optional[ListItemNote] = None
 
@@ -1309,6 +1310,86 @@ class ListItem(HasContentMixin):
         """
         await self._state.delete_list_item(self.channel.id, self.id)
 
+    async def edit(self, **kwargs):
+        """|coro|
+
+        Edit this item.
+
+        All parameters are optional.
+
+        .. note::
+            If ``position`` and ``message`` or ``note`` are specified, this
+            method will make multiple API requests.
+
+        Parameters
+        -----------
+        message: Any
+            The new main content of the item.
+        note: Any
+            The new note of the item.
+        position: :class:`int`
+            The new position of the item. A value of ``0`` appears at the
+            bottom visually.
+        """
+        message_payload = {}
+        try:
+            message = kwargs.pop('message')
+        except KeyError:
+            pass
+        else:
+            message_payload['message'] = self._state.compatible_content(message)
+        try:
+            note = kwargs.pop('note')
+        except KeyError:
+            pass
+        else:
+            message_payload['note'] = self._state.compatible_content(note)
+
+        if message_payload:
+            await self._state.edit_list_item_message(self.channel.id, self.id, message_payload)
+
+        if kwargs.get('position') is not None:
+            position = kwargs['position']
+            if not isinstance(position, int):
+                raise TypeError(f'position must be type int, not {position.__class__.__name__}')
+
+            rich_positions = []
+            all_items = await self.channel.fetch_items()
+            for item in all_items:
+                rich_positions.append(item)
+
+            rich_positions.sort(key=lambda item: item.position)
+            rich_positions.insert(position, self)
+
+            positions = [item.id for item in rich_positions]
+            await self._state.edit_list_item_priority(self.channel.id, positions)
+            self.position = position
+
+    async def create_item(self, *message, **kwargs):
+        """|coro|
+
+        Create an item with this item as its parent.
+
+        This method is identical to :meth:`ListChannel.create_item`.
+        """
+        kwargs['parent'] = self
+        return await self.channel.create_item(*message, **kwargs)
+
+    async def move(self, to):
+        """|coro|
+
+        Move this item to another channel.
+
+        .. bug::
+            Guilded will raise a 500 upon calling this method.
+
+        Parameters
+        -----------
+        to: :class:`.ListChannel`
+            The list channel to move this item to.
+        """
+        await self._state.move_list_item(self.channel.id, self.id, to.id)
+
     async def complete(self):
         raise NotImplementedError
 
@@ -1356,18 +1437,18 @@ class ListChannel(guilded.abc.TeamChannel):
     async def fetch_items(self) -> List[ListItem]:
         """|coro|
 
-        Fetch multiple items in this channel.
+        Fetch all items in this channel.
 
         Returns
         --------
         List[:class:`.ListItem`]
         """
         data = await self._state.get_list_items(self.id)
-        listitems = []
-        for listitem_data in data:
-            listitems.append(ListItem(data=listitem_data, channel=self, state=self._state))
+        items = []
+        for item_data in data:
+            items.append(ListItem(data=item_data, channel=self, state=self._state))
 
-        return listitems
+        return items
 
     async def create_item(self, *message, **kwargs) -> ListItem:
         """|coro|

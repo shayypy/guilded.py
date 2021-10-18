@@ -733,14 +733,30 @@ class HTTPClient:
         }
         return self.request(route, json=payload, params=params)
     
-    def get_list_item(self, channel_id: str, listitem_id: str):
-        return self.request(Route('GET', f'/channels/{channel_id}/listitems/{listitem_id}'))
+    def get_list_item(self, channel_id: str, item_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/listitems/{item_id}'))
 
     def get_list_items(self, channel_id: str):
         return self.request(Route('GET', f'/channels/{channel_id}/listitems'))
 
-    def delete_list_item(self, channel_id: str, listitem_id: str):
-        return self.request(Route('DELETE', f'/channels/{channel_id}/listitems/{listitem_id}'))
+    def delete_list_item(self, channel_id: str, item_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/listitems/{item_id}'))
+
+    def edit_list_item_message(self, channel_id: str, item_id: str, payload):
+        route = Route('PUT', f'/channels/{channel_id}/listitems/{item_id}/message')
+        return self.request(route, json=payload)
+
+    def edit_list_item_priority(self, channel_id: str, new_orders):
+        route = Route('PUT', f'/channels/{channel_id}/listitems/priority')
+        payload = {
+            'orderedListItemIds': new_orders
+        }
+        return self.request(route, json=payload)
+
+    def move_list_item(self, channel_id: str, item_id: int, to_channel_id: str):
+        route = Route('PUT', f'/channels/{channel_id}/listitems/{item_id}/move')
+        payload = {'moveToChannelId': to_channel_id}
+        return self.request(route, json=payload)
 
     # /reactions
 
