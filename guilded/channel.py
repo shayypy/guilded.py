@@ -1167,8 +1167,6 @@ class ListItem(HasContentMixin):
         The team that the item is in.
     created_at: :class:`datetime.datetime`
         When the item was created.
-    slug: Optional[:class:`str`]
-        The item's URL slug.
     message: :class:`str`
         The main message of the item.
     position: :class:`int`
@@ -1200,7 +1198,6 @@ class ListItem(HasContentMixin):
         self.channel = channel
         self.group = channel.group
         self.team = channel.team
-        self.slug: Optional[str] = data.get('slug')
 
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
@@ -1264,6 +1261,10 @@ class ListItem(HasContentMixin):
         the item as completed, if applicable and they are cached.
         """
         return self.team.get_member(self.completed_by_id)
+
+    @property
+    def share_url(self) -> Optional[str]:
+        return f'{self.channel.share_url}?listItemId={self.id}'
 
     async def fetch_note(self) -> ListItemNote:
         item = await self.channel.fetch_item(self.id)
