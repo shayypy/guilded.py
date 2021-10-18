@@ -1299,6 +1299,15 @@ class ListItem(HasContentMixin):
         return await self.channel.fetch_item(self.parent_id)
 
     async def fetch_note(self) -> ListItemNote:
+        """|coro|
+
+        Fetch this item's note. This should only be necessary if you obtained
+        this object through :meth:`ListChannel.fetch_items`.
+
+        Returns
+        --------
+        :class:`.ListItemNote`
+        """
         item = await self.channel.fetch_item(self.id)
         self.note = item.note
         return self.note
