@@ -1398,8 +1398,3 @@ class DocReply(guilded.abc.Reply):
 class ForumReply(guilded.abc.Reply):
     """Represents a reply to a :class:`ForumTopic`."""
     pass
-
-
-class ListItemReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`ListItem`."""
-    pass
