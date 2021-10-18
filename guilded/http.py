@@ -665,9 +665,6 @@ class HTTPClient:
         route = Route('DELETE', f'/channels/{channel_id}/forums/{topic_id}/replies/{reply_id}')
         return self.request(route)
 
-    def get_forum_topic_reply(self, channel_id: str, topic_id: int, reply_id: int):
-        return self.get_metadata(f'//channels/{channel_id}/forums/{topic_id}?replyId={reply_id}')
-
     def create_doc(self, channel_id: str, *, title, content, game_id, draft):
         payload = {
             # The client passes an ID here but it is optional
@@ -1081,8 +1078,8 @@ class HTTPClient:
     def get_content_replies(self, content_type: str, content_id: int):
         return self.request(Route('GET', f'/content/{content_type}/{content_id}/replies'))
 
-    def get_content_reply(self, content_type: str, content_id: int, reply_id: int):
-        return self.request(Route('GET', f'/content/{content_type}/{content_id}/replies/{reply_id}'))
+    def get_content_reply(self, content_type: str, channel_id: str, content_id, reply_id: int):
+        return self.get_metadata(f'//channels/{channel_id}/{content_type}/{content_id}?replyId={reply_id}')
 
     def create_content_reply(self, content_type: str, team_id: str, content_id, *, content, reply_to=None):
         payload = {

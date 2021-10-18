@@ -281,8 +281,8 @@ class Doc(HasContentMixin):
         --------
         :class:`.DocReply`
         """
-        data = await self._state.get_content_reply('doc', self.id, id)
-        reply = DocReply(data=data['reply'], parent=self, state=self._state)
+        data = await self._state.get_content_reply('docs', self.channel.id, self.id, id)
+        reply = DocReply(data=data['metadata']['reply'], parent=self, state=self._state)
         return reply
 
     async def move(self, id: int):
@@ -514,7 +514,7 @@ class ForumTopic(HasContentMixin):
         --------
         :class:`.ForumReply`
         """
-        data = await self._state.get_forum_topic_reply(self.channel.id, self.id, id)
+        data = await self._state.get_content_reply('forums', self.channel.id, self.id, id)
         reply = ForumReply(data=data['metadata']['reply'], forum=self.forum, state=self._state)
         return reply
 
@@ -994,7 +994,7 @@ class Announcement(HasContentMixin):
         emoji: :class:`.Emoji`
             The emoji to add.
         """
-        await self._state.add_content_reaction('announcement', self.id, emoji.id)
+        await self._state.add_content_reaction(self.channel.type.value, self.id, emoji.id)
 
     async def remove_self_reaction(self, emoji):
         """|coro|
@@ -1006,7 +1006,7 @@ class Announcement(HasContentMixin):
         emoji: :class:`.Emoji`
             The emoji to remove.
         """
-        await self._state.remove_self_content_reaction('announcement', self.id, emoji.id)
+        await self._state.remove_self_content_reaction(self.channel.type.value, self.id, emoji.id)
 
     async def fetch_reply(self, id: int):
         """|coro|
@@ -1022,8 +1022,8 @@ class Announcement(HasContentMixin):
         --------
         :class:`.AnnouncementReply`
         """
-        data = await self._state.get_content_reply('announcement', self.id, id)
-        reply = AnnouncementReply(data=data['reply'], parent=self, state=self._state)
+        data = await self._state.get_content_reply('announcements', self.channel.id, self.id, id)
+        reply = AnnouncementReply(data=data['metadata']['reply'], parent=self, state=self._state)
         return reply
 
     async def reply(self, *content, **kwargs):
@@ -1043,7 +1043,7 @@ class Announcement(HasContentMixin):
         :class:`.AnnouncementReply`
             The created reply.
         """
-        data = await self._state.create_content_reply('announcement', self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+        data = await self._state.create_content_reply(self.channel.type.value, self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
         reply = AnnouncementReply(data=data['reply'], parent=self, state=self._state)
         return reply
 
@@ -1340,8 +1340,9 @@ class Media(HasContentMixin):
         --------
         :class:`.MediaReply`
         """
-        data = await self._state.get_content_reply(self.channel.content_type, self.id, id)
-        reply = MediaReply(data=data['reply'], parent=self, state=self._state)
+        data = await self._state.get_content_reply(self.channel.type.value, self.channel.id, self.id, id)
+        # metadata uses 'media' and not 'team_media'
+        reply = MediaReply(data=data['metadata']['reply'], parent=self, state=self._state)
         return reply
 
     async def move(self, id: int):
