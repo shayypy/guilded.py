@@ -77,6 +77,9 @@ __all__ = (
     'ForumChannel',
     'ForumReply',
     'ForumTopic',
+    'ListChannel',
+    'ListItem',
+    'ListItemNote',
     'Thread',
     'VoiceChannel'
 )
@@ -1091,86 +1094,110 @@ class AnnouncementChannel(guilded.abc.TeamChannel):
         return announcement
 
 
+class ListItemNote(HasContentMixin):
+    """Represents the note on a :class:`.ListItem`.
+
+    .. note::
+        Item notes are not their own resource in the API, thus they have no ID
+        or dedicated endpoints. Methods on an instance of this class are
+        shortcuts to the parent rather than being unique to a "List Item Note"
+        model.
+
+    Attributes
+    -----------
+    parent: :class:`.ListItem`
+        The note's parent item.
+    content: :class:`str`
+        The note's content.
+    """
+    def __init__(self, *, data, parent):
+        super().__init__()
+        self.parent = parent
+        self.content = self._get_full_content(data)
+
+    def __repr__(self):
+        return f'<ListItemNote parent={self.parent}>'
+
+    async def delete(self):
+        """|coro|
+
+        Delete this note.
+        """
+        return await self.parent.edit(note=None)
+
+    async def edit(self, *content):
+        """|coro|
+
+        Edit this note.
+
+        Parameters
+        -----------
+        content: Any
+            The new content of the note.
+        """
+        return await self.parent.edit(note=content)
+
+
 class ListItem(HasContentMixin):
-    """Represents an listitem in an :class:`ListItemChannel`.
+    """Represents an item in a :class:`ListChannel`.
 
     Attributes
     -----------
     id: :class:`str`
-        The listitem's ID.
-    channel: :class:`.ListItemChannel`
-        The channel that the listitem is in.
+        The item's ID.
+    channel: :class:`.ListChannel`
+        The channel that the item is in.
     group: :class:`.Group`
-        The group that the listitem is in.
+        The group that the item is in.
     team: :class:`.Team`
-        The team that the listitem is in.
-    public: :class:`bool`
-        Whether the listitem is public.
-    pinned: :class:`bool`
-        Whether the listitem is pinned.
+        The team that the item is in.
     created_at: :class:`datetime.datetime`
-        When the listitem was created.
+        When the item was created.
     edited_at: Optional[:class:`datetime.datetime`]
-        When the listitem was last edited.
+        When the item was last edited.
     slug: Optional[:class:`str`]
-        The listitem's URL slug.
+        The item's URL slug.
     message: :class:`str`
-        Main message of the ListItem
-    priority: :class:`int`
-        What priority the ListItem stands at
+        The main message of the item.
+    position: :class:`int`
+        Where the item is in its :attr:`.channel`. A value of ``0`` is
+        at the bottom of the list visually.
     has_note: :class:`bool`
-        Whether the ListItem has a note or not
-    note: :class:`str`
-        The not of a ListItem. Must be obtained with `fetch_note()`
-    note_created_by: :class:`str`
-        Who created the note
-    note_created_by_bot_id: :class:`str`
-        The id of the bot the note was created by (if any)
-    note_created_at: :class:`str`
-        When the note was created
-    note_updated_by: :class:`str`
-        Who updated the note
-    note_updated_at: :class:`str`
-        When the note was updated
-    updated_by: :class:`str`
-        Who updated the ListItem
-    updated_at: :class:`str`
-        When the ListItem was updated
-    completed_by: :class:`str`
-        Who completed the ListItem
-    completed_at: :class:`str`
-        When the ListItem was completed
-    deleted_by: :class:`str`
-        Who deleted the ListItem
-    deleted_at: :class:`str`
-        When the ListItem was deleted
-    parent_id: :class:`str`
-        Parented ID of the ListItem
-    team_id: :class:`str`
-        Team ID
-    webhook_id: :class:`str`
-        Webhook ID
-    bot_id: :class:`str`
-        Bot ID
-    assigned_to: :class:`list`
-        Who the ListItem is assigned to
-
+        Whether the item has a note.
+    note: Optional[:class:`ListItemNote`]
+        The note of an item. If this instance was not obtained via creation,
+        then this attribute must first be fetched with :meth:`.fetch_note`.
+    note_created_by_id: Optional[:class:`str`]
+        The ID of the user that created the item's note.
+    note_created_by_bot_id: Optional[:class:`int`]
+        The ID of the bot that created the item's note.
+    note_created_at: Optional[:class:`datetime.datetime`]
+        When the item's note was created.
+    note_updated_by_id: Optional[:class:`str`]
+        The ID of the user that last updated the note.
+    note_updated_at: Optional[:class:`datetime.datetime`]
+        When the note was last updated.
+    updated_by_id: Optional[:class:`str`]
+        The ID of the user that last updated the item.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the item was last updated.
+    completed_by_id: Optional[:class:`str`]
+        The ID of the user that marked the item as completed.
+    completed_at: Optional[:class:`datetime.datetime`]
+        When the item was marked as completed.
+    deleted_by_id: Optional[:class:`str`]
+        The ID of the user that deleted the item.
+    deleted_at: Optional[:class:`datetime.datetime`]
+        When the item was deleted.
+    assigned_to: List[:class:`Member`]
+        Who the item is assigned to.
     """
-    def __init__(self, *, state, data, channel, game=None):
+    def __init__(self, *, state, data, channel):
         super().__init__()
         self._state = state
         self.channel = channel
         self.group = channel.group
         self.team = channel.team
-        self.tags: str = data.get('tags')
-        self._replies = {}
-
-        for reply_data in data.get('replies', []):
-            reply = ListItemReply(data=reply_data, parent=self, state=self._state)
-            self._replies[reply.id] = reply
-
-        self.public: bool = data.get('isPublic', False)
-        self.pinned: bool = data.get('isPinned', False)
         self.slug: Optional[str] = data.get('slug')
 
         self.author_id: str = data.get('createdBy')
@@ -1178,46 +1205,37 @@ class ListItem(HasContentMixin):
         self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
 
         self.id: str = data['id']
+        self.priority: int = data.get('priority')
+
+        self._raw_message = data['message']
         self.message: str = self._get_full_content(data['message'])
 
-        self.priority: int = data['priority']
-
         self.has_note: bool = data.get('hasNote', False)
+        self.note_created_by_id: Optional[str] = data.get('noteCreatedBy')
+        self.note_created_by_bot_id: Optional[str] = data.get('noteCreatedByBotId')
+        self.note_created_at: Optional[datetime.datetime] = ISO8601(data.get('noteCreatedAt'))
+        self.note_updated_by_id: Optional[str] = data.get('noteUpdatedBy')
+        self.note_updated_at: Optional[datetime.datetime] = ISO8601(data.get('noteUpdatedAt'))
         if data.get('note'):
-            self.note: str = self._get_full_content(data['note'])
+            self.note: Optional[ListItemNote] = ListItemNote(data=data['note'], parent=self)
         else:
-            self.note: str = None
-        self.note_created_by: str = data['noteCreatedBy']
-        self.note_created_by_bot_id: str = data['noteCreatedByBotId']
-        self.note_created_at: str = data['noteCreatedAt']
-        self.note_updated_by: str = data['noteUpdatedBy']
-        self.note_updated_at: str = data['noteUpdatedAt']
-        
-        self.updated_by: str = data['updatedBy']
-        self.updated_at: str = data['updatedAt']
-        self.completed_by: str = data['completedBy']
-        self.completed_at: str = data['completedAt']
-        self.deleted_by: str = data['deletedBy']
-        self.deleted_at: str = data['deletedAt']
-        self.parent_id: str = data['parentId']
+            self.note: Optional[ListItemNote] = None
 
-        self.team_id: str = data['teamId']
-        self.webhook_id: str = data['webhookId']
-        self.bot_id: str = data['botId']
-        self.assigned_to: list = data['assignedTo']
+        self.updated_by_id: Optional[str] = data.get('updatedBy')
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.completed_by_id: Optional[str] = data.get('completedBy')
+        self.completed_at: Optional[datetime.datetime] = ISO8601(data.get('completedAt'))
+        self.deleted_by_id: Optional[str] = data.get('deletedBy')
+        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
 
+        self.parent_id: str = data.get('parentId')
+        self.team_id: str = data.get('teamId')
+        self.webhook_id: Optional[str] = data.get('webhookId')
+        self.bot_id: Optional[int] = data.get('botId')
+        self.assigned_to: list = data.get('assignedTo')
 
     def __repr__(self):
         return f'<ListItem id={self.id!r} title={self.message!r} author={self.author!r}>'
-
-    def __getattribute__(self, attr):
-        if attr == 'note':
-            if super(ListItem, self).__getattribute__(attr):
-                return super(ListItem, self).__getattribute__(attr)
-            else:
-                print("You must first fetch the note with <ListItem>.fetch_note()")
-        else:
-            return super(ListItem, self).__getattribute__(attr)
 
     @property
     def author(self) -> Optional[Member]:
@@ -1226,129 +1244,125 @@ class ListItem(HasContentMixin):
         """
         return self.team.get_member(self.author_id)
 
-    async def fetch_note(self):
-        listitem = await self.channel.fetch_listitem(self.id)
-        self.note = listitem.note
+    async def fetch_note(self) -> ListItemNote:
+        item = await self.channel.fetch_item(self.id)
+        self.note = item.note
+        return self.note
 
     async def delete(self):
         """|coro|
 
-        Delete this listitem.
+        Delete this item.
         """
-        await self._state.delete_listitem(self.channel.id, self.id)
+        await self._state.delete_list_item(self.channel.id, self.id)
 
-    async def toggle_completed(self):
+    async def complete(self):
         raise NotImplementedError
 
-    async def set_completed(self):
+    async def uncomplete(self):
         raise NotImplementedError
 
-    async def set_uncompleted(self):
+    async def assign_user(self, user: Member):
         raise NotImplementedError
 
-    async def assign_user(self):
+    async def unassign_user(self, user: Member):
         raise NotImplementedError
 
-    async def unassign_user(self):
-        raise NotImplementedError
 
-    async def set_note(self):
-        raise NotImplementedError
-
-class ListItemChannel(guilded.abc.TeamChannel):
+class ListChannel(guilded.abc.TeamChannel):
     """Represents a list channel in a team"""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.list
-        self._listitems = {}
+        self._items = {}
 
     @property
-    def listitems(self):
-        """List[:class:`.ListItem`]: The list of cached listitems in this channel."""
-        return list(self._listitems.values())
+    def items(self) -> List[ListItem]:
+        """List[:class:`.ListItem`]: The list of cached items in this channel."""
+        return list(self._items.values())
 
-    def get_listitem(self, id):
-        """Optional[:class:`.ListItem`]: Get a cached listitem in this channel."""
-        return self._listitems.get(id)
+    def get_item(self, id) -> Optional[ListItem]:
+        """Optional[:class:`.ListItem`]: Get a cached item in this channel."""
+        return self._items.get(id)
 
-    async def fetch_listitem(self, id: str) -> ListItem:
+    async def getch_item(self, id: str) -> ListItem:
+        return self.get_item(id) or await self.fetch_item(id)
+
+    async def fetch_item(self, id: str) -> ListItem:
         """|coro|
 
-        Fetch a listitem in this channel.
+        Fetch a item in this channel.
 
         Parameters
         -----------
         id: :class:`str`
-            The listitem's ID.
+            The item's ID.
 
         Returns
         --------
         :class:`.ListItem`
         """
-        data = await self._state.get_listitem(self.id, id)
+        data = await self._state.get_list_item(self.id, id)
         listitem = ListItem(data=data, channel=self, state=self._state)
         return listitem
 
-    async def fetch_listitems(self) -> List[ListItem]:
+    async def fetch_items(self) -> List[ListItem]:
         """|coro|
 
-        Fetch multiple listitems in this channel.
+        Fetch multiple items in this channel.
 
         Returns
         --------
         List[:class:`.ListItem`]
         """
-        data = await self._state.get_listitems(self.id)
+        data = await self._state.get_list_items(self.id)
         listitems = []
         for listitem_data in data:
             listitems.append(ListItem(data=listitem_data, channel=self, state=self._state))
 
         return listitems
 
-    async def create_listitem(self, *message, **kwargs) -> ListItem:
+    async def create_item(self, *message, **kwargs) -> ListItem:
         """|coro|
 
-        Create an listitem in this channel.
+        Create an item in this channel.
 
         Parameters
         -----------
         message: Any
-            The message of the listitem.
-        note: :class:`str`
-            The note of the listitem.
-        parent_id: :class:`str`
-            The ID of the listitem's parent
-        priority: :class:`int`
-            The listitem's priority
+            The main content of the item.
+        note: Optional[Any]
+            The item's note.
+        parent: Optional[:class:`ListItem`]
+            An existing item to create this item under.
+        position: Optional[:class:`int`]
+            The item's position. Defaults to ``0`` if not specified (appears
+            at the bottom of the list).
         send_notifications: Optional[:class:`bool`]
-            Whether to send notifications to all members ("Notify all
-            members" in the client). Defaults to ``True`` if not specified.
+            Whether to "notify all clients" by creating this item. Defaults to
+            ``False`` if not specified.
 
         Returns
         --------
         :class:`.ListItem`
-            The created listitem.
+            The created item.
         """
-        note = (kwargs.get('note', ''),)
-        parent_id = kwargs.get('parent_id')
-        priority = kwargs.get('priority', 0)
-        send_notifications = not kwargs.get('send_notifications', True)
+        note = tuple(kwargs.get('note', ''))
+        parent = kwargs.get('parent')
+        position = kwargs.get('position', 0)
+        send_notifications = kwargs.get('send_notifications', False)
 
-        data = await self._state.create_listitem(
+        data = await self._state.create_list_item(
             self.id,
             message=message,
             note=note,
-            parentId=parent_id,
-            priority=priority,
-            notifiyAllClients=send_notifications
+            parent_id=(parent.id if parent else None),
+            position=position,
+            send_notifications=send_notifications
         )
         listitem = ListItem(data=data, channel=self, state=self._state)
         return listitem
 
-
-class ListItemReply(guilded.abc.Reply):
-    """Represents a reply to an :class:`ListItem`."""
-    pass
 
 class AnnouncementReply(guilded.abc.Reply):
     """Represents a reply to an :class:`Announcement`."""
@@ -1362,4 +1376,9 @@ class DocReply(guilded.abc.Reply):
 
 class ForumReply(guilded.abc.Reply):
     """Represents a reply to a :class:`ForumTopic`."""
+    pass
+
+
+class ListItemReply(guilded.abc.Reply):
+    """Represents a reply to a :class:`ListItem`."""
     pass

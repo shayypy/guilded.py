@@ -595,8 +595,6 @@ class HTTPClient:
         route = VoiceRoute(endpoint, 'POST', f'/channels/{channel_id}/voicegroups/lobby/leave')
         return self.request(route, json={})
 
-    # /topics
-
     def get_forum_topics(self, channel_id: str, *, limit: int, page: int, before: datetime.datetime):
         route = Route('GET', f'/channels/{channel_id}/forums')
         params = {
@@ -671,8 +669,6 @@ class HTTPClient:
     def get_forum_topic_reply(self, channel_id: str, topic_id: int, reply_id: int):
         return self.get_metadata(f'//channels/{channel_id}/forums/{topic_id}?replyId={reply_id}')
 
-    # /docs
-
     def create_doc(self, channel_id: str, *, title, content, game_id, draft):
         payload = {
             # The client passes an ID here but it is optional
@@ -690,8 +686,6 @@ class HTTPClient:
         route = Route('PUT', f'/channels/{channel_id}/docs/{doc_id}/move')
         payload = {'moveToChannelId': to_channel_id}
         return self.request(route, json=payload)
-
-    # /announcements
 
     def create_announcement(self, channel_id: str, title: str, content, game_id: int, dont_send_notifications: bool):
         payload = {
@@ -725,26 +719,27 @@ class HTTPClient:
     def delete_announcement(self, channel_id: str, announcement_id: str):
         return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}'))
 
-    # /listitems
-
-    def create_listitem(self, channel_id: str, message: str, note: str, parentId: str, priority: int, notifiyAllClients: bool):
+    def create_list_item(self, channel_id: str, *, message: str, note: str, parent_id: str, position: int, send_notifications: bool):
+        route = Route('POST', f'/channels/{channel_id}/listitems')
         payload = {
             'id': new_uuid(),
             'message': self.compatible_content(message),
-            'note': self.compatible_content(note),
-            'parentId': parentId,
-            'priority': priority,
-            # 'notifiyAllClients': notifiyAllClients,
+            'note': (self.compatible_content(note) if note else None),
+            'parentId': parent_id,
+            'priority': position
         }
-        return self.request(Route('POST', f'/channels/{channel_id}/listitems'), json=payload)
+        params = {
+            'notifyAllClients': str(send_notifications).lower()
+        }
+        return self.request(route, json=payload, params=params)
     
-    def get_listitem(self, channel_id: str, listitem_id: str):
+    def get_list_item(self, channel_id: str, listitem_id: str):
         return self.request(Route('GET', f'/channels/{channel_id}/listitems/{listitem_id}'))
 
-    def get_listitems(self, channel_id: str):
+    def get_list_items(self, channel_id: str):
         return self.request(Route('GET', f'/channels/{channel_id}/listitems'))
 
-    def delete_listitem(self, channel_id: str, listitem_id: str):
+    def delete_list_item(self, channel_id: str, listitem_id: str):
         return self.request(Route('DELETE', f'/channels/{channel_id}/listitems/{listitem_id}'))
 
     # /reactions
@@ -1158,7 +1153,7 @@ class HTTPClient:
             elif ctype is channel.ChannelType.announcements:
                 return channel.AnnouncementChannel(state=self, **data)
             elif ctype is channel.ChannelType.list:
-                return channel.ListItemChannel(state=self, **data)
+                return channel.ListChannel(state=self, **data)
         else:
             return channel.DMChannel(state=self, **data)
 
