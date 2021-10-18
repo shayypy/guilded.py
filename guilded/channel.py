@@ -1116,7 +1116,21 @@ class ListItemNote(HasContentMixin):
         self.content = self._get_full_content(data)
 
     def __repr__(self):
-        return f'<ListItemNote parent={self.parent}>'
+        return f'<ListItemNote parent={self.parent!r} author={self.author!r}>'
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the
+        note, if they are cached.
+        """
+        return self.parent.team.get_member(self.parent.note_author_id)
+
+    @property
+    def edited_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that last edited
+        the note, if they are cached.
+        """
+        return self.parent.team.get_member(self.parent.note_edited_by_id)
 
     async def delete(self):
         """|coro|
@@ -1153,8 +1167,6 @@ class ListItem(HasContentMixin):
         The team that the item is in.
     created_at: :class:`datetime.datetime`
         When the item was created.
-    edited_at: Optional[:class:`datetime.datetime`]
-        When the item was last edited.
     slug: Optional[:class:`str`]
         The item's URL slug.
     message: :class:`str`
@@ -1167,26 +1179,16 @@ class ListItem(HasContentMixin):
     note: Optional[:class:`ListItemNote`]
         The note of an item. If this instance was not obtained via creation,
         then this attribute must first be fetched with :meth:`.fetch_note`.
-    note_created_by_id: Optional[:class:`str`]
-        The ID of the user that created the item's note.
     note_created_by_bot_id: Optional[:class:`int`]
-        The ID of the bot that created the item's note.
+        The ID of the bot that created the item's note, if any.
     note_created_at: Optional[:class:`datetime.datetime`]
         When the item's note was created.
-    note_updated_by_id: Optional[:class:`str`]
-        The ID of the user that last updated the note.
-    note_updated_at: Optional[:class:`datetime.datetime`]
-        When the note was last updated.
-    updated_by_id: Optional[:class:`str`]
-        The ID of the user that last updated the item.
+    note_edited_at: Optional[:class:`datetime.datetime`]
+        When the note was last edited.
     updated_at: Optional[:class:`datetime.datetime`]
         When the item was last updated.
-    completed_by_id: Optional[:class:`str`]
-        The ID of the user that marked the item as completed.
     completed_at: Optional[:class:`datetime.datetime`]
         When the item was marked as completed.
-    deleted_by_id: Optional[:class:`str`]
-        The ID of the user that deleted the item.
     deleted_at: Optional[:class:`datetime.datetime`]
         When the item was deleted.
     assigned_to: List[:class:`Member`]
@@ -1202,7 +1204,12 @@ class ListItem(HasContentMixin):
 
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+        self.updated_by_id: Optional[str] = data.get('updatedBy')
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.completed_by_id: Optional[str] = data.get('completedBy')
+        self.completed_at: Optional[datetime.datetime] = ISO8601(data.get('completedAt'))
+        self.deleted_by_id: Optional[str] = data.get('deletedBy')
+        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
 
         self.id: str = data['id']
         self.priority: int = data.get('priority')
@@ -1211,22 +1218,15 @@ class ListItem(HasContentMixin):
         self.message: str = self._get_full_content(data['message'])
 
         self.has_note: bool = data.get('hasNote', False)
-        self.note_created_by_id: Optional[str] = data.get('noteCreatedBy')
+        self.note_author_id: Optional[str] = data.get('noteCreatedBy')
         self.note_created_by_bot_id: Optional[str] = data.get('noteCreatedByBotId')
         self.note_created_at: Optional[datetime.datetime] = ISO8601(data.get('noteCreatedAt'))
-        self.note_updated_by_id: Optional[str] = data.get('noteUpdatedBy')
-        self.note_updated_at: Optional[datetime.datetime] = ISO8601(data.get('noteUpdatedAt'))
+        self.note_edited_by_id: Optional[str] = data.get('noteUpdatedBy')
+        self.note_edited_at: Optional[datetime.datetime] = ISO8601(data.get('noteUpdatedAt'))
         if data.get('note'):
             self.note: Optional[ListItemNote] = ListItemNote(data=data['note'], parent=self)
         else:
             self.note: Optional[ListItemNote] = None
-
-        self.updated_by_id: Optional[str] = data.get('updatedBy')
-        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
-        self.completed_by_id: Optional[str] = data.get('completedBy')
-        self.completed_at: Optional[datetime.datetime] = ISO8601(data.get('completedAt'))
-        self.deleted_by_id: Optional[str] = data.get('deletedBy')
-        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
 
         self.parent_id: str = data.get('parentId')
         self.team_id: str = data.get('teamId')
@@ -1240,9 +1240,30 @@ class ListItem(HasContentMixin):
     @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        topic, if they are cached.
+        item, if they are cached.
         """
         return self.team.get_member(self.author_id)
+
+    @property
+    def deleted_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that deleted the
+        item, if that information is available and they are cached.
+        """
+        return self.team.get_member(self.deleted_by_id)
+
+    @property
+    def updated_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that last updated
+        the item, if they are cached.
+        """
+        return self.team.get_member(self.updated_by_id)
+
+    @property
+    def completed_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that marked the
+        the item as completed, if applicable and they are cached.
+        """
+        return self.team.get_member(self.completed_by_id)
 
     async def fetch_note(self) -> ListItemNote:
         item = await self.channel.fetch_item(self.id)
