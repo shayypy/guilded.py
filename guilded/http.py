@@ -65,6 +65,7 @@ from .errors import ClientException, HTTPException, error_mapping
 from .file import File, MediaType
 from .message import ChatMessage, Mention
 from .user import User, Member
+from .utils import new_uuid
 
 log = logging.getLogger(__name__)
 
@@ -743,6 +744,45 @@ class HTTPClient:
     def delete_media(self, channel_id: str, media_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/media/{media_id}'))
 
+    def create_list_item(self, channel_id: str, *, message: str, note: str, parent_id: str, position: int, send_notifications: bool):
+        route = Route('POST', f'/channels/{channel_id}/listitems')
+        payload = {
+            'id': new_uuid(),
+            'message': self.compatible_content(message),
+            'note': (self.compatible_content(note) if note else None),
+            'parentId': parent_id,
+            'priority': position
+        }
+        params = {
+            'notifyAllClients': str(send_notifications).lower()
+        }
+        return self.request(route, json=payload, params=params)
+    
+    def get_list_item(self, channel_id: str, item_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/listitems/{item_id}'))
+
+    def get_list_items(self, channel_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/listitems'))
+
+    def delete_list_item(self, channel_id: str, item_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/listitems/{item_id}'))
+
+    def edit_list_item_message(self, channel_id: str, item_id: str, payload):
+        route = Route('PUT', f'/channels/{channel_id}/listitems/{item_id}/message')
+        return self.request(route, json=payload)
+
+    def edit_list_item_priority(self, channel_id: str, new_orders):
+        route = Route('PUT', f'/channels/{channel_id}/listitems/priority')
+        payload = {
+            'orderedListItemIds': new_orders
+        }
+        return self.request(route, json=payload)
+
+    def move_list_item(self, channel_id: str, item_id: int, to_channel_id: str):
+        route = Route('PUT', f'/channels/{channel_id}/listitems/{item_id}/move')
+        payload = {'moveToChannelId': to_channel_id}
+        return self.request(route, json=payload)
+
     # /reactions
 
     def add_content_reaction(self, content_type: str, content_id, emoji_id: int, *, reply: bool = False):
@@ -1172,6 +1212,8 @@ class HTTPClient:
                 return channel.DocsChannel(state=self, **data)
             elif ctype is channel.ChannelType.forum:
                 return channel.ForumChannel(state=self, **data)
+            elif ctype is channel.ChannelType.list:
+                return channel.ListChannel(state=self, **data)
             elif ctype is channel.ChannelType.media:
                 return channel.MediaChannel(state=self, **data)
             elif ctype is channel.ChannelType.voice:

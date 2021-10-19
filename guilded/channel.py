@@ -82,6 +82,9 @@ __all__ = (
     'Media',
     'MediaChannel',
     'MediaReply',
+    'ListChannel',
+    'ListItem',
+    'ListItemNote',
     'Thread',
     'VoiceChannel'
 )
@@ -285,7 +288,7 @@ class Doc(HasContentMixin):
         reply = DocReply(data=data['metadata']['reply'], parent=self, state=self._state)
         return reply
 
-    async def move(self, id: int):
+    async def move(self, to):
         """|coro|
 
         Move this doc to another :class:`.DocsChannel`.
@@ -293,7 +296,7 @@ class Doc(HasContentMixin):
         Parameters
         -----------
         to: :class:`.DocsChannel`
-            The docs channel to move this topic to.
+            The channel to move this doc to.
         """
         await self._state.move_doc(self.channel.id, self.id, to.id)
 
@@ -1256,27 +1259,6 @@ class Media(HasContentMixin):
     def __eq__(self, other):
         return isinstance(other, Media) and self.id == other.id and self.url == other.url
 
-    @property
-    def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        topic, if they are cached.
-        """
-        return self.team.get_member(self.author_id)
-
-    @property
-    def share_url(self) -> str:
-        if self.channel:
-            return f'{self.channel.share_url}/{self.id}'
-        return None
-
-    @property
-    def replies(self):
-        return list(self._replies.values())
-
-    def get_reply(self, id):
-        """Optional[:class:`.MediaReply`]: Get a reply by its ID."""
-        return self._replies.get(id)
-
     async def add_reaction(self, emoji):
         """|coro|
 
@@ -1375,6 +1357,331 @@ class Media(HasContentMixin):
             The raw data of this media.
         """
         return await self._state.read_filelike_data(self)
+
+
+class ListItemNote(HasContentMixin):
+    """Represents the note on a :class:`.ListItem`.
+
+    .. note::
+        Item notes are not their own resource in the API, thus they have no ID
+        or dedicated endpoints. Methods on an instance of this class are
+        shortcuts to the parent rather than being unique to a "List Item Note"
+        model.
+
+    Attributes
+    -----------
+    parent: :class:`.ListItem`
+        The note's parent item.
+    content: :class:`str`
+        The note's content.
+    """
+    def __init__(self, *, data, parent):
+        super().__init__()
+        self.parent = parent
+        self.content = self._get_full_content(data)
+
+    def __repr__(self):
+        return f'<ListItemNote parent={self.parent!r} author={self.author!r}>'
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the
+        note, if they are cached.
+        """
+        return self.parent.team.get_member(self.parent.note_author_id)
+
+    @property
+    def edited_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that last edited
+        the note, if they are cached.
+        """
+        return self.parent.team.get_member(self.parent.note_edited_by_id)
+
+    async def delete(self):
+        """|coro|
+
+        Delete this note.
+        """
+        return await self.parent.edit(note=None)
+
+    async def edit(self, *content):
+        """|coro|
+
+        Edit this note.
+
+        Parameters
+        -----------
+        content: Any
+            The new content of the note.
+        """
+        return await self.parent.edit(note=content)
+
+
+class ListItem(HasContentMixin):
+    """Represents an item in a :class:`ListChannel`.
+
+    Attributes
+    -----------
+    id: :class:`str`
+        The item's ID.
+    channel: :class:`.ListChannel`
+        The channel that the item is in.
+    group: :class:`.Group`
+        The group that the item is in.
+    team: :class:`.Team`
+        The team that the item is in.
+    created_at: :class:`datetime.datetime`
+        When the item was created.
+    message: :class:`str`
+        The main message of the item.
+    position: :class:`int`
+        Where the item is in its :attr:`.channel`. A value of ``0`` is
+        at the bottom of the list visually.
+    has_note: :class:`bool`
+        Whether the item has a note.
+    note: Optional[:class:`ListItemNote`]
+        The note of an item. If this instance was not obtained via creation,
+        then this attribute must first be fetched with :meth:`.fetch_note`.
+    note_created_by_bot_id: Optional[:class:`int`]
+        The ID of the bot that created the item's note, if any.
+    note_created_at: Optional[:class:`datetime.datetime`]
+        When the item's note was created.
+    note_edited_at: Optional[:class:`datetime.datetime`]
+        When the note was last edited.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the item was last updated.
+    completed_at: Optional[:class:`datetime.datetime`]
+        When the item was marked as completed.
+    deleted_at: Optional[:class:`datetime.datetime`]
+        When the item was deleted.
+    """
+    def __init__(self, *, state, data, channel):
+        super().__init__()
+        self._state = state
+        self.channel = channel
+        self.group = channel.group
+        self.team = channel.team
+
+        self.parent_id: Optional[str] = data.get('parentId')
+        self.team_id: str = data.get('teamId')
+        self.webhook_id: Optional[str] = data.get('webhookId')
+        self.bot_id: Optional[int] = data.get('botId')
+
+        self.author_id: str = data.get('createdBy')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.updated_by_id: Optional[str] = data.get('updatedBy')
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.completed_by_id: Optional[str] = data.get('completedBy')
+        self.completed_at: Optional[datetime.datetime] = ISO8601(data.get('completedAt'))
+        self.deleted_by_id: Optional[str] = data.get('deletedBy')
+        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
+        self._assigned_to = data.get('assignedTo') or []
+
+        self.id: str = data['id']
+        self.position: int = data.get('priority')
+
+        self._raw_message = data['message']
+        self.message: str = self._get_full_content(self._raw_message)
+
+        self.has_note: bool = data.get('hasNote', False)
+        self.note_author_id: Optional[str] = data.get('noteCreatedBy')
+        self.note_created_by_bot_id: Optional[int] = data.get('noteCreatedByBotId')
+        self.note_created_at: Optional[datetime.datetime] = ISO8601(data.get('noteCreatedAt'))
+        self.note_edited_by_id: Optional[str] = data.get('noteUpdatedBy')
+        self.note_edited_at: Optional[datetime.datetime] = ISO8601(data.get('noteUpdatedAt'))
+        self._raw_note = data.get('note')
+        if self._raw_note:
+            self.note: Optional[ListItemNote] = ListItemNote(data=self._raw_note, parent=self)
+        else:
+            self.note: Optional[ListItemNote] = None
+
+    def __repr__(self):
+        return f'<ListItem id={self.id!r} author={self.author!r} has_note={self.has_note!r}>'
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the
+        item, if they are cached.
+        """
+        return self.team.get_member(self.author_id)
+
+    @property
+    def share_url(self) -> str:
+        if self.channel:
+            return f'{self.channel.share_url}/{self.id}'
+        return None
+
+    @property
+    def replies(self):
+        return list(self._replies.values())
+
+    def get_reply(self, id):
+        """Optional[:class:`.MediaReply`]: Get a reply by its ID."""
+        return self._replies.get(id)
+
+    def deleted_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that deleted the
+        item, if that information is available and they are cached.
+        """
+        return self.team.get_member(self.deleted_by_id)
+
+    @property
+    def updated_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that last updated
+        the item, if they are cached.
+        """
+        return self.team.get_member(self.updated_by_id)
+
+    @property
+    def completed_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that marked the
+        the item as completed, if applicable and they are cached.
+        """
+        return self.team.get_member(self.completed_by_id)
+
+    @property
+    def share_url(self) -> Optional[str]:
+        return f'{self.channel.share_url}?listItemId={self.id}'
+
+    @property
+    def assigned_to(self) -> List[Member]:
+        """List[:class:`.Member`]: The members that the item is assigned to,
+        designated by mentions in :attr:`message`.
+        """
+        members = []
+        for assigned in self._assigned_to:
+            id_ = assigned.get('mentionId')
+            if assigned.get('mentionType') == 'person':
+                members.append(self.team.get_member(id_))
+
+            # TODO: get members of role if mentionType == role
+
+        return members
+
+    @property
+    def parent(self):
+        """Optional[:class:`.ListItem`]: The item that this item is a child of,
+        if it exists and is cached.
+        """
+        return self.channel.get_item(self.parent_id)
+
+    async def fetch_parent(self):
+        """|coro|
+        
+        Fetch the item that this item is a child of, if it exists.
+
+        Returns
+        --------
+        :class:`.ListItem`
+        """
+        return await self.channel.fetch_item(self.parent_id)
+
+    async def fetch_note(self) -> ListItemNote:
+        """|coro|
+
+        Fetch this item's note. This should only be necessary if you obtained
+        this object through :meth:`ListChannel.fetch_items`.
+
+        Returns
+        --------
+        :class:`.ListItemNote`
+        """
+        item = await self.channel.fetch_item(self.id)
+        self.note = item.note
+        return self.note
+
+    async def delete(self):
+        """|coro|
+
+        Delete this item.
+        """
+        await self._state.delete_list_item(self.channel.id, self.id)
+
+    async def edit(self, **kwargs):
+        """|coro|
+
+        Edit this item.
+
+        All parameters are optional.
+
+        .. note::
+            If ``position`` and ``message`` or ``note`` are specified, this
+            method will make multiple API requests.
+
+        Parameters
+        -----------
+        message: Any
+            The new main content of the item.
+        note: Any
+            The new note of the item.
+        position: :class:`int`
+            The new position of the item. A value of ``0`` appears at the
+            bottom visually.
+        """
+        message_payload = {}
+        try:
+            message = kwargs.pop('message')
+        except KeyError:
+            pass
+        else:
+            message_payload['message'] = self._state.compatible_content(message)
+        try:
+            note = kwargs.pop('note')
+        except KeyError:
+            pass
+        else:
+            message_payload['note'] = self._state.compatible_content(note)
+
+        if message_payload:
+            await self._state.edit_list_item_message(self.channel.id, self.id, message_payload)
+
+        if kwargs.get('position') is not None:
+            position = kwargs['position']
+            if not isinstance(position, int):
+                raise TypeError(f'position must be type int, not {position.__class__.__name__}')
+
+            rich_positions = []
+            all_items = await self.channel.fetch_items()
+            for item in all_items:
+                rich_positions.append(item)
+
+            rich_positions.sort(key=lambda item: item.position)
+            rich_positions.insert(position, self)
+
+            positions = [item.id for item in rich_positions]
+            await self._state.edit_list_item_priority(self.channel.id, positions)
+            self.position = position
+
+    async def create_item(self, *message, **kwargs):
+        """|coro|
+
+        Create an item with this item as its parent.
+
+        This method is identical to :meth:`ListChannel.create_item`.
+        """
+        kwargs['parent'] = self
+        return await self.channel.create_item(*message, **kwargs)
+
+    async def move(self, to):
+        """|coro|
+
+        Move this item to another channel.
+
+        .. bug::
+            Guilded will raise a 500 upon calling this method.
+
+        Parameters
+        -----------
+        to: :class:`.ListChannel`
+            The list channel to move this item to.
+        """
+        await self._state.move_list_item(self.channel.id, self.id, to.id)
+
+    async def complete(self):
+        raise NotImplementedError
+
+    async def uncomplete(self):
+        raise NotImplementedError
 
 
 class MediaChannel(guilded.abc.TeamChannel):
@@ -1498,6 +1805,101 @@ class MediaChannel(guilded.abc.TeamChannel):
         )
         media = Media(data=data, channel=self, game=game, state=self._state)
         return media
+
+
+class ListChannel(guilded.abc.TeamChannel):
+    """Represents a list channel in a team"""
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.list
+        self._items = {}
+
+    @property
+    def items(self) -> List[ListItem]:
+        """List[:class:`.ListItem`]: The list of cached items in this channel."""
+        return list(self._items.values())
+
+    def get_item(self, id) -> Optional[ListItem]:
+        """Optional[:class:`.ListItem`]: Get a cached item in this channel."""
+        return self._items.get(id)
+
+    async def getch_item(self, id: str) -> ListItem:
+        return self.get_item(id) or await self.fetch_item(id)
+
+    async def fetch_item(self, id: str) -> ListItem:
+        """|coro|
+
+        Fetch a item in this channel.
+
+        Parameters
+        -----------
+        id: :class:`str`
+            The item's ID.
+
+        Returns
+        --------
+        :class:`.ListItem`
+        """
+        data = await self._state.get_list_item(self.id, id)
+        listitem = ListItem(data=data, channel=self, state=self._state)
+        return listitem
+
+    async def fetch_items(self) -> List[ListItem]:
+        """|coro|
+
+        Fetch all items in this channel.
+
+        Returns
+        --------
+        List[:class:`.ListItem`]
+        """
+        data = await self._state.get_list_items(self.id)
+        items = []
+        for item_data in data:
+            items.append(ListItem(data=item_data, channel=self, state=self._state))
+
+        return items
+
+    async def create_item(self, *message, **kwargs) -> ListItem:
+        """|coro|
+
+        Create an item in this channel.
+
+        Parameters
+        -----------
+        message: Any
+            The main content of the item.
+        note: Optional[Any]
+            The item's note.
+        parent: Optional[:class:`ListItem`]
+            An existing item to create this item under.
+        position: Optional[:class:`int`]
+            The item's position. Defaults to ``0`` if not specified (appears
+            at the bottom of the list).
+        send_notifications: Optional[:class:`bool`]
+            Whether to "notify all clients" by creating this item. Defaults to
+            ``False`` if not specified.
+
+        Returns
+        --------
+        :class:`.ListItem`
+            The created item.
+        """
+        note = tuple(kwargs.get('note', ''))
+        parent = kwargs.get('parent')
+        position = kwargs.get('position', 0)
+        send_notifications = kwargs.get('send_notifications', False)
+
+        data = await self._state.create_list_item(
+            self.id,
+            message=message,
+            note=note,
+            parent_id=(parent.id if parent else None),
+            position=position,
+            send_notifications=send_notifications
+        )
+        listitem = ListItem(data=data, channel=self, state=self._state)
+        return listitem
 
 
 class AnnouncementReply(guilded.abc.Reply):
