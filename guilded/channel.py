@@ -1678,10 +1678,22 @@ class ListItem(HasContentMixin):
         await self._state.move_list_item(self.channel.id, self.id, to.id)
 
     async def complete(self):
-        raise NotImplementedError
+        """|coro|
+
+        Mark this list item as complete.
+
+        If this item has any children, they will also be modified.
+        """
+        await self._state.list_item_is_complete(self.channel.id, self.id, True)
 
     async def uncomplete(self):
-        raise NotImplementedError
+        """|coro|
+
+        Mark this list item as incomplete.
+
+        If this item has any children, they will also be modified.
+        """
+        await self._state.list_item_is_complete(self.channel.id, self.id, False)
 
 
 class MediaChannel(guilded.abc.TeamChannel):

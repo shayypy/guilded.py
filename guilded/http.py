@@ -778,9 +778,14 @@ class HTTPClient:
         }
         return self.request(route, json=payload)
 
-    def move_list_item(self, channel_id: str, item_id: int, to_channel_id: str):
+    def move_list_item(self, channel_id: str, item_id: str, to_channel_id: str):
         route = Route('PUT', f'/channels/{channel_id}/listitems/{item_id}/move')
         payload = {'moveToChannelId': to_channel_id}
+        return self.request(route, json=payload)
+
+    def list_item_is_complete(self, channel_id: str, item_id: str, is_complete: bool):
+        route = Route('PUT', f'/channels/{channel_id}/listitems/{item_id}/iscomplete')
+        payload = {'isComplete': is_complete}
         return self.request(route, json=payload)
 
     # /reactions
