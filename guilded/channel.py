@@ -1327,15 +1327,15 @@ class Media(HasContentMixin):
         reply = MediaReply(data=data['metadata']['reply'], parent=self, state=self._state)
         return reply
 
-    async def move(self, id: int):
+    async def move(self, to):
         """|coro|
 
-        Move this media post to another :class:`.DocsChannel`.
+        Move this media post to another :class:`.MediaChannel`.
 
         Parameters
         -----------
-        to: :class:`.DocsChannel`
-            The media channel to move this topic to.
+        to: :class:`.MediaChannel`
+            The media channel to move this media post to.
         """
         await self._state.move_media(self.channel.id, self.id, to.id)
 
@@ -1473,6 +1473,7 @@ class ListItem(HasContentMixin):
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
         self.completed_by_id: Optional[str] = data.get('completedBy')
         self.completed_at: Optional[datetime.datetime] = ISO8601(data.get('completedAt'))
+        self._deleted_by: Optional[Member] = None
         self.deleted_by_id: Optional[str] = data.get('deletedBy')
         self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
         self._assigned_to = data.get('assignedTo') or []
@@ -1483,7 +1484,7 @@ class ListItem(HasContentMixin):
         self._raw_message = data['message']
         self.message: str = self._get_full_content(self._raw_message)
 
-        self.has_note: bool = data.get('hasNote', False)
+        self._has_note: bool = data.get('hasNote')
         self.note_author_id: Optional[str] = data.get('noteCreatedBy')
         self.note_created_by_bot_id: Optional[int] = data.get('noteCreatedByBotId')
         self.note_created_at: Optional[datetime.datetime] = ISO8601(data.get('noteCreatedAt'))
@@ -1515,16 +1516,6 @@ class ListItem(HasContentMixin):
     def replies(self):
         return list(self._replies.values())
 
-    def get_reply(self, id):
-        """Optional[:class:`.MediaReply`]: Get a reply by its ID."""
-        return self._replies.get(id)
-
-    def deleted_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that deleted the
-        item, if that information is available and they are cached.
-        """
-        return self.team.get_member(self.deleted_by_id)
-
     @property
     def updated_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that last updated
@@ -1538,6 +1529,13 @@ class ListItem(HasContentMixin):
         the item as completed, if applicable and they are cached.
         """
         return self.team.get_member(self.completed_by_id)
+
+    @property
+    def deleted_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that deleted the
+        item, if that information is available and they are cached.
+        """
+        return self._deleted_by or self.team.get_member(self.deleted_by_id)
 
     @property
     def share_url(self) -> Optional[str]:
@@ -1564,6 +1562,14 @@ class ListItem(HasContentMixin):
         if it exists and is cached.
         """
         return self.channel.get_item(self.parent_id)
+
+    @property
+    def has_note(self) -> bool:
+        # This property (hasNote) is not returned in the gateway
+        # event for list items being created
+        if self._has_note is not None:
+            return self._has_note
+        return self.note is not None
 
     async def fetch_parent(self):
         """|coro|

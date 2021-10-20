@@ -442,6 +442,14 @@ class WebSocketEventParsers:
             else:
                 self.client.dispatch('forum_topic_create', content)
 
+        elif channel.type is ChannelType.list:
+            content = ListItem(data=data['listItem'], channel=channel, state=self._state)
+            channel._items[content.id] = content
+            if moved:
+                self.client.dispatch('list_item_move', content)
+            else:
+                self.client.dispatch('list_item_create', content)
+
         elif channel.type is ChannelType.media:
             content = Media(data=data['media'], channel=channel, state=self._state)
             channel._medias[content.id] = content
@@ -485,10 +493,18 @@ class WebSocketEventParsers:
         elif channel.type is ChannelType.forum:
             self.client.dispatch('raw_forum_topic_delete', channel, int(content_id))
             content = channel.get_topic(int(content_id))
-            if topic is not None:
+            if content is not None:
                 content.deleted_by = deleted_by
                 self.client.dispatch('forum_topic_delete', content)
                 channel._topics.pop(content.id)
+
+        elif channel.type is ChannelType.list:
+            self.client.dispatch('raw_list_item_delete', channel, content_id)
+            content = channel.get_item(content_id)
+            if content is not None:
+                content._deleted_by = deleted_by
+                self.client.dispatch('list_item_delete', content)
+                channel._items.pop(content.id)
 
         elif channel.type is ChannelType.media:
             self.client.dispatch('raw_media_delete', channel, int(content_id))
