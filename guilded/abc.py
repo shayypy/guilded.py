@@ -80,6 +80,15 @@ class Messageable(metaclass=abc.ABCMeta):
         self.id = data.get('id')
         self._channel_id = data.get('id')
 
+    @property
+    def _channel(self):
+        if isinstance(self, User):
+            return self.dm_channel
+        elif hasattr(self, 'channel'):
+            return self.channel
+        else:
+            return self
+
     async def send(self, *content, **kwargs) -> Message:
         """|coro|
 
@@ -200,13 +209,7 @@ class Messageable(metaclass=abc.ABCMeta):
             except:
                 author = None
 
-        if isinstance(self, User):
-            channel = self.dm_channel
-        elif hasattr(self, 'channel'):
-            channel = self.channel
-        else:
-            channel = self
-        return self._state.create_message(channel=channel, data=payload, author=author)
+        return self._state.create_message(channel=self._channel, data=payload, author=author)
 
     async def trigger_typing(self):
         """|coro|
@@ -233,7 +236,7 @@ class Messageable(metaclass=abc.ABCMeta):
         messages = []
         for message in history.get('messages', []):
             try:
-                messages.append(self._state.create_message(channel=self, data=message))
+                messages.append(self._state.create_message(channel=self._channel, data=message))
             except:
                 pass
 
@@ -284,6 +287,23 @@ class Messageable(metaclass=abc.ABCMeta):
         data = await self._state.create_thread(self._channel_id, content, name=name, initial_message=message)
         thread = self._state.create_channel(data=data.get('thread', data), group=self.group, team=self.team)
         return thread
+
+    async def pins(self):
+        """|coro|
+
+        Fetch the pinned messages in this channel.
+
+        Returns
+        --------
+        List[:class:`Message`]
+        """
+        messages = []
+        data = await self._state.get_pinned_messages(self._channel_id)
+        for message_data in data['messages']:
+            message = self._state.create_message(data=message_data, channel=self._channel)
+            messages.append(message)
+
+        return messages
 
 
 class User(metaclass=abc.ABCMeta):

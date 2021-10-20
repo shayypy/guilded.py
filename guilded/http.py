@@ -543,6 +543,9 @@ class HTTPClient:
 
         return self.request(route, json=payload)
 
+    def get_pinned_messages(self, channel_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/pins'))
+
     def get_voice_connection_info(self, channel_id: str):
         return self.request(Route('GET', f'/channels/{channel_id}/connection'))
 
