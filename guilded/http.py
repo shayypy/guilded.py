@@ -546,6 +546,13 @@ class HTTPClient:
     def get_pinned_messages(self, channel_id: str):
         return self.request(Route('GET', f'/channels/{channel_id}/pins'))
 
+    def pin_message(self, channel_id: str, message_id: str):
+        payload = {'messageId': message_id}
+        return self.request(Route('POST', f'/channels/{channel_id}/pins'), json=payload)
+
+    def unpin_message(self, channel_id: str, message_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/pins/{message_id}'))
+
     def get_voice_connection_info(self, channel_id: str):
         return self.request(Route('GET', f'/channels/{channel_id}/connection'))
 

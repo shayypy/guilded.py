@@ -548,13 +548,27 @@ class ChatMessage(HasContentMixin):
     async def create_thread(self, *content, **kwargs):
         """|coro|
 
-        Create a thread on a message.
+        Create a thread on this message.
 
-        .. warning::
+        .. bug::
 
             This method currently does not work.
         """
         kwargs['message'] = self
         return await self.channel.create_thread(*content, **kwargs)
+
+    async def pin(self):
+        """|coro|
+
+        Pin this message.
+        """
+        await self._state.pin_message(self.channel.id, self.id)
+
+    async def unpin(self):
+        """|coro|
+
+        Unpin this message.
+        """
+        await self._state.unpin_message(self.channel.id, self.id)
 
 Message = ChatMessage
