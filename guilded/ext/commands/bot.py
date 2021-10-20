@@ -415,15 +415,18 @@ class Bot(guilded.Client):
         called. This makes it a useful function to set up database
         connections or any type of set up required.
         This pre-invoke hook takes a sole parameter, a :class:`.Context`.
+
         .. note::
             The :meth:`~.Bot.before_invoke` and :meth:`~.Bot.after_invoke` hooks are
             only called if all checks and argument parsing procedures pass
             without error. If any check or argument parsing procedures fail
             then the hooks are not called.
+
         Parameters
         -----------
         coro: :ref:`coroutine <coroutine>`
             The coroutine to register as the pre-invoke hook.
+
         Raises
         -------
         TypeError
@@ -439,16 +442,19 @@ class Bot(guilded.Client):
         called. This makes it a useful function to clean-up database
         connections or any type of clean up required.
         This post-invoke hook takes a sole parameter, a :class:`.Context`.
+
         .. note::
             Similar to :meth:`~.Bot.before_invoke`\, this is not called unless
             checks and argument parsing procedures succeed. This hook is,
             however, **always** called regardless of the internal command
             callback raising an error (i.e. :exc:`.CommandInvokeError`\).
             This makes it ideal for clean-up scenarios.
+
         Parameters
         -----------
         coro: :ref:`coroutine <coroutine>`
             The coroutine to register as the post-invoke hook.
+
         Raises
         -------
         TypeError
