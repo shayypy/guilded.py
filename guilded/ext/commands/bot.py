@@ -57,7 +57,7 @@ import traceback
 import importlib.util
 import importlib.machinery
 import types
-from typing import Mapping, List, Dict, Optional
+from typing import TYPE_CHECKING, Mapping, List, Dict, Optional, TypeVar
 
 import guilded
 
@@ -68,9 +68,14 @@ from .cog import Cog
 from .help import HelpCommand, DefaultHelpCommand
 from .view import StringView
 
+if TYPE_CHECKING:
+    from ._types import Check, CoroFunc
 
 def _is_submodule(parent: str, child: str) -> bool:
     return parent == child or child.startswith(parent + ".")
+
+T = TypeVar('T')
+CFT = TypeVar('CFT', bound='CoroFunc')
 
 class _DefaultRepr:
     def __repr__(self):
@@ -398,6 +403,62 @@ class Bot(guilded.Client):
 
     #    return ret
 
+    # TODO Rename this here and in `before_invoke` and `after_invoke`
+    def _extracted_from_after_invoke_3(self, coro, arg1):
+        if not asyncio.iscoroutinefunction(coro):
+            raise TypeError(arg1)
+        return coro
+
+    def before_invoke(self, coro: CFT) -> CFT:
+        """A decorator that registers a coroutine as a pre-invoke hook.
+        A pre-invoke hook is called directly before the command is
+        called. This makes it a useful function to set up database
+        connections or any type of set up required.
+        This pre-invoke hook takes a sole parameter, a :class:`.Context`.
+        .. note::
+            The :meth:`~.Bot.before_invoke` and :meth:`~.Bot.after_invoke` hooks are
+            only called if all checks and argument parsing procedures pass
+            without error. If any check or argument parsing procedures fail
+            then the hooks are not called.
+        Parameters
+        -----------
+        coro: :ref:`coroutine <coroutine>`
+            The coroutine to register as the pre-invoke hook.
+        Raises
+        -------
+        TypeError
+            The coroutine passed is not actually a coroutine.
+        """
+        return self._extracted_from_after_invoke_3(
+            coro, "The pre-invoke hook must be a coroutine."
+        )
+    
+    def after_invoke(self, coro: CFT) -> CFT:
+        r"""A decorator that registers a coroutine as a post-invoke hook.
+        A post-invoke hook is called directly after the command is
+        called. This makes it a useful function to clean-up database
+        connections or any type of clean up required.
+        This post-invoke hook takes a sole parameter, a :class:`.Context`.
+        .. note::
+            Similar to :meth:`~.Bot.before_invoke`\, this is not called unless
+            checks and argument parsing procedures succeed. This hook is,
+            however, **always** called regardless of the internal command
+            callback raising an error (i.e. :exc:`.CommandInvokeError`\).
+            This makes it ideal for clean-up scenarios.
+        Parameters
+        -----------
+        coro: :ref:`coroutine <coroutine>`
+            The coroutine to register as the post-invoke hook.
+        Raises
+        -------
+        TypeError
+            The coroutine passed is not actually a coroutine.
+        """
+        return self._extracted_from_after_invoke_3(
+            coro, 'The post-invoke hook must be a coroutine.'
+        )
+
+    
     async def get_context(self, message: guilded.Message):
         view = StringView(str(message.content))
         ctx = Context(prefix=None, view=view, bot=self, message=message)
@@ -508,7 +569,7 @@ class Bot(guilded.Client):
         """
 
         if not isinstance(cog, Cog):
-            raise TypeError('cogs must derive from Cog')
+            raise TypeError('Cogs must derive from Cog class.')
 
         cog_name = cog.__cog_name__
         existing = self.__cogs.get(cog_name)
@@ -593,10 +654,12 @@ class Bot(guilded.Client):
 
         # remove all the listeners from the module
         for event_list in self.extra_events.copy().values():
-            remove = []
-            for index, event in enumerate(event_list):
-                if event.__module__ is not None and _is_submodule(name, event.__module__):
-                    remove.append(index)
+            remove = [
+                index
+                for index, event in enumerate(event_list)
+                if event.__module__ is not None
+                and _is_submodule(name, event.__module__)
+            ]
 
             for index in reversed(remove):
                 del event_list[index]

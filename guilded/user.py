@@ -154,6 +154,9 @@ class Member(User):
         else:
             self.colour = colour
 
+    def __str__(self) -> str:
+        return self.nick
+    
     def __repr__(self):
         return f'<Member id={self.id!r} name={self.name!r} team={self.team!r}>'
 
@@ -224,6 +227,7 @@ class Member(User):
         Kick this member. Equivalent to :meth:`Team.kick`.
         """
         return await self.team.kick(self)
+
 
 class ClientUser(guilded.abc.User):
     """Represents the current logged-in user.
