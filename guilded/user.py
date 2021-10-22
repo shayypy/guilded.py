@@ -155,7 +155,7 @@ class Member(User):
             self.colour = colour
 
     def __str__(self) -> str:
-        return self.nick
+        return self.nick or self.name
     
     def __repr__(self):
         return f'<Member id={self.id!r} name={self.name!r} team={self.team!r}>'
