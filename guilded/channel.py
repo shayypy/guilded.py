@@ -196,6 +196,18 @@ class Doc(HasContentMixin):
         return self.title
 
     @property
+    def team_id(self):
+        return self.team.id
+
+    @property
+    def group_id(self):
+        return self.group.id
+
+    @property
+    def channel_id(self):
+        return self.channel.id
+
+    @property
     def replies(self):
         """List[:class:`.DocReply`]: The list of cached replies to this doc."""
         return list(self._replies.values())
@@ -924,6 +936,18 @@ class Announcement(HasContentMixin):
         return f'<Announcement id={self.id!r} title={self.title!r} author={self.author!r}>'
 
     @property
+    def team_id(self):
+        return self.team.id
+
+    @property
+    def group_id(self):
+        return self.group.id
+
+    @property
+    def channel_id(self):
+        return self.channel.id
+
+    @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
         topic, if they are cached.
@@ -1384,6 +1408,18 @@ class ListItemNote(HasContentMixin):
         return f'<ListItemNote parent={self.parent!r} author={self.author!r}>'
 
     @property
+    def team_id(self):
+        return self.parent.team_id
+
+    @property
+    def group_id(self):
+        return self.parent.group_id
+
+    @property
+    def channel_id(self):
+        return self.parent.channel_id
+
+    @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
         note, if they are cached.
@@ -1464,9 +1500,11 @@ class ListItem(HasContentMixin):
 
         self.parent_id: Optional[str] = data.get('parentId')
         self.team_id: str = data.get('teamId')
+        self.group_id: Optional[str] = data.get('groupId') or (self.group.id if self.group else None)
+        self.channel_id: str = data.get('channelId') or self.channel.id
+
         self.webhook_id: Optional[str] = data.get('webhookId')
         self.bot_id: Optional[int] = data.get('botId')
-
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_by_id: Optional[str] = data.get('updatedBy')
