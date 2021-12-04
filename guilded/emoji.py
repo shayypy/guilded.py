@@ -48,12 +48,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
+from __future__ import annotations
 
 from typing import List, Optional
 
 from .asset import Asset
 from .user import Member
 from .utils import ISO8601
+import datetime
 
 
 class DiscordEmoji:
@@ -79,6 +81,7 @@ class DiscordEmoji:
     synced_at: :class:`datetime.datetime`
         When the emoji was last synced with Guilded.
     """
+
     def __init__(self, *, id, synced_at):
         self.id: int = int(id)
         self.synced_at: datetime.datetime = ISO8601(synced_at)
@@ -92,10 +95,11 @@ class DiscordEmoji:
         ``.png`` will return a valid static image regardless of if the emoji
         is animated.
         """
-        return f'https://cdn.discordapp.com/emojis/{self.id}'
+        return f"https://cdn.discordapp.com/emojis/{self.id}"
 
     def __eq__(self, other):
         return isinstance(other, DiscordEmoji) and other.id == self.id
+
 
 class Emoji:
     """Represents a team emoji in Guilded.
@@ -136,31 +140,34 @@ class Emoji:
     discord: Optional[:class:`.DiscordEmoji`]
         The Discord emoji that the emoji corresponds to.
     """
+
     def __init__(self, *, state, team, data):
         self._state = state
         self.team = team
 
-        self.id: int = data.get('id')
-        self.name: str = data.get('name')
-        self.author_id: str = data.get('createdBy')
-        self.aliases: List[str] = data.get('aliases', [])
-        self.created_at: Optional[datetime.datetime] = ISO8601(data.get('createdAt'))
+        self.id: int = data.get("id")
+        self.name: str = data.get("name")
+        self.author_id: str = data.get("createdBy")
+        self.aliases: List[str] = data.get("aliases", [])
+        self.created_at: Optional[datetime.datetime] = ISO8601(data.get("createdAt"))
 
         urls = {
-            'customReaction': data.get('apng') or data.get('gif') or data.get('png') or data.get('webp'),
+            "customReaction": data.get("apng") or data.get("gif") or data.get("png") or data.get("webp"),
             # assume animated first, even though guilded seems to simply append ?ia=1 rather than using their apng field.
-            'customReactionPNG': data.get('png'),
-            'customReactionWEBP': data.get('webp'),
-            'customReactionAPNG': data.get('apng'),
-            'customReactionGIF': data.get('gif')
+            "customReactionPNG": data.get("png"),
+            "customReactionWEBP": data.get("webp"),
+            "customReactionAPNG": data.get("apng"),
+            "customReactionGIF": data.get("gif"),
         }
-        self.url: Asset = Asset('customReaction', state=self._state, data=urls)
+        self.url: Asset = Asset("customReaction", state=self._state, data=urls)
 
-        self.discord: Optional[DiscordEmoji] = None
-        if data.get('discordEmojiId'):
-            self.discord = DiscordEmoji = DiscordEmoji(id=data.get('discordEmojiId'), synced_at=data.get('discordSyncedAt'))
+        self.discord: Optional["DiscordEmoji"] = None
+        if data.get("discordEmojiId"):
+            self.discord = DiscordEmoji(
+                id=data.get("discordEmojiId"), synced_at=data.get("discordSyncedAt")
+            )
 
-        self.deleted: bool = data.get('isDeleted', False)
+        self.deleted: bool = data.get("isDeleted", False)
 
     @property
     def author(self) -> Optional[Member]:
@@ -175,7 +182,7 @@ class Emoji:
     @property
     def animated(self) -> bool:
         """:class:`bool`: Whether the emoji is animated."""
-        if getattr(self.url, 'apng', None) is not None or 'ia=1' in self.url:
+        if getattr(self.url, "apng", None) is not None or "ia=1" in self.url:
             return True
         else:
             return False
@@ -190,7 +197,7 @@ class Emoji:
         return not self.deleted
 
     def __repr__(self):
-        return f'<Emoji id={self.id!r} name={self.name!r} team={self.team!r}>'
+        return f"<Emoji id={self.id!r} name={self.name!r} team={self.team!r}>"
 
     async def delete(self):
         """|coro|
