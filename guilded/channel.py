@@ -299,6 +299,18 @@ class Doc(HasContentMixin):
             The channel to move this doc to.
         """
         await self._state.move_doc(self.channel.id, self.id, to.id)
+        
+    @property
+    def team_id(self) -> int:
+        return self.team.id
+
+    @property
+    def group_id(self) -> int:
+        return self.group.id
+
+    @property
+    def channel_id(self) -> int:
+        return self.channel.id
 
 
 class DocsChannel(guilded.abc.TeamChannel):
