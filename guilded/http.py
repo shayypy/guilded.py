@@ -293,6 +293,9 @@ class HTTPClient:
     async def request(self, route, **kwargs):
         url = route.url
         method = route.method
+        kwargs['headers'] = kwargs.pop('headers', {})
+        if self.cookie is not None:
+            kwargs['headers']['guilded-client-id'] = self.cookie
 
         async def perform():
             log_data = ''
