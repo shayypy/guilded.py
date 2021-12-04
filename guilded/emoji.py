@@ -182,10 +182,7 @@ class Emoji:
     @property
     def animated(self) -> bool:
         """:class:`bool`: Whether the emoji is animated."""
-        if getattr(self.url, "apng", None) is not None or "ia=1" in self.url:
-            return True
-        else:
-            return False
+        return getattr(self.url, "apng", None) is not None or "ia=1" in self.url
 
     def __eq__(self, other):
         return isinstance(other, Emoji) and other.id == self.id

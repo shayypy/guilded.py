@@ -122,8 +122,8 @@ class Game(TransientStatus):
         if game_id is None:
             reverse_mapping = {name_: id_ for id_, name_ in self.MAPPING.items()}
             game_id = reverse_mapping.get(name)
-            if game_id is None:
-                raise ValueError('A game with that name could not be found. Refer to the list of valid games: https://guildedapi.com/resources/user#game-ids')
+        if game_id is None:
+            raise ValueError('A game with that name could not be found. Refer to the list of valid games: https://guildedapi.com/resources/user#game-ids')
 
         self.game_id = game_id
 

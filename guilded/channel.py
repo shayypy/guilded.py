@@ -196,18 +196,6 @@ class Doc(HasContentMixin):
         return self.title
 
     @property
-    def team_id(self):
-        return self.team.id
-
-    @property
-    def group_id(self):
-        return self.group.id
-
-    @property
-    def channel_id(self):
-        return self.channel.id
-
-    @property
     def replies(self):
         """List[:class:`.DocReply`]: The list of cached replies to this doc."""
         return list(self._replies.values())
@@ -382,8 +370,7 @@ class DocsChannel(guilded.abc.TeamChannel):
         :class:`.Doc`
         """
         data = await self._state.get_doc(self.id, id)
-        doc = Doc(data=data, channel=self, state=self._state)
-        return doc
+        return Doc(data=data, channel=self, state=self._state)
 
     async def fetch_docs(self, *, limit: int = 50, before: datetime.datetime = None) -> List[Doc]:
         """|coro|
@@ -936,18 +923,6 @@ class Announcement(HasContentMixin):
         return f'<Announcement id={self.id!r} title={self.title!r} author={self.author!r}>'
 
     @property
-    def team_id(self):
-        return self.team.id
-
-    @property
-    def group_id(self):
-        return self.group.id
-
-    @property
-    def channel_id(self):
-        return self.channel.id
-
-    @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
         topic, if they are cached.
@@ -1408,18 +1383,6 @@ class ListItemNote(HasContentMixin):
         return f'<ListItemNote parent={self.parent!r} author={self.author!r}>'
 
     @property
-    def team_id(self):
-        return self.parent.team_id
-
-    @property
-    def group_id(self):
-        return self.parent.group_id
-
-    @property
-    def channel_id(self):
-        return self.parent.channel_id
-
-    @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
         note, if they are cached.
@@ -1500,11 +1463,9 @@ class ListItem(HasContentMixin):
 
         self.parent_id: Optional[str] = data.get('parentId')
         self.team_id: str = data.get('teamId')
-        self.group_id: Optional[str] = data.get('groupId') or (self.group.id if self.group else None)
-        self.channel_id: str = data.get('channelId') or self.channel.id
-
         self.webhook_id: Optional[str] = data.get('webhookId')
         self.bot_id: Optional[int] = data.get('botId')
+
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_by_id: Optional[str] = data.get('updatedBy')
@@ -1684,11 +1645,8 @@ class ListItem(HasContentMixin):
             if not isinstance(position, int):
                 raise TypeError(f'position must be type int, not {position.__class__.__name__}')
 
-            rich_positions = []
             all_items = await self.channel.fetch_items()
-            for item in all_items:
-                rich_positions.append(item)
-
+            rich_positions = [item for item in all_items]
             rich_positions.sort(key=lambda item: item.position)
             rich_positions.insert(position, self)
 
@@ -1859,8 +1817,7 @@ class MediaChannel(guilded.abc.TeamChannel):
             tags=(tags or []),
             game_id=(game.id if game else None)
         )
-        media = Media(data=data, channel=self, game=game, state=self._state)
-        return media
+        return Media(data=data, channel=self, game=game, state=self._state)
 
 
 class ListChannel(guilded.abc.TeamChannel):

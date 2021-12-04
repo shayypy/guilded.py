@@ -60,6 +60,7 @@ from .file import MediaType, FileType, File
 from .message import HasContentMixin, Message
 from .presence import Presence
 from .utils import ISO8601
+import datetime
 
 
 class Messageable(metaclass=abc.ABCMeta):

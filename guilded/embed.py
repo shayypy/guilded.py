@@ -76,7 +76,7 @@ class EmbedProxy:
         return EmptyEmbed
 
 class Embed:
-    """Represents a Discord embed.
+    """Represents a Guilded embed.
 
     .. container:: operations
 
@@ -249,8 +249,7 @@ class Embed:
         except KeyError:
             del data['video']
 
-        embed = Embed.from_dict(data)
-        return embed
+        return Embed.from_dict(data)
 
     def copy(self):
         """Returns a shallow copy of the embed."""

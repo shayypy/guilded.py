@@ -293,9 +293,6 @@ class HTTPClient:
     async def request(self, route, **kwargs):
         url = route.url
         method = route.method
-        kwargs['headers'] = kwargs.pop('headers', {})
-        if self.cookie is not None:
-            kwargs['headers']['guilded-client-id'] = self.cookie
 
         async def perform():
             log_data = ''
@@ -334,12 +331,11 @@ class HTTPClient:
                     )
                     if retry_after:
                         await asyncio.sleep(retry_after)
-                        data = await perform()
                     else:
                         await asyncio.sleep(5)
-                        data = await perform()
-                        #raise TooManyRequests(response)
+                                    #raise TooManyRequests(response)
 
+                    data = await perform()
                 elif response.status >= 400:
                     exception = error_mapping.get(response.status, HTTPException)
                     raise exception(response, data)
@@ -1213,31 +1209,31 @@ class HTTPClient:
 
     def create_channel(self, **data):
         channel_data = data.get('data', data)
-        if channel_data.get('type', '').lower() == 'team':
-            data['group'] = data.get('group')
-            ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
-            if ctype is channel.ChannelType.announcements:
-                return channel.AnnouncementChannel(state=self, **data)
-            elif ctype is channel.ChannelType.chat:
-                if 'threadMessageId' in channel_data:
-                    # we assume here that only threads will have this attribute
-                    # so from this we can reasonably know whether a channel is
-                    # a thread
-                    return channel.Thread(state=self, **data)
-                else:
-                    return channel.ChatChannel(state=self, **data)
-            elif ctype is channel.ChannelType.docs:
-                return channel.DocsChannel(state=self, **data)
-            elif ctype is channel.ChannelType.forum:
-                return channel.ForumChannel(state=self, **data)
-            elif ctype is channel.ChannelType.list:
-                return channel.ListChannel(state=self, **data)
-            elif ctype is channel.ChannelType.media:
-                return channel.MediaChannel(state=self, **data)
-            elif ctype is channel.ChannelType.voice:
-                return channel.VoiceChannel(state=self, **data)
-        else:
+        if channel_data.get('type', '').lower() != 'team':
             return channel.DMChannel(state=self, **data)
+
+        data['group'] = data.get('group')
+        ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
+        if ctype is channel.ChannelType.announcements:
+            return channel.AnnouncementChannel(state=self, **data)
+        elif ctype is channel.ChannelType.chat:
+            if 'threadMessageId' in channel_data:
+                # we assume here that only threads will have this attribute
+                # so from this we can reasonably know whether a channel is
+                # a thread
+                return channel.Thread(state=self, **data)
+            else:
+                return channel.ChatChannel(state=self, **data)
+        elif ctype is channel.ChannelType.docs:
+            return channel.DocsChannel(state=self, **data)
+        elif ctype is channel.ChannelType.forum:
+            return channel.ForumChannel(state=self, **data)
+        elif ctype is channel.ChannelType.list:
+            return channel.ListChannel(state=self, **data)
+        elif ctype is channel.ChannelType.media:
+            return channel.MediaChannel(state=self, **data)
+        elif ctype is channel.ChannelType.voice:
+            return channel.VoiceChannel(state=self, **data)
 
     def create_message(self, **data):
         data['channel'] = data.get('channel')

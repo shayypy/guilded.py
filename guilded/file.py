@@ -237,8 +237,6 @@ class Attachment:
                                 to_mark = '~~' + to_mark + '~~'
                             elif mark['type'] == 'spoiler':
                                 to_mark = '||' + to_mark + '||'
-                            else:
-                                pass
                         caption += to_mark.format(
                             unmarked_content=str(leaf['text'])
                         )
@@ -274,5 +272,4 @@ class Attachment:
         :class:`File`
         """
         data = await self.read()
-        file = File(data, filename=self.filename, file_type=self.file_type)
-        return file
+        return File(data, filename=self.filename, file_type=self.file_type)
