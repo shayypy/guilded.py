@@ -29,9 +29,6 @@ For more examples, see the examples directory in this repository.
 
 ## Support
 
-Guilded.py has a support channel under its dedicated group for any questions you may have.
+Enhanced-Guilded.py has a support channel under its dedicated group for any questions you may have.
 
-1. Join the [Guilded-API](https://community.guildedapi.com) server
-2. Navigate to #library-list
-3. Click on the guilded.py role and click "Add me to role"
-4. You should see a new group pop up in your sidebar - you are now in the Guilded.py group
+Join the [Guilded.py](https://www.guilded.gg/i/kJObq4Op) server
