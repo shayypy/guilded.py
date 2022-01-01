@@ -51,7 +51,7 @@ DEALINGS IN THE SOFTWARE.
 
 import asyncio
 import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from .abc import TeamChannel, User
 
@@ -59,10 +59,18 @@ from .asset import Asset
 from .channel import ChannelType, ChatChannel, DocsChannel, ForumChannel, Thread
 from .errors import NotFound, InvalidArgument
 from .emoji import Emoji
-from .gateway import GuildedWebSocket
+from .flowbot import FlowBot
+from .gateway import UserbotGuildedWebSocket
 from .group import Group
+from .role import Role
 from .user import Member
-from .utils import ISO8601
+from .utils import ISO8601, get
+
+__all__ = (
+    'Guild',
+    'SocialInfo',
+    'Team',
+)
 
 
 class SocialInfo:
@@ -95,9 +103,6 @@ class SocialInfo:
             # media connections being available
             setattr(self, social, name)
 
-class TeamTimezone(datetime.tzinfo):
-    # todo, lol
-    pass
 
 class Team:
     """Represents a team (or "guild") in Guilded.
@@ -150,21 +155,34 @@ class Team:
     """
     def __init__(self, *, state, data, ws=None):
         self._state = state
-        self.ws = ws
         data = data.get('team', data)
 
-        self.id: str = data.get('id')
+        if state.userbot:
+            self.ws = ws
+
+        self.id: str = data['id']
+
+        self._channels = {}
+        self._threads = {}
+        self._groups = {}
+        self._emojis = {}
+        self._members = {}
+        self._roles = {}
+        self._flowbots = {}
+
+        self._base_role: Optional[Role] = None
+        self._bot_role: Optional[Role] = None
+
         self.owner_id: str = data.get('ownerId')
-        self.name: str = data.get('name')
+        self.name: str = data.get('name') or ''
         self.subdomain: str = data.get('subdomain')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.bio: str = data.get('bio') or ''
         self.description: str = data.get('description') or ''
-        self.discord_guild_id = data.get('discordGuildId')
+        self.discord_guild_id: str = data.get('discordGuildId')
         self.discord_guild_name: str = data.get('discordServerName')
 
         self.base_group: Optional[Group] = None
-        self._groups = {}
         for group_data in data.get('groups') or []:
             group = Group(state=self._state, team=self, data=group_data)
             self._groups[group_data['id']] = group
@@ -172,22 +190,41 @@ class Team:
                 self.base_group: Group = group
 
         if self.base_group is None and data.get('baseGroup') is not None:
-            self.base_group: Group = Group(state=self._state, team=self, data=data['baseGroup'])
+            self.base_group: Optional[Group] = Group(state=self._state, team=self, data=data['baseGroup'])
             self._groups[self.base_group.id] = self.base_group
 
         self.social_info: SocialInfo = SocialInfo(**data.get('socialInfo', {}))
-        self.timezone = data.get('timezone') # TeamTimezone(data.get('timezone'))
+        self.timezone = data.get('timezone')
 
-        for member in data.get('members', []):
-            self._state.add_to_member_cache(
-                self._state._get_team_member(self.id, member.get('id')) or self._state.create_member(data=member)
-            )
-        for channel in data.get('channels', []):
-            self._state.add_to_team_channel_cache(
-                self._state._get_team_channel(self.id, channel.get('id')) or self._state.create_channel(data=channel)
-            )
+        for member in data.get('members') or []:
+            member['teamId'] = self.id
+            self._members[member['id']] = self._state.create_member(data=member, team=self)
 
-        self.bots: list = data.get('bots', [])
+        for channel in data.get('channels') or []:
+            channel = (
+                self._state._get_team_channel(self.id, channel['id'])
+                or self._state.create_channel(data=channel)
+            )
+            if channel and channel.type is ChannelType.thread:
+                self._threads[channel.id] = channel
+            elif channel:
+                self._channels[channel.id] = channel
+
+        for bot in data.get('bots', []) or data.get('webhooks', []):
+            if bot.get('flows') is not None:
+                bot = FlowBot(state=self._state, data=bot, team=self)
+                self._flowbots[bot.id] = bot
+
+        for role_id, role in data.get('rolesById', {}).items():
+            if role_id.isdigit():
+                # "baseRole" is included in rolesById, resulting in a
+                # duplicate entry for the base role.
+                role: Role = Role(state=self._state, data=role, team=self)
+                self._roles[role.id] = role
+                if role.base:
+                    self._base_role: Optional[Role] = role
+                if role.bot:
+                    self._bot_role: Optional[Role] = role
 
         self.recruiting: bool = data.get('isRecruiting', False)
         self.verified: bool = data.get('isVerified', False)
@@ -204,18 +241,15 @@ class Team:
         self._follower_count = data.get('followerCount') or 0
         self._member_count = data.get('memberCount') or data.get('measurements', {}).get('numMembers') or 0
 
-        self._emojis = {}
-
     def __str__(self):
         return self.name
 
     def __repr__(self):
-        return f'<Team id={repr(self.id)} name={repr(self.name)}>'
+        return f'<Team id={self.id!r} name={self.name!r}>'
 
     @property
     def slug(self) -> Optional[str]:
-        """Optional[:class:`str`]: This is an alias of :attr:`.subdomain`\."""
-        # it's not a subdomain >:(
+        """Optional[:class:`str`]: This is an alias of :attr:`.subdomain`."""
         return self.subdomain
 
     @property
@@ -248,61 +282,104 @@ class Team:
 
     @property
     def owner(self) -> Member:
-        """Optional[Union[:class:`Member`, :class:`User`]]: The team's owner."""
+        """Optional[Union[:class:`.Member`, :class:`User`]]: This team's
+        owner, if they are cached."""
         return self.get_member(self.owner_id) or self._state._get_user(self.owner_id)
 
     @property
-    def me(self) -> Member:
-        """:class:`Member`: Your own member object in this team."""
+    def me(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: Your own member object in this team."""
         return self.get_member(self._state.my_id)
 
     @property
     def members(self) -> List[Member]:
-        """List[:class:`Member`]: The cached list of members in this team.
+        """List[:class:`.Member`]: The cached list of members in this team.
 
         .. note::
             Many objects may not have all the desired information due to
             partial data returned by Guilded for some endpoints.
         """
-        return list(self._state._team_members.get(self.id, {}).values())
+        return list(self._members.values())
 
     @property
     def channels(self) -> TeamChannel:
         """List[:class:`~.abc.TeamChannel`]: The cached list of channels
-        in this team.
-        """
-        return list(self._state._team_channels.get(self.id, {}).values())
+        in this team."""
+        return list(self._channels.values())
 
     @property
     def groups(self) -> List[Group]:
-        """List[:class:`Group`]: The cached list of groups in this team."""
+        """List[:class:`.Group`]: The cached list of groups in this team."""
         return list(self._groups.values())
 
     @property
     def emojis(self) -> List[Emoji]:
-        """List[:class:`Emoji`]: The cached list of emojis in this team."""
+        """List[:class:`.Emoji`]: The cached list of emojis in this team."""
         return list(self._emojis.values())
 
-    def get_member(self, id) -> Optional[Member]:
-        """Optional[:class:`Member`]: Get a member by their ID from the
-        internal cache.
-        """
-        return self._state._get_team_member(self.id, id)
+    @property
+    def flowbots(self) -> List[FlowBot]:
+        """List[:class:`.FlowBot`]: The cached list of flowbots in this team."""
+        return list(self._flowbots.values())
 
-    def get_channel(self, id) -> Optional[TeamChannel]:
+    @property
+    def roles(self) -> List[Role]:
+        """List[:class:`.Role`]: The cached list of roles in this team."""
+        return list(self._roles.values())
+
+    @property
+    def base_role(self) -> Optional[Role]:
+        """Optional[:class:`.Role`]: The base ``Member`` role for this team."""
+        return self._base_role or get(self.roles, base=True)
+
+    @property
+    def bot_role(self) -> Optional[Role]:
+        """Optional[:class:`.Role`]: The ``Bot`` role for this team."""
+        return self._bot_role or get(self.roles, bot=True)
+
+    def get_member(self, id: str) -> Optional[Member]:
+        """Optional[:class:`.Member`]: Get a member by their ID from the
+        internal cache."""
+        return self._members.get(id)
+
+    def get_channel(self, id: str) -> Optional[TeamChannel]:
         """Optional[:class:`~.abc.TeamChannel`]: Get a channel by its ID
-        from the internal cache.
-        """
-        return self._state._get_team_channel(self.id, id)
+        from the internal cache."""
+        return self._channels.get(id)
 
-    def get_emoji(self, id) -> Optional[Emoji]:
+    def get_thread(self, id: str) -> Optional[Thread]:
+        """Optional[:class:`.Thread`]: Get a thread by its ID
+        from the internal cache."""
+        return self._threads.get(id)
+
+    def get_channel_or_thread(self, id: str) -> Optional[Union[TeamChannel, Thread]]:
+        """Optional[Union[:class:`~.abc.TeamChannel`, :class:`.Thread`]]: Get
+        a channel or thread by its ID from the internal cache."""
+        return self.get_channel(id) or self.get_thread(id)
+
+    def get_emoji(self, id: int) -> Optional[Emoji]:
         """Optional[:class:`.Emoji`]: Get an emoji by its ID from the internal
-        cache.
-        """
+        cache."""
         return self._emojis.get(id)
+
+    def get_flowbot(self, id: str) -> Optional[FlowBot]:
+        """Optional[:class:`.FlowBot`]: Get a flowbot by its ID from the
+        internal cache."""
+        return self._flowbots.get(id)
+
+    @property
+    def get_bot(self) -> Optional[FlowBot]:
+        return self.get_flowbot
+
+    def get_role(self, id: int) -> Optional[Role]:
+        """Optional[:class:`.Role`]: Get a role by its ID from the internal
+        cache."""
+        return self._roles.get(id)
 
     async def ws_connect(self, client):
         """|coro|
+
+        |onlyuserbot|
 
         Connect to the team's gateway.
 
@@ -311,11 +388,13 @@ class Team:
             shouldn't call it yourself.
         """
         if self.ws is None:
-            team_ws_build = GuildedWebSocket.build(client, loop=client.loop, teamId=self.id)
+            team_ws_build = UserbotGuildedWebSocket.build(client, loop=client.loop, teamId=self.id)
             self.ws = await asyncio.wait_for(team_ws_build, timeout=60)
 
     async def delete(self):
         """|coro|
+
+        |onlyuserbot|
 
         Delete the team. You must be the team owner to do this.
         """
@@ -324,12 +403,16 @@ class Team:
     async def leave(self):
         """|coro|
 
+        |onlyuserbot|
+
         Leave the team.
         """
         return await self._state.leave_team(self.id)
 
     async def create_chat_channel(self, *, name: str, category=None, public=False, group=None) -> ChatChannel:
         """|coro|
+
+        |onlyuserbot|
 
         Create a new chat (text) channel in the team.
 
@@ -367,6 +450,8 @@ class Team:
     async def create_forum_channel(self, *, name: str, category=None, public=False, group=None) -> ForumChannel:
         """|coro|
 
+        |onlyuserbot|
+
         Create a new forum channel in the team.
 
         Parameters
@@ -402,6 +487,8 @@ class Team:
 
     async def create_docs_channel(self, *, name: str, category=None, public=False, group=None) -> DocsChannel:
         """|coro|
+
+        |onlyuserbot|
 
         Create a new docs channel in the team.
 
@@ -439,6 +526,8 @@ class Team:
     async def fetch_channels(self) -> List[TeamChannel]:
         """|coro|
 
+        |onlyuserbot|
+
         Fetch the list of :class:`TeamChannel`\s in this team.
 
         This method is an API call. For general usage, consider
@@ -475,6 +564,10 @@ class Team:
         This method is an API call. For general usage, consider
         :meth:`get_channel` instead.
 
+        .. warning::
+            If this is an early access bot, this method will only work for
+            public channels.
+
         .. note::
             The channel does not have to be part of the current team because
             there is no team-specific "get channel" endpoint. Therefore,
@@ -485,7 +578,7 @@ class Team:
         data = await request
         data = data.get('channel', data)
         data['type'] = 'team'
-        channel = self._state.create_channel(data=data, group=None, team=self)
+        channel = self._state.create_channel(data=data['metadata']['channel'], group=None, team=self)
         return channel
 
     async def getch_channel(self, id) -> TeamChannel:
@@ -511,6 +604,8 @@ class Team:
     async def fetch_member(self, id: str, *, full=True) -> Member:
         """|coro|
 
+        |onlyuserbot|
+
         Fetch a specific :class:`Member` in this team.
 
         Parameters
@@ -519,7 +614,7 @@ class Team:
             The member's id to fetch.
         full: Optional[:class:`bool`]
             Whether to fetch full user data for this member. If this is
-            ``False``, only team-specific data about this user will be
+            ``False``, only team-specific data about this member will be
             returned. Defaults to ``True``.
 
             .. note::
@@ -530,12 +625,12 @@ class Team:
         Returns
         --------
         :class:`Member`
-            The member from their id
+            The member from their ID.
 
         Raises
         -------
         :class:`NotFound`
-            A member with that ID does not exist in this team
+            A member with that ID does not exist in this team.
         """
         data = (await self._state.get_team_member(self.id, id))[id]
         if full is True:
@@ -553,12 +648,14 @@ class Team:
     async def create_invite(self) -> str:
         """|coro|
 
+        |onlyuserbot|
+
         Create an invite to this team.
 
         Returns
         --------
         :class:`str`
-            the invite code that was created
+            The invite code that was created.
         """
         invite = await self._state.create_team_invite(self.id)
         return invite.get('invite', invite).get('id')
@@ -569,6 +666,8 @@ class Team:
         delete_message_days: int = None
     ):
         """|coro|
+
+        |onlyuserbot|
 
         Ban a user from the team.
 
@@ -607,6 +706,8 @@ class Team:
     async def unban(self, user: User):
         """|coro|
 
+        |onlyuserbot|
+
         Unban a user from the team.
 
         Parameters
@@ -620,6 +721,8 @@ class Team:
     async def kick(self, user: User):
         """|coro|
 
+        |onlyuserbot|
+
         Kick a user from the team.
 
         Parameters
@@ -631,11 +734,20 @@ class Team:
         await coro
 
     def get_group(self, id: str) -> Optional[Group]:
-        """Optional[:class:`Group`]: Get a group by its ID from the internal cache."""
+        """|onlyuserbot|
+
+        Get a group by its ID from the internal cache.
+
+        Returns
+        --------
+        Optional[:class:`Group`]
+        """
         return self._groups.get(id)
 
     async def fetch_group(self, id: str) -> Group:
         """|coro|
+
+        |onlyuserbot|
 
         Fetch a :class:`Group` in this team by its ID.
 
@@ -650,6 +762,8 @@ class Team:
 
     async def fetch_groups(self) -> List[Group]:
         """|coro|
+
+        |onlyuserbot|
 
         Fetch the list of :class:`Group`\s in this team.
 
@@ -673,6 +787,8 @@ class Team:
         created_before: Emoji = None
     ) -> List[Emoji]:
         """|coro|
+
+        |onlyuserbot|
 
         Fetch the list of :class:`Emoji`\s in this team.
 

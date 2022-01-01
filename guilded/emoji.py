@@ -56,6 +56,12 @@ from .user import Member
 from .utils import ISO8601
 
 
+__all__ = (
+    'DiscordEmoji',
+    'Emoji',
+)
+
+
 class DiscordEmoji:
     """Represents a Discord emoji that an emoji on Guilded corresponds to.
 
@@ -97,6 +103,7 @@ class DiscordEmoji:
     def __eq__(self, other):
         return isinstance(other, DiscordEmoji) and other.id == self.id
 
+
 class Emoji:
     """Represents a team emoji in Guilded.
 
@@ -136,12 +143,14 @@ class Emoji:
     discord: Optional[:class:`.DiscordEmoji`]
         The Discord emoji that the emoji corresponds to.
     """
-    def __init__(self, *, state, team, data):
+
+    def __init__(self, *, state, data, **extra):
         self._state = state
-        self.team = team
+        self._team = extra.get('team')
 
         self.id: int = data.get('id')
         self.name: str = data.get('name')
+        self.team_id: str = data.get('teamId')
         self.author_id: str = data.get('createdBy')
         self.aliases: List[str] = data.get('aliases', [])
         self.created_at: Optional[datetime.datetime] = ISO8601(data.get('createdAt'))
@@ -162,24 +171,6 @@ class Emoji:
 
         self.deleted: bool = data.get('isDeleted', False)
 
-    @property
-    def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` who created the emoji."""
-        return self.team.get_member(self.author_id)
-
-    @property
-    def team_id(self) -> str:
-        """Optional[:class:`str`]: The ID of the team that the emoji is from."""
-        return self.team.id if self.team else None
-
-    @property
-    def animated(self) -> bool:
-        """:class:`bool`: Whether the emoji is animated."""
-        if getattr(self.url, 'apng', None) is not None or 'ia=1' in self.url:
-            return True
-        else:
-            return False
-
     def __eq__(self, other):
         return isinstance(other, Emoji) and other.id == self.id
 
@@ -191,6 +182,24 @@ class Emoji:
 
     def __repr__(self):
         return f'<Emoji id={self.id!r} name={self.name!r} team={self.team!r}>'
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` who created the emoji."""
+        return self.team.get_member(self.author_id)
+
+    @property
+    def team(self):
+        """Optional[:class:`.Team`]: The team that the emoji is from."""
+        return self._team or self._state._get_team(self.team_id)
+
+    @property
+    def animated(self) -> bool:
+        """:class:`bool`: Whether the emoji is animated."""
+        if getattr(self.url, 'apng', None) is not None or 'ia=1' in self.url:
+            return True
+        else:
+            return False
 
     async def delete(self):
         """|coro|

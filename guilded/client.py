@@ -60,14 +60,15 @@ import aiohttp
 from .errors import NotFound, ClientException
 from .embed import Embed
 from .emoji import Emoji
-from .gateway import GuildedWebSocket, WebSocketClosure
-from .http import HTTPClient
+from .gateway import GuildedWebSocket, UserbotGuildedWebSocket, WebSocketClosure
+from .http import HTTPClient, UserbotHTTPClient
 from .presence import Presence
 from .status import TransientStatus, Game
 from .team import Team
 from .user import ClientUser, User, Member
 
 log = logging.getLogger(__name__)
+
 
 def _cancel_tasks(loop):
     try:
@@ -98,6 +99,7 @@ def _cancel_tasks(loop):
                 'task': task
             })
 
+
 def _cleanup_loop(loop):
     try:
         _cancel_tasks(loop)
@@ -107,165 +109,104 @@ def _cleanup_loop(loop):
         log.info('Closing the event loop.')
         loop.close()
 
-class Client:
-    """The basic client class for interfacing with Guilded.
 
-    Parameters
-    ----------
-    max_messages: Optional[:class:`int`]
-        The maximum number of messages to store in the internal message cache.
-        This defaults to ``1000``. Passing in ``None`` disables the message cache.
-    loop: Optional[:class:`asyncio.AbstractEventLoop`]
-        The :class:`asyncio.AbstractEventLoop` to use for asynchronous operations.
-        Defaults to ``None``, in which case the default event loop is used via
-        :func:`asyncio.get_event_loop()`.
-    disable_team_websockets: Optional[:class:`bool`]
-        Whether to prevent the library from opening team-specific websocket
-        connections.
-    presence: Optional[:class:`.Presence`]
-        A presence to use upon logging in.
-    status: Optional[:class:`.TransientStatus`]
-        A status (game) to use upon logging in.
-    cache_on_startup: Optional[Dict[:class:`str`, :class:`bool`]
-        A mapping of types of objects to a :class:`bool` (whether to
-        cache the type upon logging in via REST). Currently accepts
-        ``members``, ``channels``, ``dm_channels``, ``groups``, and ``emojis``.
-        By default, all are enabled.
-
-    Attributes
-    -----------
-    loop: :class:`asyncio.AbstractEventLoop`
-        The event loop that the client uses for HTTP requests and websocket
-        operations.
-    user: :class:`.ClientUser`
-        The currently logged-in user.
-    cache_on_startup: Dict[:class:`str`, :class:`bool`]
-        The values passed to the ``cache_on_startup`` parameter, each
-        defaulting to ``True`` if not specified.
-    """
+class ClientBase:
     def __init__(self, **options):
         # internal
         self.loop = options.pop('loop', asyncio.get_event_loop())
-        self.user: Optional[ClientUser] = None
         self.max_messages: int = options.pop('max_messages', 1000)
-        self.disable_team_websockets: bool = options.pop('disable_team_websockets', False)
-        self._login_presence = options.pop('presence', None)
-        self._login_status = options.pop('status', None)
         self._listeners = {}
 
-        cache_on_startup = options.pop('cache_on_startup', {})
-        self.cache_on_startup = {
-            'members': cache_on_startup.get('members', True),
-            'channels': cache_on_startup.get('channels', True),
-            'dm_channels': cache_on_startup.get('dm_channels', True),
-            'groups': cache_on_startup.get('groups', True),
-            'emojis': cache_on_startup.get('emojis', True)
-        }
-
         # state
-        self.http: HTTPClient = None
         self._closed = False
         self._ready = asyncio.Event()
 
     @property
     def cached_messages(self):
-        """List[:class:`.ChatMessage`]: A list of cached messages received from
-        the gateway.
-        """
         return list(self.http._messages.values())
 
     @property
-    def emojis(self) -> List[Emoji]:
-        """List[:class:`.Emoji`]: The cached emojis that the connected client
-        can see.
-        """
+    def emojis(self):
         return list(self.http._emojis.values())
 
     @property
-    def teams(self) -> List[Team]:
-        """List[:class:`.Team`]: The cached teams that the connected client
-        can see.
-        """
+    def teams(self):
         return list(self.http._teams.values())
 
     @property
-    def guilds(self) -> List[Team]:
-        """List[:class:`.Team`]: |dpyattr|
-
-        This is an alias of :attr:`.teams`.
-        """
-        return self.teams
-
-    @property
-    def users(self) -> List[User]:
-        """List[:class:`guilded.User`]: The cached users that the connected client
-        can see.
-        """
+    def users(self):
         return list(self.http._users.values())
 
     @property
-    def members(self) -> List[Member]:
-        """List[:class:`.Member`]: The cached team members that the connected
-        client can see.
-        """
+    def members(self):
         return list(self.http._team_members.values())
 
     @property
     def dm_channels(self):
-        """List[:class:`.DMChannel`]: The cached DM channels that the
-        connected client can see.
+        """The private/dm channels that the connected client can see.
+
+        Returns
+        ---------
+        List[:class:`.DMChannel`]
         """
         return list(self.http._dm_channels.values())
 
     @property
     def private_channels(self):
-        """List[:class:`.DMChannel`]: |dpyattr|
+        """|dpyattr|
 
         This is an alias of :attr:`.dm_channels`.
+
+        Returns
+        ---------
+        List[:class:`DMChannel`]
         """
         return self.dm_channels
 
     @property
     def team_channels(self):
-        """List[:class:`.TeamChannel`]: The cached team channels that the
-        connected client can see.
+        """The team channels that the connected client can see.
+
+        Returns
+        ---------
+        List[:class:`TeamChannel`]
         """
-        return list(self.http._all_team_channels.values())
+        return list(self.http._team_channels.values())
 
     @property
     def channels(self):
-        """List[Union[:class:`.TeamChannel`, :class:`.DMChannel`]]: All cached
-        channels (Team and DM) that the connected client can see.
+        """The channels (Team and DM included) that the connected client can see.
+
+        Returns
+        ---------
+        List[Union[:class:`TeamChannel`, :class:`DMChannel`]]
         """
         return [*self.dm_channels, *self.team_channels]
 
     @property
-    def groups(self):
-        """List[:class:`Group`]: A list of all cached team groups that the
-        connected client can see.
-        """
-        groups = []
-        for team in self.teams:
-            groups = groups + team.groups
+    def guilds(self):
+        """|dpyattr|
 
-        return groups
+        This is an alias of :attr:`.teams`.
+
+        Returns
+        ---------
+        List[:class:`Team`]
+        """
+        return self.teams
 
     @property
-    def latency(self) -> float:
+    def latency(self):
         return float('nan') if self.ws is None else self.ws.latency
 
     @property
-    def closed(self) -> bool:
-        """:class:`bool`: Whether the Client's connections are currently open."""
+    def closed(self):
         return self._closed
 
-    def is_ready(self) -> bool:
+    def is_ready(self):
         return self._ready.is_set()
 
     async def wait_until_ready(self):
-        """Waits until the Client is ready. This should happen at roughly the
-        same time as :func:`.on_ready`\.
-        """
         await self._ready.wait()
 
     async def _run_event(self, coro, event_name, *args, **kwargs):
@@ -300,7 +241,7 @@ class Client:
 
         Raises
         --------
-        TypeError
+        :class:`TypeError`
             The function passed is not actually a coroutine.
         """
         if not asyncio.iscoroutinefunction(coro):
@@ -315,169 +256,6 @@ class Client:
         if not coro:
             return
         self.loop.create_task(coro(*args, **kwargs))
-
-    async def start(self, email, password, *, reconnect=True):
-        """|coro|
-
-        Login and connect to Guilded using a user account email and password.
-        """
-        await self.login(email, password)
-        await self.connect()
-
-    async def login(self, email, password):
-        """|coro|
-
-        Log into the REST API with a user account email and password.
-
-        This method fills the internal cache according to
-        :attr:`.cache_on_startup`\. This is in contrast to a Discord
-        application, where this would be done on connection to the gateway.
-        """
-        self.http = self.http or HTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
-        data = await self.http.login(email, password)
-        self.user: ClientUser = ClientUser(state=self.http, data=data)
-        self.http.my_id = self.user.id
-
-        for team_data in data.get('teams'):
-            team = Team(state=self.http, data=team_data)
-
-            if self.cache_on_startup['members'] is True:
-                members = await team.fetch_members()
-                for member in members:
-                    self.http.add_to_member_cache(member)
-
-            if self.cache_on_startup['channels'] is True:
-                channels = await team.fetch_channels()
-                for channel in channels:
-                    if channel is None:
-                        continue
-                    self.http.add_to_team_channel_cache(channel)
-
-            if self.cache_on_startup['groups'] is True:
-                groups = await team.fetch_groups()
-                for group in groups:
-                    team._groups[group.id] = group
-
-            self.http.add_to_team_cache(team)
-
-        if self.cache_on_startup['dm_channels'] is True:
-            dm_channels = await self.fetch_dm_channels()
-            for dm_channel in dm_channels:
-                self.http.add_to_dm_channel_cache(dm_channel)
-                if dm_channel.recipient is not None:
-                    dm_channel.recipient.dm_channel = dm_channel
-
-        if self.cache_on_startup['emojis'] is True:
-            emojis = await self.fetch_emojis()
-            for emoji in emojis:
-                emoji.team._emojis[emoji.id] = emoji
-
-    async def connect(self):
-        """|coro|
-
-        Connect to the main Guilded gateway and subsequent team gateways for
-        team-specific events.
-
-        You must log into the REST API (:meth:`login`) before calling this
-        method due to the required authentication data that is automatically
-        collected in that method.
-        """
-        if not self.http:
-            raise ClientException('You must log in via REST before connecting to the gateway.')
-
-        while not self.closed:
-            ws_build = GuildedWebSocket.build(self, loop=self.loop)
-            gws = await asyncio.wait_for(ws_build, timeout=60)
-            if type(gws) != GuildedWebSocket:
-                self.dispatch('error', gws)
-                return
-
-            self.ws = gws
-            self.http.ws = self.ws
-            self.dispatch('connect')
-
-            if self._login_presence is not None:
-                # we do this here because why bother setting a presence if you won't show up in the online list anyway
-                await self.change_presence(self._login_presence)
-
-            #if self._login_presence is Presence.online:
-            # todo: start http ping thread
-            # no need to do that if you don't want an online presence
-
-            if not self.disable_team_websockets:
-                for team in self.teams:
-                    team_ws_build = GuildedWebSocket.build(self, loop=self.loop, teamId=team.id)
-                    team_ws = await asyncio.wait_for(team_ws_build, timeout=60)
-                    if type(team_ws) == GuildedWebSocket:
-                        team.ws = team_ws
-                        self.dispatch('team_connect', team)
-
-            async def listen_socks(ws, team=None):
-                teamId = team.id if team is not None else None
-                next_backoff_time = 5
-                while True and ws is not None:
-                    try:
-                        await ws.poll_event()
-                    except WebSocketClosure as exc:
-                        code = ws._close_code or ws.socket.close_code
-                        if teamId:
-                            log.warning('Team %s\'s websocket closed with code %s, attempting to reconnect in %s seconds', teamId, code, next_backoff_time)
-                            self.dispatch('team_disconnect', teamId)
-                        else:
-                            log.warning('Websocket closed with code %s, attempting to reconnect in %s seconds', code, next_backoff_time)
-                            self.dispatch('disconnect')
-                        await asyncio.sleep(next_backoff_time)
-                        if teamId:
-                            build = GuildedWebSocket.build(self, loop=self.loop, teamId=teamId)
-                        else:
-                            # possible reconnect issues brought up by @8r2y5
-                            build = GuildedWebSocket.build(self, loop=self.loop)
-                        try:
-                            ws = await asyncio.wait_for(build, timeout=60)
-                        except asyncio.TimeoutError:
-                            log.warning('Timed out trying to reconnect.')
-                            next_backoff_time += 5
-                    else:
-                        next_backoff_time = 5
-
-            self._ready.set()
-            self.dispatch('ready')
-
-            await asyncio.gather(
-                listen_socks(self.ws), *[listen_socks(team.ws, team) for team in self.teams]
-            )
-
-    async def close(self):
-        """|coro|
-
-        Log out and close any active gateway connections.
-        """
-        if self._closed: return
-
-        await self.http.logout()
-        for ws in [self.ws] + [team.ws for team in self.teams if team.ws is not None]:
-            try:
-                await ws.close(code=1000)
-            except Exception:
-                # it's probably already closed, but catch all anyway
-                pass
-
-        self._closed = True
-        self._ready.clear()
-
-    def run(self, email: str, password: str):
-        """Login and connect to Guilded, and start the event loop. This is a
-        blocking call, nothing after it will be called until the bot has been
-        closed.
-        """
-        try:
-            self.loop.create_task(self.start(
-                email=email, 
-                password=password
-            ))
-            self.loop.run_forever()
-        except KeyboardInterrupt:
-            exit()
 
     def get_message(self, id: str):
         """Optional[:class:`.ChatMessage`]: Get a message from your :attr:`.cached_messages`. 
@@ -537,9 +315,260 @@ class Client:
 
         return None
 
+    async def fetch_team(self, id: str):
+        """|coro|
+
+        Fetch a team from the API.
+
+        Returns
+        ---------
+        :class:`.Team`
+            The team from the ID
+        """
+        team = await self.http.get_team(id)
+        return Team(state=self.http, data=team)
+
+    async def getch_team(self, id: str):
+        """|coro|
+
+        Try to get a team from internal cache, and if not found, try to fetch from the API.
+        
+        Returns
+        ---------
+        :class:`.Team`
+            The team from the ID
+        """
+        return self.get_team(id) or await self.fetch_team(id)
+
     async def on_error(self, event_method, *args, **kwargs):
         print(f'Ignoring exception in {event_method}:', file=sys.stderr)
         traceback.print_exc()
+
+
+class UserbotClient(ClientBase):
+    """The basic client class for interfacing with Guilded.
+
+    Parameters
+    ----------
+    max_messages: Optional[:class:`int`]
+        The maximum number of messages to store in the internal message cache.
+        This defaults to ``1000``. Passing in ``None`` disables the message cache.
+    loop: Optional[:class:`asyncio.AbstractEventLoop`]
+        The :class:`asyncio.AbstractEventLoop` to use for asynchronous operations.
+        Defaults to ``None``, in which case the default event loop is used via
+        :func:`asyncio.get_event_loop()`.
+    disable_team_websockets: Optional[:class:`bool`]
+        Whether to prevent the library from opening team-specific websocket
+        connections.
+    presence: Optional[:class:`.Presence`]
+        A presence to use upon logging in.
+    status: Optional[:class:`.TransientStatus`]
+        A status (game) to use upon logging in.
+    cache_on_startup: Optional[Dict[:class:`str`, :class:`bool`]
+        A mapping of types of objects to a :class:`bool` (whether to
+        cache the type upon logging in via REST). Currently accepts
+        ``members``, ``channels``, ``dm_channels``, ``groups``,
+        and ``flowbots``.
+        By default, all are enabled.
+
+    Attributes
+    -----------
+    loop: :class:`asyncio.AbstractEventLoop`
+        The event loop that the client uses for HTTP requests and websocket
+        operations.
+    user: :class:`.ClientUser`
+        The currently logged-in user.
+    cache_on_startup: Dict[:class:`str`, :class:`bool`]
+        The values passed to the ``cache_on_startup`` parameter, each
+        defaulting to ``True`` if not specified.
+    """
+    def __init__(self, **options):
+        super().__init__(**options)
+
+        self.http: UserbotHTTPClient = UserbotHTTPClient(
+            session=aiohttp.ClientSession(loop=self.loop),
+            max_messages=self.max_messages
+        )
+        self.user: Optional[ClientUser] = None
+
+        self.disable_team_websockets: bool = options.pop('disable_team_websockets', False)
+        self._login_presence = options.pop('presence', None)
+        self._login_status = options.pop('status', None)
+
+        cache_on_startup = options.pop('cache_on_startup', {})
+        self.cache_on_startup = {
+            'members': cache_on_startup.get('members', True),
+            'channels': cache_on_startup.get('channels', True),
+            'dm_channels': cache_on_startup.get('dm_channels', True),
+            'groups': cache_on_startup.get('groups', True),
+            'flowbots': cache_on_startup.get('flowbots', True)
+        }
+
+    async def start(self, email, password, *, reconnect=True):
+        """|coro|
+
+        Login and connect to Guilded using a user account email and password.
+        """
+        await self.login(email, password)
+        await self.connect()
+
+    async def login(self, email, password):
+        """|coro|
+
+        Log into the REST API with a user account email and password.
+
+        This method fills the internal cache according to
+        :attr:`.cache_on_startup`\. This is in contrast to a Discord
+        application, where this would be done on connection to the gateway.
+        """
+        self.http: UserbotHTTPClient = self.http or UserbotHTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
+        data = await self.http.login(email, password)
+        self.user: ClientUser = ClientUser(state=self.http, data=data)
+        self.http.my_id = self.user.id
+
+        for team_data in data.get('teams', []):
+            team = Team(state=self.http, data=team_data)
+
+            if self.cache_on_startup['members'] is True:
+                # We have to re-fetch the team here because member data is not
+                # included in the team objects returned in GET /me
+                team = await self.fetch_team(team.id)
+
+                # Because of the extra data this endpoint returns, we also
+                # want to add this team to our cache, which Team.fetch_members
+                # does not do
+
+            if self.cache_on_startup['channels'] is True:
+                channels = await team.fetch_channels()
+                for channel in channels:
+                    if channel is None:
+                        continue
+                    self.http.add_to_team_channel_cache(channel)
+
+            if self.cache_on_startup['groups'] is True:
+                groups = await team.fetch_groups()
+                for group in groups:
+                    team._groups[group.id] = group
+
+            self.http.add_to_team_cache(team)
+
+        for emoji_data in data.get('customReactions', []):
+            emoji = Emoji(data=emoji_data, state=self.http)
+            emoji.team._emojis[emoji.id] = emoji
+
+        if self.cache_on_startup['dm_channels'] is True:
+            dm_channels = await self.fetch_dm_channels()
+            for dm_channel in dm_channels:
+                self.http.add_to_dm_channel_cache(dm_channel)
+                if dm_channel.recipient is not None:
+                    dm_channel.recipient.dm_channel = dm_channel
+
+    async def connect(self):
+        """|coro|
+
+        Connect to the main Guilded gateway and subsequent team gateways for
+        team-specific events.
+
+        You must log into the REST API (:meth:`login`) before calling this
+        method due to the required authentication data that is automatically
+        collected in that method.
+        """
+        if not self.http:
+            raise ClientException('You must log in via REST before connecting to the gateway.')
+
+        while not self.closed:
+            ws_build = UserbotGuildedWebSocket.build(self, loop=self.loop)
+            gws = await asyncio.wait_for(ws_build, timeout=60)
+            if type(gws) != UserbotGuildedWebSocket:
+                self.dispatch('error', gws)
+                return
+
+            self.ws = gws
+            self.http.ws = self.ws
+            self.dispatch('connect')
+
+            if self._login_presence is not None:
+                # we do this here because why bother setting a presence if you won't show up in the online list anyway
+                await self.change_presence(self._login_presence)
+
+            #if self._login_presence is Presence.online:
+            # todo: start http ping thread
+            # no need to do that if you don't want an online presence
+
+            if not self.disable_team_websockets:
+                for team in self.teams:
+                    team_ws_build = UserbotGuildedWebSocket.build(self, loop=self.loop, teamId=team.id)
+                    team_ws = await asyncio.wait_for(team_ws_build, timeout=60)
+                    if type(team_ws) == UserbotGuildedWebSocket:
+                        team.ws = team_ws
+                        self.dispatch('team_connect', team)
+
+            async def listen_socks(ws, team=None):
+                teamId = team.id if team is not None else None
+                next_backoff_time = 5
+                while True and ws is not None:
+                    try:
+                        await ws.poll_event()
+                    except WebSocketClosure as exc:
+                        code = ws._close_code or ws.socket.close_code
+                        if teamId:
+                            log.warning('Team %s\'s websocket closed with code %s, attempting to reconnect in %s seconds', teamId, code, next_backoff_time)
+                            self.dispatch('team_disconnect', teamId)
+                        else:
+                            log.warning('Websocket closed with code %s, attempting to reconnect in %s seconds', code, next_backoff_time)
+                            self.dispatch('disconnect')
+                        await asyncio.sleep(next_backoff_time)
+                        if teamId:
+                            build = UserbotGuildedWebSocket.build(self, loop=self.loop, teamId=teamId)
+                        else:
+                            # possible reconnect issues brought up by @8r2y5
+                            build = UserbotGuildedWebSocket.build(self, loop=self.loop)
+                        try:
+                            ws = await asyncio.wait_for(build, timeout=60)
+                        except asyncio.TimeoutError:
+                            log.warning('Timed out trying to reconnect.')
+                            next_backoff_time += 5
+                    else:
+                        next_backoff_time = 5
+
+            self._ready.set()
+            self.dispatch('ready')
+
+            await asyncio.gather(
+                listen_socks(self.ws), *[listen_socks(team.ws, team) for team in self.teams]
+            )
+
+    async def close(self):
+        """|coro|
+
+        Log out and close any active gateway connections.
+        """
+        if self._closed: return
+
+        await self.http.logout()
+        for ws in [self.ws] + [team.ws for team in self.teams if team.ws is not None]:
+            try:
+                await ws.close(code=1000)
+            except Exception:
+                # it's probably already closed, but catch all anyway
+                pass
+
+        self._closed = True
+        self._ready.clear()
+
+    def run(self, email: str, password: str):
+        """Login and connect to Guilded, and start the event loop. This is a
+        blocking call, nothing after it will be called until the bot has been
+        closed.
+        """
+        try:
+            self.loop.create_task(self.start(
+                email=email, 
+                password=password
+            ))
+            self.loop.run_forever()
+        except KeyboardInterrupt:
+            exit()
 
     async def search_users(self, query: str, *, max_results=20, exclude=None):
         """|coro|
@@ -617,32 +646,7 @@ class Client:
         """
         await self.http.join_team(id)
         team = await self.http.get_team(id)
-        return 
-
-    async def fetch_team(self, id: str):
-        """|coro|
-
-        Fetch a team from the API.
-
-        Returns
-        ---------
-        :class:`.Team`
-            The team from the ID
-        """
-        team = await self.http.get_team(id)
-        return Team(state=self.http, data=team)
-
-    async def getch_team(self, id: str):
-        """|coro|
-
-        Try to get a team from internal cache, and if not found, try to fetch from the API.
-        
-        Returns
-        ---------
-        :class:`.Team`
-            The team from the ID
-        """
-        return self.get_team(id) or await self.fetch_team(id)
+        return
 
     async def fetch_user(self, id: str):
         """|coro|
@@ -915,3 +919,160 @@ class Client:
             emojis.append(emoji)
 
         return emojis
+
+
+class Client(ClientBase):
+    """The basic client class for interfacing with Guilded.
+
+    Parameters
+    ----------
+    user_id: :class:`str`
+        The user ID of this bot, copied from the "Bots" menu. This is used to
+        check if a message is owned by the client, and will be removed in the
+        future. This is also used to map the client's :class:`.Member` object
+        to attributes like :attr:`.Team.me`.
+    team_id: Optional[:class:`str`]
+        The ID of the team that this bot is "from".
+    max_messages: Optional[:class:`int`]
+        The maximum number of messages to store in the internal message cache.
+        This defaults to ``1000``. Passing in ``None`` disables the message cache.
+    loop: Optional[:class:`asyncio.AbstractEventLoop`]
+        The :class:`asyncio.AbstractEventLoop` to use for asynchronous operations.
+        Defaults to ``None``, in which case the default event loop is used via
+        :func:`asyncio.get_event_loop()`.
+
+    Attributes
+    -----------
+    loop: :class:`asyncio.AbstractEventLoop`
+        The event loop that the client uses for HTTP requests and websocket
+        operations.
+    user: :class:`.ClientUser`
+        The currently logged-in user.
+    team: :class:`.Team`
+        The team that this bot is "from".
+    ws: Optional[:class:`GuildedWebsocket`]
+        The websocket gateway the client is currently connected to. Could be
+        ``None``.
+    """
+
+    def __init__(self, *, user_id: str, team_id: str = None, **options):
+        super().__init__(**options)
+        self.user_id = user_id
+        self.team_id = team_id
+
+        self.http: HTTPClient = HTTPClient(
+            session=aiohttp.ClientSession(loop=self.loop),
+            user_id=user_id,
+            max_messages=self.max_messages
+        )
+        self.user: ClientUser = ClientUser(data={'id': user_id}, state=self.http)
+        team = Team(data={'id': team_id}, state=self.http)
+        team._members[self.user.id] = self.http.create_member(team=team, data={
+            'id': self.user.id,
+            'name': self.user.name,
+            'bot': True,
+        })
+        self.http.add_to_team_cache(team)
+
+    async def start(self, token=None, *, reconnect=True):
+        self.http.token = token or self.http.token
+        if not self.http.token:
+            raise ClientException(
+                'You must provide a token to this method explicitly, or have '
+                'it already set in this Client\'s HTTPClient beforehand.'
+            )
+
+        # build the cache of our one team
+        if self.team_id:
+            team = await self.fetch_team(self.team_id)
+            team._members[self.user.id] = self.http.create_member(team=team, data={
+                'id': self.user.id,
+                'name': self.user.name,
+                'bot': True,
+            })
+            self.http.add_to_team_cache(team)
+
+        await self.connect(token, reconnect=reconnect)
+
+    async def connect(self, token=None, *, reconnect=True):
+        self.http.token = token or self.http.token
+        if not self.http.token:
+            raise ClientException(
+                'You must provide a token to this method explicitly, or have '
+                'it already set in this Client\'s HTTPClient beforehand.'
+            )
+
+        while not self.closed:
+            ws_build = GuildedWebSocket.build(self, loop=self.loop)
+            gws = await asyncio.wait_for(ws_build, timeout=60)
+            if type(gws) != GuildedWebSocket:
+                self.dispatch('error', gws)
+                return
+
+            self.ws = gws
+            self.http.ws = self.ws
+            self.dispatch('connect')
+
+            async def listen_socks(ws):
+                next_backoff_time = 5
+                while True and ws is not None:
+                    try:
+                        await ws.poll_event()
+                    except WebSocketClosure as exc:
+                        code = ws._close_code or ws.socket.close_code
+
+                        if reconnect is False:
+                            log.warning('Websocket closed with code %s. Last message ID was %s', code, ws._last_message_id)
+                            await self.close()
+                            break
+
+                        log.warning('Websocket closed with code %s, attempting to reconnect in %s seconds with last message ID %s', code, next_backoff_time, ws._last_message_id)
+                        self.dispatch('disconnect')
+                        await asyncio.sleep(next_backoff_time)
+
+                        build = GuildedWebSocket.build(self, loop=self.loop)
+                        try:
+                            ws = await asyncio.wait_for(build, timeout=60)
+                        except asyncio.TimeoutError:
+                            log.warning('Timed out trying to reconnect.')
+                            next_backoff_time += 5
+                    else:
+                        next_backoff_time = 5
+
+            self._ready.set()
+            self.dispatch('ready')
+            await listen_socks(self.ws)
+
+    async def close(self):
+        """|coro|
+
+        Close the current connection.
+        """
+        if self._closed: return
+
+        try:
+            await ws.close(code=1000)
+        except Exception:
+            # it's probably already closed, but catch all anyway
+            pass
+
+        self._closed = True
+        self._ready.clear()
+
+    def run(self, token: str, *, reconnect=True):
+        """Connect to Guilded's gateway and start the event loop. This is a
+        blocking call; nothing after it will be called until the bot has been
+        closed.
+
+        Parameters
+        ------------
+        token: :class:`str`
+            The bot's auth token,
+        reconnect: Optional[:class:`bool`]
+            Whether to reconnect on loss/interruption of gateway connection.
+        """
+        try:
+            self.loop.create_task(self.start(token, reconnect=reconnect))
+            self.loop.run_forever()
+        except KeyboardInterrupt:
+            exit()

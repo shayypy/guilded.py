@@ -52,8 +52,9 @@ DEALINGS IN THE SOFTWARE.
 import asyncio
 import datetime
 from inspect import isawaitable as _isawaitable
-import re
 from operator import attrgetter
+import re
+from typing import Union
 import unicodedata
 from uuid import uuid1
 
@@ -272,3 +273,40 @@ def _string_width(string: str, *, _IS_ASCII=_IS_ASCII) -> int:
     UNICODE_WIDE_CHAR_TYPE = 'WFA'
     func = unicodedata.east_asian_width
     return sum(2 if func(char) in UNICODE_WIDE_CHAR_TYPE else 1 for char in string)
+
+
+class Object:
+    """Represents a generic Guilded object.
+
+    This class is especially useful when interfacing with the early access bot
+    API, in which often only an object's ID is available.
+
+    .. note::
+
+        Because some Guilded IDs are strings and some are integers, the type
+        of parameter ``id`` is not checked explicitly.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two objects are equal.
+
+        .. describe:: x != y
+
+            Checks if two objects are not equal.
+
+    Attributes
+    -----------
+    id: Union[:class:`str`, :class:`int`]
+        The ID of the object.
+    """
+
+    def __init__(self, id: Union[str, int]):
+        self.id: Union[str, int] = id
+
+    def __repr__(self) -> str:
+        return f'<Object id={self.id!r}>'
+
+    def __eq__(self, other) -> bool:
+        return hasattr(other, 'id') and self.id == other.id

@@ -50,6 +50,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import abc
+import datetime
 from typing import List, Optional
 
 from .activity import Activity
@@ -60,6 +61,14 @@ from .file import MediaType, FileType, File
 from .message import HasContentMixin, Message
 from .presence import Presence
 from .utils import ISO8601
+
+
+__all__ = (
+    'Messageable',
+    'User',
+    'TeamChannel',
+    'Reply',
+)
 
 
 class Messageable(metaclass=abc.ABCMeta):
@@ -95,121 +104,144 @@ class Messageable(metaclass=abc.ABCMeta):
         Send a message to a Guilded channel.
 
         .. note::
+
             Guilded supports embeds/attachments/strings in any order, which is
             not practically possible with keyword arguments. For this reason,
             it is recommended that you pass arguments positionally instead.
 
         .. warning::
-            Setting both ``silent`` and ``private`` to ``True`` (a private
-            reply with no mention) will not send the reply to the author of
-            the message(s) unless they refresh the channel.
+
+            Replying with both ``silent`` and ``private`` set to ``True`` (a
+            private reply with no mention) will not send the reply to the
+            author of the message(s) until they refresh the channel. This is a
+            Guilded bug.
 
         Parameters
         -----------
-        content: Union[:class:`str`, :class:`Embed`, :class:`File`, :class:`Emoji`]
+        content: Union[:class:`str`, :class:`Embed`, :class:`File`, :class:`Emoji`, :class`Member`]
             An argument list of the message content, passed in the order that
             each element should display in the message.
-        reply_to: List[:class:`Message`]
+        reply_to: List[:class:`.ChatMessage`]
             A list of up to 5 messages to reply to.
         silent: :class:`bool`
-            Whether this reply should not mention the authors of the messages
-            it is replying to, if any. Defaults to ``False``. There is an alias
-            for this called ``mention_author``, which has the opposite behavior.
+            Whether this message should not mention the members mentioned in
+            it, including the authors of messages it is in reply to, if any.
+            Defaults to ``False``.
         private: :class:`bool`
             Whether this message should only be visible to its author (the
             bot) and the authors of the messages it is replying to. Defaults
             to ``False``. You should not include sensitive data in these
             because private replies can still be visible to server moderators.
         """
-        content = list(content)
-        if kwargs.get('file'):
-            file = kwargs.get('file')
-            file.set_media_type(MediaType.attachment)
-            if file.url is None:
-                await file._upload(self._state)
-            content.append(file)
-        for file in kwargs.get('files') or []:
-            file.set_media_type(MediaType.attachment)
-            if file.url is None:
-                await file._upload(self._state)
-            content.append(file)
+        if self._state.userbot:
+            content = list(content)
+            if kwargs.get('file'):
+                file = kwargs.get('file')
+                file.set_media_type(MediaType.attachment)
+                if file.url is None:
+                    await file._upload(self._state)
+                content.append(file)
+            for file in kwargs.get('files') or []:
+                file.set_media_type(MediaType.attachment)
+                if file.url is None:
+                    await file._upload(self._state)
+                content.append(file)
 
-        def embed_attachment_uri(embed):
-            # pseudo-support attachment:// URI for use in embeds
-            for slot in [('image', 'url'), ('thumbnail', 'url'), ('author', 'icon_url'), ('footer', 'icon_url')]:
-                url = getattr(getattr(embed, slot[0]), slot[1])
-                if isinstance(url, _EmptyEmbed):
-                    continue
-                if url.startswith('attachment://'):
-                    filename = url.strip('attachment://')
-                    for node in content:
-                        if isinstance(node, File) and node.filename == filename:
-                            getattr(embed, f'_{slot[0]}')[slot[1]] = node.url
-                            content.remove(node)
-                            break
+            def embed_attachment_uri(embed):
+                # pseudo-support attachment:// URI for use in embeds
+                for slot in [('image', 'url'), ('thumbnail', 'url'), ('author', 'icon_url'), ('footer', 'icon_url')]:
+                    url = getattr(getattr(embed, slot[0]), slot[1])
+                    if isinstance(url, _EmptyEmbed):
+                        continue
+                    if url.startswith('attachment://'):
+                        filename = url.strip('attachment://')
+                        for node in content:
+                            if isinstance(node, File) and node.filename == filename:
+                                getattr(embed, f'_{slot[0]}')[slot[1]] = node.url
+                                content.remove(node)
+                                break
 
-            return embed
+                return embed
 
-        # upload Files passed positionally
-        for node in content:
-            if isinstance(node, File) and node.url is None:
-                node.set_media_type(MediaType.attachment)
-                await node._upload(self._state)
+            # upload Files passed positionally
+            for node in content:
+                if isinstance(node, File) and node.url is None:
+                    node.set_media_type(MediaType.attachment)
+                    await node._upload(self._state)
 
-        # handle attachment URIs for Embeds passed positionally
-        # this is a separate loop to ensure that all files are uploaded first
-        for node in content:
-            if isinstance(node, Embed):
-                content[content.index(node)] = embed_attachment_uri(node)
+            # handle attachment URIs for Embeds passed positionally
+            # this is a separate loop to ensure that all files are uploaded first
+            for node in content:
+                if isinstance(node, Embed):
+                    content[content.index(node)] = embed_attachment_uri(node)
 
-        if kwargs.get('embed'):
-            content.append(embed_attachment_uri(kwargs.get('embed')))
+            if kwargs.get('embed'):
+                content.append(embed_attachment_uri(kwargs.get('embed')))
 
-        for embed in kwargs.get('embeds') or []:
-            content.append(embed_attachment_uri(embed))
+            for embed in kwargs.get('embeds') or []:
+                content.append(embed_attachment_uri(embed))
 
-        message_payload = {}
-        if kwargs.get('reference') and kwargs.get('reply_to'):
-            raise ValueError('Cannot provide both reference and reply_to')
+            message_payload = {
+                'isSilent': kwargs.get('silent', not kwargs.get('mention_author', True)),
+                'isPrivate': kwargs.get('private', False)
+            }
 
-        if kwargs.get('reference'):
-            kwargs['reply_to'] = [kwargs['reference'].id]
+            if kwargs.get('reference') and kwargs.get('reply_to'):
+                raise ValueError('Cannot provide both reference and reply_to')
 
-        if kwargs.get('reply_to'):
-            if not isinstance(kwargs['reply_to'], list):
-                raise TypeError('reply_to must be type list, not %s' % type(kwargs['reply_to']).__name__)
+            if kwargs.get('reference'):
+                kwargs['reply_to'] = [kwargs['reference']]
 
-            message_payload['repliesToIds'] = [message.id for message in kwargs['reply_to']]
-            message_payload['isSilent'] = kwargs.get('silent', not kwargs.get('mention_author', True))
-            message_payload['isPrivate'] = kwargs.get('private', False)
+            if kwargs.get('reply_to'):
+                if not isinstance(kwargs['reply_to'], list):
+                    raise TypeError('reply_to must be type list, not %s' % type(kwargs['reply_to']).__name__)
 
-        share_urls = [message.share_url for message in kwargs.get('share', []) if message.share_url is not None]
-        response_coro, payload = self._state.send_message(self._channel_id, content, message_payload, share_urls=share_urls)
-        response = await response_coro
-        payload['createdAt'] = response.pop('message', response or {}).pop('createdAt', None)
-        payload['id'] = payload.pop('messageId')
-        try:
-            payload['channelId'] = getattr(self, 'id', getattr(self, 'channel', None).id)
-        except AttributeError:
-            payload['channelId'] = None
-        payload['teamId'] = self.team.id if self.team else None
-        payload['createdBy'] = self._state.my_id
+                message_payload['repliesToIds'] = [message.id for message in kwargs['reply_to']]
 
-        author = None
-        if payload['teamId'] is not None:
-            args = (payload['teamId'], payload['createdBy'])
+            share_urls = [message.share_url for message in kwargs.get('share', []) if message.share_url is not None]
+            response_coro, payload = self._state.send_message(self._channel_id, content, message_payload, share_urls=share_urls)
+            response = await response_coro
+            payload['createdAt'] = response.pop('message', response or {}).pop('createdAt', None)
+            payload['id'] = payload.pop('messageId')
             try:
-                author = self._state._get_team_member(*args) or await self._state.get_team_member(*args, as_object=True)
-            except:
-                author = None
+                payload['channelId'] = getattr(self, 'id', getattr(self, 'channel', None).id)
+            except AttributeError:
+                payload['channelId'] = None
+            payload['teamId'] = self.team.id if self.team else None
+            payload['createdBy'] = self._state.my_id
 
-        if author is None or payload['teamId'] is None:
-            try:
-                author = self._state._get_user(payload['createdBy']) or await self._state.get_user(payload['createdBy'], as_object=True)
-            except:
-                author = None
+            author = None
+            if payload['teamId'] is not None:
+                args = (payload['teamId'], payload['createdBy'])
+                try:
+                    author = self._state._get_team_member(*args) or await self._state.get_team_member(*args, as_object=True)
+                except:
+                    author = None
 
-        return self._state.create_message(channel=self._channel, data=payload, author=author)
+            if author is None or payload['teamId'] is None:
+                try:
+                    author = self._state._get_user(payload['createdBy']) or await self._state.get_user(payload['createdBy'], as_object=True)
+                except:
+                    author = None
+
+            return self._state.create_message(channel=self._channel, data=payload, author=author)
+
+        else:
+            content = content[0] if content else None
+
+            if kwargs.get('reference'):
+                kwargs['reply_to'] = [kwargs['reference']]
+
+            data = await self._state.create_channel_message(self._channel_id,
+                content=content,
+                private=kwargs.get('private', False),
+                reply_to_ids=[message.id for message in (kwargs.get('reply_to') or [])]
+            )
+            message = self._state.create_message(
+                data=data['message'],
+                channel=self._channel
+            )
+            return message
 
     async def trigger_typing(self):
         """|coro|
@@ -351,7 +383,7 @@ class User(metaclass=abc.ABCMeta):
     blocked_at: Optional[:class:`datetime.datetime`]
         When you blocked the user.
     bot: :class:`bool`
-        Whether this user is a bot (Webhook or flow bot).
+        Whether this user is a bot (webhook or flow bot).
     moderation_status: Optional[Any]
         The user's moderation status.
     badges: List[:class:`str`]
@@ -364,90 +396,87 @@ class User(metaclass=abc.ABCMeta):
         data = data.get('user', data)
 
         self.type = None
-        self.id = data.get('id')
+        self.id: str = data.get('id')
         self.dm_channel = None
-        self.name = data.get('name')
-        self.colour = Colour(0)
-        self.subdomain = data.get('subdomain')
-        self.email = data.get('email')
-        self.service_email = data.get('serviceEmail')
-        self.games = data.get('aliases', [])
-        self.bio = (data.get('aboutInfo') or {}).get('bio') or ''
-        self.tagline = (data.get('aboutInfo') or {}).get('tagLine') or ''
-        self.presence = Presence.from_value(data.get('userPresenceStatus')) or None
+        self.name: str = data.get('name') or ''
+        self.colour: Colour = Colour(0)
+        self.subdomain: Optional[str] = data.get('subdomain')
+        self.email: Optional[str] = data.get('email')
+        self.service_email: Optional[str] = data.get('serviceEmail')
+        self.games: List = data.get('aliases', [])
+        self.bio: str = (data.get('aboutInfo') or {}).get('bio') or ''
+        self.tagline: str = (data.get('aboutInfo') or {}).get('tagLine') or ''
+        self.presence: Presence = Presence.from_value(data.get('userPresenceStatus')) or None
         status = data.get('userStatus', {})
         if status.get('content'):
-            self.status = Activity.build(status['content'])
+            self.status: Optional[Activity] = Activity.build(status['content'])
         else:
-            self.status = None
+            self.status: Optional[Activity] = None
 
-        self.blocked_at = ISO8601(data.get('blockedDate'))
-        self.online_at = ISO8601(data.get('lastOnline'))
-        self.created_at = ISO8601(data.get('createdAt') or data.get('joinDate'))
+        self.blocked_at: Optional[datetime.datetime] = ISO8601(data.get('blockedDate'))
+        self.online_at: Optional[datetime.datetime] = ISO8601(data.get('lastOnline'))
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt') or data.get('joinDate'))
         # in profilev3, createdAt is returned instead of joinDate
 
-        self.avatar_url = Asset('profilePicture', state=self._state, data=data)
-        self.banner_url = Asset('profileBanner', state=self._state, data=data)
+        self.avatar_url: Asset = Asset('profilePicture', state=self._state, data=data)
+        self.banner_url: Asset = Asset('profileBanner', state=self._state, data=data)
 
-        self.moderation_status = data.get('moderationStatus')
-        self.badges = data.get('badges') or []
-        self.stonks = data.get('stonks')
+        self.moderation_status: Optional[str] = data.get('moderationStatus')
+        self.badges: List = data.get('badges') or []
+        self.stonks: Optional[int] = data.get('stonks')
 
-        self.bot = data.get('bot', extra.get('bot', False))
+        self._bot: bool = data.get('bot', extra.get('bot', False))
 
         self.friend_status = extra.get('friend_status')
-        self.friend_requested_at = ISO8601(extra.get('friend_created_at'))
+        self.friend_requested_at: Optional[datetime.datetime] = ISO8601(extra.get('friend_created_at'))
 
     def __str__(self):
-        return self.name
+        return self.display_name or ''
 
     def __eq__(self, other):
-        try:
-            return self.id == other.id
-        except:
-            return False
+        return isinstance(other, User) and self.id == other.id
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} id={repr(self.id)} name={repr(self.name)}>'
+        return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} bot={self.bot!r}>'
 
     @property
-    def slug(self):
+    def slug(self) -> Optional[str]:
         return self.subdomain
 
     @property
-    def url(self):
+    def url(self) -> Optional[str]:
         return self.subdomain
 
     @property
-    def profile_url(self):
+    def profile_url(self) -> str:
         return f'https://guilded.gg/profile/{self.id}'
 
     @property
-    def vanity_url(self):
+    def vanity_url(self) -> Optional[str]:
         if self.subdomain:
             return f'https://guilded.gg/{self.subdomain}'
         else:
             return None
 
     @property
-    def mention(self):
+    def mention(self) -> str:
         return f'<@{self.id}>'
 
     @property
-    def display_name(self):
+    def display_name(self) -> str:
         return self.name
 
     @property
-    def nickname(self):
-        return self.name
-
-    @property
-    def color(self):
+    def color(self) -> Colour:
         return self.colour
 
     @property
     def _channel_id(self):
         return self.dm_channel.id if self.dm_channel else None
+
+    @property
+    def bot(self) -> bool:
+        return self._bot
 
     async def create_dm(self) -> Messageable:
         """|coro|
@@ -494,53 +523,52 @@ class TeamChannel(metaclass=abc.ABCMeta):
 
     The following implement this ABC:
 
+        * :class:`.AnnouncementChannel`
         * :class:`.ChatChannel`
         * :class:`.DocsChannel`
         * :class:`.ForumChannel`
-        * :class:`.VoiceChannel`
-        * :class:`.AnnouncementChannel`
+        * :class:`.ListChannel`
+        * :class:`.MediaChannel`
         * :class:`.Thread`
+        * :class:`.VoiceChannel`
     """
     def __init__(self, *, state, group, data, **extra):
         self._state = state
         self.type = None
-        data = data.get('data') or data.get('channel') or data
-        self.group = group
-        self.group_id = data.get('groupId') or getattr(self.group, 'id', None)
+        if 'metadata' in data:
+            data = data['metadata']
+        data = data.get('channel') or data.get('thread') or data
+        self._group = group
+        self.group_id = data.get('groupId') or (self._group.id if self._group else None)
 
-        self._team = extra.get('team') or getattr(group, 'team', None)
-        self.team_id = data.get('teamId') or self._team.id
+        self._team = extra.get('team') or (self._group.team if self._group else None)
+        self.team_id = data.get('teamId') or (self._team.id if self._team else None)
 
-        self.id = data.get('id')
-        self.name = data.get('name')
-        self.position = data.get('priority')
-        self.description = data.get('description')
-        self.slug = data.get('slug')
-        self.roles_synced = data.get('isRoleSynced')
-        self.public = data.get('isPublic', False)
-        self.settings = data.get('settings')  # no clue
+        self.id: str = data['id']
+        self.name: str = data.get('name') or ''
+        self.description: str = data.get('description') or ''
 
-        self.created_at = ISO8601(data.get('createdAt'))
-        self.updated_at = ISO8601(data.get('updatedAt'))
-        self.added_at = ISO8601(data.get('addedAt'))  # i have no idea what this is
-        self.archived_at = ISO8601(data.get('archivedAt'))
-        self.auto_archive_at = ISO8601(data.get('autoArchiveAt'))
-        created_by = extra.get('created_by') or self._state._get_team_member(self.team_id, extra.get('createdBy'))
-        if created_by is None:
-            if data.get('createdByInfo'):
-                self.created_by = self._state.create_member(data=data.get('createdByInfo'))
+        self.position: int = data.get('priority')
+        self.slug: Optional[str] = data.get('slug')
+        self.roles_synced: Optional[bool] = data.get('isRoleSynced')
+        self.public: bool = data.get('isPublic', False)
+        self.settings: Optional[dict] = data.get('settings')  # no clue
+
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.added_at: Optional[datetime.datetime] = ISO8601(data.get('addedAt'))  # i have no idea what this is
+        self.archived_at: Optional[datetime.datetime] = ISO8601(data.get('archivedAt'))
+        self.auto_archive_at: Optional[datetime.datetime] = ISO8601(data.get('autoArchiveAt'))
+        self.created_by_id: Optional[str] = extra.get('createdBy')
+        if data.get('createdByInfo'):
+            self._created_by = self._state.create_member(data=data.get('createdByInfo'), team=self.team)
         else:
-            self.created_by = created_by
+            self._created_by = None
         self.archived_by = extra.get('archived_by') or self._state._get_team_member(self.team_id, extra.get('archivedBy'))
-        self.created_by_webhook_id = data.get('createdByWebhookId')
-        self.archived_by_webhook_id = data.get('archivedByWebhookId')
+        self.created_by_webhook_id: Optional[str] = data.get('createdByWebhookId')
+        self.archived_by_webhook_id: Optional[str] = data.get('archivedByWebhookId')
 
-        self.parent_id = data.get('parentChannelId') or data.get('originatingChannelId')
-        # latter is probably only on threads
-        if self.parent_id is not None:
-            self.parent = self._state._get_team_channel(self.team_id, self.parent_id)
-        else:
-            self.parent = None
+        self.parent_id: Optional[str] = data.get('parentChannelId') or data.get('originatingChannelId')
 
     @property
     def topic(self) -> str:
@@ -567,12 +595,28 @@ class TeamChannel(metaclass=abc.ABCMeta):
         return f'<#{self.id}>'
 
     @property
+    def group(self):
+        group = self._group
+        if not group and self.team:
+            group = self.team.get_group(self.group_id)
+
+        return group
+
+    @property
     def team(self):
         return self._team or self._state._get_team(self.team_id)
 
     @property
     def guild(self):
         return self.team
+
+    @property
+    def parent(self):
+        return self.team.get_channel_or_thread(self.parent_id)
+
+    @property
+    def created_by(self):
+        return self._created_by or self.team.get_member(self.created_by_id)
 
     def __str__(self):
         return self.name

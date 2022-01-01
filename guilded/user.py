@@ -49,36 +49,71 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+import datetime
+from typing import List, Optional
+
 import guilded.abc
 
+from .asset import Asset
 from .colour import Colour
-from .utils import ISO8601, parse_hex_number
 from .file import File, MediaType
+from .role import Role
+from .utils import ISO8601, parse_hex_number
 
 
 class Device:
     """Represents a device that the :class:`ClientUser` is logged into.
 
     Attributes
-    ------------
+    -----------
     type: :class:`str`
         The type of device. Could be ``desktop`` or ``mobile``.
     id: :class:`str`
         The ID of this device. This is a UUID for mobile devices but an even
-        longer string on desktops.
+        longer string for desktops.
     last_online: :class:`datetime.datetime`
         When this device was last active.
     active: :class:`bool`
         Whether this device is "active". This seems to always be ``True``.
     """
     def __init__(self, data):
-        self.type = data.get('type')
-        self.id = data.get('id')
-        self.last_online = ISO8601(data.get('lastOnline'))
-        self.active = data.get('isActive', False)
+        self.type: str = data.get('type')
+        self.id: str = data.get('id')
+        self.last_online: datetime.datetime = ISO8601(data.get('lastOnline'))
+        self.active: bool = data.get('isActive', False)
+
 
 class User(guilded.abc.User, guilded.abc.Messageable):
     """Represents a user in Guilded."""
+    def _update(self, data):
+        try:
+            self.stonks = data.pop('stonks')
+        except KeyError:
+            pass
+
+        try:
+            self.badges = data.pop('badges')
+        except KeyError:
+            pass
+
+        try:
+            self.tagline = data.pop('tagline')
+        except KeyError:
+            pass
+
+        try:
+            self.bio = data.pop('bio')
+        except KeyError:
+            pass
+
+        try:
+            self.subdomain = data.pop('subdomain')
+        except KeyError:
+            pass
+
+        if 'profilePicture' in data:
+            self.avatar_url = Asset('profilePicture', state=self._state, data=data)
+
     async def block(self):
         """|coro|
 
@@ -121,57 +156,129 @@ class User(guilded.abc.User, guilded.abc.Messageable):
         """
         await self._state.delete_friend_request(self.id)
 
+
 class Member(User):
-    """Represents a member of a team.
+    """Represents a member of a :class:`.Team`.
 
     Attributes
     ------------
-    team: :class:`Team`
-        The team this member is from.
     xp: :class:`int`
-        This member's XP. Could be negative.
+        The member's XP. Could be negative.
     joined_at: :class:`datetime.datetime`
-        When this user joined their team.
-    display_name: :class:`str`
-        This member's display name (``nick`` if present, else ``name``)
-    colour: Optional[:class:`int`]
-        The color that this member's name displays with. There is an alias for 
-        this called ``color``.
+        When the member joined their team.
+    colour: Optional[:class:`.Colour`]
+        The colour that the member's name displays with.
     nick: Optional[:class:`str`]
-        This member's nickname, if any.
+        The member's nickname, if any.
     """
+
     def __init__(self, *, state, data, **extra):
         super().__init__(state=state, data=data)
         self._team = extra.get('team') or data.get('team')
-        self.team_id = data.get('teamId') or (self._team.id if self._team else None)
+        self.team_id: str = data.get('teamId') or (self._team.id if self._team else None)
 
-        self.nick = data.get('nickname')
-        self.xp = data.get('teamXp')
-        self.joined_at = ISO8601(data.get('joinDate'))
+        self.bot_id: str = extra.get('bot_id')
+        self._role_ids = data.get('roleIds') or []
+        self.nick: Optional[str] = data.get('nickname')
+        self.xp: int = data.get('teamXp')
+        self.joined_at: datetime.datetime = ISO8601(data.get('joinDate'))
         colour = data.get('colour') or data.get('color')
         if colour is not None and not isinstance(colour, Colour):
-            self.colour = parse_hex_number(colour)
+            self.colour: Optional[Colour] = parse_hex_number(colour)
         else:
-            self.colour = colour
+            self.colour: Optional[Colour] = colour
 
     def __repr__(self):
-        return f'<Member id={self.id!r} name={self.name!r} team={self.team!r}>'
+        return f'<Member id={self.id!r} name={self.name!r} bot={self.bot} team={self.team!r}>'
 
     @property
     def team(self):
+        """:class:`.Team`: The team that this member is from."""
         return self._team or self._state._get_team(self.team_id)
 
     @property
     def guild(self):
+        """|dpyattr|
+
+        This is an alias of :attr:`.team`.
+
+        Returns
+        --------
+        :class:`.Team`
+        """
         return self.team
 
     @property
-    def color(self):
+    def color(self) -> Optional[Colour]:
+        """Optional[:class:`.Colour`]: This is an alias of :attr:`.colour`."""
         return self.colour
 
     @property
-    def display_name(self):
+    def display_name(self) -> str:
+        """:class:`str`: The name that displays for this member, be it their
+        team-specific nickname or their username."""
         return self.nick or self.name
+
+    @property
+    def roles(self) -> List[Role]:
+        """List[:class:`.Role`]: The cached list of roles that this member has."""
+        roles = [self.team.get_role(int(role_id)) for role_id in self._role_ids]
+        return roles
+
+    @property
+    def bot(self) -> bool:
+        """:class:`bool`: Whether the member is a bot or webhook. For user/bot
+        accounts, this attribute depends on :attr:`Team.bot_role`, so it may
+        be unreliable as Guilded does not explicitly provide which role is the
+        bot role."""
+        return self._bot or (
+            self.team.bot_role.id in self._role_ids if self.team.bot_role is not None else False
+        )
+
+    @classmethod
+    def _copy(cls, member):
+        self = cls.__new__(cls)
+
+        self._role_ids = member._role_ids.copy()
+        self._state = member._state
+        self._team = member._team
+        self.team_id = member.team_id
+
+        self.id = member.id
+        self.name = member.name
+        self.nick = member.nick
+        self._bot = member.bot
+        self.created_at = member.created_at
+        self.joined_at = member.joined_at
+        self.online_at = member.online_at
+        self.bio = member.bio
+        self.tagline = member.tagline
+        self.badges = member.badges
+        self.stonks = member.stonks
+        self.avatar_url = member.avatar_url
+        self.banner_url = member.banner_url
+        self.xp = member.xp
+        self.dm_channel = member.dm_channel
+        self.colour = member.colour
+        self.subdomain = member.subdomain
+        self.email = member.email
+        self.service_email = member.service_email
+        self.games = member.games
+        self.presence = member.presence
+        self.status = member.status
+
+        return self
+
+    def _update(self, data):
+        try:
+            self.nick = data.pop('nickname')
+        except KeyError:
+            pass
+
+        super()._update(data)
+
+    def _update_roles(self, role_ids: List[int]):
+        self._role_ids = [int(role_id) for role_id in role_ids]
 
     async def edit(self, **kwargs):
         """|coro|
@@ -190,10 +297,17 @@ class Member(User):
         except KeyError:
             pass
         else:
-            if nick is None:
-                await self._state.reset_team_member_nickname(self.team.id, self.id)
+            if self._state.userbot:
+                if nick is None:
+                    await self._state.reset_team_member_nickname(self.team.id, self.id)
+                else:
+                    await self._state.change_team_member_nickname(self.team.id, self.id, nick)
             else:
-                await self._state.change_team_member_nickname(self.team.id, self.id, nick)
+                if nick is None:
+                    await self._state.delete_member_nickname(self.id)
+                else:
+                    data = await self._state.update_member_nickname(self.id, nick)
+                    nick = data['nickname']
             self.nick = nick
 
         try:
@@ -201,9 +315,12 @@ class Member(User):
         except KeyError:
             pass
         else:
-            await self._state.set_team_member_xp(self.team.id, self.id, xp)
+            if self._state.userbot:
+                await self._state.set_team_member_xp(self.team.id, self.id, xp)
+            else:
+                xp = await self.award_xp(xp - (self.xp or 0))
             self.xp = xp
-        
+
     async def ban(self, **kwargs):
         """|coro|
 
@@ -225,28 +342,116 @@ class Member(User):
         """
         return await self.team.kick(self)
 
+    async def add_role(self, role: Role):
+        """|coro|
+
+        Add a role to this member.
+
+        Parameters
+        -----------
+        role: :class:`.Role`
+            The role to give this member.
+        """
+        if self._state.userbot:
+            await self._state.assign_role_to_member(self.team_id, self.id, role.id)
+        else:
+            await self._state.assign_role_to_member(self.id, role.id)
+
+    async def add_roles(self, *roles: Role):
+        """|coro|
+
+        |dpyattr|
+
+        .. note::
+
+            Guilded does not support adding multiple roles in one request, so
+            this method calls :meth:`.add_role` for each item passed to
+            ``roles``.
+
+        Parameters
+        -----------
+        roles: List[:class:`.Role`]
+            The roles to add to the member.
+        """
+        for role in roles:
+            await self.add_role(role)
+
+    async def remove_role(self, role: Role):
+        """|coro|
+
+        Remove a role from this member.
+
+        Parameters
+        -----------
+        role: :class:`.Role`
+            The role to remove from member.
+        """
+        if self._state.userbot:
+            await self._state.remove_role_from_member(self.team_id, self.id, role.id)
+        else:
+            await self._state.remove_role_from_member(self.id, role.id)
+
+    async def remove_roles(self, *roles: Role):
+        """|coro|
+
+        |dpyattr|
+
+        .. note::
+
+            Guilded does not support removing multiple roles in one request,
+            so this method calls :meth:`.remove_role` for each item passed to
+            ``roles``.
+
+        Parameters
+        -----------
+        roles: List[:class:`.Role`]
+            The roles to remove from the member.
+        """
+        for role in roles:
+            await self.remove_role(role)
+
+    async def award_xp(self, amount: int):
+        """|coro|
+
+        |onlybot|
+
+        Award XP to this member. Could be a negative value to remove XP.
+
+        .. note::
+
+            This method *adds* XP to the current value. To set a member's XP
+            total, use :meth:`.edit`.
+
+        Parameters
+        -----------
+        amount: :class:`int`
+            The amount of XP to award.
+
+        Returns
+        --------
+        :class:`int`
+            The total amount of XP this member now has.
+        """
+        data = await self._state.award_member_xp(self.id, amount)
+        self.xp = data['total']
+        return self.xp
+
+
 class ClientUser(guilded.abc.User):
     """Represents the current logged-in user.
 
     Attributes
-    ------------
+    -----------
     devices: List[:class:`Device`]
         The devices this account is logged in on.
-    accepted_friends: List[:class:`User`]
-        This account's accepted friends. Could be partial (only ID) if the
-        user was not cached.
-    pending_friends: List[:class:`User`]
-        This account's pending friends (requested by this ``ClientUser``).
-        Could be partial (only ID) if the user was not cached.
-    requested_friends: List[:class:`User`]
-        This account's requested friends. Could be partial (only ID) if the
-        user was not cached.
     """
+
     def __init__(self, *, state, data):
         super().__init__(state=state, data=data)
         user = data.get('user', data)
 
-        self.devices = [Device(device_data) for device_data in user.get('devices', [])]
+        self._bot: bool = not state.userbot
+        self.devices: List[Device] = [Device(device_data) for device_data in user.get('devices', [])]
         self._accepted_friends = {}
         self._pending_friends = {}
         self._requested_friends = {}
@@ -270,9 +475,13 @@ class ClientUser(guilded.abc.User):
             elif friend_user.friend_status == 'requested':
                 self._requested_friends[friend_user.id] = friend_user
 
+    def __repr__(self):
+        return f'<ClientUser id={self.id!r} bot={self.bot} name={self.name!r}>'
+
     @property
     def friends(self):
-        """This user's accepted, pending, and requested friends.
+        """List[:class:`User`]: This user's accepted, pending, and requested
+        friends.
 
         All items in this list are expected to have ``id``, ``friend_status``,
         and ``friend_requested_at`` attributes at a bare minimum.
@@ -281,20 +490,30 @@ class ClientUser(guilded.abc.User):
 
     @property
     def accepted_friends(self):
+        """List[:class:`User`]: This account's accepted friends. Users in this
+        list could be partial (only ``id``) if the user was not cached."""
         return list(self._accepted_friends.values())
 
     @property
     def pending_friends(self):
+        """List[:class:`User`]: This account's pending friends (requested by
+        this ``ClientUser``). Users in this list could be partial (only
+        ``id``) if the user was not cached."""
         return list(self._pending_friends.values())
 
     @property
     def requested_friends(self):
+        """List[:class:`User`]: This account's requested friends. Users in
+        this list could be partial (only ``id``) if the user was not cached."""
         return list(self._requested_friends.values())
 
-    def __repr__(self):
-        return f'<ClientUser id={repr(self.id)} name={repr(self.name)}>'
+    @property
+    def bot(self) -> bool:
+        """class:`bool`: Whether this client is a bot account as opposed to a
+        userbot."""
+        return self._bot
 
-    async def fetch_friends(self):
+    async def fetch_friends(self) -> List[User]:
         """|coro|
 
         Fetch a list of this account's accepted, pending, and requested friends.
@@ -305,6 +524,10 @@ class ClientUser(guilded.abc.User):
             This user's accepted, pending, and requested friends.
         """
         friends = await self._state.get_friends()
+
+        self._accepted_friends.clear()
+        self._pending_friends.clear()
+        self._requested_friends.clear()
 
         for friend_data in friends.get('friends', []):
             friend = self._state.create_user(data=friend_data, friend_status='accepted')
@@ -365,6 +588,3 @@ class ClientUser(guilded.abc.User):
                 image_url = file.url
 
             await self._state.set_profile_banner(image_url)
-
-        #payload = {}
-        #await self._state.edit_current_user()

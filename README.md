@@ -1,4 +1,4 @@
-Welcome to guilded.py, a discord.py-esque asynchronous Python wrapper for the Guilded API. If you know discord.py, you know guilded.py.
+Welcome to guilded.py, a discord.py-esque asynchronous Python wrapper for Guilded's user and bot APIs. If you know discord.py, you know guilded.py.
 
 ## Documentation
 
@@ -9,7 +9,8 @@ In the works. Fortunately, if you've used discord.py before, you'll already have
 ```py
 import guilded
 
-client = guilded.Client()
+client = guilded.Client(user_id='bot_user_id')
+# If you're using a userbot, you would use UserbotClient() instead.
 
 @client.event
 async def on_ready():
@@ -20,9 +21,27 @@ async def on_message(message):
     if message.author == client.user:
         return
     if message.content == 'ping':
-        await message.channel.send('pong')
+        await message.channel.send('pong!')
 
-client.run('email', 'password')
+client.run('token')
+# If you're using a userbot, you would use an email & password instead of an access token.
+```
+
+### Bot example
+
+```py
+import guilded
+from guilded.ext import commands
+
+bot = commands.Bot(user_id='bot_user_id', command_prefix='!')
+# If you're using a userbot, you would use UserbotBot() instead.
+
+@bot.command()
+async def ping(ctx):
+    await ctx.send('pong!')
+
+client.run('token')
+# If you're using a userbot, you would use an email & password instead of an access token.
 ```
 
 For more examples, see the examples directory in this repository.

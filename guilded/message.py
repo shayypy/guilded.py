@@ -52,13 +52,14 @@ DEALINGS IN THE SOFTWARE.
 import datetime
 from enum import Enum
 import logging
-from typing import Optional
+from typing import Optional, List
 
 from .embed import Embed
 from .file import MediaType, Attachment
 from .utils import ISO8601, parse_hex_number
 
 log = logging.getLogger(__name__)
+
 
 class FormType(Enum):
     poll = 'poll'
@@ -68,9 +69,6 @@ class FormType(Enum):
     def from_str(cls, string):
         return getattr(cls, string, cls.form)
 
-class MessageNode:
-    def __init__(self, *, state, data):
-        self._state = state
 
 class MessageForm:
     def __init__(self, *, state, id):
@@ -122,6 +120,7 @@ class MessageForm:
         except IndexError:
             return []
 
+
 class MessageFormInputType(Enum):
     radios = 'Radios'
     checkboxes = 'Checkboxes'
@@ -129,6 +128,7 @@ class MessageFormInputType(Enum):
     @classmethod
     def from_str(cls, string):
         return getattr(cls, string)
+
 
 class MessageFormSection:
     def __init__(self, data):
@@ -146,13 +146,25 @@ class MessageFormSection:
     def name(self):
         return self.label
 
+
 class MessageFormOption:
     def __init__(self, data):
         pass
 
+
 class MessageFormResponse:
     def __init__(self, data):
         pass
+
+
+class MessageType(Enum):
+    default = 'default'
+    system = 'system'
+    unknown = 'unknown'
+
+    def __str__(self):
+        return self.name
+
 
 class MentionType(Enum):
     user = 'user'
@@ -161,6 +173,7 @@ class MentionType(Enum):
 
     def __str__(self):
         return self.name
+
 
 class MessageMention:
     """A mention within a message. Due to how mentions are sent in message
@@ -184,6 +197,7 @@ class MessageMention:
     def __str__(self):
         return self.name or ''
 
+
 class Mention(Enum):
     """Used for passing special types of mentions to
     :meth:`~.abc.Messageable.send`\.
@@ -194,6 +208,7 @@ class Mention(Enum):
     def __str__(self):
         return f'@{self.name}'
 
+
 class Link:
     """A link within a message. Basically represents a markdown link."""
     def __init__(self, url, *, name=None, title=None):
@@ -203,6 +218,7 @@ class Link:
 
     def __str__(self):
         return self.url
+
 
 class HasContentMixin:
     def __init__(self):
@@ -369,6 +385,7 @@ class HasContentMixin:
         # another paragraph node
         return content
 
+
 class ChatMessage(HasContentMixin):
     """A message in Guilded.
 
@@ -398,69 +415,97 @@ class ChatMessage(HasContentMixin):
         The team this message was sent in. ``None`` if the message is in a DM.
     webhook_id: Optional[:class:`str`]
         The webhook's ID that sent the message, if applicable.
-    bot_id: Optional[:class:`str`]
-        The bot's ID that sent the message, if applicable.
     """
+
     def __init__(self, *, state, channel, data, **extra):
         super().__init__()
         self._state = state
         self._raw = data
-
-        message = data.get('message', data)
-        self.id = data.get('contentId') or message.get('id')
-        self.webhook_id = data.get('webhookId')
-        self.bot_id = data.get('botId')
         self.channel = channel
-        self.channel_id = data.get('channelId') or (channel.id if channel else None)
-        self.team_id = data.get('teamId')
-        self.team = extra.get('team') or getattr(channel, 'team', None) or self._state._get_team(self.team_id)
+        message = data.get('message', data)
 
-        self.created_at = ISO8601(data.get('createdAt'))
-        self.edited_at = ISO8601(message.get('editedAt'))
-        self.deleted_at = extra.get('deleted_at') or ISO8601(data.get('deletedAt'))
+        self._author = extra.get('author')
 
-        self.author = extra.get('author')
-        self.author_id = data.get('createdBy') or message.get('createdBy')
-        if self.author is None:
-            if data.get('channelType', '').lower() == 'team' and self.team is not None:
-                self.author = self._state._get_team_member(self.team_id, self.author_id)
-            elif data.get('channelType', '').lower() == 'dm' or self.team is None:
-                self.author = self._state._get_user(self.author_id)
-            elif data.get('createdByInfo'):
-                self.author = self._state.create_user(data=data['createdByInfo'])
+        if state.userbot:
+            self.id: str = data.get('contentId') or message.get('id')
+            self.webhook_id: Optional[str] = data.get('webhookId')
+            self.channel_id: str = data.get('channelId') or (channel.id if channel else None)
+            self.team_id: Optional[str] = data.get('teamId')
+            self.author_id: str = data.get('createdBy') or message.get('createdBy')
 
-        if self.author is not None:
-            self.author.bot = self.created_by_bot
+            self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+            self.edited_at: Optional[datetime.datetime] = ISO8601(message.get('editedAt'))
+            self.deleted_at: Optional[datetime.datetime] = extra.get('deleted_at') or ISO8601(data.get('deletedAt'))
 
-        self.replied_to = []
-        self.replied_to_ids = message.get('repliesToIds') or message.get('repliesTo') or []
-        self.silent = message.get('isSilent', False)
-        self.private = message.get('isPrivate', False)
-        if data.get('repliedToMessages'):
-            for message_data in data['repliedToMessages']:
-                message_ = self._state.create_message(data=message_data)
-                self.replied_to.append(message_)
+            self._replied_to = []
+            self.replied_to_ids: List[str] = message.get('repliesToIds') or message.get('repliesTo') or []
+            self.silent: bool = message.get('isSilent', False)
+            self.private: bool = message.get('isPrivate', False)
+            if data.get('repliedToMessages'):
+                for message_data in data['repliedToMessages']:
+                    message_ = self._state.create_message(data=message_data)
+                    self._replied_to.append(message_)
+            else:
+                for message_id in self.replied_to_ids:
+                    message_ = self._state._get_message(message_id)
+                    if not message_:
+                        continue
+                    self._replied_to.append(message_)
+
+            self.content: str = self._get_full_content(message['content'])
+
         else:
-            for message_id in self.replied_to_ids:
-                message_ = self._state._get_message(message_id)
-                if not message_:
-                    continue
-                self.replied_to.append(message_)
+            self.id: str = message['id']
+            self.type: MessageType = getattr(MessageType, message['type'], MessageType.unknown)
+            self.channel_id: str = message['channelId']
+            self.team_id: Optional[str] = message.get('teamId') or extra.get('team_id')
+            if self.team_id is None and self.channel is not None:
+                self.team_id = self.channel.team_id
+            self.content: str = message['content']
 
-        self.content: str = self._get_full_content(message['content'])
+            self.author_id: str = message.get('createdBy')
+            self.webhook_id: Optional[str] = message.get('createdByWebhookId')
+
+            self.created_at: datetime.datetime = ISO8601(message.get('createdAt'))
+            self.edited_at: Optional[datetime.datetime] = ISO8601(message.get('updatedAt'))
+            self.deleted_at: Optional[datetime.datetime] = None
+
+            self._replied_to = []
+            self.replied_to_ids: List[str] = message.get('replyMessageIds') or []
+            self.private: bool = message.get('isPrivate') or False
 
     def __str__(self):
-        return self.content
+        return repr(self)
 
     def __eq__(self, other):
         return isinstance(other, ChatMessage) and self.id == other.id
 
     def __repr__(self):
-        return f'<Message id={self.id!r} author={self.author!r} channel={self.channel!r}>'
+        return f'<ChatMessage id={self.id!r} author={self.author!r} channel={self.channel!r}>'
+
+    @property
+    def team(self):
+        return self._state._get_team(self.team_id)
+
+    @property
+    def author(self):
+        """Optional[:class:`.Member`]: The member that created this message,
+        if they are cached."""
+        if self._author:
+            return self._author
+
+        user = None
+        if self.team:
+            user = self.team.get_member(self.author_id)
+
+        if not user:
+            user = self._state._get_user(self.author_id)
+
+        return user
 
     @property
     def created_by_bot(self) -> bool:
-        return self.author.bot if self.author else (self.webhook_id is not None or self.bot_id is not None)
+        return self.author.bot if self.author else self.webhook_id is not None
 
     @property
     def share_url(self) -> str:
@@ -481,12 +526,19 @@ class ChatMessage(HasContentMixin):
         # basic compatibility w/ discord bot code, plan on deprecating in the future
         return self.team
 
+    @property
+    def replied_to(self):
+        return self._replied_to or [self._state._get_message(message_id) for message_id in self.replied_to_ids]
+
     async def delete(self):
         """|coro|
 
         Delete this message.
         """
-        response = await self._state.delete_message(self.channel_id, self.id)
+        if self._state.userbot:
+            await self._state.delete_message(self.channel_id, self.id)
+        else:
+            await self._state.delete_channel_message(self.channel_id, self.id)
         self.deleted_at = datetime.datetime.utcnow()
 
     async def edit(self, *, content: str = None, embed = None, embeds: Optional[list] = None, file = None, files: Optional[list] = None):
@@ -494,46 +546,65 @@ class ChatMessage(HasContentMixin):
 
         Edit this message.
         """
-        payload = {
-            'old_content': self.content,
-            'old_embeds': [embed.to_dict() for embed in self.embeds],
-            'old_files': [await attachment.to_file() for attachment in self.attachments]
-        }
-        if content:
-            payload['content'] = content
-        if embed:
-            embeds = [embed, *(embeds or [])]
-        if embeds is not None:
-            payload['embeds'] = [embed.to_dict() for embed in embeds]
-        if file:
-            files = [file, *(files or [])]
-        if files is not None:
-            pl_files = []
-            for file in files:
-                file.type = MediaType.attachment
-                if file.url is None:
-                    await file._upload(self._state)
-                pl_files.append(file)
+        if self._state.userbot:
+            payload = {
+                'old_content': self.content,
+                'old_embeds': [embed.to_dict() for embed in self.embeds],
+                'old_files': [await attachment.to_file() for attachment in self.attachments]
+            }
+            if content:
+                payload['content'] = content
+            if embed:
+                embeds = [embed, *(embeds or [])]
+            if embeds is not None:
+                payload['embeds'] = [embed.to_dict() for embed in embeds]
+            if file:
+                files = [file, *(files or [])]
+            if files is not None:
+                pl_files = []
+                for file in files:
+                    file.type = MediaType.attachment
+                    if file.url is None:
+                        await file._upload(self._state)
+                    pl_files.append(file)
 
-            payload['files'] = pl_files
+                payload['files'] = pl_files
 
-        await self._state.edit_message(self.channel_id, self.id, **payload)
+            await self._state.edit_message(self.channel_id, self.id, **payload)
+
+        else:
+            await self._state.update_channel_message(self.channel_id, self.id, content=content)
 
     async def add_reaction(self, emoji):
         """|coro|
 
-        Add a reaction to this message. In the future, will take type Emoji,
-        but currently takes an integer (the emoji's id).
+        Add a reaction to this message.
+
+        Parameters
+        -----------
+        :class:`.Emoji`
+            The emoji to react with.
         """
-        return await self._state.add_message_reaction(self.channel_id, self.id, emoji)
+        if self._state.userbot:
+            return await self._state.add_message_reaction(self.channel_id, self.id, emoji.id)
+        elif hasattr(emoji, 'id'):
+            return await self._state.add_reaction_emote(self.channel_id, self.id, emoji.id)
+        else:
+            return await self._state.add_reaction_emote(self.channel_id, self.id, emoji)
 
     async def remove_self_reaction(self, emoji):
         """|coro|
 
-        Remove your reaction to this message. In the future, will take type
-        Emoji, but currently takes an integer (the emoji's id).
+        |onlyuserbot|
+
+        Remove your reaction to this message.
+
+        Parameters
+        -----------
+        :class:`.Emoji`
+            The emoji to remove.
         """
-        return await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji)
+        return await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji.id)
 
     async def reply(self, *content, **kwargs):
         """|coro|
@@ -548,9 +619,11 @@ class ChatMessage(HasContentMixin):
     async def create_thread(self, *content, **kwargs):
         """|coro|
 
+        |onlyuserbot|
+
         Create a thread on this message.
 
-        .. bug::
+        .. warning::
 
             This method currently does not work.
         """
@@ -560,12 +633,16 @@ class ChatMessage(HasContentMixin):
     async def pin(self):
         """|coro|
 
+        |onlyuserbot|
+
         Pin this message.
         """
         await self._state.pin_message(self.channel.id, self.id)
 
     async def unpin(self):
         """|coro|
+
+        |onlyuserbot|
 
         Unpin this message.
         """

@@ -68,6 +68,10 @@ from .cog import Cog
 from .help import HelpCommand, DefaultHelpCommand
 from .view import StringView
 
+__all__ = (
+    'Bot',
+    'UserbotBot',
+)
 
 def _is_submodule(parent: str, child: str) -> bool:
     return parent == child or child.startswith(parent + ".")
@@ -78,44 +82,9 @@ class _DefaultRepr:
 
 _default = _DefaultRepr()
 
-class Bot(guilded.Client):
-    """A Guilded bot with commands.
 
-    This is a subclass of :class:`guilded.Client`, and thus it implements all
-    the functionality of :class:`guilded.Client` but comes with
-    commands-related features.
-
-    Parameters
-    ------------
-    command_prefix: Union[:class:`list`, :class:`str`]
-        The command prefix or list of command prefixes to listen for.
-    description: Optional[:class:`str`]
-        A description of this bot. Will show up in the default help command,
-        when it is created.
-    owner_id: Optional[:class:`str`]
-        The user's ID who owns this bot. Used for the
-        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
-        with ``owner_ids``.
-    owner_ids: Optional[List[:class:`str`]]
-        The users' IDs who own this bot. Used for the
-        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
-        with ``owner_id``.
-
-    Attributes
-    ------------
-    command_prefix: Union[:class:`list`, :class:`str`]
-        The command prefix or list of command prefixes to listen for.
-    commands: :class:`list`
-        A list of all the :class:`Command` s registered to this bot.
-    description: Optional[:class:`str`]
-        A description of this bot.
-    owner_id: Optional[:class:`str`]
-        The user's ID who owns this bot.
-    owner_ids: Optional[List[:class:`str`]]
-        The users' IDs who own this bot.
-    """
+class BotBase:
     def __init__(self, *, command_prefix, help_command=_default, description=None, **options):
-        super().__init__(**options)
         self.command_prefix = command_prefix
         self.description = inspect.cleandoc(description) if description else ''
         self.__extensions: Dict[str, types.ModuleType] = {}
@@ -822,3 +791,120 @@ class Bot(guilded.Client):
             self._help_command = None
         else:
             self._help_command = None
+
+
+class UserbotBot(BotBase, guilded.UserbotClient):
+    """A Guilded bot with commands.
+
+    This is a subclass of :class:`guilded.UserbotClient`, and thus it
+    implements all the functionality of :class:`guilded.UserbotClient` but
+    comes with commands-related features.
+
+    This is the same as :class:`.Bot` except that it inherits from :class:`guilded.UserbotClient`
+    instead, and is thus for user-bots, not early acess API bots.
+
+    Parameters
+    ------------
+    command_prefix: Union[:class:`list`, :class:`str`]
+        The command prefix or list of command prefixes to listen for.
+    description: Optional[:class:`str`]
+        A description of this bot. Will show up in the default help command,
+        when it is created.
+    owner_id: Optional[:class:`str`]
+        The user's ID who owns this bot. Used for the
+        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        with ``owner_ids``.
+    owner_ids: Optional[List[:class:`str`]]
+        The users' IDs who own this bot. Used for the
+        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        with ``owner_id``.
+    max_messages: Optional[:class:`int`]
+        The maximum number of messages to store in the internal message cache.
+        This defaults to ``1000``. Passing in ``None`` disables the message cache.
+    loop: Optional[:class:`asyncio.AbstractEventLoop`]
+        The :class:`asyncio.AbstractEventLoop` to use for asynchronous operations.
+        Defaults to ``None``, in which case the default event loop is used via
+        :func:`asyncio.get_event_loop()`.
+
+    Attributes
+    ------------
+    command_prefix: Union[:class:`list`, :class:`str`]
+        The command prefix or list of command prefixes to listen for.
+    commands: :class:`list`
+        A list of all the :class:`Command` s registered to this bot.
+    description: Optional[:class:`str`]
+        A description of this bot.
+    owner_id: Optional[:class:`str`]
+        The user's ID who owns this bot.
+    owner_ids: Optional[List[:class:`str`]]
+        The users' IDs who own this bot.
+    """
+    def __init__(self, **options):
+        guilded.UserbotClient.__init__(self, **options)
+        BotBase.__init__(self, **options)
+
+
+class Bot(BotBase, guilded.Client):
+    """A Guilded bot with commands.
+
+    This is a subclass of :class:`guilded.Client`, and thus it implements all
+    the functionality of :class:`guilded.Client` but comes with
+    commands-related features.
+
+    Parameters
+    ------------
+    user_id: :class:`str`
+        The user ID of this bot, copied from the "Bots" menu. This is used to
+        check if a message is owned by the client, and will be removed in the
+        future. This is also used to map the client's :class:`.Member` object
+        to attributes like :attr:`.Team.me`.
+    team_id: Optional[:class:`str`]
+        The ID of the team that this bot is "from".
+    command_prefix: Union[:class:`list`, :class:`str`]
+        The command prefix or list of command prefixes to listen for.
+    description: Optional[:class:`str`]
+        A description of this bot. Will show up in the default help command,
+        when it is created.
+    owner_id: Optional[:class:`str`]
+        The user's ID who owns this bot. Used for the
+        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        with ``owner_ids``.
+    owner_ids: Optional[List[:class:`str`]]
+        The users' IDs who own this bot. Used for the
+        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        with ``owner_id``.
+    max_messages: Optional[:class:`int`]
+        The maximum number of messages to store in the internal message cache.
+        This defaults to ``1000``. Passing in ``None`` disables the message cache.
+    loop: Optional[:class:`asyncio.AbstractEventLoop`]
+        The :class:`asyncio.AbstractEventLoop` to use for asynchronous operations.
+        Defaults to ``None``, in which case the default event loop is used via
+        :func:`asyncio.get_event_loop()`.
+
+    Attributes
+    ------------
+    command_prefix: Union[:class:`list`, :class:`str`]
+        The command prefix or list of command prefixes to listen for.
+    commands: :class:`list`
+        A list of all the :class:`Command` s registered to this bot.
+    description: Optional[:class:`str`]
+        A description of this bot.
+    owner_id: Optional[:class:`str`]
+        The user's ID who owns this bot.
+    owner_ids: Optional[List[:class:`str`]]
+        The users' IDs who own this bot.
+    loop: :class:`asyncio.AbstractEventLoop`
+        The event loop that the client uses for HTTP requests and websocket
+        operations.
+    user: :class:`.ClientUser`
+        The currently logged-in user.
+    team: :class:`.BaseTeam`
+        The team that this bot is "from".
+    ws: Optional[:class:`GuildedWebsocket`]
+        The websocket gateway the client is currently connected to. Could be
+        ``None``.
+    """
+
+    def __init__(self, *, user_id: str, team_id: str = None, **options):
+        guilded.Client.__init__(self, user_id=user_id, team_id=team_id, **options)
+        BotBase.__init__(self, **options)
