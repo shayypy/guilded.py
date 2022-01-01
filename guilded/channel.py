@@ -615,7 +615,7 @@ class ForumTopic(HasContentMixin):
     async def unpin(self):
         """|coro|
 
-        Unpin (unsticky) this topic. This is an alias of :meth:`.sticky`.
+        Unpin (unsticky) this topic. This is an alias of :meth:`.unsticky`.
         """
         return await self.unsticky()
 
@@ -1000,7 +1000,7 @@ class Announcement(HasContentMixin):
     async def unpin(self):
         """|coro|
 
-        Unpin (unsticky) this announcement. This is an alias of :meth:`.sticky`.
+        Unpin (unsticky) this announcement. This is an alias of :meth:`.unsticky`.
         """
         return await self.unsticky()
 
@@ -1282,6 +1282,11 @@ class Media(HasContentMixin):
 
     def __eq__(self, other):
         return isinstance(other, Media) and self.id == other.id and self.url == other.url
+
+    @property
+    def author(self):
+        """Optional[:class:`.Member`]: The member that created this media."""
+        return self.team.get_member(self.author_id)
 
     async def add_reaction(self, emoji):
         """|coro|
@@ -1710,9 +1715,6 @@ class ListItem(HasContentMixin):
         """|coro|
 
         Move this item to another channel.
-
-        .. bug::
-            Guilded will raise a 500 upon calling this method.
 
         Parameters
         -----------
