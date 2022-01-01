@@ -61,6 +61,12 @@ from guilded.utils import sleep_until
 from guilded.backoff import ExponentialBackoff
 
 
+__all__ = (
+    'Loop',
+    'loop',
+)
+
+
 class Loop:
     """A background task helper/interface.
 
@@ -93,7 +99,7 @@ class Loop:
         self._next_iteration = None
 
     async def _call_loop_function(self, name, *args, **kwargs):
-        coro = getattr(self, "_" + name, None)
+        coro = getattr(self, '_' + name, None)
         if coro is None:
             return
 
@@ -106,7 +112,7 @@ class Loop:
 
     async def _loop(self, *args, **kwargs):
         backoff = ExponentialBackoff()
-        await self._call_loop_function("before_loop")
+        await self._call_loop_function('before_loop')
         self._last_iteration_failed = False
         self._next_iteration = datetime.datetime.now(datetime.timezone.utc)
         try:
@@ -186,8 +192,12 @@ class Loop:
     async def __call__(self, *args, **kwargs):
         """Calls the internal callback that the task holds.
 
-        *args: positional arguments
-        **kwargs: keyword arguments
+        Parameters
+        -----------
+        \*args
+            The posiitonal arguments to use.
+        \*\*kwargs
+            The keyword arguments to use.
 
         Returns
         -------
@@ -225,9 +235,7 @@ class Loop:
         """
 
         if self._task is not None and not self._task.done():
-            raise RuntimeError(
-                "Task is already launched and is not completed."
-            )
+            raise RuntimeError('Task is already launched and is not completed.')
 
         if self._injected is not None:
             args = (self._injected, *args)
@@ -313,9 +321,9 @@ class Loop:
 
         for exc in exceptions:
             if not inspect.isclass(exc):
-                raise TypeError(f"{exc!r} must be a class.")
+                raise TypeError(f'{exc!r} must be a class.')
             if not issubclass(exc, BaseException):
-                raise TypeError(f"{exc!r} must inherit from BaseException.")
+                raise TypeError(f'{exc!r} must inherit from BaseException.')
 
         self._valid_exception = (*self._valid_exception, *exceptions)
 
@@ -371,8 +379,8 @@ class Loop:
     async def _error(self, *args):
         exception = args[-1]
         print(
-            "Unhandled exception in internal background task "
-            f"{self.coro.__name__!r}.",
+            'Unhandled exception in internal background task '
+            f'{self.coro.__name__!r}.',
             file=sys.stderr,
         )
         traceback.print_exception(
