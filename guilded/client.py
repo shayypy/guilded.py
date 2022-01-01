@@ -69,6 +69,11 @@ from .user import ClientUser, User, Member
 
 log = logging.getLogger(__name__)
 
+__all__ = (
+    'Client',
+    'UserbotClient',
+)
+
 
 def _cancel_tasks(loop):
     try:

@@ -59,6 +59,11 @@ from .status import Game
 from .utils import ISO8601
 
 
+__all__ = (
+    'Group',
+)
+
+
 class Group:
     """Represents a team group in Guilded.
 

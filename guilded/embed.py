@@ -55,12 +55,18 @@ from . import utils
 from .colour import Colour
 
 
+__all__ = (
+    'Embed',
+)
+
+
 class _EmptyEmbed:
     def __bool__(self): return False
     def __repr__(self): return 'Embed.Empty'
     def __len__(self): return 0
 
 EmptyEmbed = _EmptyEmbed()
+
 
 class EmbedProxy:
     def __init__(self, layer):
@@ -74,6 +80,7 @@ class EmbedProxy:
 
     def __getattr__(self, attr):
         return EmptyEmbed
+
 
 class Embed:
     """Represents a Discord embed.

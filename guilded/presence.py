@@ -51,7 +51,11 @@ DEALINGS IN THE SOFTWARE.
 
 from enum import Enum
 
-__all__ = ('Presence',)
+
+__all__ = (
+    'Presence',
+)
+
 
 class Presence(Enum):
     online = 1
@@ -79,6 +83,7 @@ class Presence(Enum):
         if not presence:
             raise ValueError('Invalid presence value: %s' % value)
         return presence
+
 
 value_to_name = {
     1: Presence.online,

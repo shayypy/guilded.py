@@ -56,6 +56,14 @@ from typing import Union
 from . import utils
 
 
+__all__ = (
+    'MediaType',
+    'FileType',
+    'File',
+    'Attachment',
+)
+
+
 class MediaType(Enum):
     """Represents a file/attachment's media type in Guilded."""
     attachment = 'ContentMedia'

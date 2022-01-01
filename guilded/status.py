@@ -55,7 +55,7 @@ log = logging.getLogger(__name__)
 
 __all__ = (
     'TransientStatus',
-    'Game'
+    'Game',
 )
 
 class TransientStatus:

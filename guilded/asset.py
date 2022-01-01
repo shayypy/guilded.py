@@ -52,6 +52,11 @@ DEALINGS IN THE SOFTWARE.
 from io import BytesIO
 
 
+__all__ = (
+    'Asset',
+)
+
+
 class Asset:
     """An asset in Guilded.
 
