@@ -56,7 +56,7 @@ from operator import attrgetter
 import re
 from typing import Union
 import unicodedata
-from uuid import uuid1
+from uuid import uuid1, UUID
 
 from .colour import Colour
 
@@ -275,16 +275,22 @@ def _string_width(string: str, *, _IS_ASCII=_IS_ASCII) -> int:
     return sum(2 if func(char) in UNICODE_WIDE_CHAR_TYPE else 1 for char in string)
 
 
+_GENERIC_ID_REGEX = re.compile(r'^[a-zA-Z0-9]{8}$')
+
 class Object:
     """Represents a generic Guilded object.
 
     This class is especially useful when interfacing with the early access bot
     API, in which often only an object's ID is available.
 
-    .. note::
+    .. warning::
 
-        Because some Guilded IDs are strings and some are integers, the type
-        of parameter ``id`` is not checked explicitly.
+        Because Guilded IDs are not meaningful in the way that `snowflakes <https://discord.com/developers/docs/reference#snowflakes>`_
+        are, a creation date is impossible to attain from only an ID. As a
+        result, :attr:`.created_at` will always return 1/1/2016 for backwards
+        compatibility with applications that implement
+        `discord.Object.created_at <https://discordpy.readthedocs.io/en/latest/api.html#discord.Object.created_at>`_.
+
 
     .. container:: operations
 
@@ -300,10 +306,29 @@ class Object:
     -----------
     id: Union[:class:`str`, :class:`int`]
         The ID of the object.
+    created_at: :class:`datetime.datetime`
+        |dpyattr|
+
+        Always returns 1/1/2016.
     """
 
     def __init__(self, id: Union[str, int]):
+        if not isinstance(id, (str, int)):
+            raise TypeError(f'id must be type str or int, not {id.__class__.__name__}')
+
+        if isinstance(id, str):
+            # Could be a UUID (https://guildedapi.com/reference/#snowflakes-uuids) or generic ID (https://guildedapi.com/reference/#generic-object-ids)
+            try:
+                UUID(id)
+            except ValueError:
+                if not _GENERIC_ID_REGEX.match(id):
+                    raise ValueError(f'not a valid ID: {id!r}')
+
+        # Else, could be a role or emoji ID, or even a Discord snowflake in
+        # the case of syncing.
+
         self.id: Union[str, int] = id
+        self.created_at: datetime.datetime = GUILDED_EPOCH_DATETIME
 
     def __repr__(self) -> str:
         return f'<Object id={self.id!r}>'
