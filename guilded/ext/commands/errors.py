@@ -274,7 +274,7 @@ class TeamNotFound(BadArgument):
     Attributes
     -----------
     argument: :class:`str`
-        The team supplied by the called that was not found
+        The team supplied by the caller that was not found
     """
     def __init__(self, argument):
         self.argument = argument
