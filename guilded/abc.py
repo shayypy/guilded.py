@@ -58,7 +58,7 @@ from .asset import Asset
 from .colour import Colour
 from .embed import _EmptyEmbed, Embed
 from .file import MediaType, FileType, File
-from .message import HasContentMixin, Message
+from .message import HasContentMixin, ChatMessage
 from .presence import Presence
 from .utils import ISO8601
 
@@ -98,7 +98,7 @@ class Messageable(metaclass=abc.ABCMeta):
         else:
             return self
 
-    async def send(self, *content, **kwargs) -> Message:
+    async def send(self, *content, **kwargs) -> ChatMessage:
         """|coro|
 
         Send a message to a Guilded channel.
@@ -118,7 +118,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        content: Union[:class:`str`, :class:`Embed`, :class:`File`, :class:`Emoji`, :class`Member`]
+        content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`, :class:`.Member`]
             An argument list of the message content, passed in the order that
             each element should display in the message.
         reply_to: List[:class:`.ChatMessage`]
@@ -250,7 +250,7 @@ class Messageable(metaclass=abc.ABCMeta):
         """
         return await self._state.trigger_typing(self._channel_id)
 
-    async def history(self, *, limit: int = 50) -> List[Message]:
+    async def history(self, *, limit: int = 50) -> List[ChatMessage]:
         """|coro|
 
         Fetch the message history of this channel.
@@ -262,7 +262,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Returns
         --------
-        List[:class:`Message`]
+        List[:class:`.ChatMessage`]
         """
         history = await self._state.get_channel_messages(self._channel_id, limit=limit)
         messages = []
@@ -274,7 +274,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
         return messages
 
-    async def fetch_message(self, id: str) -> Message:
+    async def fetch_message(self, id: str) -> ChatMessage:
         """|coro|
 
         Fetch a message.
@@ -286,7 +286,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Returns
         --------
-        :class:`Message`
+        :class:`.ChatMessage`
             The message from the ID.
         """
         message = await self._state.get_channel_message(self._channel_id, id)
@@ -327,7 +327,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Returns
         --------
-        List[:class:`Message`]
+        List[:class:`.ChatMessage`]
         """
         messages = []
         data = await self._state.get_pinned_messages(self._channel_id)
@@ -511,7 +511,7 @@ class User(metaclass=abc.ABCMeta):
 
         await self.dm_channel.hide()
 
-    async def send(self, *content, **kwargs) -> Message:
+    async def send(self, *content, **kwargs) -> ChatMessage:
         if self.dm_channel is None:
             await self.create_dm()
 
