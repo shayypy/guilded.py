@@ -50,10 +50,25 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import re
+import inspect
+from typing import (
+    Optional,
+    List,
+    TypeVar,
+)
 
 import guilded
 
 from .errors import *
+
+
+__all__ = (
+    'Converter',
+    'ObjectConverter',
+    'MemberConverter',
+    'GenericIDConverter',
+    'UUIDConverter',
+)
 
 
 def _get_from_teams(bot, getter, argument):
@@ -63,6 +78,7 @@ def _get_from_teams(bot, getter, argument):
         if result:
             return result
     return result
+
 
 class Converter:
     """The base class of custom converters that require the :class:`.Context`
@@ -99,13 +115,15 @@ class Converter:
         """
         raise NotImplementedError('Derived classes need to implement this.')
 
-class BasicIDConverter(Converter):
+
+class GenericIDConverter(Converter):
     def __init__(self):
         self._id_regex = r'([a-zA-Z0-9]{8})'
         super().__init__()
 
     def _get_id_match(self, argument):
         return re.search(self._id_regex, argument)
+
 
 class UUIDConverter(Converter):
     def __init__(self):
@@ -115,7 +133,36 @@ class UUIDConverter(Converter):
     def _get_id_match(self, argument):
         return re.search(self._id_regex, argument)
 
-class MemberConverter(BasicIDConverter):
+
+class ObjectConverter(Converter):
+    """Converts to a :class:`~guilded.Object`.
+
+    This is generally not useful unless you simply want to make sure something
+    is a possibly-valid Guilded object, even if you don't care what it is.
+
+    The lookup strategy is as follows (in order):
+
+    1. Lookup by member, role, or channel mention.
+    2. Lookup by ID.
+    """
+
+    async def convert(self, ctx, argument: str):
+        match = re.match(r'<(?:@|#)([a-zA-Z0-9]{8}|\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b)>$', argument)
+        if match:
+            argument = match.group(1)
+
+        if argument.isdigit():
+            argument = int(argument)
+        try:
+            # Any validation we need is done inside of Object's __init__
+            result = guilded.Object(argument)
+        except:
+            raise ObjectNotFound(argument)
+
+        return result
+
+
+class MemberConverter(GenericIDConverter):
     """Converts to a :class:`~guilded.Member`.
 
     All lookups are via the current team. If in a DM context, then the lookup
@@ -129,12 +176,12 @@ class MemberConverter(BasicIDConverter):
     4. Lookup by nickname
     """
 
-    def find_member_named(self, team, argument):
+    def find_member_named(self, team, argument: str):
         # Guilded doesn't really have a query-members-through-gateway ability,
         # so instead we just search the internal cache.
         return guilded.utils.find(lambda m: m.name == argument or m.nick == argument, team.members)
 
-    async def convert(self, ctx, argument):
+    async def convert(self, ctx, argument: str):
         bot = ctx.bot
         match = self._get_id_match(argument)
         team = ctx.team

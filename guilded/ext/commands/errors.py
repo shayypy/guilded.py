@@ -69,6 +69,7 @@ __all__ = (
     'MaxConcurrencyReached',
     'NotOwner',
     'MessageNotFound',
+    'ObjectNotFound',
     'MemberNotFound',
     'TeamNotFound',
     'UserNotFound',
@@ -234,6 +235,21 @@ class NotOwner(CheckFailure):
     This inherits from :exc:`CheckFailure`
     """
     pass
+
+class ObjectNotFound(BadArgument):
+    """Exception raised when the argument provided did not match the format
+    of an ID or a mention.
+
+    This inherits from :exc:`BadArgument`
+
+    Attributes
+    -----------
+    argument: :class:`str`
+        The argument supplied by the caller that was not matched
+    """
+    def __init__(self, argument: str) -> None:
+        self.argument: str = argument
+        super().__init__(f'{argument!r} does not follow a valid ID or mention format.')
 
 class MemberNotFound(BadArgument):
     """Exception raised when the member provided was not found in the bot's
