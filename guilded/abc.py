@@ -552,7 +552,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
         self.slug: Optional[str] = data.get('slug')
         self.roles_synced: Optional[bool] = data.get('isRoleSynced')
         self.public: bool = data.get('isPublic', False)
-        self.settings: Optional[dict] = data.get('settings')  # no clue
+        self._settings: dict = data.get('settings') or {}
 
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
@@ -618,6 +618,24 @@ class TeamChannel(metaclass=abc.ABCMeta):
     def created_by(self):
         return self._created_by or self.team.get_member(self.created_by_id)
 
+    @property
+    def slowmode(self) -> int:
+        """:class:`int`: The number of seconds that members will be restricted
+        before they can send another piece of content in the channel."""
+        return self._settings.get('slowMode', 0)
+
+    @property
+    def slowmode_delay(self) -> int:
+        """|dpyattr|
+
+        This is an alias of :attr:`.slowmode`.
+
+        Returns
+        --------
+        :class:`int`
+        """
+        return self.slowmode
+
     def __str__(self):
         return self.name
 
@@ -630,8 +648,86 @@ class TeamChannel(metaclass=abc.ABCMeta):
         except:
             return False
 
+    async def edit(self, **options):
+        """|coro|
+
+        |onlyuserbot|
+
+        Edit this channel.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The channel's name.
+        description: :class:`str`
+            The channel's description (topic).
+        public: :class:`bool`
+            Whether the channel should be public (visible to users not in the
+            team).
+        slowmode: :class:`int`
+            The number of seconds that members should be restricted before they
+            can send another piece of content in the channel. Must be one of
+            ``0``, ``5``, ``10``, ``15``, ``30``, ``60``, ``120``, ``300``, ``600``, or ``3600``.
+            Set to ``0`` or ``None`` to disable slowmode.
+
+        Returns
+        --------
+        :class:`.TeamChannel`
+            The newly-edited channel. If ``slowmode`` was specified, this is a
+            new channel object from Guilded, else it is the current object
+            modified in-place.
+        """
+        edited_channel = self
+        info_payload = {}
+        try:
+            name = options.pop('name')
+        except KeyError:
+            pass
+        else:
+            info_payload['name'] = name
+
+        if 'description' in options or 'topic' in options:
+            description = options.get('description', options.get('topic'))
+            info_payload['description'] = description
+
+        try:
+            public = options.pop('public')
+        except KeyError:
+            pass
+        else:
+            info_payload['isPublic'] = public
+
+        if info_payload:
+            if self.name and 'name' not in info_payload:
+                # While you aren't required to provide this, not doing so will
+                # cause an unusual-looking "user renamed this channel from name to ."
+                # system message to be sent.
+                info_payload['name'] = self.name
+            await self._state.update_team_channel_info(self.team_id, self.group_id, self.id, info_payload)
+            # We have to edit in-place here because PUT /info does not return the new channel object
+            try: edited_channel.name: str = name
+            except NameError: pass
+            try: edited_channel.description: str = description
+            except NameError: pass
+            try: edited_channel.public: bool = public
+            except NameError: pass
+
+        settings_payload = {}
+        if 'slowmode' in options or 'slowmode_delay' in options:
+            slowmode = options.get('slowmode', options.get('slowmode_delay'))
+            settings_payload['slowMode'] = slowmode
+
+        if settings_payload:
+            data = await self._state.update_team_channel_settings(self.team_id, self.group_id, self.id, {'channelSettings': settings_payload})
+            edited_channel = self._state.create_channel(data=data, team=self.team)
+            self.team._channels[self.id] = edited_channel
+
+        return edited_channel
+
     async def delete(self):
         """|coro|
+
+        |onlyuserbot|
 
         Delete this channel.
         """

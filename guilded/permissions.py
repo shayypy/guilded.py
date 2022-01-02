@@ -134,7 +134,7 @@ class Permissions:
         """A factory method that creates a :class:`Permissions` with all
         permissions set to ``True``."""
         return cls(
-            general=64564,
+            general=130100,
             recruitment=55,
             announcements=7,
             chat=503,
@@ -164,7 +164,7 @@ class Permissions:
     def general(cls):
         """A factory method that creates a :class:`Permissions` with all
         "General" permissions set to ``True``."""
-        return cls(general=64564)
+        return cls(general=130100)
 
     @classmethod
     def recruitment(cls):
@@ -355,6 +355,12 @@ class Permissions:
         """:class:`bool`: Returns ``True`` if a user can access "moderator
         view" to see private replies."""
         return (self.general_value & 32768) == 32768
+
+    @property
+    def slowmode_exempt(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user is exempt from slowmode
+        restrictions."""
+        return (self.general_value & 65536) == 65536
 
     @property
     def read_applications(self) -> bool:

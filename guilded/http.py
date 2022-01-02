@@ -1039,6 +1039,14 @@ class UserbotHTTPClient(HTTPClientBase):
     def remove_role_from_member(self, team_id: str, user_id: str, role_id: int):
         return self.request(UserbotRoute('DELETE', f'/teams/{team_id}/roles/{role_id}/users/{user_id}'))
 
+    def update_team_channel_info(self, team_id: str, group_id: str, channel_id: str, payload: dict):
+        route = UserbotRoute('PUT', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{channel_id}/info')
+        return self.request(route, json=payload)
+
+    def update_team_channel_settings(self, team_id: str, group_id: str, channel_id: str, payload: dict):
+        route = UserbotRoute('PUT', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{channel_id}/settings')
+        return self.request(route, json=payload)
+
     # /users
 
     def get_user(self, user_id: str, *, as_object=False):
