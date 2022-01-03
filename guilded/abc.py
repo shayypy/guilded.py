@@ -305,7 +305,7 @@ class Messageable(metaclass=abc.ABCMeta):
             ``message`` is required.
         name: :class:`str`
             The name to create the thread with.
-        message: Optional[:class:`ChatMessage`]
+        message: Optional[:class:`.ChatMessage`]
             The message to create the thread from. Passing either this or
             values for ``content`` is required.
         """

@@ -325,7 +325,7 @@ class BotBase:
     async def is_owner(self, user: guilded.User):
         """|coro|
 
-        Checks if a :class:`guilded.User` or :class:`guilded.Member` is the
+        Checks if a :class:`guilded.User` or :class:`.Member` is the
         owner of this bot. If an :attr:`.owner_id` or :attr:`.owner_ids` are
         not set, this function will always return False, unless the user
         provided is the bot itself.
@@ -431,6 +431,27 @@ class BotBase:
             self.dispatch('command_error', ctx, exc)
 
     async def process_commands(self, message):
+        """|coro|
+
+        This function processes the commands that have been registered to the
+        bot and other groups. Without this coroutine, no commands will be
+        triggered.
+
+        By default, this coroutine is called inside the :func:`.on_message` event.
+        If you choose to override the :func:`.on_message` event, then you should
+        invoke this coroutine as well.
+
+        This is built using other low level tools, and is equivalent to a call
+        to :meth:`.get_context` followed by a call to :meth:`.invoke`.
+
+        This also checks if the message's author is a bot and doesn't call
+        :meth:`.get_context` or :meth:`.invoke` if so.
+
+        Parameters
+        -----------
+        message: :class:`.ChatMessage`
+            The message to process commands for.
+        """
         if not message.author:
             return
 
@@ -444,7 +465,7 @@ class BotBase:
     async def on_message(self, message):
         """|coro|
 
-        The default handler for :func:`guilded.on_message` provided by the bot.
+        The default handler for :func:`~.on_message` provided by the bot.
 
         If you are overriding this, remember to call :meth:`.process_commands`
         or all commands will be ignored.
@@ -796,11 +817,11 @@ class BotBase:
 class UserbotBot(BotBase, guilded.UserbotClient):
     """A Guilded bot with commands.
 
-    This is a subclass of :class:`guilded.UserbotClient`, and thus it
-    implements all the functionality of :class:`guilded.UserbotClient` but
+    This is a subclass of :class:`.UserbotClient`, and thus it
+    implements all the functionality of :class:`.UserbotClient` but
     comes with commands-related features.
 
-    This is the same as :class:`.Bot` except that it inherits from :class:`guilded.UserbotClient`
+    This is the same as :class:`.Bot` except that it inherits from :class:`.UserbotClient`
     instead, and is thus for user-bots, not early acess API bots.
 
     Parameters
@@ -847,8 +868,8 @@ class UserbotBot(BotBase, guilded.UserbotClient):
 class Bot(BotBase, guilded.Client):
     """A Guilded bot with commands.
 
-    This is a subclass of :class:`guilded.Client`, and thus it implements all
-    the functionality of :class:`guilded.Client` but comes with
+    This is a subclass of :class:`.Client`, and thus it implements all
+    the functionality of :class:`.Client` but comes with
     commands-related features.
 
     Parameters
