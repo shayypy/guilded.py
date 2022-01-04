@@ -40,7 +40,7 @@ bot = commands.Bot(user_id='bot_user_id', command_prefix='!')
 async def ping(ctx):
     await ctx.send('pong!')
 
-client.run('token')
+bot.run('token')
 # If you're using a userbot, you would use an email & password instead of an access token.
 ```
 
