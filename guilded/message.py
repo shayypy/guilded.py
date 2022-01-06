@@ -648,4 +648,19 @@ class ChatMessage(HasContentMixin):
         """
         await self._state.unpin_message(self.channel.id, self.id)
 
+    async def ack(self, clear_all_badges: bool = False) -> None:
+        """|coro|
+
+        |dpyattr|
+
+        |onlyuserbot|
+
+        Mark this message's channel as seen; acknowledge all unread messages
+        within it.
+
+        There is no endpoint for acknowledging just one message and as such
+        this method is identical to :meth:`~.abc.Messageable.seen`.
+        """
+        return await self.channel.seen(clear_all_badges=clear_all_badges)
+
 Message = ChatMessage

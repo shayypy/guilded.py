@@ -56,6 +56,7 @@ from typing import List, Optional
 from .activity import Activity
 from .asset import Asset
 from .colour import Colour
+from .errors import GuildedException
 from .embed import _EmptyEmbed, Embed
 from .file import MediaType, FileType, File
 from .message import HasContentMixin, ChatMessage
@@ -336,6 +337,30 @@ class Messageable(metaclass=abc.ABCMeta):
             messages.append(message)
 
         return messages
+
+    async def seen(self, clear_all_badges: bool = False) -> None:
+        """|coro|
+
+        |onlyuserbot|
+
+        Mark this channel as seen; acknowledge all unread messages within it.
+
+        Parameters
+        -----------
+        clear_all_badges: :class:`bool`
+            Whether to clear all badges.
+
+        Raises
+        -------
+        GuildedException
+            The messageable has no channel attached.
+        """
+        if not self._channel:
+            if isinstance(self, User):
+                await self.create_dm()
+            else:
+                raise GuildedException('The messageable has no channel attached.')
+        await self._state.mark_channel_seen(self._channel.id, clear_all_badges=clear_all_badges)
 
 
 class User(metaclass=abc.ABCMeta):
@@ -754,6 +779,20 @@ class TeamChannel(metaclass=abc.ABCMeta):
         Delete this channel.
         """
         return await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
+
+    async def seen(self, clear_all_badges: bool = False) -> None:
+        """|coro|
+
+        |onlyuserbot|
+
+        Mark this channel as seen; acknowledge all unread items within it.
+
+        Parameters
+        -----------
+        clear_all_badges: :class:`bool`
+            Whether to clear all badges.
+        """
+        await self._state.mark_channel_seen(self.id, clear_all_badges=clear_all_badges)
 
 
 class Reply(HasContentMixin, metaclass=abc.ABCMeta):

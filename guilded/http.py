@@ -424,7 +424,6 @@ class UserbotHTTPClient(HTTPClientBase):
                     else:
                         await asyncio.sleep(5)
                         data = await perform()
-                        #raise TooManyRequests(response)
 
                 elif response.status >= 400:
                     exception = error_mapping.get(response.status, HTTPException)
@@ -864,6 +863,12 @@ class UserbotHTTPClient(HTTPClientBase):
         route = UserbotRoute('PUT', f'/channels/{channel_id}/listitems/{item_id}/iscomplete')
         payload = {'isComplete': is_complete}
         return self.request(route, json=payload)
+
+    def mark_channel_seen(self, channel_id: str, clear_all_badges: bool = False):
+        payload = {
+            'clearAllBadges': clear_all_badges
+        }
+        return self.request(UserbotRoute('PUT', f'/channels/{channel_id}/seen'), json=payload)
 
     # /reactions
 
@@ -1354,7 +1359,6 @@ class HTTPClient(HTTPClientBase):
                     else:
                         await asyncio.sleep(5)
                         data = await perform()
-                        #raise TooManyRequests(response)
 
                 elif response.status >= 400:
                     exception = error_mapping.get(response.status, HTTPException)
