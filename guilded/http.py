@@ -412,14 +412,14 @@ class UserbotHTTPClient(HTTPClientBase):
             if response.status != 200:
 
                 if response.status == 429:
-                    retry_after = response.headers.get('Retry-After')
+                    retry_after = response.headers.get('retry-after')
                     log.warning(
                         'Rate limited on %s. Retrying in %s seconds',
                         route.path,
                         retry_after or 5
                     )
                     if retry_after:
-                        await asyncio.sleep(retry_after)
+                        await asyncio.sleep(float(retry_after))
                         data = await perform()
                     else:
                         await asyncio.sleep(5)
@@ -1342,14 +1342,14 @@ class HTTPClient(HTTPClientBase):
             if response.status != 200:
 
                 if response.status == 429:
-                    retry_after = response.headers.get('Retry-After')
+                    retry_after = response.headers.get('retry-after')
                     log.warning(
                         'Rate limited on %s. Retrying in %s seconds',
                         route.path,
                         retry_after or 5
                     )
                     if retry_after:
-                        await asyncio.sleep(retry_after)
+                        await asyncio.sleep(float(retry_after))
                         data = await perform()
                     else:
                         await asyncio.sleep(5)
