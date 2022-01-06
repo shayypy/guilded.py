@@ -46,6 +46,8 @@ class FlowBot:
         The flowbot's name.
     enabled: :class:`str`
         Whether the flowbot is enabled.
+    icon: :class:`.Asset`
+        The flowbot's default or set icon.
     created_at: Optional[:class:`str`]
         When the flowbot was created.
     deleted_at: Optional[:class:`str`]
@@ -72,7 +74,14 @@ class FlowBot:
         self.id: str = data['id']
         self.name: str = data.get('name') or ''
         self.enabled: bool = data.get('enabled', False)
-        self.icon_url: Asset = Asset('iconUrl', state=self._state, data=data)
+
+        icon = None
+        if data.get('iconUrl'):
+            if 'DefaultBotAvatars' in data['iconUrl']:
+                icon = Asset._from_default_bot_avatar(state, data['iconUrl'])
+            else:
+                icon = Asset._from_user_avatar(state, data['iconUrl'])
+        self.icon: Asset = icon
 
         self.created_at: Optional[datetime.datetime] = ISO8601(data.get('createdAt'))
         self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
@@ -120,6 +129,10 @@ class FlowBot:
         This is roughly equivalent to ``flowbot.member.mention``."""
         return f'<@{self.user_id}>'
 
+    @property
+    def avatar(self) -> Asset:
+        return self.icon
+
 
 class Flow:
     def __init__(self, *, data, bot):
@@ -133,7 +146,7 @@ class Flow:
         self.enabled: bool = data.get('enabled', False)
         self.error: bool = data.get('error', False)
         self.team_id: str = data.get('teamId')
-        self.author_id: str = data.get('userId', data.get('createdBy'))
+        self.author_id: str = data.get('createdBy')
 
         self.created_at: Optional[datetime.datetime] = ISO8601(data.get('createdAt'))
         self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))

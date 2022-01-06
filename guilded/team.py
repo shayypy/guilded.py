@@ -125,6 +125,10 @@ class Team:
         The team's bio. Seems to be unused in favor of :attr:`.description`\.
     description: :class:`str`
         The team's "About" section.
+    avatar: Optional[:class:`.Asset`]
+        The team's set avatar, if any.
+    banner: Optional[:class:`.Asset`]
+        The team's banner, if any.
     social_info: :class:`SocialInfo`
         The team's linked social media pages.
     recruiting: :class:`bool`
@@ -235,8 +239,15 @@ class Team:
         self.user_is_banned: bool = data.get('isUserBannedFromTeam', False)
         self.user_is_following: bool = data.get('userFollowsTeam', False)
 
-        self.icon_url: Asset = Asset('profilePicture', state=self._state, data=data)
-        self.banner_url: Asset = Asset('homeBannerImage', state=self._state, data=data)
+        avatar = None
+        if data.get('profilePicture'):
+            avatar = Asset._from_team_avatar(state, data.get('profilePicture'))
+        self.avatar: Optional[Asset] = avatar
+
+        banner = None
+        if data.get('teamDashImage'):
+            banner = Asset._from_team_banner(state, data.get('teamDashImage'))
+        self.banner: Optional[Asset] = banner
 
         self._follower_count = data.get('followerCount') or 0
         self._member_count = data.get('memberCount') or data.get('measurements', {}).get('numMembers') or 0
@@ -336,6 +347,18 @@ class Team:
     def bot_role(self) -> Optional[Role]:
         """Optional[:class:`.Role`]: The ``Bot`` role for this team."""
         return self._bot_role or get(self.roles, bot=True)
+
+    @property
+    def icon(self) -> Optional[Asset]:
+        """|dpyattr|
+
+        This is an alias of :attr:`.avatar`.
+
+        Returns
+        --------
+        Optional[:class:`.Asset`]
+        """
+        return self.avatar
 
     def get_member(self, id: str) -> Optional[Member]:
         """Optional[:class:`.Member`]: Get a member by their ID from the

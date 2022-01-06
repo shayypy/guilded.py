@@ -52,6 +52,7 @@ DEALINGS IN THE SOFTWARE.
 import datetime
 
 from . import utils
+from .asset import Asset
 from .colour import Colour
 
 
@@ -98,6 +99,10 @@ class Embed:
     is invalid or empty, then a special sentinel value is returned,
     :attr:`Embed.Empty`.
 
+    URL parameters (both as text and for images) accept any string, even those
+    that are not a valid URI. If an ``attachment://`` URI is passed to an image
+    parameter then it will be handled for you.
+
     For ease of use, all parameters that expect a :class:`str` are implicitly
     casted to :class:`str` for you.
 
@@ -105,9 +110,6 @@ class Embed:
     -----------
     title: :class:`str`
         The title of the embed.
-        This can be set during initialisation.
-    type: :class:`str`
-        The type of embed. Usually "rich".
         This can be set during initialisation.
     description: :class:`str`
         The description of the embed.
@@ -327,14 +329,16 @@ class Embed:
         text: :class:`str`
             The footer text.
         icon_url: :class:`str`
-            The URL of the footer icon. Only HTTP(S) is supported.
+            The URL of the footer icon.
         """
 
         self._footer = {}
         if text is not EmptyEmbed:
             self._footer['text'] = str(text)
 
-        if icon_url is not EmptyEmbed:
+        if isinstance(icon_url, Asset):
+            self._footer['iconUrl'] = icon_url.aws_url
+        elif icon_url is not EmptyEmbed:
             self._footer['iconUrl'] = str(icon_url)
 
         return self
@@ -359,8 +363,7 @@ class Embed:
         Parameters
         -----------
         url: :class:`str`
-            The source URL for the image. Only HTTP(S) or an
-            ``attachment://`` is supported.
+            The source URL for the image.
         """
 
         if url is EmptyEmbed:
@@ -368,6 +371,10 @@ class Embed:
                 del self._image
             except AttributeError:
                 pass
+        elif isinstance(url, Asset):
+            self._image = {
+                'url': url.aws_url
+            }
         else:
             self._image = {
                 'url': str(url)
@@ -395,8 +402,7 @@ class Embed:
         Parameters
         -----------
         url: :class:`str`
-            The source URL for the thumbnail. Only HTTP(S) or an
-            ``attachment://`` is supported.
+            The source URL for the thumbnail.
         """
 
         if url is EmptyEmbed:
@@ -404,6 +410,10 @@ class Embed:
                 del self._thumbnail
             except AttributeError:
                 pass
+        elif isinstance(url, Asset):
+            self._thumbnail = {
+                'url': url.aws_url
+            }
         else:
             self._thumbnail = {
                 'url': str(url)
@@ -450,7 +460,7 @@ class Embed:
         url: :class:`str`
             The URL for the author.
         icon_url: :class:`str`
-            The URL of the author icon. Only HTTP(S) is supported.
+            The URL of the author icon.
         """
 
         self._author = {
@@ -460,7 +470,9 @@ class Embed:
         if url is not EmptyEmbed:
             self._author['url'] = str(url)
 
-        if icon_url is not EmptyEmbed:
+        if isinstance(icon_url, Asset):
+            self._author['iconUrl'] = icon_url.aws_url
+        elif icon_url is not EmptyEmbed:
             self._author['iconUrl'] = str(icon_url)
 
         return self

@@ -56,6 +56,7 @@ from .asset import Asset
 from .errors import InvalidArgument
 from .file import File, MediaType
 from .status import Game
+from .user import Member
 from .utils import ISO8601
 
 
@@ -69,7 +70,7 @@ class Group:
 
     Attributes
     -----------
-    team: :class:`Team`
+    team: :class:`.Team`
         The team that the group belongs to.
     id: :class:`str`
         The group's id.
@@ -80,11 +81,10 @@ class Group:
     position: Optional[:class:`int`]
         The group's position on the sidebar. Will be ``None`` if :attr:`.base`
         is ``True``\.
-    base: :class:`bool`
-        Whether the group is the base or "home" group of its team.
     public: :class:`bool`
         Whether the group is public.
     """
+
     def __init__(self, *, state, team, data):
         self._state = state
         self.team = team
@@ -98,29 +98,27 @@ class Group:
         self.team_id: str = data.get('teamId', team.id)
 
         self.game_id: Optional[int] = data.get('gameId')
-        self.base: bool = data.get('isBase')
+        self._base: bool = data.get('isBase')
         self.public: bool = data.get('isPublic')
 
-        self.created_by = self.team.get_member(data.get('createdBy')) or data.get('createdBy')
-        self.updated_by = self.team.get_member(data.get('updatedBy')) or data.get('updatedBy')
-        self.archived_by = self.team.get_member(data.get('archivedBy')) or data.get('archivedBy')
+        self.author_id: Optional[str] = data.get('createdBy')
+        self.updated_by_id: Optional[str] = data.get('updatedBy')
+        self.archived_by_id: Optional[str] =  data.get('archivedBy')
 
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.updated_at: datetime.datetime = ISO8601(data.get('updatedAt'))
-        self.deleted_at: datetime.datetime = ISO8601(data.get('deletedAt'))
-        self.archived_at: datetime.datetime = ISO8601(data.get('archivedAt'))
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
+        self.archived_at: Optional[datetime.datetime] = ISO8601(data.get('archivedAt'))
 
-        icon_url = data.get('avatar')
-        if icon_url:
-            self.icon_url = Asset('avatar', state=self._state, data=data)
-        else:
-            self.icon_url = None
+        avatar = None
+        if data.get('avatar'):
+            avatar = Asset._from_group_avatar(state, data.get('avatar'))
+        self._avatar: Optional[Asset] = avatar
 
-        banner_url = data.get('banner')
-        if banner_url:
-            self.banner_url = Asset('banner', state=self._state, data=data)
-        else:
-            self.banner_url = None
+        banner = None
+        if data.get('banner'):
+            banner = Asset._from_group_banner(state, data.get('banner'))
+        self._banner: Optional[Asset] = banner
 
     @property
     def game(self) -> Game:
@@ -133,6 +131,46 @@ class Group:
     def archived(self) -> bool:
         """:class:`bool`: Whether this group is archived."""
         return self.archived_at is not None or self.archived_by is not None
+
+    @property
+    def base(self) -> bool:
+        """:class:`bool`: Whether the group is the base or "home" group of its
+        team."""
+        return self._base or self.team.base_group == self
+
+    @property
+    def avatar(self) -> Optional[Asset]:
+        """Optional[:class:`.Asset`]: The group's avatar, if any.
+        If :attr:`.base` is ``True``, this will be the :attr:`.team`\'s avatar instead."""
+        if self.base:
+            return self._avatar or self.team.avatar
+        return self._avatar
+
+    @property
+    def banner(self) -> Optional[Asset]:
+        """Optional[:class:`.Asset`]: The group's banner, if any.
+        If :attr:`.base` is ``True``, this will be the :attr:`.team`\'s banner instead."""
+        if self.base:
+            return self._banner or self.team.banner
+        return self._banner
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member who created the group, if
+        they are cached."""
+        return self.team.get_member(self.author_id)
+
+    @property
+    def updated_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member who last updated the group,
+        if any, and they are cached."""
+        return self.team.get_member(self.updated_by_id)
+
+    @property
+    def archived_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member who archived the group, if
+        any, and they are cached."""
+        return self.team.get_member(self.archived_by_id)
 
     def __str__(self):
         return self.name
@@ -156,7 +194,7 @@ class Group:
 
         Parameters
         -----------
-        icon: Union[:class:`str`, :class:`File`]
+        icon: Union[:class:`str`, :class:`.File`]
             The file to upload or an existing CDN URL to use for this
             group's icon.
         """
@@ -166,11 +204,11 @@ class Group:
             pass
         else:
             if isinstance(icon, str):
-                fields['icon_url'] = fields.get('icon')
+                fields['icon_url'] = icon
             elif isinstance(icon, File):
                 icon.set_media_type(MediaType.group_icon)
                 fields['icon_url'] = await icon._upload(self._state)
-            elif isinstance(icon, None):
+            elif icon is None:
                 fields['icon_url'] = None
             else:
                 raise InvalidArgument(f'icon must be type str, File, or None, not {icon.__class__.__name__}')

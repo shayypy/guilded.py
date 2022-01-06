@@ -366,6 +366,10 @@ class User(metaclass=abc.ABCMeta):
     tagline: :class:`str`
         The user's tagline. This is the text under the user's name on their
         profile page in the client.
+    avatar: Optional[:class:`.Asset`]
+        The user's set avatar, if any.
+    banner: Optional[:class:`.Asset`]
+        The user's profile banner, if any.
     presence: Optional[:class:`Presence`]
         The user's presence.
     dm_channel: Optional[:class:`DMChannel`]
@@ -377,6 +381,7 @@ class User(metaclass=abc.ABCMeta):
         When the user's account was created.
 
         .. warning::
+
             Due to API ambiguities, this may erroneously be the same as
             :attr:`.joined_at` if this is a :class:`.Member`\.
 
@@ -418,8 +423,19 @@ class User(metaclass=abc.ABCMeta):
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt') or data.get('joinDate'))
         # in profilev3, createdAt is returned instead of joinDate
 
-        self.avatar_url: Asset = Asset('profilePicture', state=self._state, data=data)
-        self.banner_url: Asset = Asset('profileBanner', state=self._state, data=data)
+        self.default_avatar: Asset = Asset._from_default_user_avatar(self._state, 1)
+
+        avatar = None
+        _avatar_url = data.get('profilePicture') or data.get('profilePictureLg') or data.get('profilePictureSm') or data.get('profilePictureBlur')
+        if _avatar_url:
+            avatar = Asset._from_user_avatar(self._state, _avatar_url)
+        self.avatar: Optional[Asset] = avatar
+
+        banner = None
+        _banner_url = data.get('profileBannerLg') or data.get('profileBannerSm') or data.get('profileBannerBlur')
+        if _banner_url:
+            banner = Asset._from_user_banner(self._state, _banner_url)
+        self.banner: Optional[Asset] = banner
 
         self.moderation_status: Optional[str] = data.get('moderationStatus')
         self.badges: List = data.get('badges') or []
@@ -478,6 +494,12 @@ class User(metaclass=abc.ABCMeta):
     def bot(self) -> bool:
         return self._bot
 
+    @property
+    def display_avatar(self) -> Asset:
+        """:class:`.Asset`: The "top-most" avatar for this user, or, the avatar
+        that the client will display in the member list and in chat."""
+        return self.avatar or self.default_avatar
+
     async def create_dm(self) -> Messageable:
         """|coro|
 
@@ -485,7 +507,7 @@ class User(metaclass=abc.ABCMeta):
 
         Returns
         --------
-        :class:`DMChannel`
+        :class:`.DMChannel`
             The DM channel you created.
         """
         data = await self._state.create_dm_channel([self.id])
@@ -499,7 +521,7 @@ class User(metaclass=abc.ABCMeta):
 
         Visually hide your DM channel with this user in the client.
 
-        Equivalent to :meth:`DMChannel.hide`\.
+        Equivalent to :meth:`.DMChannel.hide`.
 
         Raises
         -------

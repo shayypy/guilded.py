@@ -53,6 +53,7 @@ import io
 from enum import Enum
 from typing import Union
 
+from .asset import AssetMixin
 from . import utils
 
 
@@ -91,6 +92,7 @@ class MediaType(Enum):
     def __repr__(self):
         return f'<MediaType name={self.name} value={self.value}>'
 
+
 class FileType(Enum):
     """Represents a type of file in Guilded. In the case of uploading
     files, this usually does not have to be set manually, but if the
@@ -105,6 +107,7 @@ class FileType(Enum):
 
     def __repr__(self):
         return f'<FileType name={self.name} value={self.value}>'
+
 
 class File:
     """Wraps media pre-and-mid-upload.
@@ -200,7 +203,8 @@ class File:
         self.url = url
         return self
 
-class Attachment:
+
+class Attachment(AssetMixin):
     """An uploaded attachment in a message, announcement, document, or any
     other place you can upload files inline with content.
 
@@ -208,18 +212,15 @@ class Attachment:
     ------------
     url: :class:`str`
         The URL to the file on Guilded's CDN.
-    type: :class:`MediaType`
-        The file's media type (should only ever be :attr:`MediaType.attachment`).
-    filename: Optional[:class:`str`]
-        The file's name (``{hash}-{Size}.{extension}``). Automatically parsed
-        from :attr:`.url`, so this will be ``None`` if :attr:`.url` is also
-        ``None``.
+    filename: :class:`str`
+        The file's name, usually in the format of ``{hash}-{size}.{extension}``.
     file_type: Optional[:class:`FileType`]
-        The type of file (image, video).
+        The type of file.
     caption: Optional[:class:`str`]
         The attachment's caption. This probably won't be present in message
         attachments.
     """
+
     def __init__(self, *, state, data, **extra):
         self._state = state
         self.file_type = getattr(FileType, data.get('type'), None)
@@ -256,23 +257,14 @@ class Attachment:
                 self.caption = None
 
     @property
-    def filename(self):
+    def filename(self) -> str:
         try:
             return str(self.url).split('/')[-1]
         except IndexError:
-            # self.url is probably None
-            return None
+            # url could theoretically be None
+            return ''
 
-    async def read(self):
-        """|coro|
-
-        Returns
-        ---------
-        :class:`bytes`
-        """
-        return await self._state.read_filelike_data(self)
-
-    async def to_file(self):
+    async def to_file(self) -> File:
         """|coro|
 
         Converts the attachment to an uploadable :class:`File` instance.
@@ -281,6 +273,7 @@ class Attachment:
         ---------
         :class:`File`
         """
+
         data = await self.read()
         file = File(data, filename=self.filename, file_type=self.file_type)
         return file

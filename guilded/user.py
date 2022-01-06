@@ -87,32 +87,32 @@ class User(guilded.abc.User, guilded.abc.Messageable):
     """Represents a user in Guilded."""
     def _update(self, data):
         try:
-            self.stonks = data.pop('stonks')
+            self.stonks: int = data.pop('stonks')
         except KeyError:
             pass
 
         try:
-            self.badges = data.pop('badges')
+            self.badges: List[str] = data.pop('badges')
         except KeyError:
             pass
 
         try:
-            self.tagline = data.pop('tagline')
+            self.tagline: str = data.pop('tagline')
         except KeyError:
             pass
 
         try:
-            self.bio = data.pop('bio')
+            self.bio: str = data.pop('bio')
         except KeyError:
             pass
 
         try:
-            self.subdomain = data.pop('subdomain')
+            self.subdomain: str = data.pop('subdomain')
         except KeyError:
             pass
 
         if 'profilePicture' in data:
-            self.avatar_url = Asset('profilePicture', state=self._state, data=data)
+            self.avatar: Asset = Asset._from_user_avatar(self._state, data.pop('profilePicture'))
 
     async def block(self):
         """|coro|
@@ -255,8 +255,8 @@ class Member(User):
         self.tagline = member.tagline
         self.badges = member.badges
         self.stonks = member.stonks
-        self.avatar_url = member.avatar_url
-        self.banner_url = member.banner_url
+        self.avatar = member.avatar
+        self.banner = member.banner
         self.xp = member.xp
         self.dm_channel = member.dm_channel
         self.colour = member.colour

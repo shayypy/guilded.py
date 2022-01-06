@@ -49,9 +49,12 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+import os
 from typing import List, Optional
+import yarl
 
-from .asset import Asset
+from .asset import AssetMixin, Asset
+from .errors import InvalidArgument
 from .user import Member
 from .utils import ISO8601
 
@@ -62,7 +65,7 @@ __all__ = (
 )
 
 
-class DiscordEmoji:
+class DiscordEmoji(AssetMixin):
     """Represents a Discord emoji that an emoji on Guilded corresponds to.
 
     Guilded does not provide the emoji's name, so you would likely use this
@@ -85,7 +88,8 @@ class DiscordEmoji:
     synced_at: :class:`datetime.datetime`
         When the emoji was last synced with Guilded.
     """
-    def __init__(self, *, id, synced_at):
+    def __init__(self, *, state, id, synced_at):
+        self._state = state
         self.id: int = int(id)
         self.synced_at: datetime.datetime = ISO8601(synced_at)
 
@@ -93,19 +97,48 @@ class DiscordEmoji:
     def url(self) -> str:
         """:class:`str`: The Discord CDN URL of the emoji.
 
-        Does not include a file extension as the animated status of the emoji
-        cannot be practically known. If you need a file extension, appending
-        ``.png`` will return a valid static image regardless of if the emoji
-        is animated.
+        The file extension will be ``png`` by default regardless of whether or
+        not the emoji is animated. You may generate a different URL using
+        :meth:`.url_with_format`.
         """
-        return f'https://cdn.discordapp.com/emojis/{self.id}'
+        return f'https://cdn.discordapp.com/emojis/{self.id}.png'
 
     def __eq__(self, other):
         return isinstance(other, DiscordEmoji) and other.id == self.id
 
+    def url_with_format(self, format: str) -> str:
+        """Returns a new URL with a different format.
 
-class Emoji:
-    """Represents a team emoji in Guilded.
+        Parameters
+        -----------
+        format: :class:`str`
+            The new format to change it to. Must be one of
+            'png', 'jpg', 'jpeg', 'webp', 'gif'.
+
+            .. warning::
+
+                Validity is not checked if 'gif' is passed because it is not
+                practically possible to know whether the emoji is animated, so
+                you may end up with a nonfunctional URL if you are not careful.
+
+        Returns
+        --------
+        :class:`str`
+            The emoji's newly updated Discord CDN URL.
+        """
+
+        valid_formats = ['png', 'jpg', 'jpeg', 'webp', 'gif']
+
+        if format not in valid_formats:
+            raise InvalidArgument(f'format must be one of {valid_formats}')
+
+        url = yarl.URL(self.url)
+        path, _ = os.path.splitext(url.path)
+        return str(url.with_path(f'{path}.{format}'))
+
+
+class Emoji(AssetMixin):
+    """Represents a team or stock emoji in Guilded.
 
     .. container:: operations
 
@@ -131,13 +164,9 @@ class Emoji:
         The emoji's ID.
     name: :class:`str`
         The emoji's name.
-    author_id: :class:`str`
-        The emoji's author's ID.
-    url: :class:`Asset`
-        The emoji's CDN URL.
     aliases: List[:class:`str`]
-        A list of aliases for the emoji. Likely only applicable to standard
-        (unicode) emojis.
+        A list of aliases for the emoji. Likely only applicable to stock
+        (unicode and Guilded) emojis.
     created_at: Optional[:class:`datetime.datetime`]
         When the emoji was created.
     discord: Optional[:class:`.DiscordEmoji`]
@@ -150,26 +179,36 @@ class Emoji:
 
         self.id: int = data.get('id')
         self.name: str = data.get('name')
-        self.team_id: str = data.get('teamId')
-        self.author_id: str = data.get('createdBy')
+        self.team_id: Optional[str] = data.get('teamId')
+        self.author_id: Optional[str] = data.get('createdBy')
         self.aliases: List[str] = data.get('aliases', [])
         self.created_at: Optional[datetime.datetime] = ISO8601(data.get('createdAt'))
-
-        urls = {
-            'customReaction': data.get('apng') or data.get('gif') or data.get('png') or data.get('webp'),
-            # assume animated first, even though guilded seems to simply append ?ia=1 rather than using their apng field.
-            'customReactionPNG': data.get('png'),
-            'customReactionWEBP': data.get('webp'),
-            'customReactionAPNG': data.get('apng'),
-            'customReactionGIF': data.get('gif')
-        }
-        self.url: Asset = Asset('customReaction', state=self._state, data=urls)
-
-        self.discord: Optional[DiscordEmoji] = None
-        if data.get('discordEmojiId'):
-            self.discord = DiscordEmoji = DiscordEmoji(id=data.get('discordEmojiId'), synced_at=data.get('discordSyncedAt'))
-
         self.deleted: bool = data.get('isDeleted', False)
+        self._animated: bool = data.get('isAnimated', False)
+
+        self._stock_guilded: bool = extra.get('stock') is True and data.get('category') == 'Guilded'
+        self._stock_unicode: bool = extra.get('stock') is True and data.get('category') != 'Guilded'
+
+        if self._stock_guilded:
+            asset: Asset = Asset._from_guilded_stock_reaction(state, self.name, animated=self._animated)
+        elif self._stock_unicode:
+            asset: Asset = Asset._from_unicode_stock_reaction(state, self.name, animated=self._animated)
+        else:
+            url = data.get('webp', data.get('png'))
+            asset: Asset = Asset._from_custom_reaction(state, url, animated=self._animated or 'ia=1' in url)
+
+        self._underlying: Asset = asset
+
+        discord_emoji = None
+        if data.get('discordEmojiId'):
+            discord_emoji = DiscordEmoji(
+                state=state,
+                data={
+                    'id': data['discordEmojiId'],
+                    'synced_at': data.get('discordSyncedAt'),
+                },
+            )
+        self.discord: Optional[DiscordEmoji] = discord_emoji
 
     def __eq__(self, other):
         return isinstance(other, Emoji) and other.id == self.id
@@ -185,24 +224,91 @@ class Emoji:
 
     @property
     def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` who created the emoji."""
+        """Optional[:class:`.Member`]: The :class:`.Member` who created the
+        emoji, if any."""
         return self.team.get_member(self.author_id)
 
     @property
     def team(self):
-        """Optional[:class:`.Team`]: The team that the emoji is from."""
+        """Optional[:class:`.Team`]: The team that the emoji is from, if any."""
         return self._team or self._state._get_team(self.team_id)
 
     @property
     def animated(self) -> bool:
         """:class:`bool`: Whether the emoji is animated."""
-        if getattr(self.url, 'apng', None) is not None or 'ia=1' in self.url:
-            return True
-        else:
-            return False
+        return self._underlying.animated or 'ia=1' in self.url
+
+    @property
+    def stock(self) -> bool:
+        """:class:`bool`: Whether the emoji is a stock emoji (Unicode or by Guilded)."""
+        return self._stock_guilded or self._stock_unicode
+
+    @property
+    def url(self) -> str:
+        """:class:`str`: The emoji's CDN URL."""
+        return self._underlying.url
+
+    def url_with_format(self, format: str) -> str:
+        """Returns a new URL with a different format. By default, the format
+        will be ``apng`` if provided, else ``webp``.
+
+        This is functionally a more restricted version of :meth:`Asset.with_format`;
+        that is, only formats that are available to emojis can be used in an
+        attempt to avoid generating nonfunctional URLs.
+
+        Parameters
+        -----------
+        format: :class:`str`
+            The new format to change it to. Must be
+            'png' or 'webp' if stock unicode or custom, and
+            'png', 'webp', or 'apng' if stock Guilded.
+
+        Returns
+        --------
+        :class:`str`
+            The emoji's newly updated CDN URL.
+        """
+
+        valid_formats = ['png', 'webp']
+        if self._stock_guilded:
+            if self.animated:
+                valid_formats.append('apng')
+
+        if format not in valid_formats:
+            raise InvalidArgument(f'format must be one of {valid_formats}')
+
+        return self._underlying.with_format(format).url
+
+    def url_with_static_format(self, format: str) -> str:
+        """Returns a new URL with a different format if the emoji is static,
+        else the current (animated) URL is returned.
+
+        This is functionally a more restricted version of :meth:`Asset.with_static_format`;
+        that is, only formats that are available to emojis can be used in an
+        attempt to avoid generating nonfunctional URLs.
+
+        Parameters
+        -----------
+        format: :class:`str`
+            The new format to change it to. Must be one of 'png' or 'webp'.
+
+        Returns
+        --------
+        :class:`str`
+            The emoji's newly updated CDN URL.
+        """
+
+        valid_formats = ['png', 'webp']
+
+        if format not in valid_formats:
+            raise InvalidArgument(f'format must be one of {valid_formats}')
+
+        return self._underlying.with_static_format(format).url
 
     async def delete(self):
         """|coro|
+
+        |onlyuserbot|
 
         Delete this emoji.
         """
