@@ -179,14 +179,18 @@ class HTTPClientBase:
         self._teams[team.id] = team
 
     def add_to_member_cache(self, member):
-        member.team._members[member.id] = member
+        team = member.team or self._get_team(member.team_id)
+        if team:
+            team._members[member.id] = member
 
     def remove_from_member_cache(self, team_id, member_id):
         if self._get_team(team_id):
             self._get_team(team_id)._members.pop(member_id, None)
 
     def add_to_team_channel_cache(self, channel):
-        channel.team._channels[channel.id] = channel
+        team = channel.team or self._get_team(channel.team_id)
+        if team:
+            team._channels[channel.id] = channel
 
     def remove_from_team_channel_cache(self, team_id, channel_id):
         if self._get_team(team_id):
