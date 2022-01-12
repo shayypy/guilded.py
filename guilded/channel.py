@@ -151,6 +151,8 @@ class Doc(HasContentMixin):
         The group that the doc is in.
     team: :class:`.Team`
         The team that the doc is in.
+    tags: List[:class:`str`]
+        The list of tags assigned to the doc.
     public: :class:`bool`
         Whether the doc is public.
     draft: :class:`bool`
@@ -165,26 +167,36 @@ class Doc(HasContentMixin):
     def __init__(self, *, state, data, channel, game=None):
         super().__init__()
         self._state = state
+
         self.channel = channel
         self.group = channel.group
         self.team = channel.team
-        self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
-        self.tags: str = data.get('tags')
-        self._replies = {}
-
-        self.public: bool = data.get('isPublic', False)
-        self.credentialed: bool = data.get('isCredentialed', False)
-        self.draft: bool = data.get('isDraft', False)
 
         self.author_id: str = data.get('createdBy')
-        self.edited_by_id: Optional[str] = data.get('modifiedBy')
+        self.edited_by_id: Optional[str] = data.get('updatedBy') or data.get('modifiedBy')
 
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('modifiedAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt') or data.get('modifiedAt'))
 
         self.id: int = int(data['id'])
         self.title: str = data['title']
-        self.content: str = self._get_full_content(data['content'])
+
+        if state.userbot:
+            self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
+            self._replies = {}
+
+            tags = data.get('tags')
+            if tags and isinstance(tags, str):
+                tags = tags.split(',')
+            self.tags: List[str] = tags or []
+
+            self.public: bool = data.get('isPublic', False)
+            self.credentialed: bool = data.get('isCredentialed', False)
+            self.draft: bool = data.get('isDraft', False)
+            self.content: str = self._get_full_content(data['content'])
+
+        else:
+            self.content: str = data['content']
 
     def __repr__(self):
         return f'<Doc id={self.id!r} title={self.title!r} author={self.author!r} channel={self.channel!r}>'
@@ -215,15 +227,13 @@ class Doc(HasContentMixin):
     @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        doc, if they are cached.
-        """
+        doc, if they are cached."""
         return self.team.get_member(self.author_id)
 
     @property
     def edited_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that last edited the
-        doc, if they are cached.
-        """
+        doc, if they are cached."""
         return self.team.get_member(self.author_id)
 
     async def add_reaction(self, emoji):
@@ -236,10 +246,16 @@ class Doc(HasContentMixin):
         emoji: :class:`.Emoji`
             The emoji to add.
         """
-        await self._state.add_content_reaction('doc', self.id, emoji.id)
+        if self._state.userbot:
+            await self._state.add_content_reaction('doc', self.id, emoji.id)
+        else:
+            emoji_id: int = getattr(emoji, 'id', emoji)
+            await self._state.add_reaction_emote(self.channel.id, self.id, emoji_id)
 
     async def remove_self_reaction(self, emoji):
         """|coro|
+
+        |onlyuserbot|
 
         Remove your reaction from this doc.
 
@@ -257,8 +273,74 @@ class Doc(HasContentMixin):
         """
         await self._state.delete_doc(self.channel.id, self.id)
 
+    async def edit(self, *content, **kwargs):
+        """|coro|
+
+        Edit this doc.
+
+        Parameters
+        -----------
+        content: Any
+            The content of the doc.
+        title: str
+            The title of the doc.
+        game: Optional[:class:`.Game`]
+            The game associated with the doc.
+        draft: Optional[:class:`bool`]
+            Whether the doc should be a draft.
+        public: Optional[:class:`bool`]
+            Whether the doc should be public.
+        tags: List[:class:`str`]
+            The list of tags for this doc. Overrides the existing list, if any.
+            You can provide a maximum of 539 tags. You may include duplicates,
+            however this behavior is forbidden in the desktop client.
+
+        Returns
+        --------
+        :class:`.Doc`
+            The updated doc.
+        """
+
+        title = kwargs.pop('title', self.title)
+
+        # TODO: This may have issues with non-text content if no content is provided explicitly to this method
+        if content is not None:
+            content = tuple(content)
+            if len(content) < 1:
+                content = (self.content,)
+            if not self._state.userbot:
+                content = content[0]
+
+        payload = {
+            'title': title,
+            'content': content,
+        }
+
+        if self._state.userbot:
+            # We need to provide this or else Guilded will throw a 500
+            payload['isDraft'] = kwargs.pop('draft', self.draft)
+
+            try:
+                payload['gameId'] = kwargs.pop('game', self.game).id
+            except (KeyError, AttributeError):
+                pass
+            try:
+                payload['isPublic'] = kwargs.pop('public')
+            except KeyError:
+                pass
+            try:
+                payload['tags'] = kwargs.pop('tags')
+            except KeyError:
+                pass
+
+        data = await self._state.update_doc(self.channel.id, self.id, payload=payload)
+        doc = Doc(data=data, channel=self.channel, game=self.game, state=self._state)
+        return doc
+
     async def reply(self, *content, **kwargs):
         """|coro|
+
+        |onlyuserbot|
 
         Reply to this doc.
 
@@ -285,6 +367,8 @@ class Doc(HasContentMixin):
     async def fetch_reply(self, id: int):
         """|coro|
 
+        |onlyuserbot|
+
         Fetch a reply to this doc.
 
         Parameters
@@ -302,6 +386,8 @@ class Doc(HasContentMixin):
 
     async def move(self, to):
         """|coro|
+
+        |onlyuserbot|
 
         Move this doc to another :class:`.DocsChannel`.
 
@@ -347,24 +433,37 @@ class DocsChannel(guilded.abc.TeamChannel):
             The game associated with the doc.
         draft: Optional[:class:`bool`]
             Whether the doc should be a draft.
+        tags: List[:class:`str`]
+            The list of tags for this doc.
+            You can provide a maximum of 539 tags. You may include duplicates,
+            however this behavior is forbidden in the desktop client.
 
         Returns
         --------
         :class:`.Doc`
             The created doc.
         """
-        title = kwargs.pop('title')
-        game = kwargs.pop('game', None)
-        draft = kwargs.pop('draft', False)
 
-        data = await self._state.create_doc(
-            self.id,
-            title=title,
-            content=content,
-            game_id=(game.id if game else None),
-            draft=draft
-        )
-        doc = Doc(data=data, channel=self, game=game, state=self._state)
+        payload = {
+            'title': kwargs.pop('title'),
+            'content': content,
+        }
+
+        if self._state.userbot:
+            # We need to provide this or else Guilded will throw a 500
+            payload['isDraft'] = kwargs.pop('draft', False)
+
+            try:
+                payload['gameId'] = kwargs.pop('game').id
+            except (KeyError, AttributeError):
+                pass
+            try:
+                payload['tags'] = kwargs.pop('tags')
+            except KeyError:
+                pass
+
+        data = await self._state.create_doc(self.id, payload=payload)
+        doc = Doc(data=data, channel=self, game=kwargs.get('game'), state=self._state)
         return doc
 
     async def fetch_doc(self, id: int) -> Doc:
@@ -404,8 +503,11 @@ class DocsChannel(guilded.abc.TeamChannel):
         --------
         List[:class:`.Doc`]
         """
-        before = before or datetime.datetime.now(datetime.timezone.utc)
-        data = await self._state.get_docs(self.id, limit=limit, before=before)
+        if self._state.userbot:
+            before = before or datetime.datetime.now(datetime.timezone.utc)
+            data = await self._state.get_docs(self.id, limit=limit, before=before)
+        else:
+            data = await self._state.get_docs(self.id)
         docs = []
         for doc_data in data:
             docs.append(Doc(data=doc_data, channel=self, state=self._state))

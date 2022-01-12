@@ -54,7 +54,7 @@ import datetime
 import json
 import logging
 import re
-from typing import Union
+from typing import Any, Dict, Union
 
 from . import utils
 from . import channel
@@ -742,14 +742,8 @@ class UserbotHTTPClient(HTTPClientBase):
         route = UserbotRoute('DELETE', f'/channels/{channel_id}/forums/{topic_id}/replies/{reply_id}')
         return self.request(route)
 
-    def create_doc(self, channel_id: str, *, title, content, game_id, draft):
-        payload = {
-            # The client passes an ID here but it is optional
-            'gameId': game_id,
-            'isDraft': draft,
-            'title': title,
-            'content': self.compatible_content(content)
-        }
+    def create_doc(self, channel_id: str, *, payload: Dict[str, Any]):
+        payload['content'] = self.compatible_content(payload['content'])
         return self.request(UserbotRoute('POST', f'/channels/{channel_id}/docs'), json=payload)
 
     def delete_doc(self, channel_id: str, doc_id: int):
@@ -759,6 +753,22 @@ class UserbotHTTPClient(HTTPClientBase):
         route = UserbotRoute('PUT', f'/channels/{channel_id}/docs/{doc_id}/move')
         payload = {'moveToChannelId': to_channel_id}
         return self.request(route, json=payload)
+
+    def get_docs(self, channel_id: str, *, limit: int = 50, before: datetime.datetime = None):
+        params = {
+            'maxItems': limit,
+        }
+        if before is not None:
+            params['beforeDate'] = before.isoformat()
+
+        return self.request(UserbotRoute('GET', f'/channels/{channel_id}/docs'), params=params)
+
+    def get_doc(self, channel_id: str, doc_id: int):
+        return self.request(UserbotRoute('GET', f'/channels/{channel_id}/docs/{doc_id}'))
+
+    def update_doc(self, channel_id: str, doc_id: int, *, payload: Dict[str, Any]):
+        payload['content'] = self.compatible_content(payload['content'])
+        return self.request(UserbotRoute('PUT', f'/channels/{channel_id}/docs/{doc_id}'), json=payload)
 
     def create_announcement(self, channel_id: str, title: str, content, game_id: int, dont_send_notifications: bool):
         payload = {
@@ -1428,6 +1438,25 @@ class HTTPClient(HTTPClientBase):
             'note': note,
         }
         return self.request(Route('POST', f'/channels/{channel_id}/list'), json=payload)
+
+    def create_doc(self, channel_id: str, *, title: str, content: str):
+        payload = {
+            'title': title,
+            'content': content,
+        }
+        return self.request(Route('POST', f'/channels/{channel_id}/docs'), json=payload)
+
+    def get_docs(self, channel_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/docs'))
+
+    def get_doc(self, channel_id: str, doc_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/docs/{doc_id}'))
+
+    def update_doc(self, channel_id: str, doc_id: int, *, payload: Dict[str, Any]):
+        return self.request(Route('PUT', f'/channels/{channel_id}/docs/{doc_id}'), json=payload)
+
+    def delete_doc(self, channel_id: str, doc_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}'))
 
     def add_reaction_emote(self, channel_id: str, content_id: str, emoji_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/content/{content_id}/emotes/{emoji_id}'))

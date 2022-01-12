@@ -63,6 +63,7 @@ from guilded.abc import TeamChannel
 
 from .errors import GuildedException, HTTPException
 from .channel import *
+from .emoji import Emoji
 from .message import Message
 from .presence import Presence
 from .role import Role
@@ -541,6 +542,67 @@ class UserbotWebSocketEventParsers:
                 self.client.dispatch('media_delete', content)
                 channel._medias.pop(content.id)
 
+    async def TEAM_CHANNEL_CONTENT_UPDATED(self, data):
+        try:
+            team = await self.client.getch_team(data['teamId'])
+        except:
+            return
+        channel = team.get_channel(data['channelId'])
+        if channel is None:
+            return
+
+        content_id = data['contentId']
+
+        if channel.type is ChannelType.announcement:
+            old_content = channel.get_announcement(content_id)
+            data['announcement']['updatedBy'] = data.get('updatedBy')
+            new_content = Announcement(data=data['announcement'], channel=channel, state=self._state)
+            channel._announcements[new_content.id] = new_content
+            self.client.dispatch('raw_announcement_edit', channel, new_content)
+
+            if old_content is not None:
+                self.client.dispatch('announcement_edit', old_content, new_content)
+
+        elif channel.type is ChannelType.doc:
+            old_content = channel.get_doc(int(content_id))
+            data['doc']['updatedBy'] = data.get('updatedBy')
+            new_content = Doc(data=data['doc'], channel=channel, state=self._state)
+            channel._docs[new_content.id] = new_content
+            self.client.dispatch('raw_doc_edit', channel, new_content)
+
+            if old_content is not None:
+                self.client.dispatch('doc_edit', old_content, new_content)
+
+        elif channel.type is ChannelType.forum:
+            old_content = channel.get_topic(int(content_id))
+            data['thread']['updatedBy'] = data.get('updatedBy')
+            new_content = ForumTopic(data=data['thread'], channel=channel, state=self._state)
+            channel._topics[new_content.id] = new_content
+            self.client.dispatch('raw_forum_topic_edit', channel, new_content)
+
+            if old_content is not None:
+                self.client.dispatch('forum_topic_edit', old_content, new_content)
+
+        elif channel.type is ChannelType.list:
+            old_content = channel.get_item(content_id)
+            data['listItem']['updatedBy'] = data.get('updatedBy')
+            new_content = ListItem(data=data['listItem'], channel=channel, state=self._state)
+            channel._items[new_content.id] = new_content
+            self.client.dispatch('raw_list_item_edit', channel, new_content)
+
+            if old_content is not None:
+                self.client.dispatch('list_item_edit', old_content, new_content)
+
+        elif channel.type is ChannelType.media:
+            old_content = channel.get_media(int(content_id))
+            data['media']['updatedBy'] = data.get('updatedBy')
+            new_content = Media(data=data['media'], channel=channel, state=self._state)
+            channel._medias[new_content.id] = new_content
+            self.client.dispatch('raw_media_edit', channel, new_content)
+
+            if old_content is not None:
+                self.client.dispatch('media_edit', old_content, new_content)
+
     async def TEAM_CHANNEL_CONTENT_REPLY_CREATED(self, data):
         try:
             team = await self.client.getch_team(data['teamId'])
@@ -660,6 +722,14 @@ class UserbotWebSocketEventParsers:
                 reply.deleted_by = deleted_by
                 self.client.dispatch('media_reply_delete', reply)
                 parent._replies.pop(reply.id)
+
+    #async def ChatMessageReactionAdded(self, data):
+    #    self.client.dispatch('raw_reaction_add', data)
+
+    #    message = self._state._get_message(data['message']['id'])
+    #    if message:
+    #        emoji = Emoji(data=data['reaction']['customReaction'])
+    #        self.client.dispatch('reaction_add', emoji, message)
 
 
 class GuildedWebSocket(GuildedWebSocketBase):
