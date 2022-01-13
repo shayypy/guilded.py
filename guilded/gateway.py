@@ -257,7 +257,10 @@ class UserbotWebSocketEventParsers:
             except:
                 pass
             else:
-                self._state.add_to_team_channel_cache(channel)
+                if isinstance(channel, TeamChannel):
+                    self._state.add_to_team_channel_cache(channel)
+                elif isinstance(channel, DMChannel):
+                    self._state.add_to_dm_channel_cache(channel)
 
         if teamId is not None:
             if channel:
