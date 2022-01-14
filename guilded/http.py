@@ -815,16 +815,8 @@ class UserbotHTTPClient(HTTPClientBase):
         }
         return self.request(UserbotRoute('GET', f'/channels/{channel_id}/media'), params=params)
 
-    def create_media(self, channel_id: str, *, file_type, title, src_data, description=None, game_id=None, tags=None):
-        route = UserbotRoute('POST', f'/channels/{channel_id}/media')
-        payload = {
-            'type': str(file_type),
-            'title': title,
-            'description': description or '',
-            'tags': tags or [],
-            **src_data
-        }
-        return self.request(route, json=payload)
+    def create_media(self, channel_id: str, *, payload):
+        return self.request(UserbotRoute('POST', f'/channels/{channel_id}/media'), json=payload)
 
     def move_media(self, channel_id: str, media_id: int, to_channel_id: str):
         route = UserbotRoute('PUT', f'/channels/{channel_id}/media/{media_id}/move')

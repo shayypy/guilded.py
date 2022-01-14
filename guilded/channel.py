@@ -1449,6 +1449,32 @@ class Media(HasContentMixin):
     def __eq__(self, other):
         return isinstance(other, Media) and self.id == other.id and self.url == other.url
 
+    def _update(self, data):
+        try:
+            self.title = data['title']
+        except KeyError:
+            pass
+        try:
+            self.description = data['description']
+        except KeyError:
+            pass
+        try:
+            self.tags = data['tags']
+        except KeyError:
+            pass
+        try:
+            self.url = data['src']
+        except KeyError:
+            pass
+        try:
+            self.type = getattr(FileType, data['type'])
+        except (KeyError, AttributeError):
+            pass
+        try:
+            self.game = Game(game_id=data['gameId'])
+        except KeyError:
+            pass
+
     @property
     def author(self):
         """Optional[:class:`.Member`]: The member that created this media."""
@@ -1539,7 +1565,81 @@ class Media(HasContentMixin):
 
         Delete this media post.
         """
-        return await self._state.delete_media(self.id)
+        await self._state.delete_media(self.channel.id, self.id)
+
+    async def edit(self, *,
+        title: str = None,
+        description: str = None,
+        file: Optional[File] = None,
+        youtube_url: Optional[str] = None,
+        tags: List[str] = None,
+        game: Optional[Game] = None,
+    ):
+        """|coro|
+
+        Edit this media post.
+
+        All parameters are optional.
+
+        Parameters
+        -----------
+        title: :class:`str`
+            The title of the media.
+        description: :class:`str`
+            The description of the media. Does not accept markdown or any
+            inline content.
+        file: :class:`.File`
+            The file to upload.
+        youtube_url: :class:`str`
+            The YouTube embed URL to use (``https://www.youtube.com/embed/...``).
+        game: :class:`.Game`
+            The game associated with the media.
+        tags: List[:class:`str`]
+            The tags on the media.
+
+        Returns
+        --------
+        :class:`.Media`
+            The newly updated media.
+        """
+
+        if file and youtube_url:
+            raise ValueError('Must not specify both file and youtube_url')
+
+        payload = {
+            'id': self.id,
+            'title': title or self.title,
+            'description': description or self.description,
+        }
+
+        if tags is not None:
+            payload['tags'] = tags
+        else:
+            payload['tags'] = self.tags
+
+        if file:
+            file.set_media_type(MediaType.media_channel_upload)
+            await file._upload(self._state)
+            payload['src'] = file.url
+            payload['type'] = file.file_type.value
+        elif youtube_url:
+            data = await self._state.upload_third_party_media(youtube_url)
+            payload['src'] = data['url']
+            payload['additionalInfo'] = {'externalVideoSrc': youtube_url}
+            payload['type'] = FileType.video.value
+        else:
+            payload['src'] = self.url
+            payload['type'] = self.type.value
+
+        if game is not None:
+            payload['gameId'] = game.id
+        elif self.game:
+            payload['gameId'] = self.game.id
+
+        await self._state.create_media(self.channel.id, payload=payload)
+
+        self._update(payload)
+        return self
 
     async def read(self):
         """|coro|
@@ -1976,7 +2076,7 @@ class MediaChannel(guilded.abc.TeamChannel):
         file: Optional[File] = None,
         youtube_url: Optional[str] = None,
         tags: List[str] = None,
-        game: Optional[Game] = None
+        game: Optional[Game] = None,
     ) -> Media:
         """|coro|
 
@@ -1995,7 +2095,9 @@ class MediaChannel(guilded.abc.TeamChannel):
             The YouTube embed URL to use (``https://www.youtube.com/embed/...``).
             Either this or ``file`` is required.
         game: Optional[:class:`.Game`]
-            The game to be associated with this media.
+            The game associated with the media.
+        tags: List[:class:`str`]
+            The tags on the media.
 
         Returns
         --------
@@ -2007,27 +2109,27 @@ class MediaChannel(guilded.abc.TeamChannel):
         if not file and not youtube_url:
             raise ValueError('Must specify either file or youtube_url')
 
-        src_data = {}
-        file_type = FileType.image
+        payload = {
+            'title': title,
+            'description': description or '',
+            'tags': tags or [],
+        }
+
         if file:
             file.set_media_type(MediaType.media_channel_upload)
             await file._upload(self._state)
-            src_data = {'src': file.url}
-            file_type = file.file_type
+            payload['src'] = file.url
+            payload['type'] = file.file_type.value
         elif youtube_url:
             data = await self._state.upload_third_party_media(youtube_url)
-            src_data = {'src': data['url'], 'additionalInfo': {'externalVideoSrc': youtube_url}}
-            file_type = FileType.video
+            payload['src'] = data['url']
+            payload['additionalInfo'] = {'externalVideoSrc': youtube_url}
+            payload['type'] = FileType.video.value
 
-        data = await self._state.create_media(
-            self.id,
-            file_type=file_type,
-            title=title,
-            src_data=src_data,
-            description=description,
-            tags=(tags or []),
-            game_id=(game.id if game else None)
-        )
+        if game is not None:
+            payload['gameId'] = game.id
+
+        data = await self._state.create_media(self.id, payload=payload)
         media = Media(data=data, channel=self, game=game, state=self._state)
         return media
 
