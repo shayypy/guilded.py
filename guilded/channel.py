@@ -1418,10 +1418,11 @@ class Media(HasContentMixin):
 
         self.public: bool = data.get('isPublic', False)
         self.url: str = data.get('src')
+
+        thumbnail = None
         if data.get('srcThumbnail'):
-            self.thumbnail: Optional[Asset] = Asset('mediaThumbnail', state=self._state, data={'mediaThumbnail': data['srcThumbnail']})
-        else:
-            self.thumbnail: Optional[Asset] = None
+            thumbnail = Asset._from_media_thumbnail(state, data['srcThumbnail'])
+        self.thumbnail: Optional[Asset] = thumbnail
 
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))

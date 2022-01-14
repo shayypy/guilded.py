@@ -335,6 +335,17 @@ class Asset(AssetMixin):
             key=name,
         )
 
+    @classmethod
+    def _from_media_thumbnail(cls, state, url: str):
+        image_hash = strip_cdn_url(url)
+        return cls(
+            state,
+            url=url,
+            key=image_hash,
+        )
+        # We use the original URL here because in testing I could not find an example
+        # of a media thumbnail. It may be an old property that is no longer ever populated
+
     def __str__(self) -> str:
         return self._url
 
