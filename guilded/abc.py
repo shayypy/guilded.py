@@ -629,11 +629,14 @@ class TeamChannel(metaclass=abc.ABCMeta):
 
     @property
     def share_url(self) -> str:
-        type_ = 'chat'
-        if self.type is not None:
-            # any type will work for all types of share URLs, but we try
-            # to return the 'proper' value here just to be fancy
+        # For channel links, any real type will work in the client, but
+        # linking to individual content requires the proper type string
+        if hasattr(self, '_shareable_content_type'):
+            type_ = self._shareable_content_type
+        elif self.type is not None:
             type_ = self.type.value
+        else:
+            type_ = 'chat'
 
         return f'https://guilded.gg//groups/{self.group_id}/channels/{self.id}/{type_}'
 

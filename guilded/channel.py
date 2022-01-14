@@ -404,6 +404,7 @@ class DocsChannel(guilded.abc.TeamChannel):
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.docs
+        self._shareable_content_type = 'docs'
         self._docs = {}
 
     @property
@@ -727,6 +728,7 @@ class ForumChannel(guilded.abc.TeamChannel):
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.forum
+        self._shareable_content_type = 'forums'
         self._topics = {}
 
     @property
@@ -960,6 +962,10 @@ class DMChannel(guilded.abc.Messageable):
             self.last_message = message
 
     @property
+    def share_url(self) -> str:
+        return f'https://guilded.gg/chat/{self.id}'
+
+    @property
     def users(self):
         return list(self._users.values())
 
@@ -1182,6 +1188,7 @@ class AnnouncementChannel(guilded.abc.TeamChannel):
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.announcements
+        self._shareable_content_type = 'announcements'
         self._announcements = {}
 
     @property
