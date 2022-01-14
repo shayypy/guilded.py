@@ -823,8 +823,8 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         The reply's ID.
     content: :class:`str`
         The reply's content.
-    parent: Union[:class:`Announcement`, :class:`Doc`, :class:`ForumTopic`]
-        The parent that the reply is under.
+    parent: Union[:class:`.Announcement`, :class:`.Doc`, :class:`.ForumTopic`, :class:`.Media`]
+        The content that the reply is a child of.
     created_at: :class:`datetime.datetime`
         When the reply was created.
     edited_at: Optional[:class:`datetime.datetime`]
@@ -837,16 +837,14 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         super().__init__()
         self._state = state
         self.parent = parent
-        self.channel = parent.channel
-        self.group = parent.group
-        self.team = parent.team
 
-        self.id: int = data['id']
+        self.id: int = int(data['id'])
         self.content: str = self._get_full_content(data['message'])
 
         self.author_id: str = data.get('createdBy')
-        self.created_by_bot_id: Optional[int] = data.get('createdByBotId')
+        self.created_by_bot_id: Optional[str] = data.get('createdByBotId')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.edited_by_id: Optional[str] = data.get('updatedBy')
         self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
         self.deleted_by: Optional[User] = None
 
@@ -866,15 +864,69 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
     @property
     def author(self) -> Optional[User]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        reply, if they are cached.
-        """
+        reply, if they are cached."""
         return self.team.get_member(self.author_id)
+
+    @property
+    def edited_by(self) -> Optional[User]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that last modified
+        the reply, if they exist and are cached."""
+        return self.team.get_member(self.edited_by_id)
 
     @property
     def replied_to(self):
         if self.replied_to_id:
             return self.parent.get_reply(self.replied_to_id)
         return None
+
+    @property
+    def channel(self) -> TeamChannel:
+        """:class:`~.abc.TeamChannel`: The channel that the reply is in."""
+        return self.parent.channel
+
+    @property
+    def group(self):
+        """:class:`.Group`: The group that the reply is in."""
+        return self.parent.group
+
+    @property
+    def team(self):
+        """:class:`.Team`: The team that the reply is in."""
+        return self.parent.team
+
+    @classmethod
+    def _copy(cls, reply):
+        self = cls.__new__(cls)
+
+        self.parent = reply.parent
+        self.id: int = reply.id
+        self.content: str = reply.content
+        self.author_id: str = reply.author_id
+        self.created_by_bot_id: Optional[str] = reply.created_by_bot_id
+        self.created_at: datetime.datetime = reply.created_at
+        self.edited_by_id: Optional[str] = reply.edited_by_id
+        self.edited_at: Optional[datetime.datetime] = reply.edited_at
+        self.deleted_by: Optional[User] = reply.deleted_by
+        self.replied_to_id: Optional[int] = reply.replied_to_id
+        self.replied_to_author_id: Optional[str] = reply.replied_to_author_id
+
+        return self
+
+    def _update(self, data):
+        try:
+            self.content = self._get_full_content(data['message'])
+        except KeyError:
+            pass
+
+        try:
+            self.edited_at = ISO8601(data['editedAt'])
+        except KeyError:
+            pass
+
+        try:
+            self.edited_by_id = data['updatedBy']
+        except KeyError:
+            pass
 
     async def add_reaction(self, emoji):
         """|coro|

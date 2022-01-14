@@ -68,7 +68,7 @@ from .message import Message
 from .presence import Presence
 from .role import Role
 from .user import Member, User
-from .utils import ISO8601
+from .utils import find, ISO8601
 
 log = logging.getLogger(__name__)
 
@@ -556,6 +556,35 @@ class UserbotWebSocketEventParsers:
 
         content_id = data['contentId']
 
+        if data.get('reply'):
+            # This event pertains to a content reply, not top-level content
+            reply_id = data['reply']['id']
+            data['reply']['updatedBy'] = data.get('updatedBy')
+
+            if channel.type is ChannelType.forum:
+                # Interestingly, this is the only reply type that uses this event name (TEAM_CHANNEL_CONTENT_UPDATED)
+                # when updated instead of TEAM_CHANNEL_CONTENT_REPLY_UPDATED
+
+                reply_id = int(reply_id)
+                content = channel.get_topic(int(content_id))
+                if content is None:
+                    return
+
+                old_reply = content.get_reply(reply_id)
+                if old_reply is None:
+                    new_reply = ForumReply(state=self._state, data=data['reply'], parent=content)
+                else:
+                    new_reply = ForumReply._copy(old_reply)
+                    new_reply._update(data['reply'])
+
+                content._replies[new_reply.id] = new_reply
+                self.client.dispatch('raw_forum_topic_reply_edit', new_reply)
+
+                if old_reply is not None:
+                    self.client.dispatch('forum_topic_reply_edit', old_reply, new_reply)
+
+            return
+
         if channel.type is ChannelType.announcement:
             old_content = channel.get_announcement(content_id)
             data['announcement']['updatedBy'] = data.get('updatedBy')
@@ -725,6 +754,67 @@ class UserbotWebSocketEventParsers:
                 reply.deleted_by = deleted_by
                 self.client.dispatch('media_reply_delete', reply)
                 parent._replies.pop(reply.id)
+
+    async def TEAM_CHANNEL_CONTENT_REPLY_UPDATED(self, data):
+        try:
+            team = await self.client.getch_team(data['teamId'])
+        except:
+            return
+        channel = team.get_channel(data['channelId'])
+        if channel is None:
+            return
+
+        reply_id = data['contentId']
+
+        # For some reason, Guilded does not provide the ID of the parent content,
+        # so we have to find it manually due to how we cache replies
+        find_reply_parent = lambda content_list: find(lambda content: reply_id in content._replies, content_list)
+        # Because we use the existing reply cache in order to find the parent, there
+        # is never a scenario in which we will have new data and not the old reply,
+        # so dispatching a raw_x_reply_edit event does not really make sense
+
+        if channel.type is ChannelType.announcement:
+            content = find_reply_parent(channel.announcements)
+            if content is None:
+                return
+
+            old_reply = content.get_reply(reply_id)
+            new_reply = AnnouncementReply._copy(old_reply)
+            new_reply._update(data)
+            content._replies[new_reply.id] = new_reply
+
+            if old_reply is not None:
+                self.client.dispatch('announcement_reply_edit', old_reply, new_reply)
+
+        elif channel.type is ChannelType.doc:
+            reply_id = int(reply_id)
+            content = find_reply_parent(channel.docs)
+            if content is None:
+                return
+
+            old_reply = content.get_reply(reply_id)
+            new_reply = DocReply._copy(old_reply)
+            new_reply._update(data)
+            content._replies[new_reply.id] = new_reply
+
+            if old_reply is not None:
+                self.client.dispatch('doc_reply_edit', old_reply, new_reply)
+
+        elif channel.type is ChannelType.media:
+            reply_id = int(reply_id)
+            content = find_reply_parent(channel.medias)
+            if content is None:
+                return
+
+            old_reply = content.get_reply(reply_id)
+            new_reply = MediaReply._copy(old_reply)
+            new_reply._update(data)
+            content._replies[new_reply.id] = new_reply
+
+            if old_reply is not None:
+                self.client.dispatch('media_reply_edit', old_reply, new_reply)
+
+        # Forum topic replies are not accounted for here because their updates are sent in the TEAM_CHANNEL_CONTENT_UPDATED event
 
     #async def ChatMessageReactionAdded(self, data):
     #    self.client.dispatch('raw_reaction_add', data)
