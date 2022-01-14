@@ -437,7 +437,7 @@ class User(metaclass=abc.ABCMeta):
         self.bio: str = (data.get('aboutInfo') or {}).get('bio') or ''
         self.tagline: str = (data.get('aboutInfo') or {}).get('tagLine') or ''
         self.presence: Presence = Presence.from_value(data.get('userPresenceStatus')) or None
-        status = data.get('userStatus', {})
+        status = data.get('userStatus') or {}
         if status.get('content'):
             self.status: Optional[Activity] = Activity.build(status['content'])
         else:
