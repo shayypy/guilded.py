@@ -51,7 +51,7 @@ DEALINGS IN THE SOFTWARE.
 
 import asyncio
 import datetime
-from typing import Optional, List, Union
+from typing import Any, Dict, Optional, List, Union
 
 from .abc import TeamChannel, User
 
@@ -59,6 +59,7 @@ from .asset import Asset
 from .channel import ChannelType, ChatChannel, DocsChannel, ForumChannel, Thread
 from .errors import NotFound, InvalidArgument
 from .emoji import Emoji
+from .enums import try_enum, TeamFlairType
 from .flowbot import FlowBot
 from .gateway import UserbotGuildedWebSocket
 from .group import Group
@@ -70,6 +71,7 @@ __all__ = (
     'Guild',
     'SocialInfo',
     'Team',
+    'TeamFlair',
 )
 
 
@@ -102,6 +104,26 @@ class SocialInfo:
             # set dynamically so as to futureproof new social 
             # media connections being available
             setattr(self, social, name)
+
+
+class TeamFlair:
+    """Represents a flair on a :class:`.Team`\.
+
+    Attributes
+    -----------
+    type: :class:`.TeamFlairType`
+        The type of flair.
+    amount: Optional[:class:`int`]
+        For :attr:`.TeamFlairType.hot`, the number of members who joined the
+        team in the last month.
+    """
+
+    def __init__(self, *, data: Dict[str, int]):
+        self.type: TeamFlairType = try_enum(TeamFlairType, data['id'])
+        self.amount: Optional[int] = data.get('amount')
+
+    def __repr__(self) -> str:
+        return f'<TeamFlair type={self.type!r} amount={self.amount!r}>'
 
 
 class Team:
@@ -157,6 +179,7 @@ class Team:
     base_group: Optional[:class:`Group`]
         The team's base or "home" group.
     """
+
     def __init__(self, *, state, data, ws=None):
         self._state = state
         data = data.get('team', data)
@@ -173,6 +196,7 @@ class Team:
         self._members = {}
         self._roles = {}
         self._flowbots = {}
+        self._flairs = {}
 
         self._base_role: Optional[Role] = None
         self._bot_role: Optional[Role] = None
@@ -185,6 +209,10 @@ class Team:
         self.description: str = data.get('description') or ''
         self.discord_guild_id: str = data.get('discordGuildId')
         self.discord_guild_name: str = data.get('discordServerName')
+
+        for flair_data in data.get('flair') or []:
+            flair = TeamFlair(data=flair_data)
+            self._flairs[flair.type.value] = flair
 
         self.base_group: Optional[Group] = None
         for group_data in data.get('groups') or []:
@@ -347,6 +375,11 @@ class Team:
     def bot_role(self) -> Optional[Role]:
         """Optional[:class:`.Role`]: The ``Bot`` role for this team."""
         return self._bot_role or get(self.roles, bot=True)
+
+    @property
+    def flairs(self) -> List[TeamFlair]:
+        """List[:class:`.TeamFlair`]: The cached list of flairs that this team has."""
+        return list(self._flairs.values())
 
     @property
     def icon(self) -> Optional[Asset]:

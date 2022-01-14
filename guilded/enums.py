@@ -246,6 +246,15 @@ class FlowActionType(Enum):
     remove_role = 'RemoveRoleFromMember'
 
 
+class TeamFlairType(Enum):
+    hot = 1
+    veteran = 3
+    popular = 6
+
+    def __str__(self):
+        return self.name
+
+
 T = TypeVar('T')
 
 
