@@ -1561,7 +1561,7 @@ class ListItemNote(HasContentMixin):
 
 
 class ListItem(HasContentMixin):
-    """Represents an item in a :class:`ListChannel`.
+    """Represents an item in a :class:`.ListChannel`.
 
     Attributes
     -----------
@@ -1582,7 +1582,7 @@ class ListItem(HasContentMixin):
         at the bottom of the list visually.
     has_note: :class:`bool`
         Whether the item has a note.
-    note: Optional[:class:`ListItemNote`]
+    note: Optional[:class:`.ListItemNote`]
         The note of an item. If this instance was not obtained via creation,
         then this attribute must first be fetched with :meth:`.fetch_note`.
     note_created_by_bot_id: Optional[:class:`int`]
@@ -1598,6 +1598,7 @@ class ListItem(HasContentMixin):
     deleted_at: Optional[:class:`datetime.datetime`]
         When the item was deleted.
     """
+
     def __init__(self, *, state, data, channel):
         super().__init__()
         self._state = state
@@ -1647,8 +1648,7 @@ class ListItem(HasContentMixin):
     @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        item, if they are cached.
-        """
+        item, if they are cached."""
         return self.team.get_member(self.author_id)
 
     @property
@@ -1664,22 +1664,19 @@ class ListItem(HasContentMixin):
     @property
     def updated_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that last updated
-        the item, if they are cached.
-        """
+        the item, if they are cached."""
         return self.team.get_member(self.updated_by_id)
 
     @property
     def completed_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that marked the
-        the item as completed, if applicable and they are cached.
-        """
+        the item as completed, if applicable and they are cached."""
         return self.team.get_member(self.completed_by_id)
 
     @property
     def deleted_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that deleted the
-        item, if that information is available and they are cached.
-        """
+        item, if that information is available and they are cached."""
         return self._deleted_by or self.team.get_member(self.deleted_by_id)
 
     @property
@@ -1689,23 +1686,27 @@ class ListItem(HasContentMixin):
     @property
     def assigned_to(self) -> List[Member]:
         """List[:class:`.Member`]: The members that the item is assigned to,
-        designated by mentions in :attr:`message`.
-        """
-        members = []
+        designated by mentions in :attr:`message`."""
+
+        members = set()
         for assigned in self._assigned_to:
             id_ = assigned.get('mentionId')
             if assigned.get('mentionType') == 'person':
-                members.append(self.team.get_member(id_))
+                member = self.team.get_member(id_)
+                if member:
+                    members.add(member)
+            elif assigned.get('mentionType') == 'role':
+                role = self.team.get_role(int(id_))
+                if role:
+                    for member in role.members:
+                        members.add(member)
 
-            # TODO: get members of role if mentionType == role
-
-        return members
+        return list(members)
 
     @property
     def parent(self):
         """Optional[:class:`.ListItem`]: The item that this item is a child of,
-        if it exists and is cached.
-        """
+        if it exists and is cached."""
         return self.channel.get_item(self.parent_id)
 
     @property
