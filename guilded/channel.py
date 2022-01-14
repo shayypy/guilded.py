@@ -364,6 +364,25 @@ class Doc(HasContentMixin):
         """Optional[:class:`.DocReply`]: Get a reply by its ID."""
         return self._replies.get(id)
 
+    async def fetch_replies(self):
+        """|coro|
+
+        |onlyuserbot|
+
+        Fetch the replies to this doc.
+
+        Returns
+        --------
+        List[:class:`.DocReply`]
+        """
+        replies = []
+        data = await self._state.get_content_replies('doc', self.id)
+        for reply_data in data:
+            reply = DocReply(data=reply_data, parent=self, state=self._state)
+            replies.append(reply)
+
+        return replies
+
     async def fetch_reply(self, id: int):
         """|coro|
 
