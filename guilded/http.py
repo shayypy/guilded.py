@@ -367,8 +367,7 @@ class UserbotHTTPClient(HTTPClientBase):
     def valid_ISO8601(self, timestamp):
         """Manually construct a datetime's ISO8601 representation so that
         Guilded will accept it. Guilded rejects isoformat()'s 6-digit
-        microseconds and UTC offset (+00:00).
-        """
+        microseconds and UTC offset (+00:00)."""
         # Valid example: 2021-10-15T23:58:44.537Z
         return timestamp.strftime('%Y-%m-%dT%H:%M:%S.000Z')
 
@@ -759,7 +758,7 @@ class UserbotHTTPClient(HTTPClientBase):
             'maxItems': limit,
         }
         if before is not None:
-            params['beforeDate'] = before.isoformat()
+            params['beforeDate'] = self.valid_ISO8601(before)
 
         return self.request(UserbotRoute('GET', f'/channels/{channel_id}/docs'), params=params)
 
@@ -801,6 +800,11 @@ class UserbotHTTPClient(HTTPClientBase):
 
     def delete_announcement(self, channel_id: str, announcement_id: str):
         return self.request(UserbotRoute('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}'))
+
+    def update_announcement(self, channel_id: str, announcement_id: str, *, payload: Dict[str, Any]):
+        route = UserbotRoute('PUT', f'/channels/{channel_id}/announcements/{announcement_id}')
+        payload['content'] = self.compatible_content(payload['content'])
+        return self.request(route, json=payload)
 
     def get_media(self, channel_id: str, media_id: int):
         return self.request(UserbotRoute('GET', f'/channels/{channel_id}/media/{media_id}'))
@@ -992,7 +996,7 @@ class UserbotHTTPClient(HTTPClientBase):
         payload = {'memberId': user_id, 'teamId': team_id, 'reason': reason or ''}
 
         if isinstance(after, datetime.datetime):
-            payload['afterDate'] = after.isoformat()
+            payload['afterDate'] = self.valid_ISO8601(after)
         elif after is not None:
             raise TypeError('after must be type datetime.datetime, not %s' % after.__class__.__name__)
         else:
@@ -1044,9 +1048,9 @@ class UserbotHTTPClient(HTTPClientBase):
         if created_by is not None:
             params['createdBy'] = created_by.id
         if when_upper is not None:
-            params['when[upperValue]'] = when_upper.isoformat()
+            params['when[upperValue]'] = self.valid_ISO8601(when_upper)
         if when_lower is not None:
-            params['when[lowerValue]'] = when_lower.isoformat()
+            params['when[lowerValue]'] = self.valid_ISO8601(when_lower)
         if created_before is not None:
             params['beforeId'] = created_before.id
 

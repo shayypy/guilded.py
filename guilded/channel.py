@@ -584,7 +584,7 @@ class ForumTopic(HasContentMixin):
         return self.title
 
     def __repr__(self):
-        return f'<ForumTopic id={self.id!r} title={self.title!r} forum={self.forum!r}>'
+        return f'<ForumTopic id={self.id!r} title={self.title!r} channel={self.channel!r}>'
 
     @property
     def game(self) -> Game:
@@ -618,7 +618,7 @@ class ForumTopic(HasContentMixin):
         replies = []
         data = await self._state.get_forum_topic_replies(self.channel.id, self.id, limit=limit)
         for reply_data in data.get('threadReplies', data) or []:
-            reply = ForumReply(data=reply_data, forum=self.forum, state=self._state)
+            reply = ForumReply(data=reply_data, parent=self, state=self._state)
             replies.append(reply)
 
         return replies
@@ -633,7 +633,7 @@ class ForumTopic(HasContentMixin):
         :class:`.ForumReply`
         """
         data = await self._state.get_content_reply('forums', self.channel.id, self.id, id)
-        reply = ForumReply(data=data['metadata']['reply'], forum=self.forum, state=self._state)
+        reply = ForumReply(data=data['metadata']['reply'], parent=self, state=self._state)
         return reply
 
     async def reply(self, *content, **kwargs) -> int:
@@ -985,7 +985,7 @@ class DMChannel(guilded.abc.Messageable):
 
 
 class Announcement(HasContentMixin):
-    """Represents an announcement in an :class:`AnnouncementChannel`.
+    """Represents an announcement in an :class:`.AnnouncementChannel`.
 
     Attributes
     -----------
@@ -1119,6 +1119,26 @@ class Announcement(HasContentMixin):
         """
         await self._state.delete_announcement(self.channel.id, self.id)
 
+    async def edit(self, *content, **kwargs):
+        """|coro|
+
+        Edit this announcement.
+
+        Parameters
+        -----------
+        \*content: Any
+            The content of the announcement.
+        title: :class:`str`
+            The title of the announcement.
+        """
+
+        payload = {
+            'title': kwargs.pop('title', self.title),
+            'content': content,
+        }
+
+        await self._state.update_announcement(self.channel.id, self.id, payload=payload)
+
     async def add_reaction(self, emoji):
         """|coro|
 
@@ -1142,6 +1162,23 @@ class Announcement(HasContentMixin):
             The emoji to remove.
         """
         await self._state.remove_self_content_reaction(self.channel.type.value, self.id, emoji.id)
+
+    async def fetch_replies(self):
+        """|coro|
+
+        Fetch the replies to this announcement.
+
+        Returns
+        --------
+        List[:class:`.AnnouncementReply`]
+        """
+        replies = []
+        data = await self._state.get_content_replies('announcement', self.id)
+        for reply_data in data:
+            reply = AnnouncementReply(data=reply_data, parent=self, state=self._state)
+            replies.append(reply)
+
+        return replies
 
     async def fetch_reply(self, id: int):
         """|coro|
