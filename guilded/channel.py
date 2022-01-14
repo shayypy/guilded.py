@@ -1529,6 +1529,25 @@ class Media(HasContentMixin):
         """Optional[:class:`.MediaReply`]: Get a reply by its ID."""
         return self._replies.get(id)
 
+    async def fetch_replies(self):
+        """|coro|
+
+        |onlyuserbot|
+
+        Fetch the replies to this media post.
+
+        Returns
+        --------
+        List[:class:`.MediaReply`]
+        """
+        replies = []
+        data = await self._state.get_content_replies(self.channel.content_type, self.id)
+        for reply_data in data:
+            reply = MediaReply(data=reply_data, parent=self, state=self._state)
+            replies.append(reply)
+
+        return replies
+
     async def fetch_reply(self, id: int):
         """|coro|
 
