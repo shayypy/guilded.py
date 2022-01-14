@@ -696,6 +696,11 @@ class UserbotHTTPClient(HTTPClientBase):
         route = UserbotRoute('DELETE', f'/channels/{channel_id}/forums/{topic_id}')
         return self.request(route)
 
+    def update_forum_topic(self, channel_id: str, topic_id: int, *, payload: Dict[str, Any]):
+        route = UserbotRoute('PUT', f'/channels/{channel_id}/forums/{topic_id}')
+        payload['message'] = self.compatible_content(payload.pop('content'))
+        return self.request(route, json=payload)
+
     def move_forum_topic(self, channel_id: str, topic_id: int, to_channel_id: str):
         route = UserbotRoute('PUT', f'/channels/{channel_id}/forums/{topic_id}/move')
         payload = {'moveToChannelId': to_channel_id}

@@ -687,6 +687,32 @@ class ForumTopic(HasContentMixin):
         """
         await self._state.delete_forum_topic(self.channel.id, self.id)
 
+    async def edit(self, *content, **kwargs):
+        """|coro|
+
+        |onlyuserbot|
+
+        Edit this topic.
+
+        Parameters
+        -----------
+        \*content: Any
+            The topic's content.
+        title: :class:`str`
+            The topic's title.
+        """
+
+        payload = {
+            'title': kwargs.pop('title', self.title),
+            'content': content,
+        }
+
+        data = await self._state.update_forum_topic(self.channel.id, self.id, payload=payload)
+        try:
+            self.edited_at = ISO8601(data['editedAt'])
+        except KeyError:
+            pass
+
     async def move(self, to):
         """|coro|
 
