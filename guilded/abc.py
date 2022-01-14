@@ -119,7 +119,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`, :class:`.Member`]
+        \*content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`, :class:`.Member`]
             An argument list of the message content, passed in the order that
             each element should display in the message.
         reply_to: List[:class:`.ChatMessage`]
@@ -968,3 +968,15 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         """
         kwargs['reply_to'] = self
         return await self.parent.reply(*content, **kwargs)
+
+    async def edit(self, *content):
+        """|coro|
+
+        Edit this reply.
+
+        Parameters
+        -----------
+        \*content: Any
+            The content of the reply.
+        """
+        await self._state.update_content_reply(self._content_type, self.parent.id, self.id, content=content)

@@ -1224,6 +1224,12 @@ class UserbotHTTPClient(HTTPClientBase):
         }
         return self.request(UserbotRoute('DELETE', f'/content/{content_type}/{content_id}/replies/{reply_id}'), json=payload)
 
+    def update_content_reply(self, content_type: str, content_id: str, reply_id: int, *, content):
+        payload = {
+            'message': self.compatible_content(content),
+        }
+        return self.request(UserbotRoute('PUT', f'/content/{content_type}/{content_id}/replies/{reply_id}'), json=payload)
+
     # media.guilded.gg
 
     def upload_file(self, file):

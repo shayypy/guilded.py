@@ -346,7 +346,7 @@ class Doc(HasContentMixin):
 
         Parameters
         ------------
-        content: Any
+        \*content: Any
             The content to create the reply with.
         reply_to: Optional[:class:`.DocReply`]
             An existing reply to reply to.
