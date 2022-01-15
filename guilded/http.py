@@ -881,6 +881,22 @@ class UserbotHTTPClient(HTTPClientBase):
         }
         return self.request(UserbotRoute('PUT', f'/channels/{channel_id}/seen'), json=payload)
 
+    def get_availabilities(self, channel_id: str):
+        return self.request(UserbotRoute('GET', f'/channels/{channel_id}/availability'))
+
+    def create_availability(self, channel_id: str, *, start: datetime.datetime, end: datetime.datetime):
+        payload = {
+            'startDate': self.valid_ISO8601(start),
+            'endDate': self.valid_ISO8601(end),
+        }
+        return self.request(UserbotRoute('POST', f'/channels/{channel_id}/availability'), json=payload)
+
+    def update_availability(self, channel_id: str, availability_id: int, *, payload: Dict[str, datetime.datetime]):
+        return self.request(UserbotRoute('PUT', f'/channels/{channel_id}/availability/{availability_id}'), json=payload)
+
+    def delete_availability(self, channel_id: str, availability_id: int):
+        return self.request(UserbotRoute('DELETE', f'/channels/{channel_id}/availability/{availability_id}'))
+
     # /reactions
 
     def add_content_reaction(self, content_type: str, content_id, emoji_id: int, *, reply: bool = False):
@@ -1303,6 +1319,8 @@ class UserbotHTTPClient(HTTPClientBase):
                 return channel.ListChannel(state=self, **data)
             elif ctype is channel.ChannelType.media:
                 return channel.MediaChannel(state=self, **data)
+            elif ctype is channel.ChannelType.scheduling:
+                return channel.SchedulingChannel(state=self, **data)
             elif ctype is channel.ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
         else:
@@ -1523,22 +1541,33 @@ class HTTPClient(HTTPClientBase):
 
     def create_channel(self, **data):
         channel_data = data.get('data', data)
+        if channel_data.get('type', '').lower() == 'dm':
+            return channel.DMChannel(state=self, **data)
+
         data['group'] = data.get('group')
         ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
-        if ctype is channel.ChannelType.chat:
-            try:
+        if ctype is channel.ChannelType.announcements:
+            return channel.AnnouncementChannel(state=self, **data)
+        elif ctype is channel.ChannelType.chat:
+            if 'threadMessageId' in channel_data:
                 # we assume here that only threads will have this attribute
                 # so from this we can reasonably know whether a channel is
-                # a thread or not
-                channel_data['threadMessageId']
-            except KeyError:
-                return channel.ChatChannel(state=self, **data)
-            else:
+                # a thread
                 return channel.Thread(state=self, **data)
+            else:
+                return channel.ChatChannel(state=self, **data)
+        elif ctype is channel.ChannelType.docs:
+            return channel.DocsChannel(state=self, **data)
+        elif ctype is channel.ChannelType.forum:
+            return channel.ForumChannel(state=self, **data)
+        elif ctype is channel.ChannelType.list:
+            return channel.ListChannel(state=self, **data)
+        elif ctype is channel.ChannelType.media:
+            return channel.MediaChannel(state=self, **data)
+        elif ctype is channel.ChannelType.scheduling:
+            return channel.SchedulingChannel(state=self, **data)
         elif ctype is channel.ChannelType.voice:
             return channel.VoiceChannel(state=self, **data)
-        else:
-            return None
 
     def create_message(self, **data):
         data['channel'] = data.get('channel')

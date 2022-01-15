@@ -59,17 +59,19 @@ import guilded.abc
 from .asset import Asset
 from .embed import Embed
 from .emoji import Emoji
+from .errors import InvalidArgument
 from .file import Attachment, File, FileType, MediaType
 #from .gateway import GuildedVoiceWebSocket
 from .message import HasContentMixin, Message, Link
 from .user import Member, User
-from .utils import ISO8601, parse_hex_number
+from .utils import get, ISO8601, parse_hex_number
 from .status import Game
 
 __all__ = (
     'Announcement',
     'AnnouncementChannel',
     'AnnouncementReply',
+    'Availability',
     'ChannelType',
     'ChatChannel',
     'DMChannel',
@@ -85,8 +87,9 @@ __all__ = (
     'ListChannel',
     'ListItem',
     'ListItemNote',
+    'SchedulingChannel',
     'Thread',
-    'VoiceChannel'
+    'VoiceChannel',
 )
 
 
@@ -2272,6 +2275,196 @@ class ListChannel(guilded.abc.TeamChannel):
         )
         listitem = ListItem(data=data, channel=self, state=self._state)
         return listitem
+
+
+class Availability:
+    """Represents an availability in a :class:`.SchedulingChannel`\.
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The availability's ID.
+    start: :class:`datetime.datetime`
+        When the availability starts.
+    end: :class:`datetime.datetime`
+        When the availability ends.
+    created_at: :class:`datetime.datetime`
+        When the availabilty was created.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the availabilty was updated.
+    channel: :class:`.SchedulingChannel`
+        The channel that the availability is in.
+    """
+    def __init__(self, *, state, data, channel):
+        self._state = state
+
+        self.channel: SchedulingChannel = channel
+        self.channel_id: str = data.get('channelId')
+        self.team_id: str = data.get('teamId')
+        self.user_id: str = data.get('userId')
+
+        self.id: int = data.get('id', data.get('availabilityId'))
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.start: datetime.datetime = ISO8601(data.get('startDate'))
+        self.end: datetime.datetime = ISO8601(data.get('endDate'))
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, Availability) and other.id == self.id
+
+    def __repr__(self) -> str:
+        return f'<Availability id={self.id!r} start={self.start!r} end={self.end!r} channel={self.channel!r}>'
+
+    @property
+    def team(self):
+        """:class:`.Team`: The team that the availability is in."""
+        return self.channel.team
+
+    @property
+    def group(self):
+        """Optional[:class:`.Group`]: The group that the availability is in."""
+        return self.channel.group
+
+    @property
+    def author(self):
+        """Optional[:class:`.Member`]: The member that created the availability, if they are cached."""
+        return self.team.get_member(self.user_id)
+
+    async def edit(self, *,
+        start: Optional[datetime.datetime] = None,
+        end: Optional[datetime.datetime] = None,
+    ):
+        """|coro|
+
+        |onlyuserbot|
+
+        Edit this availability.
+
+        All parameters are optional.
+
+        Parameter
+        ----------
+        start: :class:`datetime.datetime`
+            When the availability starts.
+            Time must be in a 30-minute interval (``minute`` must be 0 or 30).
+        end: :class:`datetime.datetime`
+            When the availability ends.
+            Time must be in a 30-minute interval (``minute`` must be 0 or 30).
+
+        Returns
+        --------
+        :class:`.Availability`
+            The newly edited availability.
+        """
+        payload = {
+            'startDate': start or self.start,
+            'endDate': end or self.end,
+        }
+        data = await self._state.update_availability(self.channel.id, self.id, payload=payload)
+        self.start = payload['startDate']
+        self.end = payload['endDate']
+        return self
+
+    async def delete(self):
+        """|coro|
+
+        |onlyuserbot|
+
+        Delete this availability.
+        """
+        await self._state.delete_availability(self.channel.id, self.id)
+
+
+class SchedulingChannel(guilded.abc.TeamChannel):
+    """Represents a scheduling channel in a :class:`.Team`\."""
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.scheduling
+        self._availabilities = {}
+
+    @property
+    def availabilities(self) -> List[Availability]:
+        """List[:class:`.Availability`]: The list of cached availabilities in this channel."""
+        return list(self._availabilities.values())
+
+    def get_availability(self, id) -> Optional[Availability]:
+        """Optional[:class:`.Availability`]: Get a cached availability in this channel."""
+        return self._availabilities.get(id)
+
+    async def getch_availability(self, id: str) -> Availability:
+        return self.get_availability(id) or await self.fetch_availability(id)
+
+    async def fetch_availability(self, id: int) -> Availability:
+        """|coro|
+
+        Fetch an availability in this channel.
+
+        .. note::
+
+            There is no endpoint to fetch a specific availability, so instead
+            this method filters :meth:`.fetch_availabilities` and raises
+            :exc:`InvalidArgument` if no availability was found.
+
+        Parameters
+        -----------
+        id: :class:`int`
+            The availability's ID.
+
+        Returns
+        --------
+        :class:`.Availability`
+
+        Raises
+        -------
+        InvalidArgument
+            No availability exists in this channel with the ID specified.
+        """
+        availabilities = await self.fetch_availabilities()
+        availability = get(availabilities, id=id)
+        if not availability:
+            raise InvalidArgument(f'No availability exists in this channel with the ID {id}.')
+        return availability
+
+    async def fetch_availabilities(self) -> List[Availability]:
+        """|coro|
+
+        Fetch all availabilities in this channel.
+
+        Returns
+        --------
+        List[:class:`.Availability`]
+        """
+        data = await self._state.get_availabilities(self.id)
+        availabilities = []
+        for availability_data in data:
+            availabilities.append(Availability(data=availability_data, channel=self, state=self._state))
+
+        return availabilities
+
+    async def create_availability(self, start: datetime.datetime, end: datetime.datetime) -> Availability:
+        """|coro|
+
+        Create an availability in this channel.
+
+        Parameters
+        -----------
+        start: :class:`datetime.datetime`
+            When the availability starts.
+            Time must be in a 30-minute interval (``minute`` must be 0 or 30).
+        end: :class:`datetime.datetime`
+            When the availability ends.
+            Time must be in a 30-minute interval (``minute`` must be 0 or 30).
+
+        Returns
+        --------
+        :class:`.Availability`
+            The created availability.
+        """
+        data = await self._state.create_availability(self.id, start=start, end=end)
+        for availability_data in data['availabilities']:
+            availability = Availability(data=availability_data, channel=self, state=self._state)
+            if availability.id == data['id']:
+                return availability
 
 
 class AnnouncementReply(guilded.abc.Reply):

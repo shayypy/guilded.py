@@ -579,6 +579,44 @@ class Team:
         self._state.add_to_team_channel_cache(channel)
         return channel
 
+    async def create_scheduling_channel(self, *, name: str, category=None, public=False, group=None) -> DocsChannel:
+        """|coro|
+
+        |onlyuserbot|
+
+        Create a new scheduling channel in the team.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The channel's name. Can include spaces.
+        category: :class:`TeamCategory`
+            The :class:`TeamCategory` to create this channel under. If not
+            provided, it will be shown under the "Channels" header in the
+            client (no category).
+        public: :class:`bool`
+            Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+        group: :class:`Group`
+            The :class:`Group` to create this channel in. If not provided, defaults to the base group.
+
+        Returns
+        --------
+        :class:`.SchedulingChannel`
+            The created channel.
+        """
+        group = group or self.base_group
+        data = await self._state.create_team_channel(
+            content_type=ChannelType.scheduling.value,
+            name=name,
+            public=public,
+            team_id=self.id,
+            group_id=group.id,
+            category_id=category.id if category is not None else None,
+        )
+        channel = self._state.create_channel(data=data['channel'], group=group, team=self)
+        self._state.add_to_team_channel_cache(channel)
+        return channel
+
     async def fetch_channels(self) -> List[TeamChannel]:
         """|coro|
 
