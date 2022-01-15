@@ -28,7 +28,7 @@ setuptools.setup(
         'Documentation': 'https://guildedpy.readthedocs.io/en/latest/',
         'Issue tracker': 'https://github.com/shayypy/guilded.py/issues',
     },
-    packages=['guilded', 'guilded.ext.commands'],
+    packages=['guilded', 'guilded.ext.commands', 'guilded.ext.tasks'],
     license='MIT',
     classifiers=[
         'Programming Language :: Python :: 3',
