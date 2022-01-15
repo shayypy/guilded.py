@@ -4,10 +4,6 @@ import setuptools
 with open('README.md', 'r') as rmd:
     long_description = rmd.read()
 
-requirements = []
-with open('requirements.txt') as rtxt:
-    requirements = rtxt.read().splitlines()
-
 version = ''
 with open('guilded/__init__.py') as initpy:
     version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', initpy.read(), re.MULTILINE).group(1)
@@ -19,8 +15,7 @@ setuptools.setup(
     name='guilded.py',
     version=version,
     author='shay (shayypy)',
-    author_email='shay@bearger.gay',
-    description='An API wrapper in Python for Guilded\'s user/client API',
+    description='An API wrapper in Python for Guilded\'s user & bot APIs',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/shayypy/guilded.py',
@@ -37,5 +32,5 @@ setuptools.setup(
         'Natural Language :: English'
     ],
     python_requires='>=3.6',
-    install_requires=requirements
+    install_requires=['aiohttp'],
 )
