@@ -2342,8 +2342,8 @@ class Availability:
 
         All parameters are optional.
 
-        Parameter
-        ----------
+        Parameters
+        -----------
         start: :class:`datetime.datetime`
             When the availability starts.
             Time must be in a 30-minute interval (``minute`` must be 0 or 30).
