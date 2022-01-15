@@ -62,6 +62,7 @@ from .emoji import Emoji
 from .errors import InvalidArgument
 from .file import Attachment, File, FileType, MediaType
 #from .gateway import GuildedVoiceWebSocket
+from .group import Group
 from .message import HasContentMixin, Message, Link
 from .user import Member, User
 from .utils import get, ISO8601, parse_hex_number
@@ -2292,6 +2293,8 @@ class Availability:
         When the availabilty was created.
     updated_at: Optional[:class:`datetime.datetime`]
         When the availabilty was updated.
+    deleted_by: Optional[:class:`.Member`]
+        The member that deleted the availability.
     channel: :class:`.SchedulingChannel`
         The channel that the availability is in.
     """
@@ -2309,6 +2312,9 @@ class Availability:
         self.start: datetime.datetime = ISO8601(data.get('startDate'))
         self.end: datetime.datetime = ISO8601(data.get('endDate'))
 
+        self.updated_by_id: Optional[str] = data.get('updatedBy')
+        self.deleted_by: Optional[Member] = None
+
     def __eq__(self, other) -> bool:
         return isinstance(other, Availability) and other.id == self.id
 
@@ -2321,12 +2327,17 @@ class Availability:
         return self.channel.team
 
     @property
-    def group(self):
+    def group(self) -> Optional[Group]:
         """Optional[:class:`.Group`]: The group that the availability is in."""
         return self.channel.group
 
     @property
-    def author(self):
+    def updated_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member that last updated the availability, if they are cached."""
+        return self.team.get_member(self.updated_by_id)
+
+    @property
+    def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The member that created the availability, if they are cached."""
         return self.team.get_member(self.user_id)
 
@@ -2365,7 +2376,7 @@ class Availability:
         self.end = payload['endDate']
         return self
 
-    async def delete(self):
+    async def delete(self) -> None:
         """|coro|
 
         |onlyuserbot|

@@ -489,6 +489,11 @@ class UserbotWebSocketEventParsers:
             else:
                 self.client.dispatch('media_create', content)
 
+        elif channel.type is ChannelType.scheduling:
+            content = Availability(data=data['availability'], channel=channel, state=self._state)
+            channel._availabilities[content.id] = content
+            self.client.dispatch('availability_create', content)
+
     async def TEAM_CHANNEL_CONTENT_DELETED(self, data):
         try:
             team = await self.client.getch_team(data['teamId'])
@@ -544,6 +549,14 @@ class UserbotWebSocketEventParsers:
                 content.deleted_by = deleted_by
                 self.client.dispatch('media_delete', content)
                 channel._medias.pop(content.id)
+
+        elif channel.type is ChannelType.scheduling:
+            self.client.dispatch('raw_availability_delete', channel, int(content_id))
+            content = channel.get_availability(int(content_id))
+            if content is not None:
+                content.deleted_by = deleted_by
+                self.client.dispatch('availability_delete', content)
+                channel._availabilities.pop(content.id)
 
     async def TEAM_CHANNEL_CONTENT_UPDATED(self, data):
         try:
@@ -634,6 +647,16 @@ class UserbotWebSocketEventParsers:
 
             if old_content is not None:
                 self.client.dispatch('media_edit', old_content, new_content)
+
+        elif channel.type is ChannelType.scheduling:
+            old_content = channel.get_availability(int(content_id))
+            data['availability']['updatedBy'] = data.get('updatedBy')
+            new_content = Availability(data=data['availability'], channel=channel, state=self._state)
+            channel._availabilities[new_content.id] = new_content
+            self.client.dispatch('raw_availability_edit', channel, new_content)
+
+            if old_content is not None:
+                self.client.dispatch('availability_edit', old_content, new_content)
 
     async def TEAM_CHANNEL_CONTENT_REPLY_CREATED(self, data):
         try:
