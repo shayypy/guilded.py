@@ -56,7 +56,7 @@ from typing import Any, Dict, Optional, List, Union
 from .abc import TeamChannel, User
 
 from .asset import Asset
-from .channel import ChannelType, ChatChannel, DocsChannel, ForumChannel, Thread
+from .channel import ChannelType, ChatChannel, DocsChannel, ForumChannel, SchedulingChannel, Thread
 from .errors import NotFound, InvalidArgument
 from .emoji import Emoji
 from .enums import try_enum, TeamFlairType
@@ -579,7 +579,7 @@ class Team:
         self._state.add_to_team_channel_cache(channel)
         return channel
 
-    async def create_scheduling_channel(self, *, name: str, category=None, public=False, group=None) -> DocsChannel:
+    async def create_scheduling_channel(self, *, name: str, category=None, public=False, group=None) -> SchedulingChannel:
         """|coro|
 
         |onlyuserbot|
