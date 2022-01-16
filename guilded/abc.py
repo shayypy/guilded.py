@@ -300,7 +300,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Parameters
         ------------
-        content: Any
+        \*content: Any
             The content of the message that should be created as the initial
             message of the newly-created thread. Passing either this or
             ``message`` is required.

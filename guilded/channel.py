@@ -906,7 +906,13 @@ class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
 
 
 class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
-    """Represents a thread in a team."""
+    """Represents a thread in a :class:`.Team`.
+
+    Attributes
+    -----------
+    initial_message_id: :class:`str`
+        The ID of the initial message in this thread.
+    """
     def __init__(self, **fields):
         super().__init__(**fields)
         data = fields.get('data') or fields.get('channel', {})
@@ -915,28 +921,40 @@ class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
         self._message_count = data.get('messageCount') or 0
         self.initial_message_id = data.get('threadMessageId')
         self._initial_message = self._state._get_message(self.initial_message_id)
-        # this is unlikely to not be None given the temporal nature of message
-        # cache but may as well try anyway
+        # This is unlikely to not be None given the temporal nature of message cache
 
-        self.participants = []
-        participants = data.get('participants')
-        if participants is None:
-            participants = [{'id': user_id} for user_id in data.get('userIds', [])]
-        for member_obj in (participants or []):
-            member = self._state._get_team_member(self.team_id, member_obj.get('id'))
-            if member is None:
-                # it's just an empty member with only ID, better than nothing?
-                member = self._state.create_member(member_obj)
+        self._participant_ids = []
 
-            self.participants.append(member)
+        for user_id in data.get('userIds') or []:
+            self._participant_ids.append(user_id)
+
+        for member_data in data.get('participants') or []:
+            if member_data.get('id'):
+                self._participant_ids.append(member_data['id'])
 
     @property
-    def message_count(self):
+    def message_count(self) -> int:
+        """:class:`int`: The number of messages in the thread.
+
+        This may be inaccurate if this object has existed for an extended
+        period of time since it does not get updated by the library when new
+        messages are sent within the thread.
+        """
         return int(self._message_count)
 
     @property
     def initial_message(self):
+        """Optional[:class:`.ChatMessage`]: The initial message in this thread.
+
+        This may be ``None`` if the message was not cached when this object was
+        created. In this case, you may fetch the message with :meth:`.fetch_initial_message`.
+        """
         return self._initial_message
+
+    @property
+    def participants(self):
+        """List[:class:`.Member`]: The cached list of participants in this thread."""
+        return [self.team.get_member(member_id) for member_id in self._participant_ids]
 
     async def archive(self):
         """|coro|
@@ -965,18 +983,22 @@ class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
     async def fetch_initial_message(self):
         """|coro|
 
-        Fetch the initial message in this channel. Sometimes this may be
-        available via :attr:`Thread.initial_message`, but it is unlikely
-        when dealing with existing threads because it relies on message cache.
+        Fetch the initial message in this thread. Sometimes this may be
+        available via :attr:`.initial_message`, but it is unlikely when
+        dealing with existing threads because it relies on message cache.
 
-        Roughly equivilent to:
+        This is equivalent to:
 
         .. code-block:: python3
 
             initial_message = await thread.fetch_message(thread.initial_message_id)
+
+        Returns
+        --------
+        :class:`.ChatMessage`
+            The initial message in the thread.
         """
-        data = await self._state.get_message(self.id, self.initial_message_id)
-        message = self._state.create_message(data)
+        message = await self.fetch_message(self.initial_message_id)
         return message
 
 
