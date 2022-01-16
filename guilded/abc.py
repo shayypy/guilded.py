@@ -577,6 +577,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
         * :class:`.ListChannel`
         * :class:`.MediaChannel`
         * :class:`.Thread`
+        * :class:`.SchedulingChannel`
         * :class:`.VoiceChannel`
     """
     def __init__(self, *, state, group, data, **extra):
@@ -886,7 +887,7 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
 
     @property
     def group(self):
-        """:class:`.Group`: The group that the reply is in."""
+        """:class:`~.Group`: The group that the reply is in."""
         return self.parent.group
 
     @property

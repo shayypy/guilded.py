@@ -226,7 +226,7 @@ class Command(_BaseCommand):
         """
         entries = []
         command = self
-        # command.parent is type-hinted as GroupMixin some attributes are resolved via MRO
+        # command.parent is type-hinted as Group some attributes are resolved via MRO
         while command.parent is not None: # type: ignore
             command = command.parent # type: ignore
             entries.append(command.name) # type: ignore
@@ -748,6 +748,30 @@ class Command(_BaseCommand):
 
 
 def command(name: str = None, cls=Command, **kwargs):
+    """A decorator that transforms a function into a :class:`.Command`
+    or if called with :func:`group`, :class:`.Group`.
+
+    By default the help attribute is received automatically from the docstring
+    of the function and is cleaned up with the use of inspect.cleandoc.
+    If the docstring is bytes, then it is decoded into str using utf-8 encoding.
+
+    All checks added using the :func:`check` & co. decorators are added into the function.
+    There is no way to supply your own checks through this decorator.
+
+    Parameters
+    -----------
+    name: :class:`str`
+        The name to create the command with. By default this uses the function name unchanged.
+    cls
+        The class to construct with. By default this is :class:`.Command`. You usually do not change this.
+    attrs
+        Keyword arguments to pass into the construction of the class denoted by ``cls``.
+
+    Raises
+    -------
+    TypeError
+        If the function is not a coroutine or is already a command.
+    """
     def decorator(coro):
         if isinstance(coro, Command):
             raise TypeError('Function is already a command.')
@@ -762,6 +786,27 @@ class Group(Command):
     case_insensitive: bool = False
     all_commands: typing.Dict[str, Command]
 
+    """A class that implements a grouping protocol for commands to be executed
+    as subcommands.
+
+    This class is a subclass of :class:`.Command` and thus all options valid
+    for :class:`.Command` are valid for this as well.
+
+    Attributes
+    -----------
+    invoke_without_command: :class:`bool`
+        Indicates if the group callback should begin parsing and invocation
+        only if no subcommand was found. Useful for making it an error handling
+        function to tell the user that no subcommand was found or to have
+        different functionality in case no subcommand was found.
+        If this is ``False``, then the group callback will always be invoked
+        first. This means that the checks and the parsing dictated by its
+        parameters will be executed. Defaults to ``False``.
+    case_insensitive: :class:`bool`
+        Indicates if the group's commands should be case insensitive.
+        Defaults to ``False``.
+    """
+
     def __init__(self, *args: typing.Any, **attrs: typing.Any):
         super().__init__(*args, **attrs)
         self.invoke_without_command = attrs.pop('invoke_without_command', False)
@@ -774,6 +819,13 @@ class Group(Command):
         return set(self.all_commands.values())
 
     def copy(self):
+        """Creates a copy of this :class:`.Group`.
+
+        Returns
+        --------
+        :class:`.Group`
+            The copied instance of this group.
+        """
         ret = super().copy()
         for cmd in self.commands:
             ret.add_command(cmd.copy())
@@ -852,12 +904,12 @@ class Group(Command):
     def add_command(self, command: Command) -> None:
         """Adds a :class:`.Command` into the internal list of commands.
 
-        This is usually not called, instead the :meth:`~.GroupMixin.command` or
-        :meth:`~.GroupMixin.group` shortcut decorators are used instead.
+        This is usually not called, instead the :meth:`~.Group.command` or
+        :meth:`~.Group.group` shortcut decorators are used instead.
 
         Parameters
         -----------
-        command: :class:`Command`
+        command: :class:`.Command`
             The command to add.
 
         Raises
@@ -982,7 +1034,7 @@ class Group(Command):
         **kwargs,
     ):
         """A shortcut decorator that invokes :func:`.command` and adds it to
-        the internal command list via :meth:`~.GroupMixin.add_command`.
+        the internal command list via :meth:`~.Group.add_command`.
 
         Returns
         --------
@@ -1026,12 +1078,18 @@ class Group(Command):
 
 
 def group(name: str = None, cls=Group, **attrs):
+    """A decorator that transforms a function into a :class:`.Group`.
+
+    This is similar to the :func:`.command` decorator but the ``cls``
+    parameter is set to :class:`Group` by default.
+    """
     def deco(coro):
         if isinstance(coro, Group):
             raise TypeError('Function is already a group.')
         return cls(coro, **attrs)
 
     return deco
+
 
 def check(predicate: Check) -> Callable[[T], T]:
     r"""A decorator that adds a check to the :class:`.Command` or its
@@ -1196,7 +1254,7 @@ def before_invoke(coro) -> Callable[[T], T]:
 
             @commands.command()
             async def where(self, ctx): # Output: <Nothing>
-                await ctx.send('on Discord')
+                await ctx.send('on Guilded')
 
             @commands.command()
             async def why(self, ctx): # Output: <Nothing>
