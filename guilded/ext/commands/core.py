@@ -1110,6 +1110,7 @@ def check(predicate: Check) -> Callable[[T], T]:
     decorator. This allows the following introspection and chaining to be done:
 
     .. code-block:: python3
+
         def owner_or_permissions(**perms):
             original = commands.has_permissions(**perms).predicate
             async def extended_check(ctx):
@@ -1127,6 +1128,7 @@ def check(predicate: Check) -> Callable[[T], T]:
     Creating a basic check to see if the command invoker is you.
 
     .. code-block:: python3
+
         def check_if_it_is_me(ctx):
             return ctx.message.author.id == 'EdVMVKR4'
 
@@ -1138,6 +1140,7 @@ def check(predicate: Check) -> Callable[[T], T]:
     Transforming common checks into its own decorator:
 
     .. code-block:: python3
+
         def is_me():
             def predicate(ctx):
                 return ctx.message.author.id == 'EdVMVKR4'
