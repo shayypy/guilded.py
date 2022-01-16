@@ -590,7 +590,7 @@ class ForumTopic(HasContentMixin):
 
         self.author_id: str = data.get('createdBy')
         self.game_id: Optional[int] = data.get('gameId')
-        self.created_by_bot_id: Optional[int] = data.get('createdByBotId')
+        self.created_by_bot_id: Optional[str] = data.get('createdByBotId')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
         self.bumped_at: Optional[datetime.datetime] = ISO8601(data.get('bumpedAt'))
@@ -1729,6 +1729,7 @@ class ListItemNote(HasContentMixin):
     """Represents the note on a :class:`.ListItem`.
 
     .. note::
+
         Item notes are not their own resource in the API, thus they have no ID
         or dedicated endpoints. Methods on an instance of this class are
         shortcuts to the parent rather than being unique to a "List Item Note"
@@ -1789,7 +1790,7 @@ class ListItemNote(HasContentMixin):
 
         Parameters
         -----------
-        content: Any
+        \*content: Any
             The new content of the note.
         """
         return await self.parent.edit(note=content)
@@ -1820,7 +1821,7 @@ class ListItem(HasContentMixin):
     note: Optional[:class:`.ListItemNote`]
         The note of an item. If this instance was not obtained via creation,
         then this attribute must first be fetched with :meth:`.fetch_note`.
-    note_created_by_bot_id: Optional[:class:`int`]
+    note_created_by_bot_id: Optional[:class:`str`]
         The ID of the bot that created the item's note, if any.
     note_created_at: Optional[:class:`datetime.datetime`]
         When the item's note was created.
@@ -1847,7 +1848,7 @@ class ListItem(HasContentMixin):
         self.channel_id: str = data.get('channelId') or self.channel.id
 
         self.webhook_id: Optional[str] = data.get('webhookId')
-        self.bot_id: Optional[int] = data.get('botId')
+        self.bot_id: Optional[str] = data.get('botId')
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_by_id: Optional[str] = data.get('updatedBy')
@@ -1867,7 +1868,7 @@ class ListItem(HasContentMixin):
 
         self._has_note: bool = data.get('hasNote')
         self.note_author_id: Optional[str] = data.get('noteCreatedBy')
-        self.note_created_by_bot_id: Optional[int] = data.get('noteCreatedByBotId')
+        self.note_created_by_bot_id: Optional[str] = data.get('noteCreatedByBotId')
         self.note_created_at: Optional[datetime.datetime] = ISO8601(data.get('noteCreatedAt'))
         self.note_edited_by_id: Optional[str] = data.get('noteUpdatedBy')
         self.note_edited_at: Optional[datetime.datetime] = ISO8601(data.get('noteUpdatedAt'))
