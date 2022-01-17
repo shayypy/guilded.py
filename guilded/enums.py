@@ -59,6 +59,7 @@ __all__ = (
     'AllowFriendRequestsFrom',
     'FlowTriggerType',
     'FlowActionType',
+    'TeamFlairType',
 )
 
 
