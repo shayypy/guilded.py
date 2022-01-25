@@ -1486,42 +1486,40 @@ class HTTPClient(HTTPClientBase):
     def add_reaction_emote(self, channel_id: str, content_id: str, emoji_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/content/{content_id}/emotes/{emoji_id}'))
 
-    # /members
+    # /servers
 
-    def get_member_roles(self, user_id: str):
-        return self.request(Route('GET', f'/members/{user_id}/roles'))
+    def get_member_roles(self, server_id: str, user_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/members/{user_id}/roles'))
 
-    def assign_role_to_member(self, user_id: str, role_id: int):
-        return self.request(Route('PUT', f'/members/{user_id}/roles/{role_id}'))
+    def assign_role_to_member(self, server_id: str, user_id: str, role_id: int):
+        return self.request(Route('PUT', f'/servers/{server_id}/members/{user_id}/roles/{role_id}'))
 
-    def remove_role_from_member(self, user_id: str, role_id: int):
-        return self.request(Route('DELETE', f'/members/{user_id}/roles/{role_id}'))
+    def remove_role_from_member(self, server_id: str, user_id: str, role_id: int):
+        return self.request(Route('DELETE', f'/servers/{server_id}/members/{user_id}/roles/{role_id}'))
 
-    def update_member_nickname(self, user_id: str, nickname: str):
+    def update_member_nickname(self, server_id: str, user_id: str, nickname: str):
         payload = {
             'nickname': nickname,
         }
-        return self.request(Route('PUT', f'/members/{user_id}/nickname'), json=payload)
+        return self.request(Route('PUT', f'/servers/{server_id}/members/{user_id}/nickname'), json=payload)
 
-    def delete_member_nickname(self, user_id: str):
-        return self.request(Route('DELETE', f'/members/{user_id}/nickname'))
+    def delete_member_nickname(self, server_id: str, user_id: str):
+        return self.request(Route('DELETE', f'/servers/{server_id}/members/{user_id}/nickname'))
 
-    def award_member_xp(self, user_id: str, amount: int):
+    def get_member_social_links(self, server_id: str, user_id: str, type: str):
+        return self.request(Route('GET', f'/servers/{server_id}/members/{user_id}/social-links/{type}'))
+
+    def award_member_xp(self, server_id: str, user_id: str, amount: int):
         payload = {
             'amount': amount,
         }
-        return self.request(Route('POST', f'/members/{user_id}/xp'), json=payload)
+        return self.request(Route('POST', f'/servers/{server_id}/members/{user_id}/xp'), json=payload)
 
-    def get_member_social_links(self, user_id: str, type: str):
-        return self.request(Route('GET', f'/members/{user_id}/social-links/{type}'))
-
-    # /roles
-
-    def award_role_xp(self, role_id: int, amount: int):
+    def award_role_xp(self, server_id: str, role_id: int, amount: int):
         payload = {
             'amount': amount,
         }
-        return self.request(Route('POST', f'/roles/{user_id}/xp'), json=payload)
+        return self.request(Route('POST', f'/servers/{server_id}/roles/{role_id}/xp'), json=payload)
 
     # /groups
 

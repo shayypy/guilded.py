@@ -966,17 +966,17 @@ class WebSocketEventParsers:
 
     async def ChatMessageCreated(self, data):
         message_data = data['message']
-        message_data['teamId'] = message_data.get('teamId', data.get('teamId'))
+        message_data['serverId'] = message_data.get('serverId', data.get('serverId'))
 
         channel_id = message_data.get('channelId')
         if channel_id is not None:
-            channel = self._state._get_team_channel_or_thread(message_data['teamId'], channel_id)
+            channel = self._state._get_team_channel_or_thread(message_data['serverId'], channel_id)
             if channel is None:
                 try:
                     channel_data = await self._state.get_channel(channel_id)
                 except HTTPException:
                     channel = self._state.create_channel(
-                        data={'id': channel_id, 'type': 'team', 'teamId': message_data['teamId']}
+                        data={'id': channel_id, 'type': 'team', 'serverId': message_data['serverId']}
                     )
                 else:
                     channel = self._state.create_channel(data=channel_data['metadata']['channel'])
@@ -987,12 +987,12 @@ class WebSocketEventParsers:
 
         author_id = message_data.get('createdBy')
         if author_id is not None and author_id != self._state.GIL_ID:
-            author = self._state._get_team_member(message_data['teamId'], author_id)
-            if author is None and message_data['teamId'] is not None:
-                author_data = await self._state.get_team_member(message_data['teamId'], author_id)
+            author = self._state._get_team_member(message_data['serverId'], author_id)
+            if author is None and message_data['serverId'] is not None:
+                author_data = await self._state.get_team_member(message_data['serverId'], author_id)
                 author = self._state.create_member(data=author_data[author_id])
             elif author is None:
-                author = self._state.create_member(data={'id': author_id, 'teamId': message_data['teamId']})
+                author = self._state.create_member(data={'id': author_id, 'serverId': message_data['serverId']})
 
             self._state.add_to_member_cache(author)
         else:
@@ -1009,7 +1009,7 @@ class WebSocketEventParsers:
         if before is None:
             return
 
-        after = self._state.create_message(data={'teamId': data['teamId'], **data['message']}, channel=before.channel)
+        after = self._state.create_message(data={'serverId': data['serverId'], **data['message']}, channel=before.channel)
         self._state.add_to_message_cache(after)
         self.client.dispatch('message_edit', before, after)
 
@@ -1024,10 +1024,10 @@ class WebSocketEventParsers:
 
     async def TeamMemberUpdated(self, data):
         member_id = data.get('userId') or data['userInfo'].get('id')
-        raw_after = self._state.create_member(data={'id': member_id, 'teamId': data['teamId'], **data['userInfo']})
+        raw_after = self._state.create_member(data={'id': member_id, 'serverId': data['serverId'], **data['userInfo']})
         self.client.dispatch('raw_member_update', raw_after)
 
-        team = self.client.get_team(data['teamId'])
+        team = self.client.get_team(data['serverId'])
         if team is None:
             return
         member = team.get_member(member_id)
@@ -1041,16 +1041,16 @@ class WebSocketEventParsers:
         self.client.dispatch('member_update', before, member)
 
     async def teamRolesUpdated(self, data):
-        team = self._state._get_team(data['teamId'])
+        team = self._state._get_team(data['serverId'])
 
         # A member's roles were updated
         for updated in data.get('memberRoleIds') or []:
             for role_id in updated['roleIds']:
                 if not team.get_role(role_id):
-                    role = Role(state=self._state, data={'id': role_id, 'teamId': team.id})
+                    role = Role(state=self._state, data={'id': role_id, 'serverId': team.id})
                     team._roles[role.id] = role
 
-            raw_after = self._state.create_member(data={'id': updated['userId'], 'roleIds': updated['roleIds'], 'teamId': team.id})
+            raw_after = self._state.create_member(data={'id': updated['userId'], 'roleIds': updated['roleIds'], 'serverId': team.id})
             self.client.dispatch('raw_member_update', raw_after)
 
             member = team.get_member(updated['userId'])

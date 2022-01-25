@@ -69,6 +69,7 @@ from .utils import ISO8601, get
 
 __all__ = (
     'Guild',
+    'Server',
     'SocialInfo',
     'Team',
     'TeamFlair',
@@ -922,4 +923,5 @@ class Team:
 
         return emojis
 
-Guild = Team
+Guild = Team  # discord.py
+Server = Team  # bot API

@@ -66,8 +66,8 @@ class Role:
     def __init__(self, *, state, data, **extra):
         self._state = state
 
-        self._team = extra.get('team')
-        self.team_id: str = data.get('teamId')
+        self._team = extra.get('team') or extra.get('server')
+        self.team_id: str = data.get('teamId') or data.get('serverId')
 
         self._members = {}
 
@@ -118,6 +118,11 @@ class Role:
     def team(self):
         """:class:`.Team`: The team that this role is from."""
         return self._team or self._state._get_team(self.team_id)
+
+    @property
+    def server(self):
+        """:class:`.Team`: This is an alias of :attr:`.team`."""
+        return self.team
 
     @property
     def guild(self):
@@ -171,4 +176,4 @@ class Role:
         amount: :class:`int`
             The amount of XP to award.
         """
-        await self._state.award_role_xp(self.id, amount)
+        await self._state.award_role_xp(self.team.id, self.id, amount)

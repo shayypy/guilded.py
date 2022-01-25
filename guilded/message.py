@@ -178,7 +178,7 @@ class MentionType(Enum):
 class MessageMention:
     """A mention within a message. Due to how mentions are sent in message
     payloads, you will usually only have :attr:`.id` unless the object was
-    cached previous to this object being constructed.
+    cached prior to this object being constructed.
 
     Attributes
     ------------
@@ -411,8 +411,6 @@ class ChatMessage(HasContentMixin):
         The message's ID.
     channel: Union[:class:`abc.TeamChannel`, :class:`DMChannel`]
         The channel this message was sent in.
-    team: Optional[:class:`Team`]
-        The team this message was sent in. ``None`` if the message is in a DM.
     webhook_id: Optional[:class:`str`]
         The webhook's ID that sent the message, if applicable.
     """
@@ -424,13 +422,15 @@ class ChatMessage(HasContentMixin):
         self.channel = channel
         message = data.get('message', data)
 
+        self._team = extra.get('team') or extra.get('server')
+        self.team_id: Optional[str] = data.get('teamId') or data.get('serverId')
+
         self._author = extra.get('author')
 
         if state.userbot:
             self.id: str = data.get('contentId') or message.get('id')
             self.webhook_id: Optional[str] = data.get('webhookId')
             self.channel_id: str = data.get('channelId') or (channel.id if channel else None)
-            self.team_id: Optional[str] = data.get('teamId')
             self.author_id: str = data.get('createdBy') or message.get('createdBy')
 
             self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
@@ -458,9 +458,6 @@ class ChatMessage(HasContentMixin):
             self.id: str = message['id']
             self.type: MessageType = getattr(MessageType, message['type'], MessageType.unknown)
             self.channel_id: str = message['channelId']
-            self.team_id: Optional[str] = message.get('teamId') or extra.get('team_id')
-            if self.team_id is None and self.channel is not None:
-                self.team_id = self.channel.team_id
             self.content: str = message['content']
 
             self.author_id: str = message.get('createdBy')
@@ -485,7 +482,21 @@ class ChatMessage(HasContentMixin):
 
     @property
     def team(self):
-        return self._state._get_team(self.team_id)
+        """Optional[:class:`.Team`]: The team this message was sent in. ``None`` if the message is in a DM."""
+        return self._team or self._state._get_team(self.team_id)
+
+    @property
+    def server(self):
+        """Optional[:class:`.Team`]: This is an alias of :attr:`.team`."""
+        return self.team
+
+    @property
+    def guild(self):
+        """|dpyattr|
+
+        This is an alias of :attr:`.team`.
+        """
+        return self.team
 
     @property
     def author(self):
@@ -520,11 +531,6 @@ class ChatMessage(HasContentMixin):
     @property
     def embed(self):
         return self.embeds[0] if self.embeds else None
-
-    @property
-    def guild(self):
-        # basic compatibility w/ discord bot code, plan on deprecating in the future
-        return self.team
 
     @property
     def replied_to(self):

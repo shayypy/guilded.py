@@ -51,6 +51,7 @@ DEALINGS IN THE SOFTWARE.
 
 import abc
 import datetime
+import re
 from typing import List, Optional
 
 from .activity import Activity
@@ -65,10 +66,12 @@ from .utils import ISO8601
 
 
 __all__ = (
+    'GuildChannel',
     'Messageable',
-    'User',
-    'TeamChannel',
     'Reply',
+    'ServerChannel',
+    'TeamChannel',
+    'User',
 )
 
 
@@ -587,10 +590,10 @@ class TeamChannel(metaclass=abc.ABCMeta):
             data = data['metadata']
         data = data.get('channel') or data.get('thread') or data
         self._group = group
-        self.group_id = data.get('groupId') or (self._group.id if self._group else None)
+        self.group_id: str = data.get('groupId') or (group.id if group else None)
 
-        self._team = extra.get('team') or (self._group.team if self._group else None)
-        self.team_id = data.get('teamId') or (self._team.id if self._team else None)
+        self._team = extra.get('team') or extra.get('server') or (group.team if group else None)
+        self.team_id: str = data.get('teamId') or data.get('serverId')
 
         self.id: str = data['id']
         self.name: str = data.get('name') or ''
@@ -639,7 +642,19 @@ class TeamChannel(metaclass=abc.ABCMeta):
         else:
             type_ = 'chat'
 
-        return f'https://guilded.gg//groups/{self.group_id}/channels/{self.id}/{type_}'
+        if self.team and self.team.subdomain:
+            # We must have the proper string here, or else when the link is
+            # visited, the client will either dead-end at the server overview
+            # or end up on whichever user or server owns that subdomain
+            subdomain = self.team.subdomain
+        elif self.team:
+            # Take our best guess - remove everything other than [\w-]:
+            subdomain = re.sub(r'(?![\w-]).', '', self.team.name.replace(' ', '-'))
+        else:
+            # We will just let it dead-end
+            subdomain = self.team_id
+
+        return f'https://guilded.gg/{subdomain}/groups/{self.group_id}/channels/{self.id}/{type_}'
 
     @property
     def mention(self) -> str:
@@ -647,6 +662,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
 
     @property
     def group(self):
+        """:class:`.Group`: The group that this channel is in."""
         group = self._group
         if not group and self.team:
             group = self.team.get_group(self.group_id)
@@ -655,10 +671,20 @@ class TeamChannel(metaclass=abc.ABCMeta):
 
     @property
     def team(self):
+        """:class:`.Team`: The team that this channel is in."""
         return self._team or self._state._get_team(self.team_id)
 
     @property
+    def server(self):
+        """:class:`.Team`: This is an alias of :attr:`.team`."""
+        return self.team
+
+    @property
     def guild(self):
+        """|dpyattr|
+
+        This is an alias of :attr:`.team`.
+        """
         return self.team
 
     @property
@@ -798,6 +824,8 @@ class TeamChannel(metaclass=abc.ABCMeta):
         """
         await self._state.mark_channel_seen(self.id, clear_all_badges=clear_all_badges)
 
+GuildChannel = TeamChannel  # discord.py
+ServerChannel = TeamChannel   # bot API
 
 class Reply(HasContentMixin, metaclass=abc.ABCMeta):
     """An ABC for replies to posts.

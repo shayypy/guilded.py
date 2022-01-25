@@ -174,8 +174,8 @@ class Member(User):
 
     def __init__(self, *, state, data, **extra):
         super().__init__(state=state, data=data)
-        self._team = extra.get('team') or data.get('team')
-        self.team_id: str = data.get('teamId') or (self._team.id if self._team else None)
+        self._team = extra.get('team') or extra.get('server')
+        self.team_id: str = data.get('teamId') or data.get('serverId')
 
         self.bot_id: str = extra.get('bot_id')
         self._role_ids = data.get('roleIds') or []
@@ -197,14 +197,15 @@ class Member(User):
         return self._team or self._state._get_team(self.team_id)
 
     @property
+    def server(self):
+        """:class:`.Team`: This is an alias of :attr:`.team`."""
+        return self.team
+
+    @property
     def guild(self):
         """|dpyattr|
 
         This is an alias of :attr:`.team`.
-
-        Returns
-        --------
-        :class:`.Team`
         """
         return self.team
 
@@ -285,15 +286,17 @@ class Member(User):
 
         Edit this member.
 
+        All parameters are optional.
+
         Parameters
         ------------
-        nick: Optional[:class:`str`]
+        nick: :class:`str`
             A new nickname. Use ``None`` to reset.
-        xp: Optional[:class:`int`]
+        xp: :class:`int`
             A new XP value.
         """
         try:
-            nick = kwargs.pop('nick')
+            nick: str = kwargs.pop('nick')
         except KeyError:
             pass
         else:
@@ -304,14 +307,14 @@ class Member(User):
                     await self._state.change_team_member_nickname(self.team.id, self.id, nick)
             else:
                 if nick is None:
-                    await self._state.delete_member_nickname(self.id)
+                    await self._state.delete_member_nickname(self.team.id, self.id)
                 else:
-                    data = await self._state.update_member_nickname(self.id, nick)
+                    data = await self._state.update_member_nickname(self.team.id, self.id, nick)
                     nick = data['nickname']
             self.nick = nick
 
         try:
-            xp = kwargs.pop('xp')
+            xp: int = kwargs.pop('xp')
         except KeyError:
             pass
         else:
@@ -352,10 +355,7 @@ class Member(User):
         role: :class:`.Role`
             The role to give this member.
         """
-        if self._state.userbot:
-            await self._state.assign_role_to_member(self.team_id, self.id, role.id)
-        else:
-            await self._state.assign_role_to_member(self.id, role.id)
+        await self._state.assign_role_to_member(self.team.id, self.id, role.id)
 
     async def add_roles(self, *roles: Role):
         """|coro|
@@ -386,10 +386,7 @@ class Member(User):
         role: :class:`.Role`
             The role to remove from member.
         """
-        if self._state.userbot:
-            await self._state.remove_role_from_member(self.team_id, self.id, role.id)
-        else:
-            await self._state.remove_role_from_member(self.id, role.id)
+        await self._state.remove_role_from_member(self.team.id, self.id, role.id)
 
     async def remove_roles(self, *roles: Role):
         """|coro|
@@ -409,6 +406,21 @@ class Member(User):
         """
         for role in roles:
             await self.remove_role(role)
+
+    async def fetch_role_ids(self):
+        """|coro|
+
+        |onlybot|
+
+        Fetch the list of role IDs assigned to this member.
+
+        Returns
+        --------
+        List[:class:`int`]
+            The IDs of the roles that the member has.
+        """
+        data = await self._state.get_member_roles(self.team.id, self.id)
+        return data['roleIds']
 
     async def award_xp(self, amount: int):
         """|coro|
@@ -432,7 +444,7 @@ class Member(User):
         :class:`int`
             The total amount of XP this member now has.
         """
-        data = await self._state.award_member_xp(self.id, amount)
+        data = await self._state.award_member_xp(self.team.id, self.id, amount)
         self.xp = data['total']
         return self.xp
 
