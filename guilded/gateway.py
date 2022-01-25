@@ -577,10 +577,8 @@ class UserbotWebSocketEventParsers:
                 # there is nothing different about the object other than its
                 # order, which we have not received in this event.
                 return
-            else:
-                content_id = data['contentId']
-        else:
-            content_id = data['contentId']
+
+        content_id = data['contentId']
 
         if data.get('reply'):
             # This event pertains to a content reply, not top-level content
