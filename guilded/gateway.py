@@ -567,7 +567,20 @@ class UserbotWebSocketEventParsers:
         if channel is None:
             return
 
-        content_id = data['contentId']
+        if channel.type is ChannelType.list or data.get('contentType') == 'list':
+            if data.get('orderedListItemIds'):
+                # This event is describing the new order of the list items.
+                # This is unhandled right now.
+                return
+            elif data.get('listItemIds'):
+                # Our content ID is available at data.listItemIds[0], but
+                # there is nothing different about the object other than its
+                # order, which we have not received in this event.
+                return
+            else:
+                content_id = data['contentId']
+        else:
+            content_id = data['contentId']
 
         if data.get('reply'):
             # This event pertains to a content reply, not top-level content
