@@ -53,7 +53,7 @@ import asyncio
 import logging
 import sys
 import traceback
-from typing import Optional, List
+from typing import Any, Callable, Optional, List
 
 import aiohttp
 
@@ -113,6 +113,23 @@ def _cleanup_loop(loop):
     finally:
         log.info('Closing the event loop.')
         loop.close()
+
+
+class _ClientEventTask(asyncio.Task):
+    def __init__(self, original_coro, event_name, coro, *, loop):
+        super().__init__(coro, loop=loop)
+        self.__event_name = event_name
+        self.__original_coro = original_coro
+
+    def __repr__(self):
+        info = [
+            ('state', self._state.lower()),
+            ('event', self.__event_name),
+            ('coro', repr(self.__original_coro)),
+        ]
+        if self._exception is not None:
+            info.append(('exception', repr(self._exception)))
+        return '<ClientEventTask {}>'.format(' '.join('%s=%s' % t for t in info))
 
 
 class ClientBase:
@@ -212,7 +229,117 @@ class ClientBase:
         return self._ready.is_set()
 
     async def wait_until_ready(self):
+        """|coro|
+
+        Waits until the client's internal cache is all ready.
+        """
         await self._ready.wait()
+
+    def wait_for(
+        self,
+        event: str,
+        *,
+        check: Optional[Callable[..., bool]] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        """|coro|
+
+        Waits for a WebSocket event to be dispatched.
+
+        This could be used to wait for a user to reply to a message,
+        or to react to a message, or to edit a message in a self-contained
+        way.
+
+        The ``timeout`` parameter is passed onto :func:`asyncio.wait_for`. By
+        default, it does not timeout. Note that this does propagate the
+        :exc:`asyncio.TimeoutError` for you in case of timeout and is provided
+        for ease of use.
+
+        In case the event returns multiple arguments, a :class:`tuple`
+        containing those arguments is returned instead. Please check the
+        :ref:`documentation <guilded-api-events>` for a list of events and
+        their parameters.
+
+        This function returns the **first event that meets the requirements**.
+
+        Examples
+        ---------
+
+        Waiting for a user reply: ::
+
+            @client.event
+            async def on_message(message):
+                if message.content.startswith('$greet'):
+                    channel = message.channel
+                    await channel.send('Say hello!')
+
+                    def check(m):
+                        return m.content == 'hello' and m.channel == channel
+
+                    msg = await client.wait_for('message', check=check)
+                    await channel.send(f'Hello {msg.author}!')
+
+        Waiting for a thumbs up reaction from the message author: ::
+
+            @client.event
+            async def on_message(message):
+                if message.content.startswith('$thumb'):
+                    channel = message.channel
+                    await channel.send('Send me that \N{THUMBS UP SIGN} reaction, mate')
+
+                    def check(reaction, user):
+                        return user == message.author and str(reaction.emoji) == '\N{THUMBS UP SIGN}'
+
+                    try:
+                        reaction, user = await client.wait_for('reaction_add', timeout=60.0, check=check)
+                    except asyncio.TimeoutError:
+                        await channel.send('\N{THUMBS DOWN SIGN}')
+                    else:
+                        await channel.send('\N{THUMBS UP SIGN}')
+
+
+        Parameters
+        ------------
+        event: :class:`str`
+            The event name, similar to the :ref:`event reference <guilded-api-events>`,
+            but without the ``on_`` prefix, to wait for.
+        check: Optional[Callable[..., :class:`bool`]]
+            A predicate to check what to wait for. The arguments must meet the
+            parameters of the event being waited for.
+        timeout: Optional[:class:`float`]
+            The number of seconds to wait before timing out and raising
+            :exc:`asyncio.TimeoutError`.
+
+        Raises
+        -------
+        asyncio.TimeoutError
+            If a timeout is provided and it was reached.
+
+        Returns
+        --------
+        Any
+            Returns no arguments, a single argument, or a :class:`tuple` of multiple
+            arguments that mirrors the parameters passed in the
+            :ref:`event reference <guilded-api-events>`.
+        """
+
+        print(event)
+        future = self.loop.create_future()
+        if check is None:
+            def _check(*args):
+                return True
+            check = _check
+
+        ev = event.lower()
+        try:
+            listeners = self._listeners[ev]
+        except KeyError:
+            listeners = []
+            self._listeners[ev] = listeners
+
+        listeners.append((future, check))
+        print(self._listeners.get(ev))
+        return asyncio.wait_for(future, timeout)
 
     async def _run_event(self, coro, event_name, *args, **kwargs):
         try:
@@ -228,10 +355,12 @@ class ClientBase:
     def _schedule_event(self, coro, event_name, *args, **kwargs):
         wrapped = self._run_event(coro, event_name, *args, **kwargs)
         # Schedules the task
-        return asyncio.create_task(wrapped, name=f'guilded.py: {event_name}')
+        return _ClientEventTask(original_coro=coro, event_name=event_name, coro=wrapped, loop=self.loop)
 
     def event(self, coro):
         """A decorator to register an event for the library to automatically dispatch when appropriate.
+
+        You can find more info about the events on the :ref:`documentation below <guilded-api-events>`.
 
         The events must be a :ref:`coroutine <coroutine>`, if not, :exc:`TypeError` is raised.
 
@@ -249,18 +378,53 @@ class ClientBase:
         :class:`TypeError`
             The function passed is not actually a coroutine.
         """
+
         if not asyncio.iscoroutinefunction(coro):
             raise TypeError('Event must be a coroutine.')
 
         setattr(self, coro.__name__, coro)
-        self._listeners[coro.__name__] = coro
+        log.debug('%s has successfully been registered as an event', coro.__name__)
         return coro
 
-    def dispatch(self, event_name, *args, **kwargs):
-        coro = self._listeners.get(f'on_{event_name}')
-        if not coro:
-            return
-        self.loop.create_task(coro(*args, **kwargs))
+    def dispatch(self, event: str, *args: Any, **kwargs: Any):
+        log.debug('Dispatching event %s', event)
+        method = 'on_' + event
+
+        listeners = self._listeners.get(event)
+        if listeners:
+            removed = []
+            for i, (future, condition) in enumerate(listeners):
+                if future.cancelled():
+                    removed.append(i)
+                    continue
+
+                try:
+                    result = condition(*args)
+                except Exception as exc:
+                    future.set_exception(exc)
+                    removed.append(i)
+                else:
+                    if result:
+                        if len(args) == 0:
+                            future.set_result(None)
+                        elif len(args) == 1:
+                            future.set_result(args[0])
+                        else:
+                            future.set_result(args)
+                        removed.append(i)
+
+            if len(removed) == len(listeners):
+                self._listeners.pop(event)
+            else:
+                for idx in reversed(removed):
+                    del listeners[idx]
+
+        try:
+            coro = getattr(self, method)
+        except AttributeError:
+            pass
+        else:
+            self._schedule_event(coro, method, *args, **kwargs)
 
     def get_message(self, id: str):
         """Optional[:class:`.ChatMessage`]: Get a message from your :attr:`.cached_messages`. 
