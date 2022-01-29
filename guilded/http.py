@@ -222,6 +222,17 @@ class HTTPClientBase:
                 return Member(state=self, data=data[user_id])
             return get_team_member_as_object()
 
+    # /users
+
+    def get_user(self, user_id: str, *, as_object=False):
+        if as_object is False:
+            return self.request(UserbotRoute('GET', f'/users/{user_id}'))
+        else:
+            async def get_user_as_object():
+                data = await self.request(UserbotRoute('GET', f'/users/{user_id}'))
+                return User(state=self, data=data)
+            return get_user_as_object()
+
     # /content
 
     def get_metadata(self, route: str):
@@ -1084,15 +1095,6 @@ class UserbotHTTPClient(HTTPClientBase):
         return self.request(route, json=payload)
 
     # /users
-
-    def get_user(self, user_id: str, *, as_object=False):
-        if as_object is False:
-            return self.request(UserbotRoute('GET', f'/users/{user_id}'))
-        else:
-            async def get_user_as_object():
-                data = await self.request(UserbotRoute('GET', f'/users/{user_id}'))
-                return User(state=self, data=data)
-            return get_user_as_object()
 
     def get_user_profile(self, user_id: str, *, v: int = 3):
         return self.request(UserbotRoute('GET', f'/users/{user_id}/profilev{v}'))

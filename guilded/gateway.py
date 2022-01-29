@@ -947,7 +947,7 @@ class GuildedWebSocket(GuildedWebSocketBase):
             return
 
         if op == self.MISSABLE:
-            d['teamId'] = d.get('teamId', self.client.team_id)
+            d['serverId'] = d.get('serverId')
             event = self._parsers.get(t, d)
             if event is None:
                 # ignore unhandled events
@@ -976,21 +976,33 @@ class WebSocketEventParsers:
         return coro(data)
 
     async def ChatMessageCreated(self, data):
+        server_id = data['serverId']
         message_data = data['message']
-        message_data['serverId'] = message_data.get('serverId', data.get('serverId'))
+        message_data['serverId'] = server_id
+
+        try:
+            server = await self.client.getch_team(server_id)
+        except:
+            server = None
+        else:
+            self._state.add_to_team_cache(server)
 
         channel_id = message_data.get('channelId')
         if channel_id is not None:
-            channel = self._state._get_team_channel_or_thread(message_data['serverId'], channel_id)
+            channel = self._state._get_team_channel_or_thread(server_id, channel_id)
             if channel is None:
                 try:
                     channel_data = await self._state.get_channel(channel_id)
                 except HTTPException:
                     channel = self._state.create_channel(
-                        data={'id': channel_id, 'type': 'team', 'serverId': message_data['serverId']}
+                        data={'id': channel_id, 'type': 'team', 'serverId': server_id},
+                        team=server,
                     )
                 else:
-                    channel = self._state.create_channel(data=channel_data['metadata']['channel'])
+                    channel = self._state.create_channel(
+                        data=channel_data['metadata']['channel'],
+                        team=server,
+                    )
 
             self._state.add_to_team_channel_cache(channel)
         else:
@@ -998,12 +1010,31 @@ class WebSocketEventParsers:
 
         author_id = message_data.get('createdBy')
         if author_id is not None and author_id != self._state.GIL_ID:
-            author = self._state._get_team_member(message_data['serverId'], author_id)
-            if author is None and message_data['serverId'] is not None:
-                author_data = await self._state.get_team_member(message_data['serverId'], author_id)
-                author = self._state.create_member(data=author_data[author_id])
+            author = self._state._get_team_member(server_id, author_id)
+            if author is None and server_id is not None:
+                author_data = (await self._state.get_team_member(server_id, author_id))[author_id]
+                user_data = await self._state.get_user(author_id)
+                user_data['user']['createdAt'] = user_data['user'].get('joinDate')
+                author = self._state.create_member(
+                    data={
+                        'id': author_id,
+                        'serverId': server_id,
+                        **user_data,
+                        **author_data,
+                    },
+                    team=server,
+                )
             elif author is None:
-                author = self._state.create_member(data={'id': author_id, 'serverId': message_data['serverId']})
+                user_data = await self._state.get_user(author_id)
+                user_data['user']['createdAt'] = user_data['user'].get('joinDate')
+                author = self._state.create_member(
+                    data={
+                        'id': author_id,
+                        'serverId': server_id,
+                        **user_data['user'],
+                    },
+                    team=server,
+                )
 
             self._state.add_to_member_cache(author)
         else:
@@ -1015,6 +1046,7 @@ class WebSocketEventParsers:
         self.client.dispatch('message', message)
 
     async def ChatMessageUpdated(self, data):
+        server_id = data['serverId']
         self.client.dispatch('raw_message_edit', data)
         before = self._state._get_message(data['message']['id'])
         if before is None:
@@ -1025,6 +1057,7 @@ class WebSocketEventParsers:
         self.client.dispatch('message_edit', before, after)
 
     async def ChatMessageDeleted(self, data):
+        server_id = data['serverId']
         message = self._state._get_message(data['message']['id'])
         data['cached_message'] = message
         self.client.dispatch('raw_message_delete', data)
@@ -1034,6 +1067,7 @@ class WebSocketEventParsers:
             self.client.dispatch('message_delete', message)
 
     async def TeamMemberUpdated(self, data):
+        server_id = data['serverId']
         member_id = data.get('userId') or data['userInfo'].get('id')
         raw_after = self._state.create_member(data={'id': member_id, 'serverId': data['serverId'], **data['userInfo']})
         self.client.dispatch('raw_member_update', raw_after)
@@ -1052,6 +1086,7 @@ class WebSocketEventParsers:
         self.client.dispatch('member_update', before, member)
 
     async def teamRolesUpdated(self, data):
+        server_id = data['serverId']
         team = self._state._get_team(data['serverId'])
 
         # A member's roles were updated
