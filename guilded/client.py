@@ -1130,7 +1130,7 @@ class Client(ClientBase):
         self.team_id = team_id
 
         self.http: HTTPClient = HTTPClient(
-            session=aiohttp.ClientSession(loop=self.loop),
+            session=aiohttp.ClientSession(),
             user_id=user_id,
             max_messages=self.max_messages
         )
