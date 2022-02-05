@@ -32,5 +32,5 @@ setuptools.setup(
         'Natural Language :: English'
     ],
     python_requires='>=3.6',
-    install_requires=['aiohttp'],
+    install_requires=['aiohttp<4.0.0'],
 )
