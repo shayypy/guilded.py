@@ -245,6 +245,10 @@ class Team:
 
         for bot in data.get('bots', []) or data.get('webhooks', []):
             if bot.get('flows') is not None:
+                # Update member to bot if found within flowbots
+                member = self.get_member(bot.get('userId', ''))
+                if member:
+                    member._bot = True
                 bot = FlowBot(state=self._state, data=bot, team=self)
                 self._flowbots[bot.id] = bot
 

@@ -65,8 +65,6 @@ class FlowBot:
         self.team_id: str = data.get('teamId')
 
         self.user_id: str = data.get('userId')
-        if self.member:
-            self.member._bot: bool = True
 
         self._author = extra.get('author')
         self.author_id: str = data.get('createdBy')
