@@ -111,8 +111,10 @@ class User(guilded.abc.User, guilded.abc.Messageable):
         except KeyError:
             pass
 
-        if 'profilePicture' in data:
-            self.avatar: Asset = Asset._from_user_avatar(self._state, data.pop('profilePicture'))
+        if 'profilePicture' in data and data['profilePicture'] is not None:
+            self.avatar: Optional[Asset] = Asset._from_user_avatar(self._state, data.pop('profilePicture'))
+        else if 'profilePicture' in data:
+            self.avatar: Optional[Asset] = None
 
     async def block(self):
         """|coro|
