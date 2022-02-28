@@ -850,6 +850,31 @@ class UserbotWebSocketEventParsers:
 
         # Forum topic replies are not accounted for here because their updates are sent in the TEAM_CHANNEL_CONTENT_UPDATED event
 
+    async def USER_TEAMS_UPDATED(self, data):
+        team_id = data.get('teamId')
+        removed = data.get('isRemoved', False)
+
+        team = self._state._get_team(team_id)
+        if removed and team:
+            self.client.dispatch('team_remove', team)
+            self.client.dispatch('guild_remove', team)  # discord.py
+
+            self._state._teams.pop(team_id, None)
+            if team.ws:
+                try:
+                    await team.ws.close()
+                except:
+                    pass
+
+        elif not removed:
+            team = await self.client.fetch_team(team_id)
+            self._state.add_to_team_cache(team)
+
+            # TODO: Connect to gateway and begin listening
+
+            self.client.dispatch('team_join', team)
+            self.client.dispatch('guild_join', team)  # discord.py
+
     #async def ChatMessageReactionAdded(self, data):
     #    self.client.dispatch('raw_reaction_add', data)
 

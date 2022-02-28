@@ -936,8 +936,11 @@ class UserbotHTTPClient(HTTPClientBase):
 
     # /teams
 
-    def join_team(self, team_id):
-        return self.request(UserbotRoute('PUT', f'/teams/{team_id}/members/{self.my_id}/join'))
+    def join_team(self, team_id, invite_id=None):
+        payload = {
+            'inviteId': invite_id,
+        }
+        return self.request(UserbotRoute('PUT', f'/teams/{team_id}/members/{self.my_id}/join'), json=payload)
 
     def create_team_invite(self, team_id):
         return self.request(UserbotRoute('POST', f'/teams/{team_id}/invites'), json={'teamId': team_id})
@@ -1208,6 +1211,15 @@ class UserbotHTTPClient(HTTPClientBase):
     def get_emojis(self):
         return self.request(UserbotRoute('GET', '/users/me/custom_reactions'))
 
+    def get_recovery_info(self):
+        return self.request(UserbotRoute('GET', '/users/me/recoveryInfo'))
+
+    def get_verification_status(self):
+        return self.request(UserbotRoute('GET', '/users/me/verification'))
+
+    def send_verification_email(self):
+        return self.request(UserbotRoute('POST', '/users/me/verify'))
+
     # /content
 
     async def get_channel_message(self, channel_id: str, message_id: str):
@@ -1293,7 +1305,8 @@ class UserbotHTTPClient(HTTPClientBase):
         return self.request(UserbotRoute('GET', 'https://raw.githubusercontent.com/GuildedAPI/datatables/main/games.json', override_base=UserbotRoute.NO_BASE))
 
     def accept_invite(self, invite_code):
-        return self.request(UserbotRoute('PUT', f'/invites/{invite_code}'), json={'type': 'consume'})
+        payload = {'type': 'consume'}
+        return self.request(UserbotRoute('PUT', f'/invites/{invite_code}'), json=payload)
 
     # websocket
 
