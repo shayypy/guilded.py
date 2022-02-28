@@ -58,6 +58,7 @@ from typing import Any, Callable, Optional, List
 import aiohttp
 
 from .errors import NotFound, ClientException
+from .enums import *
 from .embed import Embed
 from .emoji import Emoji
 from .gateway import GuildedWebSocket, UserbotGuildedWebSocket, WebSocketClosure
@@ -778,7 +779,7 @@ class UserbotClient(ClientBase):
         Parameters
         ------------
         query: :class:`str`
-            Query to use while searching
+            Query to use while searching.
         max_results: Optional[:class:`int`]
             The maximum number of results to return. Defaults to 20.
         exclude: Optional[List[:class:`.Team`]]
@@ -903,12 +904,33 @@ class UserbotClient(ClientBase):
         games = await self.fetch_games()
         Game.MAPPING = games
 
-    async def update_privacy_settings(self, *, dms, friend_requests):
+    async def update_privacy_settings(
+        self,
+        *,
+        allow_friend_requests_from: AllowFriendRequestsFrom,
+        allow_contact_from: AllowContactFrom,
+        allow_profile_posts_from: AllowProfilePostsFrom,
+    ) -> None:
         """|coro|
 
+        |onlyuserbot|
+
         Update your privacy settings.
+
+        Parameters
+        -----------
+        allow_friend_requests_from: :class:`.AllowFriendRequestsFrom`
+            Who can send you friend requests.
+        allow_contact_from: :class:`.AllowContactFrom`
+            Who can call or message you.
+        allow_profile_posts_from: :class:`.AllowProfilePostsFrom`
+            Who can post on your profile.
         """
-        await self.http.set_privacy_settings(dms=dms, friend_requests=friend_requests)
+        await self.http.set_privacy_settings(
+            allow_friend_requests_from=allow_friend_requests_from.value,
+            allow_contact_from=allow_contact_from.value,
+            allow_profile_posts_from=allow_profile_posts_from.value,
+        )
 
     async def fetch_blocked_users(self):
         """|coro|

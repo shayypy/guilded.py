@@ -55,10 +55,11 @@ from typing import Any, ClassVar, Dict, List, Optional, TYPE_CHECKING, Type, Typ
 
 
 __all__ = (
-    'AllowDMsFrom',
+    'AllowContactFrom',
     'AllowFriendRequestsFrom',
-    'FlowTriggerType',
+    'AllowProfilePostsFrom',
     'FlowActionType',
+    'FlowTriggerType',
     'TeamFlairType',
 )
 
@@ -177,7 +178,15 @@ else:
                 return value
 
 
-class AllowDMsFrom(Enum):
+class AllowFriendRequestsFrom(Enum):
+    members = 'serverMembersOnly'
+    everyone = 'everyone'
+
+    def __str__(self):
+        return self.value
+
+
+class AllowContactFrom(Enum):
     friends_and_members = 'friendsAndServerMembers'
     members = 'friendsAndServerMembers'
     friends = 'friendsOnly'
@@ -187,8 +196,10 @@ class AllowDMsFrom(Enum):
         return self.value
 
 
-class AllowFriendRequestsFrom(Enum):
-    members = 'serverMembersOnly'
+class AllowProfilePostsFrom(Enum):
+    friends_and_members = 'friendsAndServerMembers'
+    members = 'friendsAndServerMembers'
+    friends = 'friendsOnly'
     everyone = 'everyone'
 
     def __str__(self):
@@ -245,6 +256,8 @@ class FlowActionType(Enum):
     create_a_forum_topic = 'CreateForumThread'
     create_a_list_item = 'CreateListItem'
     remove_role = 'RemoveRoleFromMember'
+    delete_a_message = 'DeleteChannelMessage'
+    create_a_doc = 'CreateDoc'
 
 
 class TeamFlairType(Enum):

@@ -1102,11 +1102,21 @@ class UserbotHTTPClient(HTTPClientBase):
     def get_privacy_settings(self):
         return self.request(UserbotRoute('GET', '/users/me/privacysettings'))
 
-    def set_privacy_settings(self, dms, friend_requests):
-        return self.request(UserbotRoute('PUT', '/users/me/privacysettings', json={
-            'allowDMsFrom': str(dms),
-            'allowFriendRequestsFrom': str(friend_requests)
-        }))
+    def set_privacy_settings(
+        self,
+        *,
+        allow_friend_requests_from: str,
+        allow_contact_from: str,
+        allow_profile_posts_from: str,
+    ):
+        payload = {
+            'userPrivacySettings': {
+                'allowDMsFrom': allow_contact_from,
+                'allowFriendRequestsFrom': allow_friend_requests_from,
+                'allowProfilePostsFrom': allow_profile_posts_from,
+            },
+        }
+        return self.request(UserbotRoute('PUT', '/users/me/privacysettings'), json=payload)
 
     def set_presence(self, presence):
         payload = {'status': presence}
