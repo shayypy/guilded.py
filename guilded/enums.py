@@ -262,8 +262,12 @@ class FlowActionType(Enum):
 
 class TeamFlairType(Enum):
     hot = 1
+    new = 2
     veteran = 3
+    recent_match_win = 4
+    recent_match = 5
     popular = 6
+    ranked = 7
 
     def __str__(self):
         return self.name

@@ -115,13 +115,22 @@ class TeamFlair:
     type: :class:`.TeamFlairType`
         The type of flair.
     amount: Optional[:class:`int`]
-        For :attr:`.TeamFlairType.hot`, the number of members who joined the
-        team in the last month.
+        * For :attr:`.TeamFlairType.hot`, the number of members who joined the
+          team in the last month.
+
+        * For :attr:`.TeamFlairType.recent_match_win`, the number of matches
+          that were recently won.
+
+        * For :attr:`.TeamFlairType.recent_match`, the number of matches that
+          were recently participated in.
+
+        * For :attr:`.TeamFlairType.ranked`, the rank that the team is placed at.
+          (1, 2, or 3)
     """
 
     def __init__(self, *, data: Dict[str, int]):
         self.type: TeamFlairType = try_enum(TeamFlairType, data['id'])
-        self.amount: Optional[int] = data.get('amount')
+        self.amount: Optional[int] = data.get('amount', data.get('rank'))
 
     def __repr__(self) -> str:
         return f'<TeamFlair type={self.type!r} amount={self.amount!r}>'
