@@ -49,6 +49,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+import aiohttp
 import asyncio
 import datetime
 import json
@@ -102,8 +103,8 @@ class UserbotVoiceRoute(UserbotRoute):
 
 class HTTPClientBase:
     GIL_ID = 'Ann6LewA'
-    def __init__(self, *, session, max_messages=1000):
-        self.session = session
+    def __init__(self, *, max_messages=1000):
+        self.session = None
         self._max_messages = max_messages
 
         self.ws = None
@@ -114,6 +115,10 @@ class HTTPClientBase:
 
         self._threads = {}
         self._dm_channels = {}
+
+    async def close(self):
+        if self.session:
+            await self.session.close()
 
     def _get_user(self, id):
         return self._users.get(id)
@@ -251,9 +256,9 @@ class HTTPClientBase:
 
 
 class UserbotHTTPClient(HTTPClientBase):
-    def __init__(self, *, session, max_messages=1000):
+    def __init__(self, *, max_messages=1000):
         self.userbot = True
-        super().__init__(session=session, max_messages=max_messages)
+        super().__init__(max_messages=max_messages)
 
         self.my_id = None
 
@@ -446,6 +451,8 @@ class UserbotHTTPClient(HTTPClientBase):
     # state
 
     async def login(self, email, password):
+        self.session = aiohttp.ClientSession()
+
         self.email = email
         self.password = password
         response = await self.request(UserbotRoute('POST', '/login'), json=self.credentials)
@@ -461,11 +468,13 @@ class UserbotHTTPClient(HTTPClientBase):
                 'logging into the REST API at least once '
                 'on this Client.'
             )
-        gateway_args = {**gateway_args,
+
+        gateway_args = {
+            **gateway_args,
             'jwt': 'undefined',
             'EIO': '3',
             'transport': 'websocket',
-            'guildedClientId': cookie
+            'guildedClientId': cookie,
         }
 
         return await self.session.ws_connect(
@@ -1357,9 +1366,9 @@ class UserbotHTTPClient(HTTPClientBase):
 
 
 class HTTPClient(HTTPClientBase):
-    def __init__(self, *, session, user_id, max_messages=1000):
+    def __init__(self, *, user_id, max_messages=1000):
         self.userbot = False
-        super().__init__(session=session, max_messages=max_messages)
+        super().__init__(max_messages=max_messages)
 
         self.my_id = user_id
         self.token = None
@@ -1431,11 +1440,13 @@ class HTTPClient(HTTPClientBase):
     # state
 
     async def ws_connect(self):
+        self.session = aiohttp.ClientSession()
+
         headers = self.credentials.copy()
         if self.ws:
-            # we have connected before
+            # We have connected before
             if self.ws._last_message_id:
-                # catching up with missed messages
+                # Catch up with missed messages
                 headers['guilded-last-message-id'] = self.ws._last_message_id
 
         return await self.session.ws_connect(Route.WEBSOCKET_BASE, headers=headers)

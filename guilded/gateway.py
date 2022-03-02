@@ -102,11 +102,6 @@ class GuildedWebSocketBase:
             raise WebSocketClosure('Socket is in a closed or closing state.')
         return None
 
-    async def close(self, code=1000):
-        self._close_code = code
-        await self.send(['logout'])
-        await self.socket.close(code=code)
-
 
 class UserbotGuildedWebSocket(GuildedWebSocketBase):
     """Implements Guilded's global gateway as well as team websocket connections."""
@@ -129,6 +124,20 @@ class UserbotGuildedWebSocket(GuildedWebSocketBase):
         self.client.dispatch('socket_raw_send', payload)
         return await self.socket.send_str(payload)
 
+    async def ping(self):
+        log.debug('Sending heartbeat')
+        await self.send(UserbotGuildedWebSocket.HEARTBEAT_PAYLOAD, raw=True)
+
+    async def close(self, code=1000):
+        log.debug('Closing websocket connection for team %s with code %s', self.team_id, code)
+        if self._heartbeater:
+            self._heartbeater.stop()
+            self._heartbeater = None
+
+        self._close_code = code
+        await self.send(['logout'])
+        await self.socket.close(code=code)
+
     @classmethod
     async def build(cls, client, *, loop=None, **gateway_args):
         log.info('Connecting to the gateway with args %s', gateway_args)
@@ -143,7 +152,7 @@ class UserbotGuildedWebSocket(GuildedWebSocketBase):
         ws = cls(socket, client, loop=loop or asyncio.get_event_loop())
         ws.team_id = gateway_args.get('teamId')
         ws._parsers = UserbotWebSocketEventParsers(client)
-        await ws.send(UserbotGuildedWebSocket.HEARTBEAT_PAYLOAD, raw=True)
+        await ws.ping()
         await ws.poll_event()
 
         return ws
@@ -891,8 +900,8 @@ class GuildedWebSocket(GuildedWebSocketBase):
     ------------
     MISSABLE
         Receieve only. Denotes either a message that could be missed (contains
-        a message ID to resume with), or a message that is being returned to
-        you because you missed it.
+        a message ID to resume with), or a previously-missed message that is
+        being returned to you while resuming.
     WELCOME
         Received upon connecting to the gateway.
     RESUME
@@ -930,6 +939,16 @@ class GuildedWebSocket(GuildedWebSocketBase):
     async def ping(self):
         log.debug('Sending heartbeat')
         await self.send({'op': self.PING})
+
+    async def close(self, code=1000):
+        log.debug('Closing websocket connection with code %s', code)
+        if self._heartbeater:
+            self._heartbeater.stop()
+            self._heartbeater = None
+
+        self._close_code = code
+        await self.send(['logout'])
+        await self.socket.close(code=code)
 
     @classmethod
     async def build(cls, client, *, loop=None):
@@ -1165,10 +1184,7 @@ class Heartbeater(threading.Thread):
         log.debug('Started heartbeat thread')
         while not self._stop_ev.wait(self.interval):
             log.debug('Sending heartbeat')
-            if self.ws.userbot:
-                coro = self.ws.send(UserbotGuildedWebSocket.HEARTBEAT_PAYLOAD, raw=True)
-            else:
-                coro = self.ws.ping()
+            coro = self.ws.ping()
             f = asyncio.run_coroutine_threadsafe(coro, loop=self.ws.loop)
             try:
                 total = 0

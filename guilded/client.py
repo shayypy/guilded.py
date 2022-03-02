@@ -49,13 +49,13 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+import aiohttp
 import asyncio
 import logging
+import signal
 import sys
 import traceback
 from typing import Any, Callable, Optional, List
-
-import aiohttp
 
 from .errors import NotFound, ClientException
 from .enums import *
@@ -556,8 +556,7 @@ class UserbotClient(ClientBase):
         super().__init__(**options)
 
         self.http: UserbotHTTPClient = UserbotHTTPClient(
-            session=aiohttp.ClientSession(loop=self.loop),
-            max_messages=self.max_messages
+            max_messages=self.max_messages,
         )
         self.user: Optional[ClientUser] = None
 
@@ -574,15 +573,15 @@ class UserbotClient(ClientBase):
             'flowbots': cache_on_startup.get('flowbots', True)
         }
 
-    async def start(self, email, password, *, reconnect=True):
+    async def start(self, email: str, password: str, *, reconnect: bool = True):
         """|coro|
 
         Login and connect to Guilded using a user account email and password.
         """
         await self.login(email, password)
-        await self.connect()
+        await self.connect(reconnect=reconnect)
 
-    async def login(self, email, password):
+    async def login(self, email: str, password: str):
         """|coro|
 
         Log into the REST API with a user account email and password.
@@ -591,7 +590,7 @@ class UserbotClient(ClientBase):
         :attr:`.cache_on_startup`\. This is in contrast to a Discord
         application, where this would be done on connection to the gateway.
         """
-        self.http: UserbotHTTPClient = self.http or UserbotHTTPClient(session=aiohttp.ClientSession(loop=self.loop), max_messages=self.max_messages)
+        self.http: UserbotHTTPClient = self.http or UserbotHTTPClient(max_messages=self.max_messages)
         data = await self.http.login(email, password)
         self.user: ClientUser = ClientUser(state=self.http, data=data)
         self.http.my_id = self.user.id
@@ -633,7 +632,7 @@ class UserbotClient(ClientBase):
                 if dm_channel.recipient is not None:
                     dm_channel.recipient.dm_channel = dm_channel
 
-    async def connect(self):
+    async def connect(self, *, reconnect: bool = True):
         """|coro|
 
         Connect to the main Guilded gateway and subsequent team gateways for
@@ -681,6 +680,19 @@ class UserbotClient(ClientBase):
                         await ws.poll_event()
                     except WebSocketClosure as exc:
                         code = ws._close_code or ws.socket.close_code
+                        if code == 1000:
+                            break
+
+                        if not reconnect:
+                            if teamId:
+                                log.warning('Team %s\'s websocket closed with code %s', teamId, code)
+                                self.dispatch('team_disconnect', teamId)
+                            else:
+                                log.warning('Websocket closed with code %s', code)
+                                self.dispatch('disconnect')
+                                await self.http.logout()
+                            break
+
                         if teamId:
                             log.warning('Team %s\'s websocket closed with code %s, attempting to reconnect in %s seconds', teamId, code, next_backoff_time)
                             self.dispatch('team_disconnect', teamId)
@@ -713,9 +725,14 @@ class UserbotClient(ClientBase):
 
         Log out and close any active gateway connections.
         """
-        if self._closed: return
+        if self._closed:
+            return
+
+        self._closed = True
 
         await self.http.logout()
+        await self.http.close()
+
         for ws in [self.ws] + [team.ws for team in self.teams if team.ws is not None]:
             try:
                 await ws.close(code=1000)
@@ -723,7 +740,6 @@ class UserbotClient(ClientBase):
                 # it's probably already closed, but catch all anyway
                 pass
 
-        self._closed = True
         self._ready.clear()
 
     def run(self, email: str, password: str):
@@ -731,14 +747,44 @@ class UserbotClient(ClientBase):
         blocking call, nothing after it will be called until the bot has been
         closed.
         """
+        loop = self.loop
+
         try:
-            self.loop.create_task(self.start(
-                email=email, 
-                password=password
-            ))
-            self.loop.run_forever()
+            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
+            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+        except NotImplementedError:
+            pass
+
+        async def runner():
+            try:
+                await self.start(
+                    email=email, 
+                    password=password,
+                )
+            finally:
+                if not self.closed:
+                    await self.close()
+
+        def stop_loop_on_completion(f):
+            loop.stop()
+
+        future = asyncio.ensure_future(runner(), loop=loop)
+        future.add_done_callback(stop_loop_on_completion)
+        try:
+            loop.run_forever()
         except KeyboardInterrupt:
-            exit()
+            log.info('Received signal to terminate bot and event loop.')
+        finally:
+            future.remove_done_callback(stop_loop_on_completion)
+            log.info('Cleaning up tasks.')
+            _cleanup_loop(loop)
+
+        if not future.cancelled():
+            try:
+                return future.result()
+            except KeyboardInterrupt:
+                # I am unsure why this gets raised here but suppress it anyway
+                return None
 
     async def search_users(self, query: str, *, max_results=20, exclude=None):
         """|coro|
@@ -1152,7 +1198,6 @@ class Client(ClientBase):
         self.team_id = team_id
 
         self.http: HTTPClient = HTTPClient(
-            session=aiohttp.ClientSession(),
             user_id=user_id,
             max_messages=self.max_messages
         )
@@ -1211,6 +1256,8 @@ class Client(ClientBase):
                         await ws.poll_event()
                     except WebSocketClosure as exc:
                         code = ws._close_code or ws.socket.close_code
+                        if code == 1000:
+                            break
 
                         if reconnect is False:
                             log.warning('Websocket closed with code %s. Last message ID was %s', code, ws._last_message_id)
@@ -1239,15 +1286,18 @@ class Client(ClientBase):
 
         Close the current connection.
         """
-        if self._closed: return
+        if self._closed:
+            return
+
+        await self.http.close()
+        self._closed = True
 
         try:
-            await ws.close(code=1000)
+            await self.ws.close(code=1000)
         except Exception:
             # it's probably already closed, but catch all anyway
             pass
 
-        self._closed = True
         self._ready.clear()
 
     def run(self, token: str, *, reconnect=True):
@@ -1262,8 +1312,41 @@ class Client(ClientBase):
         reconnect: Optional[:class:`bool`]
             Whether to reconnect on loss/interruption of gateway connection.
         """
+        loop = self.loop
+
         try:
-            self.loop.create_task(self.start(token, reconnect=reconnect))
-            self.loop.run_forever()
+            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
+            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+        except NotImplementedError:
+            pass
+
+        async def runner():
+            try:
+                await self.start(
+                    token,
+                    reconnect=reconnect,
+                )
+            finally:
+                if not self.closed:
+                    await self.close()
+
+        def stop_loop_on_completion(f):
+            loop.stop()
+
+        future = asyncio.ensure_future(runner(), loop=loop)
+        future.add_done_callback(stop_loop_on_completion)
+        try:
+            loop.run_forever()
         except KeyboardInterrupt:
-            exit()
+            log.info('Received signal to terminate bot and event loop.')
+        finally:
+            future.remove_done_callback(stop_loop_on_completion)
+            log.info('Cleaning up tasks.')
+            _cleanup_loop(loop)
+
+        if not future.cancelled():
+            try:
+                return future.result()
+            except KeyboardInterrupt:
+                # I am unsure why this gets raised here but suppress it anyway
+                return None
