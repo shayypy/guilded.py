@@ -947,7 +947,6 @@ class GuildedWebSocket(GuildedWebSocketBase):
             self._heartbeater = None
 
         self._close_code = code
-        await self.send(['logout'])
         await self.socket.close(code=code)
 
     @classmethod
