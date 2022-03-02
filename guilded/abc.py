@@ -429,6 +429,7 @@ class User(metaclass=abc.ABCMeta):
         data = data.get('user', data)
 
         self.type = None
+        self._user_type = data.get('type')
         self.id: str = data.get('id')
         self.dm_channel = None
         self.name: str = data.get('name') or ''
@@ -520,7 +521,7 @@ class User(metaclass=abc.ABCMeta):
 
     @property
     def bot(self) -> bool:
-        return self._bot
+        return self._user_type == 'bot' if self._user_type is not None else self._bot
 
     @property
     def display_avatar(self) -> Asset:
