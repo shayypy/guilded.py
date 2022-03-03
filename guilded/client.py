@@ -1218,6 +1218,8 @@ class Client(ClientBase):
                 'it already set in this Client\'s HTTPClient beforehand.'
             )
 
+        self.http.session = aiohttp.ClientSession()
+
         # build the cache of our one team
         if self.team_id:
             team = await self.fetch_team(self.team_id)

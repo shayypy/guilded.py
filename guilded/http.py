@@ -451,7 +451,7 @@ class UserbotHTTPClient(HTTPClientBase):
     # state
 
     async def login(self, email, password):
-        self.session = aiohttp.ClientSession()
+        self.session = self.session if self.session and not self.session.closed else aiohttp.ClientSession()
 
         self.email = email
         self.password = password
@@ -1440,7 +1440,7 @@ class HTTPClient(HTTPClientBase):
     # state
 
     async def ws_connect(self):
-        self.session = aiohttp.ClientSession()
+        self.session = self.session if self.session and not self.session.closed else aiohttp.ClientSession()
 
         headers = self.credentials.copy()
         if self.ws:
