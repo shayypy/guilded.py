@@ -1006,6 +1006,9 @@ class GuildedWebSocket(GuildedWebSocketBase):
                 self.client.dispatch('error', exc)
                 raise exc from e
 
+        if op == self.ERROR:
+            self._last_message_id = None
+
 
 class WebSocketEventParsers:
     def __init__(self, client):

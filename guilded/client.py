@@ -1266,7 +1266,11 @@ class Client(ClientBase):
                             await self.close()
                             break
 
-                        log.warning('Websocket closed with code %s, attempting to reconnect in %s seconds with last message ID %s', code, next_backoff_time, ws._last_message_id)
+                        if ws._last_message_id:
+                            log.warning('Websocket closed with code %s, attempting to reconnect in %s seconds with last message ID %s', code, next_backoff_time, ws._last_message_id)
+                        else:
+                            log.warning('Websocket closed with code %s, attempting to reconnect in %s seconds', code, next_backoff_time)
+
                         self.dispatch('disconnect')
                         await asyncio.sleep(next_backoff_time)
 
