@@ -100,6 +100,10 @@ class Context(guilded.abc.Messageable):
         return self.team
 
     @property
+    def server(self):
+        return self.team
+
+    @property
     def author(self):
         return self.message.author
 
