@@ -51,6 +51,7 @@ DEALINGS IN THE SOFTWARE.
 
 import asyncio
 import datetime
+import re
 from typing import Any, Dict, Optional, List, Union
 
 from .abc import TeamChannel, User
@@ -66,6 +67,16 @@ from .group import Group
 from .role import Role
 from .user import Member
 from .utils import ISO8601, get
+
+# ZoneInfo is in the stdlib in Python 3.9+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Fall back to pytz, if installed
+    try:
+        from pytz import timezone as ZoneInfo
+    except ImportError:
+        ZoneInfo = None
 
 __all__ = (
     'Guild',
@@ -143,6 +154,8 @@ class Team:
 
     There is an alias for this class called ``Guild``\.
 
+    There is an alias for this class called ``Server``\.
+
     Attributes
     -----------
     id: :class:`str`
@@ -164,7 +177,7 @@ class Team:
     social_info: :class:`SocialInfo`
         The team's linked social media pages.
     recruiting: :class:`bool`
-        Whether the team's moderators are recruiting new members.
+        Whether the team is currently accepting new members.
     verified: :class:`bool`
         Whether the team is verified.
     public: :class:`bool`
@@ -188,6 +201,11 @@ class Team:
         The name of the linked Discord guild.
     base_group: Optional[:class:`Group`]
         The team's base or "home" group.
+    timezone: Optional[:class:`datetime.tzinfo`]
+        The team's timezone.
+        If you are using Python 3.9 or greater, this is an instance of `ZoneInfo <https://docs.python.org/3/library/zoneinfo.html>`_.
+        Otherwise, if `pytz <https://pypi.org/project/pytz>`_ is available in the working environment, an instance from pytz.
+        If neither apply or the team does not have a timezone set, this will be ``None``.
     """
 
     def __init__(self, *, state, data, ws=None):
@@ -236,7 +254,13 @@ class Team:
             self._groups[self.base_group.id] = self.base_group
 
         self.social_info: SocialInfo = SocialInfo(**data.get('socialInfo', {}))
-        self.timezone = data.get('timezone')
+
+        self.timezone: ZoneInfo
+        timezone = data.get('timezone')
+        if timezone and ZoneInfo:
+            self.timezone = ZoneInfo(re.sub(r'( \(.+)', '', timezone).replace(' ', '_'))
+        else:
+            self.timezone = None
 
         for member in data.get('members') or []:
             member['teamId'] = self.id
