@@ -991,6 +991,13 @@ class GuildedWebSocket(GuildedWebSocketBase):
 
         if op == self.MISSABLE:
             d['serverId'] = d.get('serverId')
+            try:
+                d['server'] = await self.client.getch_team(d['serverId'])
+            except:
+                d['server'] = None
+            else:
+                self.client.http.add_to_team_cache(d['server'])
+
             event = self._parsers.get(t, d)
             if event is None:
                 # ignore unhandled events
@@ -1023,15 +1030,9 @@ class WebSocketEventParsers:
 
     async def ChatMessageCreated(self, data):
         server_id = data['serverId']
+        server = data['server']
         message_data = data['message']
         message_data['serverId'] = server_id
-
-        try:
-            server = await self.client.getch_team(server_id)
-        except:
-            server = None
-        else:
-            self._state.add_to_team_cache(server)
 
         channel_id = message_data.get('channelId')
         if channel_id is not None:
@@ -1092,7 +1093,6 @@ class WebSocketEventParsers:
         self.client.dispatch('message', message)
 
     async def ChatMessageUpdated(self, data):
-        server_id = data['serverId']
         self.client.dispatch('raw_message_edit', data)
         before = self._state._get_message(data['message']['id'])
         if before is None:
@@ -1103,7 +1103,6 @@ class WebSocketEventParsers:
         self.client.dispatch('message_edit', before, after)
 
     async def ChatMessageDeleted(self, data):
-        server_id = data['serverId']
         message = self._state._get_message(data['message']['id'])
         data['cached_message'] = message
         self.client.dispatch('raw_message_delete', data)
@@ -1113,15 +1112,14 @@ class WebSocketEventParsers:
             self.client.dispatch('message_delete', message)
 
     async def TeamMemberUpdated(self, data):
-        server_id = data['serverId']
         member_id = data.get('userId') or data['userInfo'].get('id')
         raw_after = self._state.create_member(data={'id': member_id, 'serverId': data['serverId'], **data['userInfo']})
         self.client.dispatch('raw_member_update', raw_after)
 
-        team = self.client.get_team(data['serverId'])
-        if team is None:
+        server = data['server']
+        if server is None:
             return
-        member = team.get_member(member_id)
+        member = server.get_member(member_id)
         if member is None:
             self._state.add_to_member_cache(raw_after)
             return
@@ -1132,20 +1130,19 @@ class WebSocketEventParsers:
         self.client.dispatch('member_update', before, member)
 
     async def teamRolesUpdated(self, data):
-        server_id = data['serverId']
-        team = self._state._get_team(data['serverId'])
+        server = data['server']
 
         # A member's roles were updated
         for updated in data.get('memberRoleIds') or []:
             for role_id in updated['roleIds']:
-                if not team.get_role(role_id):
-                    role = Role(state=self._state, data={'id': role_id, 'serverId': team.id})
-                    team._roles[role.id] = role
+                if not server.get_role(role_id):
+                    role = Role(state=self._state, data={'id': role_id, 'serverId': server.id})
+                    server._roles[role.id] = role
 
-            raw_after = self._state.create_member(data={'id': updated['userId'], 'roleIds': updated['roleIds'], 'serverId': team.id})
+            raw_after = self._state.create_member(data={'id': updated['userId'], 'roleIds': updated['roleIds'], 'serverId': server.id})
             self.client.dispatch('raw_member_update', raw_after)
 
-            member = team.get_member(updated['userId'])
+            member = server.get_member(updated['userId'])
             if not member:
                 self._state.add_to_member_cache(raw_after)
                 continue
@@ -1155,18 +1152,18 @@ class WebSocketEventParsers:
             self._state.add_to_member_cache(member)
             self.client.dispatch('member_update', before, member)
 
-        # The team's roles were updated
+        # The server's roles were updated
         if data.get('rolesById'):
             # Guilded provides us with the entire role list so we reconstruct it
             # with this data since it will undoubtably be the newest available
-            team._roles.clear()
+            server._roles.clear()
 
             for role_id, updated in data['rolesById'].items():
                 if role_id.isdigit():
                     # "baseRole" is included in rolesById, resulting in a
                     # duplicate entry for the base role.
-                    role = Role(state=self._state, data=updated, team=team)
-                    team._roles[role.id] = role
+                    role = Role(state=self._state, data=updated, team=server)
+                    server._roles[role.id] = role
 
 
 class Heartbeater(threading.Thread):

@@ -567,15 +567,15 @@ class UserbotHTTPClient(HTTPClientBase):
             if fields.get('old_content'):
                 content = fields.get('old_content')
                 payload['content']['document']['nodes'].append({
-                    'object': 'block', 
-                    'type': 'markdown-plain-text', 
+                    'object': 'block',
+                    'type': 'markdown-plain-text',
                     'data': {},
                     'nodes': [{'object':'text', 'leaves': [{'object': 'leaf', 'text': str(content), 'marks': []}]}]
                 })
         else:
             payload['content']['document']['nodes'].append({
-                'object': 'block', 
-                'type': 'markdown-plain-text', 
+                'object': 'block',
+                'type': 'markdown-plain-text',
                 'data': {},
                 'nodes': [{'object':'text', 'leaves': [{'object': 'leaf', 'text': str(content), 'marks': []}]}]
             })
@@ -1402,6 +1402,18 @@ class HTTPClient(HTTPClientBase):
             log.info('%s %s%s%s', method, route.url, log_args, log_data)
             response = await self.session.request(method, url, **kwargs)
             log.info('Guilded responded with HTTP %s', response.status)
+
+            authenticated_as = response.headers.get('authenticated-as')
+            if authenticated_as and authenticated_as != self.my_id:
+                log.debug('Response provided a new user ID. Previous: %s, New: %s', self.my_id, authenticated_as)
+                last_user = self._users.pop(self.my_id, None)
+                self.my_id = authenticated_as
+
+                # Update the ClientUser
+                if last_user:
+                    last_user.id = self.my_id
+                    self._users[self.my_id] = last_user
+
             if response.status == 204:
                 return None
 
@@ -1423,9 +1435,9 @@ class HTTPClient(HTTPClientBase):
                     log.warning(
                         'Rate limited on %s. Retrying in %s seconds',
                         route.path,
-                        retry_after or 5
+                        retry_after if retry_after is not None else 5
                     )
-                    if retry_after:
+                    if retry_after is not None:
                         await asyncio.sleep(float(retry_after))
                         data = await perform()
                     else:

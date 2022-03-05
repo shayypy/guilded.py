@@ -1184,14 +1184,14 @@ class Client(ClientBase):
     """The basic client class for interfacing with Guilded.
 
     Parameters
-    ----------
-    user_id: :class:`str`
+    -----------
+    user_id: Optional[:class:`str`]
         The user ID of this bot, copied from the "Bots" menu. This is used to
         check if a message is owned by the client, and will be removed in the
         future. This is also used to map the client's :class:`.Member` object
         to attributes like :attr:`.Team.me`.
-    team_id: Optional[:class:`str`]
-        The ID of the team that this bot is "from".
+    internal_server_id: Optional[:class:`str`]
+        The ID of the bot's internal server.
     max_messages: Optional[:class:`int`]
         The maximum number of messages to store in the internal message cache.
         This defaults to ``1000``. Passing in ``None`` disables the message cache.
@@ -1205,32 +1205,27 @@ class Client(ClientBase):
     loop: :class:`asyncio.AbstractEventLoop`
         The event loop that the client uses for HTTP requests and websocket
         operations.
-    user: :class:`.ClientUser`
+    user: Optional[:class:`.ClientUser`]
         The currently logged-in user.
-    team: :class:`.Team`
-        The team that this bot is "from".
     ws: Optional[:class:`GuildedWebsocket`]
         The websocket gateway the client is currently connected to. Could be
         ``None``.
     """
 
-    def __init__(self, *, user_id: str, team_id: str = None, **options):
+    def __init__(self, *, user_id: str = None, internal_server_id: str = None, **options):
         super().__init__(**options)
-        self.user_id = user_id
-        self.team_id = team_id
+        self._user_id = user_id
+        self.internal_server_id = internal_server_id
 
         self.http: HTTPClient = HTTPClient(
             user_id=user_id,
-            max_messages=self.max_messages
+            max_messages=self.max_messages,
         )
-        self.user: ClientUser = ClientUser(data={'id': user_id}, state=self.http)
-        team = Team(data={'id': team_id}, state=self.http)
-        team._members[self.user.id] = self.http.create_member(team=team, data={
-            'id': self.user.id,
-            'name': self.user.name,
-            'bot': True,
-        })
-        self.http.add_to_team_cache(team)
+        self.user: Optional[ClientUser] = None
+
+    @property
+    def user_id(self):
+        return self._user_id or self.http.my_id
 
     async def start(self, token=None, *, reconnect=True):
         self.http.token = token or self.http.token
@@ -1241,15 +1236,26 @@ class Client(ClientBase):
             )
 
         self.http.session = aiohttp.ClientSession()
-
-        # build the cache of our one team
-        if self.team_id:
-            team = await self.fetch_team(self.team_id)
-            team._members[self.user.id] = self.http.create_member(team=team, data={
-                'id': self.user.id,
-                'name': self.user.name,
+        if self.user_id:
+            # Fetch the client user
+            user_data = await self.http.get_user(self.user_id)
+        else:
+            user_data = {
+                'id': self.user_id,
+                'name': '',
                 'bot': True,
-            })
+            }
+
+        self.user = ClientUser(
+            state=self.http,
+            data=user_data,
+        )
+        self.http._users[self.user.id] = self.user
+
+        # Cache our internal server
+        if self.internal_server_id:
+            team = await self.fetch_team(self.internal_server_id)
+            team._members[self.user.id] = self.http.create_member(team=team, data=user_data)
             self.http.add_to_team_cache(team)
 
         await self.connect(token, reconnect=reconnect)
