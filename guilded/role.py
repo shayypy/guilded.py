@@ -84,10 +84,11 @@ class Role:
         self.created_at: Optional[datetime.datetime] = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
 
-        self.permissions = Permissions(**data.get('permissions', {}))
+        self._permissions = data.get('permissions', {})
         self.priority: int = data.get('priority', 0)
         self.base: bool = data.get('isBase', False)
-        self._bot: bool = data.get('botScope') is not None
+        self._is_bot_role: bool = data.get('botScope') is not None
+        self.bot_user_id: Optional[str] = (data.get('botScope') or {}).get('userId')
         self.mentionable: bool = data.get('isMentionable', False)
         self.self_assignable: bool = data.get('isSelfAssignable', False)
         self.displayed_separately: bool = data.get('isDisplayedSeparately', False)
@@ -151,10 +152,22 @@ class Role:
         return self.priority
 
     @property
-    def bot(self) -> bool:
-        """:class:`bool`: Whether the role is the internal ``Bot`` role, which
-        every bot in the team has."""
-        return self._bot
+    def permissions(self) -> Permissions:
+        """:class:`.Permissions`: The permissions that the role has."""
+        return Permissions(**self._permissions)
+
+    @property
+    def bot_member(self):
+        """:class:`.Member`: The bot's member that the role is assigned to."""
+        return self.team.get_member(self.bot_user_id)
+
+    def is_bot(self) -> bool:
+        """:class:`bool`: Whether the role is the internal ``Bot`` role, which every bot in the team has."""
+        return self._is_bot_role and self.bot_user_id is None
+
+    def is_bot_managed(self) -> bool:
+        """:class:`bool`: Whether the role is associated with a specific bot in the team."""
+        return self._is_bot_role and self.bot_user_id is not None
 
     def is_default(self) -> bool:
         """|dpyattr|
@@ -162,6 +175,14 @@ class Role:
         This is an alias of :attr:`.base`.
         """
         return self.base
+
+    def is_assignable(self) -> bool:
+        """:class:`bool`: Whether the bot can give the role to users, regardless of permissions."""
+        # TODO: Account for role hierarchy
+        return (
+            not self.is_default()
+            and not self._is_bot_role
+        )
 
     async def award_xp(self, amount: int):
         """|coro|

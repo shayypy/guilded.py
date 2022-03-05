@@ -64,6 +64,7 @@ from .emoji import Emoji
 from .gateway import GuildedWebSocket, UserbotGuildedWebSocket, WebSocketClosure
 from .http import HTTPClient, UserbotHTTPClient
 from .presence import Presence
+from .role import Role
 from .status import TransientStatus, Game
 from .team import Team
 from .user import ClientUser, User, Member
@@ -548,8 +549,8 @@ class UserbotClient(ClientBase):
         A mapping of types of objects to a :class:`bool` (whether to
         cache the type upon logging in via REST). Currently accepts
         ``members``, ``channels``, ``dm_channels``, ``groups``,
-        and ``flowbots``.
-        By default, all are enabled.
+        ``flowbots``, and ``role_info``.
+        By default, all are enabled except for ``role_info``.
 
     Attributes
     -----------
@@ -580,7 +581,8 @@ class UserbotClient(ClientBase):
             'channels': cache_on_startup.get('channels', True),
             'dm_channels': cache_on_startup.get('dm_channels', True),
             'groups': cache_on_startup.get('groups', True),
-            'flowbots': cache_on_startup.get('flowbots', True)
+            'flowbots': cache_on_startup.get('flowbots', True),
+            'role_info': cache_on_startup.get('role_info', False),
         }
 
     async def start(self, email: str, password: str, *, reconnect: bool = True):
@@ -628,6 +630,16 @@ class UserbotClient(ClientBase):
                 groups = await team.fetch_groups()
                 for group in groups:
                     team._groups[group.id] = group
+
+            if self.cache_on_startup['role_info'] is True:
+                # Complete role info is only available in this endpoint
+                team_info = (await self.http.get_team_info(team.id))['team']
+                for role_id, role_data in (team_info.get('rolesById') or {}).items():
+                    if role_id == 'baseRole':
+                        continue
+
+                    role = Role(state=self.http, data=role_data)
+                    team._roles[role.id] = role
 
             self.http.add_to_team_cache(team)
 

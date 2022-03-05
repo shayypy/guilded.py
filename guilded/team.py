@@ -66,7 +66,7 @@ from .gateway import UserbotGuildedWebSocket
 from .group import Group
 from .role import Role
 from .user import Member
-from .utils import ISO8601, get
+from .utils import ISO8601, get, find
 
 # ZoneInfo is in the stdlib in Python 3.9+
 try:
@@ -293,7 +293,7 @@ class Team:
                 self._roles[role.id] = role
                 if role.base:
                     self._base_role: Optional[Role] = role
-                if role.bot:
+                if role.is_bot():
                     self._bot_role: Optional[Role] = role
 
         self.recruiting: bool = data.get('isRecruiting', False)
@@ -412,7 +412,7 @@ class Team:
     @property
     def bot_role(self) -> Optional[Role]:
         """Optional[:class:`.Role`]: The ``Bot`` role for this team."""
-        return self._bot_role or get(self.roles, bot=True)
+        return self._bot_role or find(lambda role: role.is_bot(), self.roles)
 
     @property
     def flairs(self) -> List[TeamFlair]:

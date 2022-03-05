@@ -212,6 +212,9 @@ class HTTPClientBase:
     def get_team(self, team_id: str):
         return self.request(UserbotRoute('GET', f'/teams/{team_id}'))
 
+    def get_team_info(self, team_id: str):
+        return self.request(UserbotRoute('GET', f'/teams/{team_id}/info'))
+
     def get_team_members(self, team_id: str):
         return self.request(UserbotRoute('GET', f'/teams/{team_id}/members'))
 
