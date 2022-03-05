@@ -169,7 +169,7 @@ class ClientBase:
         """The private/dm channels that the connected client can see.
 
         Returns
-        ---------
+        --------
         List[:class:`.DMChannel`]
         """
         return list(self.http._dm_channels.values())
@@ -181,7 +181,7 @@ class ClientBase:
         This is an alias of :attr:`.dm_channels`.
 
         Returns
-        ---------
+        --------
         List[:class:`DMChannel`]
         """
         return self.dm_channels
@@ -191,7 +191,7 @@ class ClientBase:
         """The team channels that the connected client can see.
 
         Returns
-        ---------
+        --------
         List[:class:`TeamChannel`]
         """
         return list(self.http._team_channels.values())
@@ -201,7 +201,7 @@ class ClientBase:
         """The channels (Team and DM included) that the connected client can see.
 
         Returns
-        ---------
+        --------
         List[Union[:class:`TeamChannel`, :class:`DMChannel`]]
         """
         return [*self.dm_channels, *self.team_channels]
@@ -213,7 +213,7 @@ class ClientBase:
         This is an alias of :attr:`.teams`.
 
         Returns
-        ---------
+        --------
         List[:class:`Team`]
         """
         return self.teams
@@ -300,7 +300,7 @@ class ClientBase:
 
 
         Parameters
-        ------------
+        -----------
         event: :class:`str`
             The event name, similar to the :ref:`event reference <guilded-api-events>`,
             but without the ``on_`` prefix, to wait for.
@@ -366,7 +366,7 @@ class ClientBase:
         The events must be a :ref:`coroutine <coroutine>`, if not, :exc:`TypeError` is raised.
 
         Example
-        ---------
+        --------
 
         .. code-block:: python3
 
@@ -375,7 +375,7 @@ class ClientBase:
                 print('Ready!')
 
         Raises
-        --------
+        -------
         :class:`TypeError`
             The function passed is not actually a coroutine.
         """
@@ -429,11 +429,11 @@ class ClientBase:
 
     def get_message(self, id: str):
         """Optional[:class:`.ChatMessage`]: Get a message from your :attr:`.cached_messages`. 
-        As messages are often frequently going in and out of cache, you should
-        not rely on this method, and instead use :meth:`~.abc.Messageable.fetch_message`.
+        As messages frequently enter and exist cache, you should not rely on
+        this method, and instead use :meth:`~.abc.Messageable.fetch_message`.
         
         Parameters
-        ------------
+        -----------
         id: :class:`str`
             The ID of the message.
         """
@@ -443,7 +443,7 @@ class ClientBase:
         """Optional[:class:`.Team`]: Get a team from your :attr:`.teams`.
 
         Parameters
-        ------------
+        -----------
         id: :class:`str`
             The ID of the team.
         """
@@ -453,7 +453,7 @@ class ClientBase:
         """Optional[:class:`guilded.User`]: Get a user from your :attr:`.users`.
 
         Parameters
-        ------------
+        -----------
         id: :class:`str`
             The ID of the user.
         """
@@ -464,7 +464,7 @@ class ClientBase:
         your :attr:`.channels`.
 
         Parameters
-        ------------
+        -----------
         id: :class:`str`
             The ID of the team or dm channel.
         """
@@ -474,8 +474,8 @@ class ClientBase:
         """Optional[:class:`.Emoji`]: Get an emoji from your :attr:`.emojis`.
 
         Parameters
-        ------------
-        id: :class:`str`
+        -----------
+        id: :class:`int`
             The ID of the emoji.
         """
         for team in self.teams:
@@ -490,10 +490,15 @@ class ClientBase:
 
         Fetch a team from the API.
 
+        Parameters
+        -----------
+        id: :class:`str`
+            The ID of the team.
+
         Returns
-        ---------
+        --------
         :class:`.Team`
-            The team from the ID
+            The team from the ID.
         """
         team = await self.http.get_team(id)
         return Team(state=self.http, data=team)
@@ -502,11 +507,16 @@ class ClientBase:
         """|coro|
 
         Try to get a team from internal cache, and if not found, try to fetch from the API.
-        
+
+        Parameters
+        -----------
+        id: :class:`str`
+            The ID of the team.
+
         Returns
-        ---------
+        --------
         :class:`.Team`
-            The team from the ID
+            The team from the ID.
         """
         return self.get_team(id) or await self.fetch_team(id)
 
@@ -792,7 +802,7 @@ class UserbotClient(ClientBase):
         Search Guilded for users. Returns an array of partial users.
 
         Parameters
-        ------------
+        -----------
         query: :class:`str`
             Query to use while searching
         max_results: Optional[:class:`int`]
@@ -802,7 +812,7 @@ class UserbotClient(ClientBase):
             could be your list of :attr:`.users`.
 
         Returns
-        ---------
+        --------
         List[:class:`guilded.User`]
             The users from the query
         """
@@ -823,7 +833,7 @@ class UserbotClient(ClientBase):
         Search Guilded for public teams. Returns an array of partial teams.
 
         Parameters
-        ------------
+        -----------
         query: :class:`str`
             Query to use while searching.
         max_results: Optional[:class:`int`]
@@ -833,7 +843,7 @@ class UserbotClient(ClientBase):
             could be your list of :attr:`.teams`.
 
         Returns
-        ---------
+        --------
         List[:class:`.Team`]
             The teams from the query
         """
@@ -856,7 +866,7 @@ class UserbotClient(ClientBase):
         Join a public team using its ID.
 
         Returns
-        ---------
+        --------
         :class:`.Team`
             The team you joined from the ID
         """
@@ -870,7 +880,7 @@ class UserbotClient(ClientBase):
         Fetch a user from the API.
 
         Returns
-        ---------
+        --------
         :class:`guilded.User`
             The user from the ID
         """
@@ -883,7 +893,7 @@ class UserbotClient(ClientBase):
         Try to get a user from internal cache, and if not found, try to fetch from the API.
         
         Returns
-        ---------
+        --------
         :class:`guilded.User`
             The user from the ID
         """
@@ -895,7 +905,7 @@ class UserbotClient(ClientBase):
         Try to get a channel from internal cache, and if not found, try to fetch from the API.
 
         Returns
-        ---------
+        --------
         Union[:class:`~.abc.TeamChannel`, :class:`.DMChannel`]
             The channel from the ID
         """
@@ -917,7 +927,7 @@ class UserbotClient(ClientBase):
         Games not in this list will be considered invalid by Guilded.
         
         Returns
-        ---------
+        --------
         :class:`.Game`
             The game from the ID
         """
@@ -936,7 +946,7 @@ class UserbotClient(ClientBase):
         Fetch the list of documented games that Guilded supports.
 
         Returns
-        ---------
+        --------
         :class:`dict`
             The whole game list (`viewable here <https://github.com/GuildedAPI/datatables/blob/main/games.json>`_)
         """
@@ -984,7 +994,7 @@ class UserbotClient(ClientBase):
         The users the client has blocked.
 
         Returns
-        ---------
+        --------
         List[:class:`guilded.User`]
         """
         settings = await self.http.get_privacy_settings()
@@ -1312,7 +1322,7 @@ class Client(ClientBase):
         closed.
 
         Parameters
-        ------------
+        -----------
         token: :class:`str`
             The bot's auth token,
         reconnect: Optional[:class:`bool`]

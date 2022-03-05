@@ -103,7 +103,7 @@ class AssetMixin:
         Retrieves the content of this asset as a :class:`bytes` object.
 
         Raises
-        ------
+        -------
         GuildedException
             There was no internal connection state.
         HTTPException
@@ -112,7 +112,7 @@ class AssetMixin:
             The asset was deleted.
 
         Returns
-        -------
+        --------
         :class:`bytes`
             The content of the asset.
         """
@@ -127,7 +127,7 @@ class AssetMixin:
         Saves this asset into a file-like object.
 
         Parameters
-        ----------
+        -----------
         fp: Union[:class:`io.BufferedIOBase`, :class:`os.PathLike`]
             The file-like object to save this attachment to or the filename
             to use. If a filename is passed then a file is created with that
@@ -137,7 +137,7 @@ class AssetMixin:
             successfully done.
 
         Raises
-        ------
+        -------
         GuildedException
             There was no internal connection state.
         HTTPException
@@ -168,7 +168,7 @@ class AssetMixin:
         :class:`io.BytesIO` object.
 
         Raises
-        ------
+        -------
         GuildedException
             There was no internal connection state.
         HTTPException
@@ -452,7 +452,7 @@ class Asset(AssetMixin):
         """Returns a new asset with the specified size.
 
         Parameters
-        ------------
+        -----------
         size: :class:`str`
             The new size of the asset. Must be one of
             'Small', 'Medium', 'Large', or 'HeroMd' or 'Hero' if it's a banner.
@@ -487,7 +487,7 @@ class Asset(AssetMixin):
         """Returns a new asset with the specified format.
 
         Parameters
-        ------------
+        -----------
         format: :class:`str`
             The new format of the asset.
 
@@ -521,7 +521,7 @@ class Asset(AssetMixin):
         not animated. Otherwise, the asset is not changed.
 
         Parameters
-        ------------
+        -----------
         format: :class:`str`
             The new static format of the asset.
 

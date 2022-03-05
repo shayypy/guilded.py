@@ -181,7 +181,7 @@ class MessageMention:
     cached prior to this object being constructed.
 
     Attributes
-    ------------
+    -----------
     type: :class:`MentionType`
         The type of object this mention is for.
     id: Union[:class:`str`, :class:`int`]
@@ -406,7 +406,7 @@ class ChatMessage(HasContentMixin):
             Returns the string content of the message.
 
     Attributes
-    ------------
+    -----------
     id: :class:`str`
         The message's ID.
     channel: Union[:class:`abc.TeamChannel`, :class:`DMChannel`]

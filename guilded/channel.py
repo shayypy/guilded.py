@@ -349,7 +349,7 @@ class Doc(HasContentMixin):
         Reply to this doc.
 
         Parameters
-        ------------
+        -----------
         \*content: Any
             The content to create the reply with.
         reply_to: Optional[:class:`.DocReply`]
@@ -665,7 +665,7 @@ class ForumTopic(HasContentMixin):
         Create a new reply to this topic.
 
         Parameters
-        ------------
+        -----------
         content: Any
             The content to create the reply with.
         reply_to: Optional[:class:`.ForumReply`]
@@ -794,7 +794,7 @@ class ForumChannel(guilded.abc.TeamChannel):
         Create a new topic in this forum.
 
         Parameters
-        ------------
+        -----------
         content: Any
             The content to create the topic with.
         title: :class:`str`
@@ -1275,7 +1275,7 @@ class Announcement(HasContentMixin):
         Reply to this announcement.
 
         Parameters
-        ------------
+        -----------
         content: Any
             The content to create the reply with.
         reply_to: Optional[:class:`.AnnouncementReply`]
@@ -1562,7 +1562,7 @@ class Media(HasContentMixin):
         Reply to this media.
 
         Parameters
-        ------------
+        -----------
         content: Any
             The content to create the reply with.
         reply_to: Optional[:class:`.MediaReply`]

@@ -116,7 +116,7 @@ class File:
         Non-image/video filetypes are not supported by Guilded.
 
     Parameters
-    ------------
+    -----------
     fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
         The file to upload. If passing a file with ``open``, the file
         should be opened in ``rb`` mode.
@@ -128,7 +128,7 @@ class File:
         the library, defaults to :attr:`FileType.image`. 
 
     Attributes
-    ------------
+    -----------
     fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
         The file to upload.
     filename: Optional[:class:`str`]
@@ -209,7 +209,7 @@ class Attachment(AssetMixin):
     other place you can upload files inline with content.
 
     Attributes
-    ------------
+    -----------
     url: :class:`str`
         The URL to the file on Guilded's CDN.
     filename: :class:`str`
@@ -270,7 +270,7 @@ class Attachment(AssetMixin):
         Converts the attachment to an uploadable :class:`File` instance.
 
         Returns
-        ---------
+        --------
         :class:`File`
         """
 

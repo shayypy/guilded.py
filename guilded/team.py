@@ -199,7 +199,7 @@ class Team:
         The id of the linked Discord guild.
     discord_guild_name: Optional[:class:`str`]
         The name of the linked Discord guild.
-    base_group: Optional[:class:`Group`]
+    base_group: Optional[:class:`.Group`]
         The team's base or "home" group.
     timezone: Optional[:class:`datetime.tzinfo`]
         The team's timezone.
@@ -514,14 +514,14 @@ class Team:
         -----------
         name: :class:`str`
             The channel's name. Can include spaces.
-        category: :class:`TeamCategory`
-            The :class:`TeamCategory` to create this channel under. If not
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
-        group: :class:`Group`
-            The :class:`Group` to create this channel in. If not provided, defaults to the base group.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
         Returns
         --------
@@ -552,14 +552,14 @@ class Team:
         -----------
         name: :class:`str`
             The channel's name. Can include spaces.
-        category: :class:`TeamCategory`
-            The :class:`TeamCategory` to create this channel under. If not
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
-        group: :class:`Group`
-            The :class:`Group` to create this channel in. If not provided, defaults to the base group.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
         Returns
         --------
@@ -590,18 +590,18 @@ class Team:
         -----------
         name: :class:`str`
             The channel's name. Can include spaces.
-        category: :class:`TeamCategory`
-            The :class:`TeamCategory` to create this channel under. If not
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
-        group: :class:`Group`
-            The :class:`Group` to create this channel in. If not provided, defaults to the base group.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
         Returns
         --------
-        :class:`DocsChannel`
+        :class:`.DocsChannel`
             The created channel.
         """
         group = group or self.base_group
@@ -628,14 +628,14 @@ class Team:
         -----------
         name: :class:`str`
             The channel's name. Can include spaces.
-        category: :class:`TeamCategory`
-            The :class:`TeamCategory` to create this channel under. If not
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
-        group: :class:`Group`
-            The :class:`Group` to create this channel in. If not provided, defaults to the base group.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
         Returns
         --------
@@ -872,7 +872,7 @@ class Team:
 
         Returns
         --------
-        Optional[:class:`Group`]
+        Optional[:class:`.Group`]
         """
         return self._groups.get(id)
 
@@ -881,7 +881,7 @@ class Team:
 
         |onlyuserbot|
 
-        Fetch a :class:`Group` in this team by its ID.
+        Fetch a :class:`.Group` in this team by its ID.
 
         Parameters
         -----------
@@ -897,7 +897,7 @@ class Team:
 
         |onlyuserbot|
 
-        Fetch the list of :class:`Group`\s in this team.
+        Fetch the list of :class:`.Group`\s in this team.
 
         Some groups may not be returned due to inadequate permissions. There
         is no real way to know if this has happened.

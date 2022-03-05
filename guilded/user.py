@@ -163,7 +163,7 @@ class Member(User):
     """Represents a member of a :class:`.Team`.
 
     Attributes
-    ------------
+    -----------
     xp: :class:`int`
         The member's XP. Could be negative.
     joined_at: :class:`datetime.datetime`
@@ -291,7 +291,7 @@ class Member(User):
         All parameters are optional.
 
         Parameters
-        ------------
+        -----------
         nick: :class:`str`
             A new nickname. Use ``None`` to reset.
         xp: :class:`int`
@@ -533,7 +533,7 @@ class ClientUser(guilded.abc.User):
         Fetch a list of this account's accepted, pending, and requested friends.
 
         Returns
-        ---------
+        --------
         List[:class:`User`]
             This user's accepted, pending, and requested friends.
         """

@@ -324,6 +324,7 @@ class Embed:
         """Sets the footer for the embed content.
         This function returns the class instance to allow for fluent-style
         chaining.
+
         Parameters
         -----------
         text: :class:`str`
@@ -351,6 +352,7 @@ class Embed:
         - ``proxy_url``
         - ``width``
         - ``height``
+
         If the attribute has no value then :attr:`Empty` is returned.
         """
         return EmbedProxy(getattr(self, '_image', {}))
@@ -390,6 +392,7 @@ class Embed:
         - ``proxy_url``
         - ``width``
         - ``height``
+
         If the attribute has no value then :attr:`Empty` is returned.
         """
         return EmbedProxy(getattr(self, '_thumbnail', {}))
@@ -428,6 +431,7 @@ class Embed:
         - ``url`` for the video URL.
         - ``height`` for the video height.
         - ``width`` for the video width.
+
         If the attribute has no value then :attr:`Empty` is returned.
         """
         return EmbedProxy(getattr(self, '_video', {}))

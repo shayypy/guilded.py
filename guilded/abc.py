@@ -302,7 +302,7 @@ class Messageable(metaclass=abc.ABCMeta):
         Create a new thread in this channel.
 
         Parameters
-        ------------
+        -----------
         \*content: Any
             The content of the message that should be created as the initial
             message of the newly-created thread. Passing either this or
