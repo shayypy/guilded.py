@@ -920,8 +920,6 @@ class Team:
     ) -> List[Emoji]:
         """|coro|
 
-        |onlyuserbot|
-
         Fetch the list of :class:`Emoji`\s in this team.
 
         All parameters are optional.
@@ -954,7 +952,7 @@ class Team:
             created_before=created_before
         )
         emojis = []
-        for emoji_data in data:
+        for emoji_data in data.get('reactions') or []:
             emoji = Emoji(team=self, data=emoji_data, state=self._state)
             emojis.append(emoji)
 

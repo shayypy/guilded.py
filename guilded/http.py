@@ -227,6 +227,33 @@ class HTTPClientBase:
                 return Member(state=self, data=data[user_id])
             return get_team_member_as_object()
 
+    def get_team_emojis(self, team_id: str, *,
+        limit=None,
+        search=None,
+        created_by=None,
+        when_upper=None,
+        when_lower=None,
+        created_before=None
+    ):
+        params = {}
+
+        if limit is not None:
+            params['maxItems'] = limit
+        else:
+            params['maxItems'] = ''
+        if search is not None:
+            params['searchTerm'] = search
+        if created_by is not None:
+            params['createdBy'] = created_by.id
+        if when_upper is not None:
+            params['when[upperValue]'] = self.valid_ISO8601(when_upper)
+        if when_lower is not None:
+            params['when[lowerValue]'] = self.valid_ISO8601(when_lower)
+        if created_before is not None:
+            params['beforeId'] = created_before.id
+
+        return self.request(UserbotRoute('GET', f'/teams/{team_id}/customReactions'), params=params)
+
     # /users
 
     def get_user(self, user_id: str, *, as_object=False):
@@ -1064,33 +1091,6 @@ class UserbotHTTPClient(HTTPClientBase):
 
     def restore_team_thread(self, team_id: str, group_id: str, thread_id: str):
         return self.request(UserbotRoute('PUT', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{thread_id}/restore'))
-
-    def get_team_emojis(self, team_id: str, *,
-        limit=None,
-        search=None,
-        created_by=None,
-        when_upper=None,
-        when_lower=None,
-        created_before=None
-    ):
-        params = {}
-
-        if limit is not None:
-            params['maxItems'] = limit
-        else:
-            params['maxItems'] = ''
-        if search is not None:
-            params['searchTerm'] = search
-        if created_by is not None:
-            params['createdBy'] = created_by.id
-        if when_upper is not None:
-            params['when[upperValue]'] = self.valid_ISO8601(when_upper)
-        if when_lower is not None:
-            params['when[lowerValue]'] = self.valid_ISO8601(when_lower)
-        if created_before is not None:
-            params['beforeId'] = created_before.id
-
-        return self.request(UserbotRoute('GET', f'/teams/{team_id}/customReactions'), params=params)
 
     def assign_role_to_member(self, team_id: str, user_id: str, role_id: int):
         return self.request(UserbotRoute('PUT', f'/teams/{team_id}/roles/{role_id}/users/{user_id}'))
