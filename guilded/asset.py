@@ -346,6 +346,15 @@ class Asset(AssetMixin):
         # We use the original URL here because in testing I could not find an example
         # of a media thumbnail. It may be an old property that is no longer ever populated
 
+    @classmethod
+    def _from_default_asset(cls, state, name: str):
+        name = quote_plus(name)
+        return cls(
+            state,
+            url=f'{cls.BASE}/asset/Default/{name}-lg.png',
+            key=name,
+        )
+
     def __str__(self) -> str:
         return self._url
 
