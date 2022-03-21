@@ -54,7 +54,6 @@ import logging
 from typing import Optional, List
 
 from .embed import Embed
-from .emoji import Emoji
 from .enums import try_enum, FormType, MessageType, MentionType, MessageFormInputType, MediaType
 from .file import Attachment
 from .utils import ISO8601, parse_hex_number
@@ -314,17 +313,9 @@ class HasContentMixin:
 
                     if 'reaction' in node['nodes'][0].get('data', {}):
                         emoji_id = node['nodes'][0]['data']['reaction']['id']
-                        emoji = (
-                            self._state._get_emoji(emoji_id) or
-                            Emoji(
-                                data={'id': emoji_id, 'name': node['nodes'][0]['nodes'][0]['leaves'][0]['text']},
-                                state=self._state
-                                # we do not pass team here because we have no
-                                # way of knowing if the emoji is from the
-                                # current team
-                            )
-                        )
-                        self.emojis.append(emoji)
+                        emoji = self._state._get_emoji(emoji_id)
+                        if emoji:
+                            self.emojis.append(emoji)
 
             elif node_type == 'webhookMessage':
                 if node['data'].get('embeds'):
