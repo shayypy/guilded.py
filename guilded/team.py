@@ -52,13 +52,13 @@ DEALINGS IN THE SOFTWARE.
 import asyncio
 import datetime
 import re
-from typing import Any, Dict, Optional, List, Union
+from typing import Dict, Optional, List, Union
 
 from .abc import TeamChannel, User
 
 from .asset import Asset
 from .channel import ChatChannel, DocsChannel, ForumChannel, SchedulingChannel, Thread
-from .errors import NotFound, InvalidArgument
+from .errors import InvalidArgument
 from .emoji import Emoji
 from .enums import try_enum, TeamFlairType, ChannelType
 from .flowbot import FlowBot
@@ -70,11 +70,11 @@ from .utils import ISO8601, get, find
 
 # ZoneInfo is in the stdlib in Python 3.9+
 try:
-    from zoneinfo import ZoneInfo
+    from zoneinfo import ZoneInfo  # type: ignore
 except ImportError:
     # Fall back to pytz, if installed
     try:
-        from pytz import timezone as ZoneInfo
+        from pytz import timezone as ZoneInfo  # type: ignore
     except ImportError:
         ZoneInfo = None
 

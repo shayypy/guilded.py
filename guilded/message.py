@@ -54,6 +54,7 @@ import logging
 from typing import Optional, List
 
 from .embed import Embed
+from .emoji import Emoji
 from .enums import try_enum, FormType, MessageType, MentionType, MessageFormInputType, MediaType
 from .file import Attachment
 from .utils import ISO8601, parse_hex_number

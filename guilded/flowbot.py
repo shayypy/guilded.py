@@ -23,6 +23,7 @@ SOFTWARE.
 """
 
 import datetime
+from typing import Optional
 
 from .asset import Asset
 from .enums import FlowTriggerType, FlowActionType, try_enum

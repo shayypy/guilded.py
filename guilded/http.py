@@ -643,7 +643,7 @@ class UserbotHTTPClient(HTTPClientBase):
             'message': {
                 'id': utils.new_uuid(),
                 'channelId': thread_id,
-                'content': compatible_content(message_content)
+                'content': self.compatible_content(message_content)
             }
         }
 
@@ -1242,7 +1242,7 @@ class UserbotHTTPClient(HTTPClientBase):
         return self.request(UserbotRoute('GET', '/content/embed_info'), params={'url': url})
 
     def get_form_data(self, form_id: int):
-        if not isinstance(form, int):
+        if not isinstance(form_id, int):
             raise TypeError('form_id must be type int, not %s' % form_id.__class__.__name__)
         return self.request(UserbotRoute('GET', f'/content/custom_forms/{form_id}'))
 
