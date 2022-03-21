@@ -50,30 +50,28 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import datetime
-from enum import Enum
 import re
-from typing import Optional, Union, List
+from typing import Optional, List
 
 import guilded.abc
 
 from .asset import Asset
-from .embed import Embed
-from .emoji import Emoji
+from .enums import ChannelType, FileType, MediaType
 from .errors import InvalidArgument
-from .file import Attachment, File, FileType, MediaType
+from .file import File
 #from .gateway import GuildedVoiceWebSocket
 from .group import Group
-from .message import HasContentMixin, Message, Link
-from .user import Member, User
-from .utils import get, ISO8601, parse_hex_number
+from .message import HasContentMixin
+from .user import Member
+from .utils import get, ISO8601
 from .status import Game
+
 
 __all__ = (
     'Announcement',
     'AnnouncementChannel',
     'AnnouncementReply',
     'Availability',
-    'ChannelType',
     'ChatChannel',
     'DMChannel',
     'Doc',
@@ -92,28 +90,6 @@ __all__ = (
     'Thread',
     'VoiceChannel',
 )
-
-
-class ChannelType(Enum):
-    announcement = 'announcement'
-    announcements = announcement
-    chat = 'chat'
-    doc = 'doc'
-    docs = doc
-    dm = 'DM'
-    forum = 'forum'
-    media = 'media'
-    news = announcement
-    list = 'list'
-    scheduling = 'scheduling'
-    streaming = 'streaming'
-    text = chat
-    thread = 'temporal'
-    voice = 'voice'
-
-    @classmethod
-    def from_str(self, string):
-        return getattr(self, string, None)
 
 
 class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):

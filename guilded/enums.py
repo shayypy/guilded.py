@@ -55,6 +55,13 @@ from typing import Any, ClassVar, Dict, List, Optional, TYPE_CHECKING, Type, Typ
 
 
 __all__ = (
+    'ChannelType',
+    'MessageType',
+    'MentionType',
+    'FormType',
+    'MessageFormInputType',
+    'FileType',
+    'MediaType',
     'AllowContactFrom',
     'AllowFriendRequestsFrom',
     'AllowProfilePostsFrom',
@@ -176,6 +183,95 @@ else:
                 return cls._enum_value_map_[value]
             except (KeyError, TypeError):
                 return value
+
+
+class ChannelType(Enum):
+    announcement = 'announcement'
+    chat = 'chat'
+    doc = 'doc'
+    dm = 'DM'
+    forum = 'forum'
+    media = 'media'
+    list = 'list'
+    scheduling = 'scheduling'
+    streaming = 'streaming'
+    thread = 'temporal'
+    voice = 'voice'
+
+    # Aliases
+    announcements = 'announcement'
+    docs = 'doc'
+    news = 'announcement'
+    text = 'chat'
+
+    def __str__(self):
+        return self.value
+
+
+class MessageType(Enum):
+    default = 'default'
+    system = 'system'
+
+    def __str__(self):
+        return self.name
+
+
+class MentionType(Enum):
+    user = 'user'
+    channel = 'channel'
+    role = 'role'
+
+    def __str__(self):
+        return self.name
+
+
+class FormType(Enum):
+    poll = 'poll'
+    form = 'form'
+
+
+class MessageFormInputType(Enum):
+    radios = 'Radios'
+    checkboxes = 'Checkboxes'
+
+
+class MediaType(Enum):
+    """Represents a file/attachment's media type in Guilded."""
+    content_media = 'ContentMedia'
+    custom_reaction = 'CustomReaction'
+    user_avatar = 'UserAvatar'
+    user_banner = 'UserBanner'
+    team_avatar = 'TeamAvatar'
+    team_banner = 'TeamBanner'
+    group_icon = 'GroupAvatar'
+    group_avatar = 'GroupAvatar'
+    group_banner = 'GroupBanner'
+    embed_image = 'ExternalOGEmbedImage'
+    media_channel_upload = 'MediaChannelUpload'
+
+    # Aliases
+    attachment = 'ContentMedia'
+    emoji = 'CustomReaction'
+    avatar = 'UserAvatar'
+    profile_avatar = 'UserAvatar'
+    banner = 'UserBanner'
+    profile_banner = 'UserBanner'
+    team_icon = 'TeamAvatar'
+
+    def __str__(self):
+        return self.value
+
+
+class FileType(Enum):
+    """Represents a type of file in Guilded. In the case of uploading
+    files, this usually does not have to be set manually, but if the
+    library fails to detect the type of file from its extension, you
+    can pass this into :class:`File`\'s ``file_type`` keyword argument."""
+    image = 'image'
+    video = 'video'
+
+    def __str__(self):
+        return self.value
 
 
 class AllowFriendRequestsFrom(Enum):

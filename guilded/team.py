@@ -57,10 +57,10 @@ from typing import Any, Dict, Optional, List, Union
 from .abc import TeamChannel, User
 
 from .asset import Asset
-from .channel import ChannelType, ChatChannel, DocsChannel, ForumChannel, SchedulingChannel, Thread
+from .channel import ChatChannel, DocsChannel, ForumChannel, SchedulingChannel, Thread
 from .errors import NotFound, InvalidArgument
 from .emoji import Emoji
-from .enums import try_enum, TeamFlairType
+from .enums import try_enum, TeamFlairType, ChannelType
 from .flowbot import FlowBot
 from .gateway import UserbotGuildedWebSocket
 from .group import Group

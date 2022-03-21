@@ -59,7 +59,8 @@ from .asset import Asset
 from .colour import Colour
 from .errors import GuildedException
 from .embed import _EmptyEmbed, Embed
-from .file import MediaType, FileType, File
+from .enums import MediaType
+from .file import File
 from .message import HasContentMixin, ChatMessage
 from .presence import Presence
 from .utils import ISO8601
@@ -783,11 +784,11 @@ class TeamChannel(metaclass=abc.ABCMeta):
                 info_payload['name'] = self.name
             await self._state.update_team_channel_info(self.team_id, self.group_id, self.id, info_payload)
             # We have to edit in-place here because PUT /info does not return the new channel object
-            try: edited_channel.name: str = name
+            try: edited_channel.name = name
             except NameError: pass
-            try: edited_channel.description: str = description
+            try: edited_channel.description = description
             except NameError: pass
-            try: edited_channel.public: bool = public
+            try: edited_channel.public = public
             except NameError: pass
 
         settings_payload = {}
@@ -929,16 +930,16 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         self = cls.__new__(cls)
 
         self.parent = reply.parent
-        self.id: int = reply.id
-        self.content: str = reply.content
-        self.author_id: str = reply.author_id
-        self.created_by_bot_id: Optional[str] = reply.created_by_bot_id
-        self.created_at: datetime.datetime = reply.created_at
-        self.edited_by_id: Optional[str] = reply.edited_by_id
-        self.edited_at: Optional[datetime.datetime] = reply.edited_at
-        self.deleted_by: Optional[User] = reply.deleted_by
-        self.replied_to_id: Optional[int] = reply.replied_to_id
-        self.replied_to_author_id: Optional[str] = reply.replied_to_author_id
+        self.id = reply.id
+        self.content = reply.content
+        self.author_id = reply.author_id
+        self.created_by_bot_id = reply.created_by_bot_id
+        self.created_at = reply.created_at
+        self.edited_by_id = reply.edited_by_id
+        self.edited_at = reply.edited_at
+        self.deleted_by = reply.deleted_by
+        self.replied_to_id = reply.replied_to_id
+        self.replied_to_author_id = reply.replied_to_author_id
 
         return self
 

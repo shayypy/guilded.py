@@ -56,7 +56,8 @@ import guilded.abc
 
 from .asset import Asset
 from .colour import Colour
-from .file import File, MediaType
+from .enums import MediaType
+from .file import File
 from .role import Role
 from .utils import ISO8601, parse_hex_number
 

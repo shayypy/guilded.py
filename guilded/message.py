@@ -50,24 +50,15 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import datetime
-from enum import Enum
 import logging
 from typing import Optional, List
 
 from .embed import Embed
-from .file import MediaType, Attachment
+from .enums import try_enum, FormType, MessageType, MentionType, MessageFormInputType, MediaType
+from .file import Attachment
 from .utils import ISO8601, parse_hex_number
 
 log = logging.getLogger(__name__)
-
-
-class FormType(Enum):
-    poll = 'poll'
-    form = 'form'
-
-    @classmethod
-    def from_str(cls, string):
-        return getattr(cls, string, cls.form)
 
 
 class MessageForm:
@@ -93,7 +84,7 @@ class MessageForm:
         cls.id = data.get('id')
         cls.title = data.get('title', '')
         cls.description = data.get('description', '')
-        cls.type = FormType.from_str(data.get('type'))
+        cls.type = try_enum(FormType, data.get('type'))
         cls.team_id = data.get('teamId')
         cls.team = state._get_team(cls.team_id)
         cls.author_id = data.get('createdBy')
@@ -121,19 +112,10 @@ class MessageForm:
             return []
 
 
-class MessageFormInputType(Enum):
-    radios = 'Radios'
-    checkboxes = 'Checkboxes'
-
-    @classmethod
-    def from_str(cls, string):
-        return getattr(cls, string)
-
-
 class MessageFormSection:
     def __init__(self, data):
         self.grow = data.get('grow')  # not sure what this is
-        self.input_type = MessageFormInputType.from_str(data.get('type'))
+        self.input_type = try_enum(MessageFormInputType, data.get('type'))
         self.label = data.get('label', '')
         self.header = data.get('header', '')
         self.optional = data.get('isOptional')
@@ -155,24 +137,6 @@ class MessageFormOption:
 class MessageFormResponse:
     def __init__(self, data):
         pass
-
-
-class MessageType(Enum):
-    default = 'default'
-    system = 'system'
-    unknown = 'unknown'
-
-    def __str__(self):
-        return self.name
-
-
-class MentionType(Enum):
-    user = 'user'
-    channel = 'channel'
-    role = 'role'
-
-    def __str__(self):
-        return self.name
 
 
 class MessageMention:
@@ -198,10 +162,10 @@ class MessageMention:
         return self.name or ''
 
 
-class Mention(Enum):
-    """Used for passing special types of mentions to
-    :meth:`~.abc.Messageable.send`\.
-    """
+# This doesn't really need to be how it is and may be changed later.
+# This class only exists to store these static values.
+class Mention:
+    """Used for passing special types of mentions to :meth:`~.abc.Messageable.send`\."""
     everyone = {'type': 'everyone', 'matcher': '@everyone', 'name': 'everyone', 'description': 'Notify everyone in the channel', 'color': '#ffffff', 'id': 'everyone'}
     here = {'type': 'here', 'matcher': '@here', 'name': 'here', 'description': 'Notify everyone in this channel that is online and not idle', 'color': '#f5c400', 'id': 'here'}
 
@@ -429,6 +393,7 @@ class ChatMessage(HasContentMixin):
 
         if state.userbot:
             self.id: str = data.get('contentId') or message.get('id')
+            self.type: MessageType = try_enum(MessageType, message.get('type'))
             self.webhook_id: Optional[str] = data.get('webhookId')
             self.channel_id: str = data.get('channelId') or (channel.id if channel else None)
             self.author_id: str = data.get('createdBy') or message.get('createdBy')
@@ -456,7 +421,7 @@ class ChatMessage(HasContentMixin):
 
         else:
             self.id: str = message['id']
-            self.type: MessageType = getattr(MessageType, message['type'], MessageType.unknown)
+            self.type: MessageType = try_enum(MessageType, message['type'])
             self.channel_id: str = message['channelId']
             self.content: str = message['content']
 

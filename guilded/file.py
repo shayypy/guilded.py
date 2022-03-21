@@ -50,69 +50,24 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import io
-from enum import Enum
 from typing import Union
 
 from .asset import AssetMixin
+from .enums import FileType, MediaType
 from . import utils
 
 
 __all__ = (
-    'MediaType',
-    'FileType',
     'File',
     'Attachment',
 )
-
-
-class MediaType(Enum):
-    """Represents a file/attachment's media type in Guilded."""
-    attachment = 'ContentMedia'
-    content_media = 'ContentMedia'
-    emoji = 'CustomReaction'
-    custom_reaction = 'CustomReaction'
-    avatar = 'UserAvatar'
-    user_avatar = 'UserAvatar'
-    profile_avatar = 'UserAvatar'
-    banner = 'UserBanner'
-    user_banner = 'UserBanner'
-    profile_banner = 'UserBanner'
-    team_icon = 'TeamAvatar'
-    team_avatar = 'TeamAvatar'
-    team_banner = 'TeamBanner'
-    group_icon = 'GroupAvatar'
-    group_avatar = 'GroupAvatar'
-    group_banner = 'GroupBanner'
-    embed_image = 'ExternalOGEmbedImage'
-    media_channel_upload = 'MediaChannelUpload'
-
-    def __str__(self):
-        return self.value
-
-    def __repr__(self):
-        return f'<MediaType name={self.name} value={self.value}>'
-
-
-class FileType(Enum):
-    """Represents a type of file in Guilded. In the case of uploading
-    files, this usually does not have to be set manually, but if the
-    library fails to detect the type of file from its extension, you
-    can pass this into :class:`File`\'s ``file_type`` keyword argument.
-    """
-    image = 'image'
-    video = 'video'
-
-    def __str__(self):
-        return self.value
-
-    def __repr__(self):
-        return f'<FileType name={self.name} value={self.value}>'
 
 
 class File:
     """Wraps media pre-and-mid-upload.
 
     .. warning::
+
         Non-image/video filetypes are not supported by Guilded.
 
     Parameters
@@ -124,7 +79,7 @@ class File:
         The name of this file. Not required unless also using the
         ``attachment://`` URI in an accompanying embed.
     file_type: :class:`FileType`
-        The type of file (image, video). It this could not be detected by
+        The type of file (image, video). If this could not be detected by
         the library, defaults to :attr:`FileType.image`. 
 
     Attributes

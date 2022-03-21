@@ -53,8 +53,9 @@ import datetime
 from typing import Optional
 
 from .asset import Asset
+from .enums import MediaType
 from .errors import InvalidArgument
-from .file import File, MediaType
+from .file import File
 from .status import Game
 from .user import Member
 from .utils import ISO8601

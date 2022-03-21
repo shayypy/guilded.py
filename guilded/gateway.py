@@ -64,6 +64,7 @@ from guilded.abc import TeamChannel
 from .errors import GuildedException, HTTPException
 from .channel import *
 from .emoji import Emoji
+from .enums import ChannelType
 from .message import Message
 from .presence import Presence
 from .role import Role

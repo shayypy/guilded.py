@@ -63,8 +63,9 @@ from .abc import User as abc_User
 from .abc import TeamChannel
 from .embed import Embed
 from .emoji import Emoji
+from .enums import try_enum, ChannelType, MediaType
 from .errors import ClientException, HTTPException, error_mapping
-from .file import File, MediaType
+from .file import File
 from .message import ChatMessage, Mention
 from .role import Role
 from .user import User, Member
@@ -277,9 +278,6 @@ class HTTPClientBase:
         return self.get_metadata(f'//channels/{channel_id}/chat')
 
     # one-off
-
-    def execute_webhook(self, webhook_id: str, webhook_token: str, data: dict):
-        return self.request(Route('POST', f'/webhooks/{webhook_id}/{webhook_token}', override_base=UserbotRoute.MEDIA_BASE), json=data)
 
     def read_filelike_data(self, filelike):
         return self.request(Route('GET', filelike.url, override_base=UserbotRoute.NO_BASE))
@@ -1337,10 +1335,10 @@ class UserbotHTTPClient(HTTPClientBase):
         channel_data = data.get('data', data)
         if channel_data.get('type', '').lower() == 'team':
             data['group'] = data.get('group')
-            ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
-            if ctype is channel.ChannelType.announcements:
+            type_ = try_enum(ChannelType, channel_data.get('contentType', 'chat'))
+            if type_ is ChannelType.announcements:
                 return channel.AnnouncementChannel(state=self, **data)
-            elif ctype is channel.ChannelType.chat:
+            elif type_ is ChannelType.chat:
                 if 'threadMessageId' in channel_data:
                     # we assume here that only threads will have this attribute
                     # so from this we can reasonably know whether a channel is
@@ -1348,17 +1346,17 @@ class UserbotHTTPClient(HTTPClientBase):
                     return channel.Thread(state=self, **data)
                 else:
                     return channel.ChatChannel(state=self, **data)
-            elif ctype is channel.ChannelType.docs:
+            elif type_ is ChannelType.docs:
                 return channel.DocsChannel(state=self, **data)
-            elif ctype is channel.ChannelType.forum:
+            elif type_ is ChannelType.forum:
                 return channel.ForumChannel(state=self, **data)
-            elif ctype is channel.ChannelType.list:
+            elif type_ is ChannelType.list:
                 return channel.ListChannel(state=self, **data)
-            elif ctype is channel.ChannelType.media:
+            elif type_ is ChannelType.media:
                 return channel.MediaChannel(state=self, **data)
-            elif ctype is channel.ChannelType.scheduling:
+            elif type_ is ChannelType.scheduling:
                 return channel.SchedulingChannel(state=self, **data)
-            elif ctype is channel.ChannelType.voice:
+            elif type_ is ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
         else:
             return channel.DMChannel(state=self, **data)
@@ -1594,10 +1592,10 @@ class HTTPClient(HTTPClientBase):
             return channel.DMChannel(state=self, **data)
 
         data['group'] = data.get('group')
-        ctype = channel.ChannelType.from_str(channel_data.get('contentType', 'chat'))
-        if ctype is channel.ChannelType.announcements:
+        type_ = try_enum(ChannelType, channel_data.get('contentType', 'chat'))
+        if type_ is ChannelType.announcements:
             return channel.AnnouncementChannel(state=self, **data)
-        elif ctype is channel.ChannelType.chat:
+        elif type_ is ChannelType.chat:
             if 'threadMessageId' in channel_data:
                 # we assume here that only threads will have this attribute
                 # so from this we can reasonably know whether a channel is
@@ -1605,17 +1603,17 @@ class HTTPClient(HTTPClientBase):
                 return channel.Thread(state=self, **data)
             else:
                 return channel.ChatChannel(state=self, **data)
-        elif ctype is channel.ChannelType.docs:
+        elif type_ is ChannelType.docs:
             return channel.DocsChannel(state=self, **data)
-        elif ctype is channel.ChannelType.forum:
+        elif type_ is ChannelType.forum:
             return channel.ForumChannel(state=self, **data)
-        elif ctype is channel.ChannelType.list:
+        elif type_ is ChannelType.list:
             return channel.ListChannel(state=self, **data)
-        elif ctype is channel.ChannelType.media:
+        elif type_ is ChannelType.media:
             return channel.MediaChannel(state=self, **data)
-        elif ctype is channel.ChannelType.scheduling:
+        elif type_ is ChannelType.scheduling:
             return channel.SchedulingChannel(state=self, **data)
-        elif ctype is channel.ChannelType.voice:
+        elif type_ is ChannelType.voice:
             return channel.VoiceChannel(state=self, **data)
 
     def create_message(self, **data):
