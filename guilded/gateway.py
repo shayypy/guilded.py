@@ -993,10 +993,13 @@ class GuildedWebSocket(GuildedWebSocketBase):
         if op == self.MISSABLE:
             d['serverId'] = d.get('serverId')
             try:
-                d['server'] = await self.client.getch_team(d['serverId'])
+                should_fill = self.client.get_team(d['serverId']) is None
+                d['server'] = await self.client.getch_team(d['serverId'], only_info=True)
             except:
                 d['server'] = None
             else:
+                if should_fill:
+                    await d['server'].fill_members()
                 self.client.http.add_to_team_cache(d['server'])
 
             event = self._parsers.get(t, d)
@@ -1060,14 +1063,10 @@ class WebSocketEventParsers:
         if author_id is not None and author_id != self._state.GIL_ID:
             author = self._state._get_team_member(server_id, author_id)
             if author is None and server_id is not None:
-                author_data = (await self._state.get_team_member(server_id, author_id))[author_id]
-                user_data = await self._state.get_user(author_id)
-                user_data['user']['createdAt'] = user_data['user'].get('joinDate')
+                author_data = (await self._state.get_member(server_id, author_id))['member']
                 author = self._state.create_member(
                     data={
-                        'id': author_id,
                         'serverId': server_id,
-                        **user_data,
                         **author_data,
                     },
                     team=server,
@@ -1112,9 +1111,36 @@ class WebSocketEventParsers:
             message.deleted_at = ISO8601(data['message']['deletedAt'])
             self.client.dispatch('message_delete', message)
 
+    async def TeamMemberJoined(self, data):
+        server = data['server']
+        if server is None:
+            return
+
+        member = self._state.create_member(data={
+            'serverId': server.id,
+            **data['member'],
+        })
+        server._members[member.id] = member
+
+        self.client.dispatch('member_join', member)
+
+    async def TeamMemberRemoved(self, data):
+        server = data['server']
+        if server is None:
+            return
+
+        member = self._state._get_team_member(server.id, data['userId'])
+        if member:
+            self.client.dispatch('member_remove', member)
+            server._members.pop(data['userId'], None)
+
     async def TeamMemberUpdated(self, data):
         member_id = data.get('userId') or data['userInfo'].get('id')
-        raw_after = self._state.create_member(data={'id': member_id, 'serverId': data['serverId'], **data['userInfo']})
+        raw_after = self._state.create_member(data={{
+            'user': {'id': member_id},
+            'serverId': data['serverId'],
+            **data['userInfo'],
+        }})
         self.client.dispatch('raw_member_update', raw_after)
 
         server = data['server']

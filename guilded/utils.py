@@ -51,10 +51,10 @@ DEALINGS IN THE SOFTWARE.
 
 import asyncio
 import datetime
-from inspect import isawaitable as _isawaitable
+from inspect import isawaitable as _isawaitable, signature as _signature
 from operator import attrgetter
 import re
-from typing import Union
+from typing import Any, AsyncIterable, Callable, Coroutine, Iterable, Optional, TypeVar, Union
 import unicodedata
 from uuid import uuid1, UUID
 
@@ -66,6 +66,12 @@ GUILDED_EPOCH = int(GUILDED_EPOCH_DATETIME.timestamp())
 
 valid_image_extensions = ['png', 'webp', 'jpg', 'jpeg', 'gif', 'jif', 'tif', 'tiff', 'apng', 'bmp', 'svg']
 valid_video_extensions = ['mp4', 'mpeg', 'mpg', 'mov', 'avi', 'wmv', 'qt', 'webm']
+
+
+T = TypeVar('T')
+T_co = TypeVar('T_co', covariant=True)
+_Iter = Union[Iterable[T], AsyncIterable[T]]
+Coro = Coroutine[Any, Any, T]
 
 
 def ISO8601(string: str):
@@ -107,7 +113,7 @@ def new_uuid() -> str:
     return str(uuid1())
 
 
-def find(predicate, sequence):
+def find(predicate: Callable[[T], Any], sequence: _Iter[T]) -> Union[Optional[T], Coro[Optional[T]]]:
     """Iterate through ``sequence`` to find a matching object for ``predicate``.
 
     If nothing is found, ``None`` is returned.
@@ -275,7 +281,16 @@ def _string_width(string: str, *, _IS_ASCII=_IS_ASCII) -> int:
     return sum(2 if func(char) in UNICODE_WIDE_CHAR_TYPE else 1 for char in string)
 
 
-_GENERIC_ID_REGEX = re.compile(r'^[a-zA-Z0-9]{8}$')
+def copy_doc(original: Callable) -> Callable[[T], T]:
+    def decorator(overridden: T) -> T:
+        overridden.__doc__ = original.__doc__
+        overridden.__signature__ = _signature(original)  # type: ignore
+        return overridden
+
+    return decorator
+
+
+_GENERIC_ID_REGEX = re.compile(r'^[a-zA-Z0-9]{8,10}$')
 
 class Object:
     """Represents a generic Guilded object.

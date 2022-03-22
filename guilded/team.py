@@ -720,10 +720,25 @@ class Team:
         """|coro|
 
         Fetch the list of :class:`Member`\s in this team.
+
+        If the client is a bot account, the returned data will be summarized;
+        missing :attr:`.Member.nick`, :attr:`.Member.created_at`, and :attr:`.Member.joined_at`.
+
+        Returns
+        --------
+        List[:class:`.Member`]
+            The members in the team.
         """
-        data = await self._state.get_team(self.id)
+        if self._state.userbot:
+            data = await self._state.get_team(self.id)
+            data = data['team']['members']
+
+        else:
+            data = await self._state.get_members(self.id)
+            data = data['members']
+
         member_list = []
-        for member in data['team']['members']:
+        for member in data:
             try:
                 member_obj = self._state.create_member(team=self, data=member)
             except:
@@ -733,10 +748,8 @@ class Team:
 
         return member_list
 
-    async def fetch_member(self, id: str, *, full=True) -> Member:
+    async def fetch_member(self, id: str, *, full=None) -> Member:
         """|coro|
-
-        |onlyuserbot|
 
         Fetch a specific :class:`Member` in this team.
 
@@ -745,14 +758,15 @@ class Team:
         id: :class:`str`
             The member's id to fetch.
         full: Optional[:class:`bool`]
-            Whether to fetch full user data for this member. If this is
-            ``False``, only team-specific data about this member will be
-            returned. Defaults to ``True``.
+            Whether to fetch full user data for this member.
+            If this is ``False``, only team-specific data about this member will be returned.
+            If the client is a bot account, this defaults to ``False``.
 
             .. note::
+
                 When this is ``True``, this method will make two HTTP requests.
                 If the extra information returned by doing this is not necessary
-                for your use-case, it is recommended to set it to ``False``.
+                for your use-case, it is recommended to use ``False``.
 
         Returns
         --------
@@ -764,11 +778,23 @@ class Team:
         :class:`NotFound`
             A member with that ID does not exist in this team.
         """
-        data = (await self._state.get_team_member(self.id, id))[id]
-        if full is True:
-            user_data = await self._state.get_user(id)
-            user_data['user']['createdAt'] = user_data['user'].get('createdAt', user_data['user'].get('joinDate'))
-            data = {**user_data, **data}
+        if self._state.userbot:
+            full = True if full is None else full
+
+            data = (await self._state.get_team_member(self.id, id))[id]
+            if full is True:
+                user_data = await self._state.get_user(id)
+                user_data['user']['createdAt'] = user_data['user'].get('createdAt', user_data['user'].get('joinDate'))
+                data['user'] = user_data['user']
+
+        else:
+            full = False if full is None else full
+
+            data = (await self._state.get_member(self.id, id))['member']
+            if full is True:
+                user_data = await self._state.get_user(id)
+                user_data['user']['createdAt'] = user_data['user'].get('createdAt', user_data['user'].get('joinDate'))
+                data['user'] = {**data['user'], **user_data['user']}
 
         member = self._state.create_member(team=self, data=data)
         self._state.add_to_member_cache(member)
@@ -776,6 +802,30 @@ class Team:
 
     async def getch_member(self, id: str) -> Member:
         return self.get_member(id) or await self.fetch_member(id)
+
+    async def fill_members(self) -> None:
+        """Fill the member cache for this team.
+        This is used internally and is generally not needed in normal applications.
+
+        This method could be seen as analogous to `guild chunking <https://discord.com/developers/docs/topics/gateway#request-guild-members>`_, except that it uses HTTP and not the gateway.
+        """
+
+        if self._state.userbot:
+            data = await self._state.get_team(self.id)
+            data = data['team']['members']
+
+        else:
+            data = await self._state.get_members(self.id)
+            data = data['members']
+
+        self._members.clear()
+        for member_data in data:
+            try:
+                member = self._state.create_member(team=self, data=member_data)
+            except:
+                continue
+            else:
+                self._members[member.id] = member
 
     async def create_invite(self) -> str:
         """|coro|
@@ -853,8 +903,6 @@ class Team:
     async def kick(self, user: User):
         """|coro|
 
-        |onlyuserbot|
-
         Kick a user from the team.
 
         Parameters
@@ -862,7 +910,10 @@ class Team:
         user: :class:`abc.User`
             The user to kick.
         """
-        coro = self._state.remove_team_member(self.id, user.id)
+        if self._state.userbot:
+            coro = self._state.remove_team_member(self.id, user.id)
+        else:
+            coro = self._state.kick_member(self.id, user.id)
         await coro
 
     def get_group(self, id: str) -> Optional[Group]:

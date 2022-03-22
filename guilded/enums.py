@@ -68,6 +68,7 @@ __all__ = (
     'FlowActionType',
     'FlowTriggerType',
     'TeamFlairType',
+    'UserType',
 )
 
 
@@ -367,6 +368,11 @@ class TeamFlairType(Enum):
 
     def __str__(self):
         return self.name
+
+
+class UserType(Enum):
+    user = 'user'
+    bot = 'bot'
 
 
 T = TypeVar('T')

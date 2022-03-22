@@ -486,7 +486,7 @@ class ClientBase:
 
         return None
 
-    async def fetch_team(self, id: str):
+    async def fetch_team(self, id: str, *, only_info: bool = False):
         """|coro|
 
         Fetch a team from the API.
@@ -495,16 +495,22 @@ class ClientBase:
         -----------
         id: :class:`str`
             The ID of the team.
+        only_info: :class:`bool`
+            If ``True``, uses an endpoint that does not return data about the team's members and bots.
+            Currently defaults to ``False``.
 
         Returns
         --------
         :class:`.Team`
             The team from the ID.
         """
-        team = await self.http.get_team(id)
+        if only_info:
+            team = await self.http.get_team_info(id)
+        else:
+            team = await self.http.get_team(id)
         return Team(state=self.http, data=team)
 
-    async def getch_team(self, id: str):
+    async def getch_team(self, id: str, *, only_info: bool = True):
         """|coro|
 
         Try to get a team from internal cache, and if not found, try to fetch from the API.
@@ -513,13 +519,16 @@ class ClientBase:
         -----------
         id: :class:`str`
             The ID of the team.
+        only_info: :class:`bool`
+            If ``True``, uses an endpoint that does not return data about the team's members and bots.
+            Currently defaults to ``False``.
 
         Returns
         --------
         :class:`.Team`
             The team from the ID.
         """
-        return self.get_team(id) or await self.fetch_team(id)
+        return self.get_team(id) or await self.fetch_team(id, only_info=only_info)
 
     async def on_error(self, event_method, *args, **kwargs):
         print(f'Ignoring exception in {event_method}:', file=sys.stderr)
@@ -1254,8 +1263,9 @@ class Client(ClientBase):
 
         # Cache our internal server
         if self.internal_server_id:
-            team = await self.fetch_team(self.internal_server_id)
-            team._members[self.user.id] = self.http.create_member(team=team, data=user_data)
+            team = await self.fetch_team(self.internal_server_id, only_info=True)
+            await team.fill_members()
+
             self.http.add_to_team_cache(team)
 
         await self.connect(token, reconnect=reconnect)

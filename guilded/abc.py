@@ -59,7 +59,7 @@ from .asset import Asset
 from .colour import Colour
 from .errors import GuildedException
 from .embed import _EmptyEmbed, Embed
-from .enums import MediaType
+from .enums import try_enum, MediaType, UserType
 from .file import File
 from .message import HasContentMixin, ChatMessage
 from .presence import Presence
@@ -425,15 +425,47 @@ class User(metaclass=abc.ABCMeta):
     stonks: Optional[:class:`int`]
         How many "stonks" the user has.
     """
+
+    __slots__ = (
+        'type',
+        '_user_type',
+        'id',
+        'dm_channel',
+        'name',
+        'nick',
+        'colour',
+        'subdomain',
+        'email',
+        'service_email',
+        'games',
+        'bio',
+        'tagline',
+        'presence',
+        'status',
+        'blocked_at',
+        'online_at',
+        'created_at',
+        'default_avatar',
+        'avatar',
+        'banner',
+        'moderation_status',
+        'badges',
+        'stonks',
+        '_bot',
+        'friend_status',
+        'friend_requested_at',
+    )
+
     def __init__(self, *, state, data, **extra):
         self._state = state
         data = data.get('user', data)
 
         self.type = None
-        self._user_type = data.get('type')
+        self._user_type = try_enum(UserType, data.get('type', 'user'))
         self.id: str = data.get('id')
         self.dm_channel = None
         self.name: str = data.get('name') or ''
+        self.nick: Optional[str] = None
         self.colour: Colour = Colour(0)
         self.subdomain: Optional[str] = data.get('subdomain')
         self.email: Optional[str] = data.get('email')
@@ -483,7 +515,7 @@ class User(metaclass=abc.ABCMeta):
         return isinstance(other, User) and self.id == other.id
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} bot={self.bot!r}>'
+        return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} type={self._user_type!r}>'
 
     @property
     def slug(self) -> Optional[str]:
@@ -510,7 +542,7 @@ class User(metaclass=abc.ABCMeta):
 
     @property
     def display_name(self) -> str:
-        return self.name
+        return self.nick if self.nick is not None else self.name
 
     @property
     def color(self) -> Colour:
@@ -522,7 +554,7 @@ class User(metaclass=abc.ABCMeta):
 
     @property
     def bot(self) -> bool:
-        return self._user_type == 'bot' if self._user_type is not None else self._bot
+        return self._user_type is UserType.bot or self._bot
 
     @property
     def display_avatar(self) -> Asset:

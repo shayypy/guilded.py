@@ -1555,6 +1555,15 @@ class HTTPClient(HTTPClientBase):
     def delete_member_nickname(self, server_id: str, user_id: str):
         return self.request(Route('DELETE', f'/servers/{server_id}/members/{user_id}/nickname'))
 
+    def get_member(self, server_id: str, user_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/members/{user_id}'))
+
+    def kick_member(self, server_id: str, user_id: str):
+        return self.request(Route('DELETE', f'/servers/{server_id}/members/{user_id}'))
+
+    def get_members(self, server_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/members'))
+
     def get_member_social_links(self, server_id: str, user_id: str, type: str):
         return self.request(Route('GET', f'/servers/{server_id}/members/{user_id}/social-links/{type}'))
 

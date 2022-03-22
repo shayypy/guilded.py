@@ -50,7 +50,10 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import datetime
-from typing import List, Optional
+import inspect
+import itertools
+from operator import attrgetter
+from typing import Any, Callable, Coroutine, List, Optional, TYPE_CHECKING
 
 import guilded.abc
 
@@ -59,7 +62,7 @@ from .colour import Colour
 from .enums import MediaType
 from .file import File
 from .role import Role
-from .utils import ISO8601, parse_hex_number
+from .utils import copy_doc, ISO8601, parse_hex_number
 
 
 class Device:
@@ -120,12 +123,16 @@ class User(guilded.abc.User, guilded.abc.Messageable):
     async def block(self):
         """|coro|
 
+        |onlyuserbot|
+
         Block this user.
         """
         await self._state.block_user(self.id)
 
     async def unblock(self):
         """|coro|
+
+        |onlyuserbot|
 
         Unblock this user.
         """
@@ -134,12 +141,16 @@ class User(guilded.abc.User, guilded.abc.Messageable):
     async def accept_friend_request(self):
         """|coro|
 
+        |onlyuserbot|
+
         Accept this user's friend request, if it exists.
         """
         await self._state.accept_friend_request(self.id)
 
     async def decline_friend_request(self):
         """|coro|
+
+        |onlyuserbot|
 
         Decline this user's friend request, if it exists.
         """
@@ -148,6 +159,8 @@ class User(guilded.abc.User, guilded.abc.Messageable):
     async def send_friend_request(self):
         """|coro|
 
+        |onlyuserbot|
+
         Send a friend request to this user.
         """
         await self._state.create_friend_request([self.id])
@@ -155,13 +168,74 @@ class User(guilded.abc.User, guilded.abc.Messageable):
     async def delete_friend_request(self):
         """|coro|
 
+        |onlyuserbot|
+
         Delete your friend request to this user, if it exists.
         """
         await self._state.delete_friend_request(self.id)
 
 
+def flatten_user(cls: Any):
+    for attr, value in itertools.chain(guilded.abc.User.__dict__.items(), User.__dict__.items()):
+        # ignore private/special methods
+        if attr.startswith('_'):
+            continue
+
+        # don't override what we already have
+        if attr in cls.__dict__:
+            continue
+
+        # if it's a slotted attribute or a property, redirect it
+        # slotted members are implemented as member_descriptors in Type.__dict__
+        if not hasattr(value, '__annotations__'):
+            getter = attrgetter('_user.' + attr)
+            setattr(cls, attr, property(getter, doc=f'Equivalent to :attr:`User.{attr}`'))
+        else:
+            # Technically, this can also use attrgetter
+            # However I'm not sure how I feel about "functions" returning properties
+            # It probably breaks something in Sphinx.
+            # probably a member function by now
+            def generate_function(x):
+                # We want sphinx to properly show coroutine functions as coroutines
+                if inspect.iscoroutinefunction(value):
+
+                    async def general(self, *args, **kwargs):  # type: ignore
+                        return await getattr(self._user, x)(*args, **kwargs)
+
+                else:
+
+                    def general(self, *args, **kwargs):
+                        return getattr(self._user, x)(*args, **kwargs)
+
+                general.__name__ = x
+                return general
+
+            func = generate_function(attr)
+            func = copy_doc(value)(func)
+            setattr(cls, attr, func)
+
+    return cls
+
+
+@flatten_user
 class Member(User):
     """Represents a member of a :class:`.Team`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two members are equal.
+            Note that this works with :class:`User` instances too.
+
+        .. describe:: x != y
+
+            Checks if two members are not equal.
+            Note that this works with :class:`User` instances too.
+
+        .. describe:: str(x)
+
+            Returns the member's name.
 
     Attributes
     -----------
@@ -175,24 +249,57 @@ class Member(User):
         The member's nickname, if any.
     """
 
+    __slots__ = (
+        '_state',
+        '_role_ids',
+        '_user'
+        '_team',
+        'bot_id',
+        'nick',
+        'xp',
+        'joined_at',
+        'colour',
+    )
+
+    if TYPE_CHECKING:
+        id: str
+        name: str
+        created_at: datetime.datetime
+        default_avatar: Asset
+        avatar: Optional[Asset]
+        dm_channel: Optional[guilded.abc.Messageable]
+        create_dm: Callable[[], Coroutine[Any, Any, guilded.abc.Messageable]]
+        banner: Optional[Asset]
+
     def __init__(self, *, state, data, **extra):
-        super().__init__(state=state, data=data)
+        self._state = state
+        self._user = User(state=state, data=data)
+        state._users[self._user.id] = self._user
+
         self._team = extra.get('team') or extra.get('server')
         self.team_id: str = data.get('teamId') or data.get('serverId')
 
         self.bot_id: str = extra.get('bot_id')
-        self._role_ids = data.get('roleIds') or []
+        self._role_ids: List[int] = data.get('roleIds') or []
         self.nick: Optional[str] = data.get('nickname')
-        self.xp: int = data.get('teamXp')
-        self.joined_at: datetime.datetime = ISO8601(data.get('joinDate'))
+        self.xp: Optional[int] = data.get('teamXp')
+        self.joined_at: datetime.datetime = ISO8601(data.get('joinedAt') or data.get('joinDate'))
+
+        self.colour: Optional[Colour]
         colour = data.get('colour') or data.get('color')
         if colour is not None and not isinstance(colour, Colour):
-            self.colour: Optional[Colour] = parse_hex_number(colour)
+            self.colour = parse_hex_number(colour)
         else:
-            self.colour: Optional[Colour] = colour
+            self.colour = colour
 
-    def __repr__(self):
-        return f'<Member id={self.id!r} name={self.name!r} bot={self.bot} team={self.team!r}>'
+    def __repr__(self) -> str:
+        return f'<Member id={self._user.id!r} name={self._user.name!r} type={self._user._user_type!r} team={self.team!r}>'
+
+    def __str__(self) -> str:
+        return str(self._user)
+
+    def __eq__(self, other: guilded.abc.User) -> bool:
+        return isinstance(other, guilded.abc.User) and other.id == self.id
 
     @property
     def team(self):
@@ -218,12 +325,6 @@ class Member(User):
         return self.colour
 
     @property
-    def display_name(self) -> str:
-        """:class:`str`: The name that displays for this member, be it their
-        team-specific nickname or their username."""
-        return self.nick or self.name
-
-    @property
     def roles(self) -> List[Role]:
         """List[:class:`.Role`]: The cached list of roles that this member has."""
         roles = [self.team.get_role(int(role_id)) for role_id in self._role_ids]
@@ -235,41 +336,26 @@ class Member(User):
         accounts, this attribute depends on :attr:`Team.bot_role`, so it may
         be unreliable as Guilded does not explicitly provide which role is the
         bot role."""
-        return self._bot or (
-            self.team.bot_role.id in self._role_ids if self.team.bot_role is not None else False
+        return self._user.bot or (
+            self.team is not None
+            and self.team.bot_role is not None
+            and self.team.bot_role.id in self._role_ids
         )
 
     @classmethod
     def _copy(cls, member):
         self = cls.__new__(cls)
 
+        self._user = member._user
         self._role_ids = member._role_ids.copy()
         self._state = member._state
         self._team = member._team
         self.team_id = member.team_id
 
-        self.id = member.id
-        self.name = member.name
         self.nick = member.nick
-        self._bot = member.bot
-        self.created_at = member.created_at
         self.joined_at = member.joined_at
-        self.online_at = member.online_at
-        self.bio = member.bio
-        self.tagline = member.tagline
-        self.badges = member.badges
-        self.stonks = member.stonks
-        self.avatar = member.avatar
-        self.banner = member.banner
         self.xp = member.xp
-        self.dm_channel = member.dm_channel
         self.colour = member.colour
-        self.subdomain = member.subdomain
-        self.email = member.email
-        self.service_email = member.service_email
-        self.games = member.games
-        self.presence = member.presence
-        self.status = member.status
 
         return self
 
