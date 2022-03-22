@@ -208,6 +208,13 @@ class HTTPClientBase:
     def remove_from_dm_channel_cache(self, channel_id):
         self._dm_channels.pop(channel_id, None)
 
+    def valid_ISO8601(self, timestamp):
+        """Manually construct a datetime's ISO8601 representation so that
+        Guilded will accept it. Guilded rejects isoformat()'s 6-digit
+        microseconds and UTC offset (+00:00)."""
+        # Valid example: 2021-10-15T23:58:44.537Z
+        return timestamp.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+
     # /teams
 
     def get_team(self, team_id: str):
@@ -407,13 +414,6 @@ class UserbotHTTPClient(HTTPClientBase):
             },
             'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': '', 'marks': []}]}]
         })
-
-    def valid_ISO8601(self, timestamp):
-        """Manually construct a datetime's ISO8601 representation so that
-        Guilded will accept it. Guilded rejects isoformat()'s 6-digit
-        microseconds and UTC offset (+00:00)."""
-        # Valid example: 2021-10-15T23:58:44.537Z
-        return timestamp.strftime('%Y-%m-%dT%H:%M:%S.000Z')
 
     @property
     def credentials(self):
@@ -629,8 +629,28 @@ class UserbotHTTPClient(HTTPClientBase):
     def remove_self_message_reaction(self, channel_id: str, message_id: str, emoji_id: int):
         return self.request(UserbotRoute('DELETE', f'/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}'))
 
-    def get_channel_messages(self, channel_id: str, *, limit: int):
-        return self.request(UserbotRoute('GET', f'/channels/{channel_id}/messages'), params={'limit': limit})
+    def get_channel_messages(self,
+        channel_id: str,
+        *,
+        include_private: bool = False,
+        before: datetime.datetime = None,
+        after: datetime.datetime = None,
+        limit: int = None,
+    ):
+        params = {
+            'includePrivate': str(include_private).lower(),
+        }
+
+        if before is not None:
+            params['beforeDate'] = self.valid_ISO8601(before)
+
+        if after is not None:
+            params['afterDate'] = self.valid_ISO8601(after)
+
+        if limit is not None:
+            params['limit'] = limit
+
+        return self.request(UserbotRoute('GET', f'/channels/{channel_id}/messages'), params=params)
 
     def create_thread(self, channel_id: str, message_content, *, name: str, initial_message=None):
         route = UserbotRoute('POST', f'/channels/{channel_id}/threads')
@@ -1493,10 +1513,27 @@ class HTTPClient(HTTPClientBase):
     def get_channel_message(self, channel_id: str, message_id: str):
         return self.request(Route('GET', f'/channels/{channel_id}/messages/{message_id}'))
 
-    def get_channel_messages(self, channel_id: str, *, include_private: bool = False):
+    def get_channel_messages(self,
+        channel_id: str,
+        *,
+        include_private: bool = False,
+        before: datetime.datetime = None,
+        after: datetime.datetime = None,
+        limit: int = None,
+    ):
         params = {
-            'includePrivate': str(include_private).lower()
+            'includePrivate': str(include_private).lower(),
         }
+
+        if before is not None:
+            params['before'] = self.valid_ISO8601(before)
+
+        if after is not None:
+            params['after'] = self.valid_ISO8601(after)
+
+        if limit is not None:
+            params['limit'] = limit
+
         return self.request(Route('GET', f'/channels/{channel_id}/messages'), params=params)
 
     def create_forum_thread(self, channel_id: str, *, title: str, content: str):

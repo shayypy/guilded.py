@@ -255,21 +255,45 @@ class Messageable(metaclass=abc.ABCMeta):
         """
         return await self._state.trigger_typing(self._channel_id)
 
-    async def history(self, *, limit: int = 50) -> List[ChatMessage]:
+    async def history(self,
+        *,
+        before: datetime.datetime = None,
+        after: datetime.datetime = None,
+        limit: int = 50,
+        include_private: bool = False,
+    ) -> List[ChatMessage]:
         """|coro|
 
         Fetch the message history of this channel.
 
+        All parameters are optional.
+
         Parameters
         -----------
-        limit: Optional[:class:`int`]
+        before: :class:`datetime.datetime`
+            Fetch messages sent before this timestamp.
+        after: :class:`datetime.datetime`
+            Fetch messages sent after this timestamp.
+        limit: :class:`int`
             The maximum number of messages to fetch. Defaults to 50.
+        include_private: :class:`bool`
+            Whether to include private messages in the response. Defaults to ``False``.
+            If the client is a user account, this has no effect and is always ``True``.
 
         Returns
         --------
         List[:class:`.ChatMessage`]
         """
-        history = await self._state.get_channel_messages(self._channel_id, limit=limit)
+        # TODO: Paginate automatically if limit > 100
+        # TODO: Return an async iterator
+        history = await self._state.get_channel_messages(
+            self._channel_id,
+            before=before,
+            after=after,
+            limit=limit,
+            include_private=include_private,
+        )
+
         messages = []
         for message in history.get('messages', []):
             try:
