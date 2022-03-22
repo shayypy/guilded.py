@@ -1509,9 +1509,23 @@ class HTTPClient(HTTPClientBase):
     def create_list_item(self, channel_id: str, *, message: str, note: str = None):
         payload = {
             'message': message,
-            'note': note,
         }
-        return self.request(Route('POST', f'/channels/{channel_id}/list'), json=payload)
+        if note is not None:
+            payload['note'] = {'content': note}
+
+        return self.request(Route('POST', f'/channels/{channel_id}/items'), json=payload)
+
+    def get_list_item(self, channel_id: str, item_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/items/{item_id}'))
+
+    def get_list_items(self, channel_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/items'))
+
+    def update_list_item(self, channel_id: str, item_id: str, *, payload: Dict[str, Any]):
+        return self.request(Route('PUT', f'/channels/{channel_id}/items/{item_id}'), json=payload)
+
+    def delete_list_item(self, channel_id: str, item_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/items/{item_id}'))
 
     def create_doc(self, channel_id: str, *, title: str, content: str):
         payload = {
