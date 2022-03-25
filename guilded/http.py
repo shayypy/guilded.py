@@ -219,69 +219,21 @@ class HTTPClientBase:
                 'data': {},
                 'nodes': []
             }
-            blank_mention_node = blank_node.copy()
-            blank_mention_node['object'] = 'inline'
-            blank_mention_node['type'] = 'mention'
-            blank_mention_node['nodes'] = [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': None, 'marks': []}]}]
 
-            blank_channel_node = blank_mention_node.copy()
-            blank_channel_node['type'] = 'channel'
-
-            if isinstance(node, Embed):
-                blank_node['type'] = 'webhookMessage'
-                blank_node['data'] = {'embeds': [node.to_dict()]}
-
-            elif isinstance(node, File):
-                blank_node['type'] = str(node.file_type)
-                blank_node['data'] = {'src': node.url}
+            if isinstance(node, (Embed, File)):
+                # block content
+                blank_node = node.to_node_dict()
 
             else:
                 # inline text content
-                if isinstance(node, Emoji):
-                    raw_node = {
-                        'object': 'inline',
-                        'type': 'reaction',
-                        'data': {'reaction': {'id': node.id, 'customReactionId': node.id}},
-                        'nodes': [{'object': 'text', 'leaves': [{'object': 'leaf', 'text': f':{node.name}:', 'marks': []}]}]
-                    }
-
-                elif isinstance(node, abc_User):
-                    raw_node = blank_mention_node
-                    raw_node['data']['mention'] = {
-                        'type': 'person',
-                        'id': node.id,
-                        'matcher': f'@{node.display_name}',
-                        'name': node.display_name,
-                        'avatar': str(node.avatar_url),
-                        'color': str(node.colour),
-                        'nickname': node.nickname == node.name
-                    }
-                    raw_node['nodes'][0]['leaves'][0]['text'] = f'@{node.display_name}'
-
-                elif isinstance(node, Mention):
-                    raw_node = blank_mention_node
-                    raw_node['data']['mention'] = node.value
-                    raw_node['nodes'][0]['leaves'][0]['text'] = str(node)
-
-                elif isinstance(node, Role):
-                    raw_node = blank_mention_node
-                    raw_node['data']['mention'] = {
-                        'type': 'role',
-                        'id': node.id,
-                        'matcher': f'@{node.name}',
-                        'name': node.name,
-                        'color': str(node.colour) if node.colour else 'transparent'
-                    }
-                    raw_node['nodes'][0]['leaves'][0]['text'] = f'@{node.name}'
-
-                elif isinstance(node, TeamChannel):
-                    raw_node = blank_channel_node
-                    raw_node['data']['channel'] = {
-                        'id': node.id,
-                        'matcher': f'#{node.name}',
-                        'name': node.name
-                    }
-                    raw_node['nodes'][0]['leaves'][0]['text'] = f'#{node.name}'
+                if isinstance(node, (
+                    abc_User,
+                    Emoji,
+                    Mention,
+                    Role,
+                    TeamChannel,
+                )):
+                    raw_node = node.to_node_dict()
 
                 else:
                     raw_node = {

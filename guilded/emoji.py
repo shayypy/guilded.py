@@ -51,7 +51,7 @@ DEALINGS IN THE SOFTWARE.
 
 import datetime
 import os
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import yarl
 
 from .asset import AssetMixin, Asset
@@ -261,6 +261,26 @@ class Emoji(AssetMixin):
     def url(self) -> str:
         """:class:`str`: The emoji's CDN URL."""
         return self._underlying.url
+
+    def to_node_dict(self) -> Dict[str, Any]:
+        return {
+            'object': 'inline',
+            'type': 'reaction',
+            'data': {
+                'reaction': {
+                    'id': self.id,
+                    'customReactionId': self.id,
+                },
+            },
+            'nodes': [{
+                'object': 'text',
+                'leaves': [{
+                    'object': 'leaf',
+                    'text': f':{self.name}:',
+                    'marks': [],
+                }],
+            }],
+        }
 
     def url_with_format(self, format: str) -> str:
         """Returns a new URL with a different format. By default, the format

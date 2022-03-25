@@ -50,8 +50,9 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import datetime
+from enum import Enum
 import logging
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
 
 from .embed import Embed
 from .enums import try_enum, FormType, MessageType, MentionType, MessageFormInputType, MediaType
@@ -164,13 +165,49 @@ class MessageMention:
 
 # This doesn't really need to be how it is and may be changed later.
 # This class only exists to store these static values.
-class Mention:
+class Mention(Enum):
     """Used for passing special types of mentions to :meth:`~.abc.Messageable.send`\."""
-    everyone = {'type': 'everyone', 'matcher': '@everyone', 'name': 'everyone', 'description': 'Notify everyone in the channel', 'color': '#ffffff', 'id': 'everyone'}
-    here = {'type': 'here', 'matcher': '@here', 'name': 'here', 'description': 'Notify everyone in this channel that is online and not idle', 'color': '#f5c400', 'id': 'here'}
+    everyone = 'everyone'
+    here = 'here'
 
     def __str__(self):
         return f'@{self.name}'
+
+    def to_node_dict(self) -> Dict[str, Any]:
+        if self.value == 'everyone':
+            mention_data = {
+                'type': 'everyone',
+                'matcher': '@everyone',
+                'name': 'everyone',
+                'description': 'Notify everyone in the channel',
+                'color': '#ffffff',
+                'id': 'everyone',
+            }
+        elif self.value == 'here':
+            mention_data = {
+                'type': 'here',
+                'matcher': '@here',
+                'name': 'here',
+                'description': 'Notify everyone in this channel that is online and not idle',
+                'color': '#f5c400',
+                'id': 'here',
+            }
+
+        return {
+            'object': 'inline',
+            'type': 'mention',
+            'data': {
+                'mention': mention_data,
+            },
+            'nodes': [{
+                'object': 'text',
+                'leaves': [{
+                    'object': 'leaf',
+                    'text': str(self),
+                    'marks': [],
+                }],
+            }],
+        }
 
 
 class Link:

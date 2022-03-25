@@ -52,7 +52,7 @@ DEALINGS IN THE SOFTWARE.
 import abc
 import datetime
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from .activity import Activity
 from .asset import Asset
@@ -538,6 +538,31 @@ class User(metaclass=abc.ABCMeta):
         that the client will display in the member list and in chat."""
         return self.avatar or self.default_avatar
 
+    def to_node_dict(self) -> Dict[str, Any]:
+        return {
+            'object': 'inline',
+            'type': 'mention',
+            'data': {
+                'mention': {
+                    'type': 'person',
+                    'id': self.id,
+                    'matcher': f'@{self.display_name}',
+                    'name': self.display_name,
+                    'avatar': self.display_avatar.url,
+                    'color': str(self.colour),
+                    'nickname': self.nick == self.name,
+                },
+            },
+            'nodes': [{
+                'object': 'text',
+                'leaves': [{
+                    'object': 'leaf',
+                    'text': f'@{self.display_name}',
+                    'marks': [],
+                }],
+            }],
+        }
+
     async def create_dm(self) -> Messageable:
         """|coro|
 
@@ -734,6 +759,27 @@ class TeamChannel(metaclass=abc.ABCMeta):
             return self.id == other.id
         except:
             return False
+
+    def to_node_dict(self) -> Dict[str, Any]:
+        return {
+            'object': 'inline',
+            'type': 'channel',
+            'data': {
+                'channel': {
+                    'id': self.id,
+                    'matcher': f'#{self.name}',
+                    'name': self.name,
+                },
+            },
+            'nodes': [{
+                'object': 'text',
+                'leaves': [{
+                    'object': 'leaf',
+                    'text': f'#{self.name}',
+                    'marks': [],
+                }],
+            }],
+        }
 
     async def edit(self, **options):
         """|coro|

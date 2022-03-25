@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from .colour import Colour
 from .utils import ISO8601, parse_hex_number
@@ -160,6 +160,29 @@ class Role:
     def bot_member(self):
         """:class:`.Member`: The bot's member that the role is assigned to."""
         return self.team.get_member(self.bot_user_id)
+
+    def to_node_dict(self) -> Dict[str, Any]:
+        return {
+            'object': 'inline',
+            'type': 'mention',
+            'data': {
+                'mention': {
+                    'type': 'role',
+                    'id': self.id,
+                    'matcher': f'@{self.name}',
+                    'name': self.name,
+                    'color': str(self.colour) if self.colour else 'transparent'
+                },
+            },
+            'nodes': [{
+                'object': 'text',
+                'leaves': [{
+                    'object': 'leaf',
+                    'text': f'@{self.name}',
+                    'marks': [],
+                }],
+            }],
+        }
 
     def is_bot(self) -> bool:
         """:class:`bool`: Whether the role is the internal ``Bot`` role, which every bot in the team has."""

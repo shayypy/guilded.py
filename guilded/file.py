@@ -50,7 +50,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import io
-from typing import Union
+from typing import Any, Dict, Union
 
 from .asset import AssetMixin
 from .enums import try_enum, FileType, MediaType
@@ -141,6 +141,16 @@ class File:
 
     def __bytes__(self):
         return self._bytes
+
+    def to_node_dict(self) -> Dict[str, Any]:
+        return {
+            'object': 'block',
+            'type': str(self.file_type),
+            'data': {
+                'src': self.url,
+            },
+            'nodes': [],
+        }
 
     def set_media_type(self, media_type):
         """Manually set this file's media type."""

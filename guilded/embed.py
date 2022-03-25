@@ -50,6 +50,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import datetime
+from typing import Any, Dict
 
 from . import utils
 from .asset import Asset
@@ -670,3 +671,15 @@ class Embed:
             result['title'] = self.title
 
         return result
+
+    def to_node_dict(self) -> Dict[str, Any]:
+        return {
+            'object': 'block',
+            'type': 'webhookMessage',
+            'data': {
+                'embeds': [
+                    self.to_dict(),
+                ],
+            },
+            'nodes': [],
+        }
