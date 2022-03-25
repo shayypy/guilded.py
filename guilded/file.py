@@ -53,7 +53,7 @@ import io
 from typing import Union
 
 from .asset import AssetMixin
-from .enums import FileType, MediaType
+from .enums import try_enum, FileType, MediaType
 from . import utils
 
 
@@ -113,9 +113,9 @@ class File:
                     raise ValueError('File must have an extension if file_type is not specified.')
                 else:
                     if extension in utils.valid_image_extensions:
-                        self.file_type = 'image'
+                        self.file_type = FileType.image
                     elif extension in utils.valid_video_extensions:
-                        self.file_type = 'video'
+                        self.file_type = FileType.video
                     else:
                         raise TypeError('Invalid file type. Consider passing file_type to manually tell Guilded what type of file this is.')
 
@@ -178,7 +178,7 @@ class Attachment(AssetMixin):
 
     def __init__(self, *, state, data, **extra):
         self._state = state
-        self.file_type = getattr(FileType, data.get('type'), None)
+        self.file_type = try_enum(FileType, data.get('type'))
         self.type = extra.get('type') or MediaType.attachment
         self.url = data.get('data', {}).get('src')
         if data.get('nodes'):

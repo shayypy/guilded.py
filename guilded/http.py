@@ -54,14 +54,13 @@ import asyncio
 import datetime
 import json
 import logging
-import re
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 
 from . import utils
 from . import channel
 from .abc import User as abc_User
 from .abc import TeamChannel
-from .embed import Embed
+from .embed import _EmptyEmbed, Embed
 from .emoji import Emoji
 from .enums import try_enum, ChannelType, MediaType
 from .errors import ClientException, HTTPException, error_mapping
@@ -208,100 +207,9 @@ class HTTPClientBase:
     def remove_from_dm_channel_cache(self, channel_id):
         self._dm_channels.pop(channel_id, None)
 
-    def valid_ISO8601(self, timestamp):
-        """Manually construct a datetime's ISO8601 representation so that
-        Guilded will accept it. Guilded rejects isoformat()'s 6-digit
-        microseconds and UTC offset (+00:00)."""
-        # Valid example: 2021-10-15T23:58:44.537Z
-        return timestamp.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-
-    # /teams
-
-    def get_team(self, team_id: str):
-        return self.request(UserbotRoute('GET', f'/teams/{team_id}'))
-
-    def get_team_info(self, team_id: str):
-        return self.request(UserbotRoute('GET', f'/teams/{team_id}/info'))
-
-    def get_team_members(self, team_id: str):
-        return self.request(UserbotRoute('GET', f'/teams/{team_id}/members'))
-
-    def get_detailed_team_members(self, team_id: str, user_ids: list):
-        return self.request(UserbotRoute('POST', f'/teams/{team_id}/members/detail'), json={'userIds': user_ids})
-
-    def get_team_member(self, team_id: str, user_id: str, *, as_object=False):
-        if as_object is False:
-            return self.get_detailed_team_members(team_id, [user_id])
-        else:
-            async def get_team_member_as_object():
-                data = await self.get_detailed_team_members(team_id, [user_id])
-                return Member(state=self, data=data[user_id])
-            return get_team_member_as_object()
-
-    def get_team_emojis(self, team_id: str, *,
-        limit=None,
-        search=None,
-        created_by=None,
-        when_upper=None,
-        when_lower=None,
-        created_before=None
-    ):
-        params = {}
-
-        if limit is not None:
-            params['maxItems'] = limit
-        else:
-            params['maxItems'] = ''
-        if search is not None:
-            params['searchTerm'] = search
-        if created_by is not None:
-            params['createdBy'] = created_by.id
-        if when_upper is not None:
-            params['when[upperValue]'] = self.valid_ISO8601(when_upper)
-        if when_lower is not None:
-            params['when[lowerValue]'] = self.valid_ISO8601(when_lower)
-        if created_before is not None:
-            params['beforeId'] = created_before.id
-
-        return self.request(UserbotRoute('GET', f'/teams/{team_id}/customReactions'), params=params)
-
-    # /users
-
-    def get_user(self, user_id: str, *, as_object=False):
-        if as_object is False:
-            return self.request(UserbotRoute('GET', f'/users/{user_id}'))
-        else:
-            async def get_user_as_object():
-                data = await self.request(UserbotRoute('GET', f'/users/{user_id}'))
-                return User(state=self, data=data)
-            return get_user_as_object()
-
-    # /content
-
-    def get_metadata(self, route: str):
-        return self.request(UserbotRoute('GET', '/content/route/metadata'), params={'route': route})
-
-    def get_channel(self, channel_id: str):
-        return self.get_metadata(f'//channels/{channel_id}/chat')
-
-    # one-off
-
-    def read_filelike_data(self, filelike):
-        return self.request(Route('GET', filelike.url, override_base=UserbotRoute.NO_BASE))
-
-
-class UserbotHTTPClient(HTTPClientBase):
-    def __init__(self, *, max_messages=1000):
-        self.userbot = True
-        super().__init__(max_messages=max_messages)
-
-        self.my_id = None
-
-        self.email = None
-        self.password = None
-        self.cookie = None
-
     def compatible_content(self, content):
+        """Formats list-content (ususally from :meth:`.process_list_content`) into API-compatible nodes"""
+
         compatible = {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}}
 
         for node in content:
@@ -324,7 +232,7 @@ class UserbotHTTPClient(HTTPClientBase):
                 blank_node['data'] = {'embeds': [node.to_dict()]}
 
             elif isinstance(node, File):
-                blank_node['type'] = node.file_type
+                blank_node['type'] = str(node.file_type)
                 blank_node['data'] = {'src': node.url}
 
             else:
@@ -402,6 +310,175 @@ class UserbotHTTPClient(HTTPClientBase):
                 compatible['document']['nodes'].append(blank_node)
 
         return compatible
+
+    async def process_list_content(
+        self,
+        pos_content: tuple,
+        *,
+        file: File = None,
+        files: List[File] = None,
+        embed: Embed = None,
+        embeds: List[Embed] = None,
+    ):
+        content = list(pos_content)
+
+        if file:
+            if not isinstance(file, File):
+                raise TypeError('file must be type File, not %s' % file.__class__.__name__)
+
+            file.set_media_type(MediaType.attachment)
+            if file.url is None:
+                await file._upload(self)
+
+            content.append(file)
+
+        for file in (files or []):
+            if not isinstance(file, File):
+                raise TypeError('file must be type File, not %s' % file.__class__.__name__)
+
+            file.set_media_type(MediaType.attachment)
+            if file.url is None:
+                await file._upload(self)
+
+            content.append(file)
+
+        def replace_attachment_uris(embed):
+            # pseudo-support attachment:// URI for use in embeds
+            for slot in [('image', 'url'), ('thumbnail', 'url'), ('author', 'icon_url'), ('footer', 'icon_url')]:
+                url = getattr(getattr(embed, slot[0]), slot[1])
+                if isinstance(url, _EmptyEmbed):
+                    continue
+
+                if url.startswith('attachment://'):
+                    filename = url.strip('attachment://')
+                    for node in content:
+                        if isinstance(node, File) and node.filename == filename:
+                            getattr(embed, f'_{slot[0]}')[slot[1]] = node.url
+                            content.remove(node)  # Don't keep it in the message content
+                            break
+
+            return embed
+
+        # upload Files passed positionally
+        for node in content:
+            if isinstance(node, File) and node.url is None:
+                node.set_media_type(MediaType.attachment)
+                await node._upload(self)
+
+        # handle attachment URIs for Embeds passed positionally
+        # this is a separate loop to ensure that all files are uploaded first
+        for node in content:
+            if isinstance(node, Embed):
+                content[content.index(node)] = replace_attachment_uris(node)
+
+        if embed:
+            content.append(replace_attachment_uris(embed))
+
+        for embed in (embeds or []):
+            content.append(replace_attachment_uris(embed))
+
+        return content
+
+    def valid_ISO8601(self, timestamp):
+        """Manually construct a datetime's ISO8601 representation so that
+        Guilded will accept it. Guilded rejects isoformat()'s 6-digit
+        microseconds and UTC offset (+00:00)."""
+        # Valid example: 2021-10-15T23:58:44.537Z
+        return timestamp.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+
+    # /teams
+
+    def get_team(self, team_id: str):
+        return self.request(UserbotRoute('GET', f'/teams/{team_id}'))
+
+    def get_team_info(self, team_id: str):
+        return self.request(UserbotRoute('GET', f'/teams/{team_id}/info'))
+
+    def get_team_members(self, team_id: str):
+        return self.request(UserbotRoute('GET', f'/teams/{team_id}/members'))
+
+    def get_detailed_team_members(self, team_id: str, user_ids: list):
+        return self.request(UserbotRoute('POST', f'/teams/{team_id}/members/detail'), json={'userIds': user_ids})
+
+    def get_team_member(self, team_id: str, user_id: str, *, as_object=False):
+        if as_object is False:
+            return self.get_detailed_team_members(team_id, [user_id])
+        else:
+            async def get_team_member_as_object():
+                data = await self.get_detailed_team_members(team_id, [user_id])
+                return Member(state=self, data=data[user_id])
+            return get_team_member_as_object()
+
+    def get_team_emojis(self, team_id: str, *,
+        limit=None,
+        search=None,
+        created_by=None,
+        when_upper=None,
+        when_lower=None,
+        created_before=None
+    ):
+        params = {}
+
+        if limit is not None:
+            params['maxItems'] = limit
+        else:
+            params['maxItems'] = ''
+        if search is not None:
+            params['searchTerm'] = search
+        if created_by is not None:
+            params['createdBy'] = created_by.id
+        if when_upper is not None:
+            params['when[upperValue]'] = self.valid_ISO8601(when_upper)
+        if when_lower is not None:
+            params['when[lowerValue]'] = self.valid_ISO8601(when_lower)
+        if created_before is not None:
+            params['beforeId'] = created_before.id
+
+        return self.request(UserbotRoute('GET', f'/teams/{team_id}/customReactions'), params=params)
+
+    # /users
+
+    def get_user(self, user_id: str, *, as_object=False):
+        if as_object is False:
+            return self.request(UserbotRoute('GET', f'/users/{user_id}'))
+        else:
+            async def get_user_as_object():
+                data = await self.request(UserbotRoute('GET', f'/users/{user_id}'))
+                return User(state=self, data=data)
+            return get_user_as_object()
+
+    # /content
+
+    def get_metadata(self, route: str):
+        return self.request(UserbotRoute('GET', '/content/route/metadata'), params={'route': route})
+
+    def get_channel(self, channel_id: str):
+        return self.get_metadata(f'//channels/{channel_id}/chat')
+
+    # media.guilded.gg
+
+    def upload_file(self, file):
+        return self.request(UserbotRoute('POST', '/media/upload', override_base=UserbotRoute.MEDIA_BASE),
+            data={'file': file._bytes},
+            params={'dynamicMediaTypeId': str(file.type)}
+        )
+
+    # one-off
+
+    def read_filelike_data(self, filelike):
+        return self.request(Route('GET', filelike.url, override_base=UserbotRoute.NO_BASE))
+
+
+class UserbotHTTPClient(HTTPClientBase):
+    def __init__(self, *, max_messages=1000):
+        self.userbot = True
+        super().__init__(max_messages=max_messages)
+
+        self.my_id = None
+
+        self.email = None
+        self.password = None
+        self.cookie = None
 
     def insert_reply_header(self, message, reply_to):
         message['document']['nodes'].insert(0, {
@@ -542,18 +619,14 @@ class UserbotHTTPClient(HTTPClientBase):
 
     # /channels
 
-    def send_message(self, channel_id: str, content, extra_payload=None, share_urls=None):
+    def send_message(self, channel_id: str, *, payload: Dict[str, Any]):
         route = UserbotRoute('POST', f'/channels/{channel_id}/messages')
         payload = {
             'messageId': utils.new_uuid(),
-            'content': self.compatible_content(content),
-            **(extra_payload or {})
+            **payload,
         }
 
-        if share_urls:
-            payload['content']['document']['data']['shareUrls'] = share_urls
-
-        return self.request(route, json=payload), payload
+        return self.request(route, json=payload)
 
     def edit_message(self, channel_id: str, message_id: str, **fields):
         route = UserbotRoute('PUT', f'/channels/{channel_id}/messages/{message_id}')
@@ -613,7 +686,7 @@ class UserbotHTTPClient(HTTPClientBase):
             for file in files:
                 payload['content']['document']['nodes'].append({
                     'object': 'block',
-                    'type': file.file_type,
+                    'type': str(file.file_type),
                     'data': {'src': file.url},
                     'nodes': []
                 })
@@ -1303,12 +1376,6 @@ class UserbotHTTPClient(HTTPClientBase):
 
     # media.guilded.gg
 
-    def upload_file(self, file):
-        return self.request(UserbotRoute('POST', '/media/upload', override_base=UserbotRoute.MEDIA_BASE),
-            data={'file': file._bytes},
-            params={'dynamicMediaTypeId': str(file.type)}
-        )
-
     def upload_third_party_media(self, url):
         route = UserbotRoute('PUT', '/media/upload/third_party_media', override_base=UserbotRoute.MEDIA_BASE)
         payload = {
@@ -1486,17 +1553,8 @@ class HTTPClient(HTTPClientBase):
 
     # /channels
 
-    def create_channel_message(self, channel_id: str, *, content: str, private: bool = None, reply_to_ids: list = None):
+    def create_channel_message(self, channel_id: str, *, payload: Dict[str, Any]):
         route = Route('POST', f'/channels/{channel_id}/messages')
-
-        payload = {}
-        if content is not None:
-            payload['content'] = str(content)
-        if private is not None:
-            payload['isPrivate'] = private
-        if reply_to_ids:
-            payload['replyMessageIds'] = reply_to_ids
-
         return self.request(route, json=payload)
 
     def update_channel_message(self, channel_id: str, message_id: str, *, content: str):

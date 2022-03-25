@@ -119,7 +119,7 @@ class AssetMixin:
         if self._state is None:
             raise GuildedException('Invalid state (none provided)')
 
-        return await self._state.http.read_filelike_data(self)
+        return await self._state.read_filelike_data(self)
 
     async def save(self, fp: Union[str, bytes, os.PathLike, io.BufferedIOBase], *, seek_begin: bool = True) -> int:
         """|coro|

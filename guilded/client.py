@@ -55,9 +55,9 @@ import logging
 import signal
 import sys
 import traceback
-from typing import Any, Callable, Optional, List
+from typing import Any, Callable, Optional
 
-from .errors import NotFound, ClientException
+from .errors import ClientException, NotFound
 from .enums import *
 from .embed import Embed
 from .emoji import Emoji
@@ -67,7 +67,7 @@ from .presence import Presence
 from .role import Role
 from .status import TransientStatus, Game
 from .team import Team
-from .user import ClientUser, User, Member
+from .user import ClientUser, User
 
 log = logging.getLogger(__name__)
 

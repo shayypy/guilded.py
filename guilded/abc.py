@@ -58,9 +58,7 @@ from .activity import Activity
 from .asset import Asset
 from .colour import Colour
 from .errors import GuildedException
-from .embed import _EmptyEmbed, Embed
-from .enums import try_enum, MediaType, UserType
-from .file import File
+from .enums import try_enum, UserType
 from .message import HasContentMixin, ChatMessage
 from .presence import Presence
 from .utils import ISO8601
@@ -139,56 +137,18 @@ class Messageable(metaclass=abc.ABCMeta):
             because private replies can still be visible to server moderators.
         """
         if self._state.userbot:
-            content = list(content)
-            if kwargs.get('file'):
-                file = kwargs.get('file')
-                file.set_media_type(MediaType.attachment)
-                if file.url is None:
-                    await file._upload(self._state)
-                content.append(file)
-            for file in kwargs.get('files') or []:
-                file.set_media_type(MediaType.attachment)
-                if file.url is None:
-                    await file._upload(self._state)
-                content.append(file)
+            content = await self._state.process_list_content(
+                content,
+                embed=kwargs.get('embed'),
+                embeds=kwargs.get('embeds'),
+                file=kwargs.get('file'),
+                files=kwargs.get('files'),
+            )
 
-            def embed_attachment_uri(embed):
-                # pseudo-support attachment:// URI for use in embeds
-                for slot in [('image', 'url'), ('thumbnail', 'url'), ('author', 'icon_url'), ('footer', 'icon_url')]:
-                    url = getattr(getattr(embed, slot[0]), slot[1])
-                    if isinstance(url, _EmptyEmbed):
-                        continue
-                    if url.startswith('attachment://'):
-                        filename = url.strip('attachment://')
-                        for node in content:
-                            if isinstance(node, File) and node.filename == filename:
-                                getattr(embed, f'_{slot[0]}')[slot[1]] = node.url
-                                content.remove(node)
-                                break
-
-                return embed
-
-            # upload Files passed positionally
-            for node in content:
-                if isinstance(node, File) and node.url is None:
-                    node.set_media_type(MediaType.attachment)
-                    await node._upload(self._state)
-
-            # handle attachment URIs for Embeds passed positionally
-            # this is a separate loop to ensure that all files are uploaded first
-            for node in content:
-                if isinstance(node, Embed):
-                    content[content.index(node)] = embed_attachment_uri(node)
-
-            if kwargs.get('embed'):
-                content.append(embed_attachment_uri(kwargs.get('embed')))
-
-            for embed in kwargs.get('embeds') or []:
-                content.append(embed_attachment_uri(embed))
-
-            message_payload = {
+            payload = {
+                'content': self._state.compatible_content(content),
                 'isSilent': kwargs.get('silent', not kwargs.get('mention_author', True)),
-                'isPrivate': kwargs.get('private', False)
+                'isPrivate': kwargs.get('private', False),
             }
 
             if kwargs.get('reference') and kwargs.get('reply_to'):
@@ -201,35 +161,20 @@ class Messageable(metaclass=abc.ABCMeta):
                 if not isinstance(kwargs['reply_to'], list):
                     raise TypeError('reply_to must be type list, not %s' % type(kwargs['reply_to']).__name__)
 
-                message_payload['repliesToIds'] = [message.id for message in kwargs['reply_to']]
+                payload['repliesToIds'] = [message.id for message in kwargs['reply_to']]
 
             share_urls = [message.share_url for message in kwargs.get('share', []) if message.share_url is not None]
-            response_coro, payload = self._state.send_message(self._channel_id, content, message_payload, share_urls=share_urls)
-            response = await response_coro
-            payload['createdAt'] = response.pop('message', response or {}).pop('createdAt', None)
-            payload['id'] = payload.pop('messageId')
-            try:
-                payload['channelId'] = getattr(self, 'id', getattr(self, 'channel', None).id)
-            except AttributeError:
-                payload['channelId'] = None
-            payload['teamId'] = self.team.id if self.team else None
-            payload['createdBy'] = self._state.my_id
+            if share_urls:
+                payload['content']['document']['data']['shareUrls'] = share_urls
 
-            author = None
-            if payload['teamId'] is not None:
-                args = (payload['teamId'], payload['createdBy'])
-                try:
-                    author = self._state._get_team_member(*args) or await self._state.get_team_member(*args, as_object=True)
-                except:
-                    author = None
-
-            if author is None or payload['teamId'] is None:
-                try:
-                    author = self._state._get_user(payload['createdBy']) or await self._state.get_user(payload['createdBy'], as_object=True)
-                except:
-                    author = None
-
-            return self._state.create_message(channel=self._channel, data=payload, author=author)
+            message_data = await self._state.send_message(
+                self._channel_id,
+                payload=payload,
+            )
+            message_data = message_data.get('message', message_data)
+            message_data['channelId'] = self._channel_id
+            message_data['teamId'] = self.team.id if self.team else None
+            return self._state.create_message(channel=self._channel, data=message_data)
 
         else:
             content = content[0] if content else None
@@ -237,14 +182,21 @@ class Messageable(metaclass=abc.ABCMeta):
             if kwargs.get('reference'):
                 kwargs['reply_to'] = [kwargs['reference']]
 
-            data = await self._state.create_channel_message(self._channel_id,
-                content=content,
-                private=kwargs.get('private', False),
-                reply_to_ids=[message.id for message in (kwargs.get('reply_to') or [])]
+            payload = {}
+            if content is not None:
+                payload['content'] = str(content)
+            if 'private' in kwargs:
+                payload['isPrivate'] = kwargs['private']
+            if 'reply_to' in kwargs:
+                payload['replyMessageIds'] = [message.id for message in kwargs['reply_to']]
+
+            data = await self._state.create_channel_message(
+                self._channel_id,
+                payload=payload,
             )
             message = self._state.create_message(
                 data=data['message'],
-                channel=self._channel
+                channel=self._channel,
             )
             return message
 
