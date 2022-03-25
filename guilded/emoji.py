@@ -235,6 +235,19 @@ class Emoji(AssetMixin):
         return self._team or self._state._get_team(self.team_id)
 
     @property
+    def guild(self):
+        """|dpyattr|
+
+        This is an alias of :attr:`.team`.
+        """
+        return self.team
+
+    @property
+    def server(self):
+        """Optional[:class:`.Team`]: This is an alias of :attr:`.team`."""
+        return self.team
+
+    @property
     def animated(self) -> bool:
         """:class:`bool`: Whether the emoji is animated."""
         return self._underlying.animated or 'ia=1' in self.url
