@@ -65,7 +65,7 @@ from .flowbot import FlowBot
 from .gateway import UserbotGuildedWebSocket
 from .group import Group
 from .role import Role
-from .user import Member
+from .user import Member, MemberBan
 from .utils import ISO8601, get, find
 
 # ZoneInfo is in the stdlib in Python 3.9+
@@ -841,15 +841,15 @@ class Team:
         """
         invite = await self._state.create_team_invite(self.id)
         return invite.get('invite', invite).get('id')
-    
-    async def ban(self, user: User, *,
+
+    async def ban(self,
+        user: User,
+        *,
         reason: str = None,
         delete_after: datetime.datetime = None,
         delete_message_days: int = None
-    ):
+    ) -> MemberBan:
         """|coro|
-
-        |onlyuserbot|
 
         Ban a user from the team.
 
@@ -873,6 +873,13 @@ class Team:
         -------
         InvalidArgument
             You specified both ``delete_message_days`` and ``delete_after``
+
+        Returns
+        --------
+        :class:`.MemberBan`
+            The ban that was created.
+            If the client is a user account, this object's ``user`` attribute
+            will be whatever value was passed to ``user``.
         """
         if delete_message_days is not None and delete_after is not None:
             raise InvalidArgument('Specify delete_message_days or delete_after, not both.')
@@ -882,13 +889,17 @@ class Team:
             diff = now - datetime.timedelta(days=delete_message_days)
             delete_after = diff
         
-        coro = self._state.create_team_ban(self.id, user.id, reason=reason, after=delete_after)
-        await coro
+        if self._state.userbot:
+            data = await self._state.create_team_ban(self.id, user.id, reason=reason, after=delete_after)
+        else:
+            data = await self._state.ban_server_member(self.id, user.id, reason=reason)
+            data = data.get('serverMemberBan')
+
+        ban = MemberBan(state=self._state, data=data, team=self, user=user)
+        return ban
 
     async def unban(self, user: User):
         """|coro|
-
-        |onlyuserbot|
 
         Unban a user from the team.
 
@@ -897,8 +908,62 @@ class Team:
         user: :class:`abc.User`
             The user to unban.
         """
-        coro = self._state.remove_team_ban(self.id, user.id)
+        if self._state.userbot:
+            coro = self._state.remove_team_ban(self.id, user.id)
+        else:
+            coro = self._state.unban_server_member(self.id, user.id)
+
         await coro
+
+    async def bans(self, *, fill_member_info: bool = True) -> List[MemberBan]:
+        """|coro|
+
+        Get all bans that have been created in the team.
+
+        Parameters
+        -----------
+        fill_member_info: :class:`bool`
+            Whether to fill in each :class:`.MemberBan`\'s ``user`` attribute.
+            If this is ``True``, an extra API request is made.
+            If the client is a bot account, this option is ignored.
+
+        Returns
+        --------
+        List[:class:`.MemberBan`]
+            The list of bans in the team.
+        """
+
+        if self._state.userbot:
+            data = await self._state.get_team_bans(self.id)
+            data = data.get('bans')
+            if fill_member_info:
+                user_ids = [ban_data.get('userId') for ban_data in data if ban_data.get('userId')]
+                member_details = await self._state.get_detailed_team_members(
+                    self.id,
+                    user_ids=user_ids,
+                    ids_for_basic_info=user_ids,
+                )
+            else:
+                member_details = {}
+        else:
+            data = await self._state.get_server_bans(self.id)
+            data = data.get('serverMemberBans')
+
+        ban_list = []
+        for ban_data in data:
+            user = None
+            if self._state.userbot:
+                user_data = member_details.get(ban_data.get('userId'))
+                if user_data:
+                    user = self._state.create_member(
+                        data=user_data,
+                        team=self,
+                    )
+
+            ban = MemberBan(state=self._state, data=ban_data, team=self, user=user)
+            ban_list.append(ban)
+
+        return ban_list
 
     async def kick(self, user: User):
         """|coro|

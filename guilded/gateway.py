@@ -1132,6 +1132,11 @@ class WebSocketEventParsers:
         member = self._state._get_team_member(server.id, data['userId'])
         if member:
             self.client.dispatch('member_remove', member)
+            if data.get('isBan'):
+                self.client.dispatch('member_ban', member)
+            if data.get('isKick'):
+                self.client.dispatch('member_kick', member)
+
             server._members.pop(data['userId'], None)
 
     async def TeamMemberUpdated(self, data):

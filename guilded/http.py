@@ -349,8 +349,12 @@ class HTTPClientBase:
     def get_team_members(self, team_id: str):
         return self.request(UserbotRoute('GET', f'/teams/{team_id}/members'))
 
-    def get_detailed_team_members(self, team_id: str, user_ids: list):
-        return self.request(UserbotRoute('POST', f'/teams/{team_id}/members/detail'), json={'userIds': user_ids})
+    def get_detailed_team_members(self, team_id: str, user_ids: list = None, ids_for_basic_info: list = None):
+        payload = {
+            'userIds': user_ids or [],
+            'idsForBasicInfo': ids_for_basic_info or [],
+        }
+        return self.request(UserbotRoute('POST', f'/teams/{team_id}/members/detail'), json=payload)
 
     def get_team_member(self, team_id: str, user_id: str, *, as_object=False):
         if as_object is False:
@@ -1639,6 +1643,19 @@ class HTTPClient(HTTPClientBase):
             'amount': amount,
         }
         return self.request(Route('POST', f'/servers/{server_id}/roles/{role_id}/xp'), json=payload)
+
+    def ban_server_member(self, server_id: str, user_id: str, *, reason: str = None):
+        payload = {}
+        if reason is not None:
+            payload['reason'] = reason
+
+        return self.request(Route('POST', f'/servers/{server_id}/bans/{user_id}'), json=payload)
+
+    def unban_server_member(self, server_id: str, user_id: str):
+        return self.request(Route('DELETE', f'/servers/{server_id}/bans/{user_id}'))
+
+    def get_server_bans(self, server_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/bans'))
 
     # /groups
 

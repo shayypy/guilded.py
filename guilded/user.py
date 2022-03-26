@@ -53,7 +53,7 @@ import datetime
 import inspect
 import itertools
 from operator import attrgetter
-from typing import Any, Callable, Coroutine, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Coroutine, List, Optional, TYPE_CHECKING, Union
 
 import guilded.abc
 
@@ -63,6 +63,16 @@ from .enums import MediaType
 from .file import File
 from .role import Role
 from .utils import copy_doc, ISO8601, parse_hex_number
+
+
+__all__ = (
+    'Device',
+    'User',
+    'Member',
+    'MemberBan',
+    'BanEntry',
+    'ClientUser',
+)
 
 
 class Device:
@@ -536,6 +546,97 @@ class Member(User):
         data = await self._state.award_member_xp(self.team.id, self.id, amount)
         self.xp = data['total']
         return self.xp
+
+
+class MemberBan:
+    """Represents a ban created in a :class:`.Team`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two bans are equal.
+
+        .. describe:: x != y
+
+            Checks if two bans are not equal.
+
+    Attributes
+    -----------
+    user: Union[:class:`.Member`, :class:`.User`]
+        The user that is banned.
+    reason: Optional[:class:`str`]
+        The reason for the ban.
+    created_at: :class:`datetime.datetime`
+        When the ban was created.
+    team: :class:`.Team`
+        The team that the ban is in.
+    author_id: :class:`str`
+        The user's ID who created the ban.
+    """
+
+    __slots__ = (
+        '_state',
+        'team',
+        'user',
+        'reason',
+        'created_at',
+        'author_id',
+    )
+
+    def __init__(self, *, state, data, team, user: Union[Member, User] = None):
+        self._state = state
+        self.team = team
+
+        if 'user' in data:
+            # Bot API
+            _user = state.create_user(data=data['user'])
+        elif 'userId' in data:
+            # User API
+            _user = state._get_user(data['userId']) or state.create_user(data={'id': data['userId']})
+        else:
+            # This shouldn't happen
+            _user = None
+
+        self.user: Union[Member, User] = user or _user
+        self.reason: Optional[str] = data.get('reason')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.author_id: str = data.get('bannedBy', data.get('createdBy'))
+
+    def __repr__(self) -> str:
+        return f'<MemberBan user={self.user!r} team={self.team!r}>'
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, MemberBan) and other.team == self.team and other.user == self.user
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The user who created the ban."""
+        return self.team.get_member(self.author_id)
+
+    @property
+    def guild(self):
+        """|dpyattr|
+
+        This is an alias of :attr:`.team`.
+        """
+        return self.team
+
+    @property
+    def server(self):
+        """Optional[:class:`.Team`]: This is an alias of :attr:`.team`."""
+        return self.team
+
+    async def revoke(self):
+        """|coro|
+
+        Revoke this ban; unban the user it was created for.
+
+        This is equivalent to :meth:`.Team.unban`.
+        """
+        await self.team.unban(self.user)
+
+BanEntry = MemberBan  # discord.py
 
 
 class ClientUser(guilded.abc.User):
