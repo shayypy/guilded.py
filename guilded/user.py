@@ -66,12 +66,12 @@ from .utils import copy_doc, ISO8601, parse_hex_number
 
 
 __all__ = (
-    'Device',
-    'User',
-    'Member',
-    'MemberBan',
     'BanEntry',
     'ClientUser',
+    'Device',
+    'Member',
+    'MemberBan',
+    'User',
 )
 
 
