@@ -1141,11 +1141,11 @@ class WebSocketEventParsers:
 
     async def TeamMemberUpdated(self, data):
         member_id = data.get('userId') or data['userInfo'].get('id')
-        raw_after = self._state.create_member(data={{
+        raw_after = self._state.create_member(data={
             'user': {'id': member_id},
             'serverId': data['serverId'],
             **data['userInfo'],
-        }})
+        })
         self.client.dispatch('raw_member_update', raw_after)
 
         server = data['server']
