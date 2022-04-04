@@ -50,7 +50,8 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import io
-from typing import Any, Dict, Union
+import os
+from typing import Any, Dict, Optional, Union
 
 from .asset import AssetMixin
 from .enums import try_enum, FileType, MediaType
@@ -58,8 +59,8 @@ from . import utils
 
 
 __all__ = (
-    'File',
     'Attachment',
+    'File',
 )
 
 
@@ -70,47 +71,101 @@ class File:
 
         Non-image/video filetypes are not supported by Guilded.
 
+    .. container:: operations
+
+        .. describe:: bytes(x)
+
+            Returns the bytes of the underlying file.
+
     Parameters
     -----------
-    fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
-        The file to upload. If passing a file with ``open``, the file
-        should be opened in ``rb`` mode.
+    fp: Union[:class:`os.PathLike`, :class:`io.BufferedIOBase`]
+        The file to upload.
+        If passing a file with ``open``, the file should be opened in ``rb`` mode.
     filename: Optional[:class:`str`]
-        The name of this file. Not required unless also using the
-        ``attachment://`` URI in an accompanying embed.
+        The name of this file.
+        This is not *technically* required unless you want to use the ``attachment://` URI in an :class:`.Embed`,
+        Guilded will not use this to name the file on their CDN.
     file_type: :class:`FileType`
-        The type of file (image, video). If this could not be detected by
-        the library, defaults to :attr:`FileType.image`. 
+        The file's file type.
+        If this could not be detected by the library, defaults to :attr:`FileType.image`. 
 
     Attributes
     -----------
-    fp: Union[:class:`str`, :class:`io.BufferedIOBase`]
-        The file to upload.
+    fp: Union[:class:`os.PathLike`, :class:`io.BufferedIOBase`]
+        The file ready to be uploaded to Guilded.
     filename: Optional[:class:`str`]
-        The name of this file.
+        The name of the file.
     type: Optional[:class:`MediaType`]
-        The file's media type (attachment, emoji, ...).
+        The file's media type.
+        This correlates to what the file is being uploaded for (e.g., an avatar) rather than the type of file that it is (e.g., an image).
+        This will usually be set by the library before uploading.
     file_type: :class:`FileType`
-        The type of file (image, video).
+        The file's file type.
     url: Optional[:class:`str`]
-        The URL to the file on Guilded's CDN after being uploaded by the
-        library.
+        The URL to the file on Guilded's CDN after being uploaded by the library.
     """
-    def __init__(self, fp: Union[str, io.BufferedIOBase], *, filename=None, file_type: FileType = None):
-        self.fp = fp
-        self.type = None
-        self.url = None
-        self.filename = filename
 
-        if type(fp) == str:
-            self._bytes = open(fp, 'rb')
-            self.filename = filename or fp
+    __slots__ = (
+        '_state',
+        'fp',
+        'filename',
+        'type',
+        'file_type',
+        'url',
+        '_owner',
+        '_closer',
+    )
+
+    def __init__(
+        self,
+        fp: Union[str, bytes, io.BufferedIOBase],
+        filename: Optional[str] = None,
+        *,
+        file_type: FileType = None,
+    ):
+        self.type: Optional[MediaType] = None
+        self.url: Optional[str] = None
+        self.filename: Optional[str] = filename
+        self.file_type: FileType
+
+        if isinstance(fp, io.IOBase):
+            if not (fp.seekable() and fp.readable()):
+                raise ValueError(f'File buffer {fp!r} must be seekable and readable')
+
+            self.fp: io.BufferedIOBase = fp
+            self._owner = False
+            self.file_type = file_type
+
+            _fp_name: Optional[str] = getattr(fp, 'name', None)
+
+            if _fp_name is None and filename is None and file_type is None:
+                # We cannot upload a file without knowing what type of file it is, which makes things more complicated when dealing with raw file data.
+                # We assume an image type here just because it is probably the most common.
+                # I decided to do this instead of raising an error for now in order to maintain compatibility with discord.py.
+                self.file_type = FileType.image
+
+            if _fp_name is None and filename is None:
+                if self.file_type is FileType.image:
+                    self.filename = 'untitled.png'
+                elif self.file_type is FileType.video:
+                    self.filename = 'untitled.mp4'
+
+            self.fp.name = getattr(self.fp, 'name', self.filename)
+
+        else:
+            self.fp = open(fp, 'rb')
+            self._owner = True
+
             if file_type is None:
+                fn = filename or ''
+                if filename is None and isinstance(fp, str):
+                    _, fn = os.path.split(fp)
                 try:
-                    extension = self.fp.split('.')[-1]
+                    extension = fn.split('.')[-1]
                 except IndexError:
-                    # file has no extension
-                    raise ValueError('File must have an extension if file_type is not specified.')
+                    # The file has no extension
+                    raise ValueError('filename must be specified or file must have an extension if file_type is not specified.')
                 else:
                     if extension in utils.valid_image_extensions:
                         self.file_type = FileType.image
@@ -122,25 +177,18 @@ class File:
             else:
                 self.file_type = file_type
 
-        else:
-            if isinstance(fp, io.BytesIO):
-                fp.seek(0)
-                self._bytes = fp.read()
-            elif isinstance(fp, (bytes, io.BufferedReader)):
-                self._bytes = fp
-            else:
-                self._bytes = None
-            self.file_type = file_type
+        self._closer = self.fp.close
+        self.fp.close = lambda: None
 
         if self.file_type is None:
-            # fallback in case the checker fails, just so null isn't sent
+            # Fallback just so that None isn't sent. This may potentially lead to confusing behavior.
             self.file_type = FileType.image
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<File type={self.type}>'
 
-    def __bytes__(self):
-        return self._bytes
+    def __bytes__(self) -> bytes:
+        return self.fp.read()
 
     def to_node_dict(self) -> Dict[str, Any]:
         return {
@@ -152,15 +200,20 @@ class File:
             'nodes': [],
         }
 
-    def set_media_type(self, media_type):
+    def set_media_type(self, media_type: MediaType):
         """Manually set this file's media type."""
         self.type = media_type
         return self
 
-    def set_file_type(self, file_type):
+    def set_file_type(self, file_type: FileType):
         """Manually set this file's file type."""
         self.file_type = file_type
         return self
+
+    def close(self) -> None:
+        self.fp.close = self._closer
+        if self._owner:
+            self._closer()
 
     async def _upload(self, state):
         response = await state.upload_file(self)
@@ -186,11 +239,21 @@ class Attachment(AssetMixin):
         attachments.
     """
 
+    __slots__ = (
+        '_state',
+        'file_type',
+        'type',
+        'url',
+        'caption',
+    )
+
     def __init__(self, *, state, data, **extra):
         self._state = state
-        self.file_type = try_enum(FileType, data.get('type'))
-        self.type = extra.get('type') or MediaType.attachment
-        self.url = data.get('data', {}).get('src')
+        self.file_type: FileType = try_enum(FileType, data.get('type'))
+        self.type: MediaType = extra.get('type') or MediaType.attachment
+        self.url: str = data.get('data', {}).get('src')
+        self.caption: Optional[str]
+
         if data.get('nodes'):
             node = data['nodes'][0] or {}
             if node.get('type') == 'image-caption-line':
@@ -237,8 +300,10 @@ class Attachment(AssetMixin):
         Returns
         --------
         :class:`File`
+            The attachment as a :class:`File`.
         """
 
-        data = await self.read()
+        data = io.BytesIO(await self.read())
         file = File(data, filename=self.filename, file_type=self.file_type)
+        file.set_media_type(MediaType.content_media)
         return file

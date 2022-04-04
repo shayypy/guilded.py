@@ -413,9 +413,9 @@ class HTTPClientBase:
 
     # media.guilded.gg
 
-    def upload_file(self, file):
+    def upload_file(self, file: File):
         return self.request(UserbotRoute('POST', '/media/upload', override_base=UserbotRoute.MEDIA_BASE),
-            data={'file': file._bytes},
+            data={'file': file.fp},
             params={'dynamicMediaTypeId': str(file.type)}
         )
 
