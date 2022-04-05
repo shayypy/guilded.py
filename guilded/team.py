@@ -258,7 +258,11 @@ class Team:
         self.timezone: ZoneInfo
         timezone = data.get('timezone')
         if timezone and ZoneInfo:
-            self.timezone = ZoneInfo(re.sub(r'( \(.+)', '', timezone).replace(' ', '_'))
+            try:
+                self.timezone = ZoneInfo(re.sub(r'( \(.+)', '', timezone).replace(' ', '_'))
+            except:
+                # This might happen on outdated tzdata versions
+                self.timezone = None
         else:
             self.timezone = None
 
