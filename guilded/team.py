@@ -319,8 +319,10 @@ class Team:
             banner = Asset._from_team_banner(state, data.get('teamDashImage'))
         self.banner: Optional[Asset] = banner
 
-        self._follower_count = data.get('followerCount') or 0
-        self._member_count = data.get('memberCount') or data.get('measurements', {}).get('numMembers') or 0
+        measurements = data.get('measurements') or {}
+
+        self._follower_count = data.get('followerCount') or measurements.get('numFollowers') or 0
+        self._member_count = data.get('memberCount') or measurements.get('numMembers') or 0
 
     def __str__(self):
         return self.name
@@ -347,7 +349,6 @@ class Team:
             lifetime unless the team is re-fetched and the attribute is
             replaced.
         """
-        # this attribute is only returned by the api sometimes.
         return int(self._member_count) or len(self.members)
 
     @property
