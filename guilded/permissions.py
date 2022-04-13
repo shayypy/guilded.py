@@ -85,45 +85,45 @@ class Permissions:
     """
 
     def __init__(self, **values):
-        self.general_value = values.get('general', 0)
-        self.recruitment_value = values.get('recruitment', 0)
-        self.announcements_value = values.get('announcements', 0)
-        self.chat_value = values.get('chat', 0)
-        self.calendar_value = values.get('calendar', 0)
-        self.forums_value = values.get('forums', 0)
-        self.docs_value = values.get('docs', 0)
-        self.media_value = values.get('media', 0)
-        self.voice_value = values.get('voice', 0)
-        self.matchmaking_value = values.get('matchmaking', 0)
-        self.customization_value = values.get('customization', 0)
-        self.forms_value = values.get('forms', 0)
-        self.lists_value = values.get('lists', 0)
-        self.brackets_value = values.get('brackets', 0)
-        self.scheduling_value = values.get('scheduling', 0)
-        self.bots_value = values.get('bots', 0)
-        self.xp_value = values.get('xp', 0)
-        self.streams_value = values.get('streams', 0)
+        self.general_value: int = values.get('general', 0)
+        self.recruitment_value: int = values.get('recruitment', 0)
+        self.announcements_value: int = values.get('announcements', 0)
+        self.chat_value: int = values.get('chat', 0)
+        self.calendar_value: int = values.get('calendar', 0)
+        self.forums_value: int = values.get('forums', 0)
+        self.docs_value: int = values.get('docs', 0)
+        self.media_value: int = values.get('media', 0)
+        self.voice_value: int = values.get('voice', 0)
+        self.matchmaking_value: int = values.get('matchmaking', 0)
+        self.customization_value: int = values.get('customization', 0)
+        self.forms_value: int = values.get('forms', 0)
+        self.lists_value: int = values.get('lists', 0)
+        self.brackets_value: int = values.get('brackets', 0)
+        self.scheduling_value: int = values.get('scheduling', 0)
+        self.bots_value: int = values.get('bots', 0)
+        self.xp_value: int = values.get('xp', 0)
+        self.streams_value: int = values.get('streams', 0)
 
     def __eq__(self, other):
         return isinstance(other, Permissions) and (
-            self.general == other.general
-            and self.recruitment == other.recruitment
-            and self.announcements == other.announcements
-            and self.chat == other.chat
-            and self.calendar == other.calendar
-            and self.forums == other.forums
-            and self.docs == other.docs
-            and self.media == other.media
-            and self.voice == other.voice
-            and self.matchmaking == other.matchmaking
-            and self.customization == other.customization
-            and self.forms == other.forms
-            and self.lists == other.lists
-            and self.brackets == other.brackets
-            and self.scheduling == other.scheduling
-            and self.bots == other.bots
-            and self.xp == other.xp
-            and self.streams == other.streams
+            self.general_value == other.general_value
+            and self.recruitment_value == other.recruitment_value
+            and self.announcements_value == other.announcements_value
+            and self.chat_value == other.chat_value
+            and self.calendar_value == other.calendar_value
+            and self.forums_value == other.forums_value
+            and self.docs_value == other.docs_value
+            and self.media_value == other.media_value
+            and self.voice_value == other.voice_value
+            and self.matchmaking_value == other.matchmaking_value
+            and self.customization_value == other.customization_value
+            and self.forms_value == other.forms_value
+            and self.lists_value == other.lists_value
+            and self.brackets_value == other.brackets_value
+            and self.scheduling_value == other.scheduling_value
+            and self.bots_value == other.bots_value
+            and self.xp_value == other.xp_value
+            and self.streams_value == other.streams_value
         )
 
     def __repr__(self):
