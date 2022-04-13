@@ -49,11 +49,13 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import datetime
 import re
-from typing import Optional, List
+from typing import TYPE_CHECKING, Optional, List, Union
 
-import guilded.abc
+import guilded.abc  # type: ignore
 
 from .asset import Asset
 from .enums import ChannelType, FileType, MediaType
@@ -65,6 +67,9 @@ from .message import HasContentMixin
 from .user import Member
 from .utils import get, ISO8601
 from .status import Game
+
+if TYPE_CHECKING:
+    from .webhook import Webhook
 
 
 __all__ = (
@@ -98,6 +103,63 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
         super().__init__(**fields)
         self.type = ChannelType.chat
         self._channel_id = self.id
+
+    async def create_webhook(self, *, name: str, avatar: Optional[Union[bytes, File]] = None) -> Webhook:
+        """|coro|
+
+        Create a webhook in this channel.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The webhook's name.
+        avatar: Optional[Union[:class:`bytes`, :class:`File`]]
+            A :term:`py:bytes-like object` or :class:`File` for the webhook's avatar.
+            If the client is a bot user, providing this does nothing.
+            Else, providing this causes the library to perform an extra API request.
+
+        Returns
+        --------
+        :class:`Webhook`
+            The created webhook.
+
+        Raises
+        -------
+        HTTPException
+            Creating the webhook failed.
+        Forbidden
+            You do not have permissions to create a webhook.
+        """
+
+        webhook = await self.team.create_webhook(
+            channel=self,
+            name=name,
+            avatar=avatar,
+        )
+        return webhook
+
+    async def webhooks(self):
+        """|coro|
+
+        Fetch the list of webhooks in this channel.
+
+        .. warning::
+
+            This endpoint cannot be paginated.
+
+        Returns
+        --------
+        List[:class:`Webhook`]
+            The webhooks in this channel.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to get the webhooks.
+        """
+
+        webhooks = await self.team.webhooks(channel=self)
+        return webhooks
 
 
 class Doc(HasContentMixin):
@@ -2275,6 +2337,63 @@ class ListChannel(guilded.abc.TeamChannel):
         )
         listitem = ListItem(data=data, channel=self, state=self._state)
         return listitem
+
+    async def create_webhook(self, *, name: str, avatar: Optional[Union[bytes, File]] = None) -> Webhook:
+        """|coro|
+
+        Create a webhook in this channel.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The webhook's name.
+        avatar: Optional[Union[:class:`bytes`, :class:`File`]]
+            A :term:`py:bytes-like object` or :class:`File` for the webhook's avatar.
+            If the client is a bot user, providing this does nothing.
+            Else, providing this causes the library to perform an extra API request.
+
+        Returns
+        --------
+        :class:`Webhook`
+            The created webhook.
+
+        Raises
+        -------
+        HTTPException
+            Creating the webhook failed.
+        Forbidden
+            You do not have permissions to create a webhook.
+        """
+
+        webhook = await self.team.create_webhook(
+            channel=self,
+            name=name,
+            avatar=avatar,
+        )
+        return webhook
+
+    async def webhooks(self):
+        """|coro|
+
+        Fetch the list of webhooks in this channel.
+
+        .. warning::
+
+            This endpoint cannot be paginated.
+
+        Returns
+        --------
+        List[:class:`Webhook`]
+            The webhooks in this channel.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to get the webhooks.
+        """
+
+        webhooks = await self.team.webhooks(channel=self)
+        return webhooks
 
 
 class Availability:

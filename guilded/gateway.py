@@ -58,18 +58,19 @@ import logging
 import sys
 import threading
 import traceback
+from typing import Union
 
 from guilded.abc import TeamChannel
 
 from .errors import GuildedException, HTTPException
 from .channel import *
-from .emoji import Emoji
 from .enums import ChannelType
 from .message import Message
 from .presence import Presence
 from .role import Role
-from .user import Member, User
+from .user import Member
 from .utils import find, ISO8601
+from .webhook import Webhook
 
 log = logging.getLogger(__name__)
 
@@ -421,7 +422,7 @@ class UserbotWebSocketEventParsers:
             except: return
 
             thread = Thread(state=self._state, group=None, data=data.get('channel', data), team=team)
-            self.client.dispatch('team_thread_created', thread)
+            self.client.dispatch('thread_create', thread)
 
     async def TeamMemberRemoved(self, data):
         team_id = data.get('teamId')
@@ -893,6 +894,16 @@ class UserbotWebSocketEventParsers:
     #        emoji = Emoji(data=data['reaction']['customReaction'])
     #        self.client.dispatch('reaction_add', emoji, message)
 
+    async def TeamWebhookCreated(self, data):
+        webhook = Webhook.from_state(data['webhook'], self._state)
+        self.client.dispatch('webhook_create', webhook)
+
+    async def TeamWebhookUpdated(self, data):
+        webhook = Webhook.from_state(data['webhook'], self._state)
+        # Webhooks are not cached so having a `webhook_update` with only `after` doesn't make sense.
+        # In the future this may change with the introduction of better caching control.
+        self.client.dispatch('raw_webhook_update', webhook)
+
 
 class GuildedWebSocket(GuildedWebSocketBase):
     """Implements Guilded's WebSocket gateway.
@@ -1197,13 +1208,23 @@ class WebSocketEventParsers:
                     role = Role(state=self._state, data=updated, team=server)
                     server._roles[role.id] = role
 
+    async def TeamWebhookCreated(self, data):
+        webhook = Webhook.from_state(data['webhook'], self._state)
+        self.client.dispatch('webhook_create', webhook)
+
+    async def TeamWebhookUpdated(self, data):
+        webhook = Webhook.from_state(data['webhook'], self._state)
+        # Webhooks are not cached so having a `webhook_update` with only `after` doesn't make sense.
+        # In the future this may change with the introduction of better caching control.
+        self.client.dispatch('raw_webhook_update', webhook)
+
 
 class Heartbeater(threading.Thread):
     def __init__(self, ws, *, interval):
-        self.ws = ws
+        self.ws: Union[GuildedWebSocket, UserbotGuildedWebSocket] = ws
         self.interval = interval
         #self.heartbeat_timeout = timeout
-        threading.Thread.__init__(self)
+        super().__init__()
 
         self.msg = 'Keeping websocket alive with sequence %s.'
         self.block_msg = 'Websocket heartbeat blocked for more than %s seconds.'

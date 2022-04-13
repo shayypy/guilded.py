@@ -49,13 +49,14 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import aiohttp
 import asyncio
 import logging
-import signal
 import sys
 import traceback
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type
 
 from .errors import ClientException, NotFound
 from .enums import *
@@ -68,6 +69,11 @@ from .role import Role
 from .status import TransientStatus, Game
 from .team import Team
 from .user import ClientUser, User
+from .utils import MISSING
+
+if TYPE_CHECKING:
+    from types import TracebackType
+    from typing_extensions import Self
 
 log = logging.getLogger(__name__)
 
@@ -77,73 +83,42 @@ __all__ = (
 )
 
 
-def _cancel_tasks(loop):
-    try:
-        task_retriever = asyncio.Task.all_tasks
-    except AttributeError:
-        # future proofing for 3.9 I guess
-        task_retriever = asyncio.all_tasks
+class _LoopSentinel:
+    __slots__ = ()
 
-    tasks = {t for t in task_retriever(loop=loop) if not t.done()}
+    def __getattr__(self, attr: str) -> None:
+        msg = (
+            'loop attribute cannot be accessed in non-async contexts. '
+            'Consider using either an asynchronous main function and passing it to asyncio.run or '
+            'using asynchronous initialisation hooks such as Client.setup_hook'
+        )
+        raise AttributeError(msg)
 
-    if not tasks:
-        return
-
-    log.info('Cleaning up after %d tasks.', len(tasks))
-    for task in tasks:
-        task.cancel()
-
-    loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-    log.info('All tasks finished cancelling.')
-
-    for task in tasks:
-        if task.cancelled():
-            continue
-        if task.exception() is not None:
-            loop.call_exception_handler({
-                'message': 'Unhandled exception during Client.run shutdown.',
-                'exception': task.exception(),
-                'task': task
-            })
-
-
-def _cleanup_loop(loop):
-    try:
-        _cancel_tasks(loop)
-        if sys.version_info >= (3, 6):
-            loop.run_until_complete(loop.shutdown_asyncgens())
-    finally:
-        log.info('Closing the event loop.')
-        loop.close()
-
-
-class _ClientEventTask(asyncio.Task):
-    def __init__(self, original_coro, event_name, coro, *, loop):
-        super().__init__(coro, loop=loop)
-        self.__event_name = event_name
-        self.__original_coro = original_coro
-
-    def __repr__(self):
-        info = [
-            ('state', self._state.lower()),
-            ('event', self.__event_name),
-            ('coro', repr(self.__original_coro)),
-        ]
-        if self._exception is not None:
-            info.append(('exception', repr(self._exception)))
-        return '<ClientEventTask {}>'.format(' '.join('%s=%s' % t for t in info))
+_loop: Any = _LoopSentinel()
 
 
 class ClientBase:
     def __init__(self, **options):
         # internal
-        self.loop = options.pop('loop', asyncio.get_event_loop())
+        self.loop: asyncio.AbstractEventLoop = _loop
         self.max_messages: int = options.pop('max_messages', 1000)
         self._listeners = {}
 
         # state
-        self._closed = False
-        self._ready = asyncio.Event()
+        self._closed: bool = False
+        self._ready: asyncio.Event = MISSING
+
+    async def __aenter__(self) -> Self:
+        await self._async_setup_hook()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        await self.close()
 
     @property
     def cached_messages(self):
@@ -237,6 +212,28 @@ class ClientBase:
         """
         await self._ready.wait()
 
+    async def _async_setup_hook(self) -> None:
+        self.loop = asyncio.get_running_loop()
+        self._ready = asyncio.Event()
+
+    async def setup_hook(self) -> None:
+        """|coro|
+
+        A coroutine to be called to setup the bot, by default this is blank.
+        To perform asynchronous setup after the bot is logged in but before
+        it has connected to the Websocket, overwrite this method.
+
+        This is only called once, in :meth:`login`, and will be called before
+        any events are dispatched, making it a better solution than doing such
+        setup in the :func:`~.on_ready` event.
+
+        .. warning::
+            Since this is called *before* the websocket connection is made therefore
+            anything that waits for the websocket will deadlock, this includes things
+            like :meth:`.wait_for` and :meth:`.wait_until_ready`.
+        """
+        pass
+
     def wait_for(
         self,
         event: str,
@@ -325,11 +322,12 @@ class ClientBase:
             :ref:`event reference <guilded-api-events>`.
         """
 
-        print(event)
         future = self.loop.create_future()
         if check is None:
+
             def _check(*args):
                 return True
+
             check = _check
 
         ev = event.lower()
@@ -340,7 +338,6 @@ class ClientBase:
             self._listeners[ev] = listeners
 
         listeners.append((future, check))
-        print(self._listeners.get(ev))
         return asyncio.wait_for(future, timeout)
 
     async def _run_event(self, coro, event_name, *args, **kwargs):
@@ -357,7 +354,7 @@ class ClientBase:
     def _schedule_event(self, coro, event_name, *args, **kwargs):
         wrapped = self._run_event(coro, event_name, *args, **kwargs)
         # Schedules the task
-        return _ClientEventTask(original_coro=coro, event_name=event_name, coro=wrapped, loop=self.loop)
+        return self.loop.create_task(wrapped, name=f'guilded.py: {event_name}')
 
     def event(self, coro):
         """A decorator to register an event for the library to automatically dispatch when appropriate.
@@ -600,6 +597,7 @@ class UserbotClient(ClientBase):
         Login and connect to Guilded using a user account email and password.
         """
         await self.login(email, password)
+        await self.setup_hook()
         await self.connect(reconnect=reconnect)
 
     async def login(self, email: str, password: str):
@@ -611,9 +609,8 @@ class UserbotClient(ClientBase):
         :attr:`.cache_on_startup`\. This is in contrast to a Discord
         application, where this would be done on connection to the gateway.
         """
-        self.http: UserbotHTTPClient = self.http or UserbotHTTPClient(max_messages=self.max_messages)
         data = await self.http.login(email, password)
-        self.user: ClientUser = ClientUser(state=self.http, data=data)
+        self.user = ClientUser(state=self.http, data=data)
         self.http.my_id = self.user.id
 
         for team_data in data.get('teams', []):
@@ -773,49 +770,33 @@ class UserbotClient(ClientBase):
 
         self._ready.clear()
 
-    def run(self, email: str, password: str):
+    def run(self, email: str, password: str, *, reconnect: bool = True):
         """Login and connect to Guilded, and start the event loop. This is a
         blocking call, nothing after it will be called until the bot has been
         closed.
-        """
-        loop = self.loop
 
-        try:
-            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
-            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
-        except NotImplementedError:
-            pass
+        Parameters
+        -----------
+        email: :class:`str`
+            The account's email address.
+        password: :class:`str`
+            The account's password.
+        reconnect: Optional[:class:`bool`]
+            Whether to reconnect on loss/interruption of gateway connection.
+        """
 
         async def runner():
-            try:
+            async with self:
                 await self.start(
                     email=email, 
                     password=password,
+                    reconnect=reconnect,
                 )
-            finally:
-                if not self.closed:
-                    await self.close()
 
-        def stop_loop_on_completion(f):
-            loop.stop()
-
-        future = asyncio.ensure_future(runner(), loop=loop)
-        future.add_done_callback(stop_loop_on_completion)
         try:
-            loop.run_forever()
+            asyncio.run(runner())
         except KeyboardInterrupt:
-            log.info('Received signal to terminate bot and event loop.')
-        finally:
-            future.remove_done_callback(stop_loop_on_completion)
-            log.info('Cleaning up tasks.')
-            _cleanup_loop(loop)
-
-        if not future.cancelled():
-            try:
-                return future.result()
-            except KeyboardInterrupt:
-                # I am unsure why this gets raised here but suppress it anyway
-                return None
+            return
 
     async def search_users(self, query: str, *, max_results=20, exclude=None):
         """|coro|
@@ -1245,6 +1226,10 @@ class Client(ClientBase):
             )
 
         self.http.session = aiohttp.ClientSession()
+
+        await self._async_setup_hook()
+        await self.setup_hook()
+
         if self.user_id:
             # Fetch the client user
             user_data = await self.http.get_user(self.user_id)
@@ -1352,45 +1337,19 @@ class Client(ClientBase):
         Parameters
         -----------
         token: :class:`str`
-            The bot's auth token,
+            The bot's auth token.
         reconnect: Optional[:class:`bool`]
             Whether to reconnect on loss/interruption of gateway connection.
         """
-        loop = self.loop
-
-        try:
-            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
-            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
-        except NotImplementedError:
-            pass
 
         async def runner():
-            try:
+            async with self:
                 await self.start(
                     token,
                     reconnect=reconnect,
                 )
-            finally:
-                if not self.closed:
-                    await self.close()
 
-        def stop_loop_on_completion(f):
-            loop.stop()
-
-        future = asyncio.ensure_future(runner(), loop=loop)
-        future.add_done_callback(stop_loop_on_completion)
         try:
-            loop.run_forever()
+            asyncio.run(runner())
         except KeyboardInterrupt:
-            log.info('Received signal to terminate bot and event loop.')
-        finally:
-            future.remove_done_callback(stop_loop_on_completion)
-            log.info('Cleaning up tasks.')
-            _cleanup_loop(loop)
-
-        if not future.cancelled():
-            try:
-                return future.result()
-            except KeyboardInterrupt:
-                # I am unsure why this gets raised here but suppress it anyway
-                return None
+            return

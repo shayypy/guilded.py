@@ -23,5 +23,6 @@ from .presence import *
 from .status import *
 from .team import *
 from .user import *
+from .webhook import *
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())

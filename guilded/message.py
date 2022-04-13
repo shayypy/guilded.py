@@ -394,10 +394,6 @@ class ChatMessage(HasContentMixin):
 
             Checks if two messages are not equal.
 
-        .. describe:: str(x)
-
-            Returns the string content of the message.
-
     Attributes
     -----------
     id: :class:`str`
@@ -407,6 +403,29 @@ class ChatMessage(HasContentMixin):
     webhook_id: Optional[:class:`str`]
         The webhook's ID that sent the message, if applicable.
     """
+
+    __slots__ = (
+        '_state',
+        '_raw',
+        'channel',
+        '_team',
+        'team_id',
+        '_author',
+        '_webhook',
+        'id',
+        'type',
+        'webhook_id',
+        'channel_id',
+        'author_id',
+        'created_at',
+        'edited_at',
+        'deleted_at',
+        '_replied_to',
+        'replied_to_ids',
+        'silent',
+        'private',
+        'content',
+    )
 
     def __init__(self, *, state, channel, data, **extra):
         super().__init__()
@@ -419,6 +438,7 @@ class ChatMessage(HasContentMixin):
         self.team_id: Optional[str] = data.get('teamId') or data.get('serverId')
 
         self._author = extra.get('author')
+        self._webhook = extra.get('webhook')
 
         if state.userbot:
             self.id: str = data.get('contentId') or message.get('id')
@@ -465,14 +485,11 @@ class ChatMessage(HasContentMixin):
             self.replied_to_ids: List[str] = message.get('replyMessageIds') or []
             self.private: bool = message.get('isPrivate') or False
 
-    def __str__(self):
-        return repr(self)
-
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return isinstance(other, ChatMessage) and self.id == other.id
 
-    def __repr__(self):
-        return f'<ChatMessage id={self.id!r} author={self.author!r} channel={self.channel!r}>'
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__} id={self.id!r} author={self.author!r} channel={self.channel!r}>'
 
     @property
     def team(self):
@@ -494,8 +511,7 @@ class ChatMessage(HasContentMixin):
 
     @property
     def author(self):
-        """Optional[:class:`.Member`]: The member that created this message,
-        if they are cached."""
+        """Optional[:class:`~.abc.User`]: The user that created this message, if they are cached."""
         if self._author:
             return self._author
 
@@ -505,6 +521,17 @@ class ChatMessage(HasContentMixin):
 
         if not user:
             user = self._state._get_user(self.author_id)
+
+        if self.webhook_id or self._webhook:
+            data = {
+                'id': self.author_id,
+                'type': 'bot',
+            }
+            if self._webhook:
+                data['name'] = self._webhook.name
+                data['profilePicture'] = self._webhook.avatar.url if self._webhook.avatar else None
+
+            user = self._state.create_user(data=data)
 
         return user
 

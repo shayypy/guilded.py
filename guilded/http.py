@@ -49,12 +49,14 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import aiohttp
 import asyncio
 import datetime
 import json
 import logging
-from typing import Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Sequence, Type, TypeVar, Union
 
 from . import utils
 from . import channel
@@ -68,16 +70,111 @@ from .file import File
 from .message import ChatMessage, Mention
 from .role import Role
 from .user import User, Member
-from .utils import new_uuid
+from .utils import MISSING, new_uuid
 
 log = logging.getLogger(__name__)
+
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
+    from types import TracebackType
+
+    T = TypeVar('T')
+    BE = TypeVar('BE', bound=BaseException)
+
+
+# This is mostly for webhooks but I expect the bot API to be somewhat compliant
+# with this in the future, at which point other parts of the library will start
+# using this as well.
+
+class MultipartParameters(NamedTuple):
+    payload: Optional[Dict[str, Any]]
+    multipart: Optional[List[Dict[str, Any]]]
+    files: Optional[Sequence[File]]
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BE]],
+        exc: Optional[BE],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        if self.files:
+            for file in self.files:
+                file.close()
+
+
+def handle_message_parameters(
+    content: Optional[str] = MISSING,
+    *,
+    file: File = MISSING,
+    files: Sequence[File] = MISSING,
+    embed: Optional[Embed] = MISSING,
+    embeds: Sequence[Embed] = MISSING,
+    reply_to: Sequence[str] = MISSING,
+    silent: Optional[bool] = None,
+    private: Optional[bool] = None,
+) -> MultipartParameters:
+    if files is not MISSING and file is not MISSING:
+        raise TypeError('Cannot mix file and files keyword arguments.')
+    if embeds is not MISSING and embed is not MISSING:
+        raise TypeError('Cannot mix embed and embeds keyword arguments.')
+
+    if file is not MISSING:
+        files = [file]
+
+    payload = {}
+    if embeds is not MISSING:
+        if len(embeds) > 10:
+            raise ValueError('embeds has a maximum of 10 elements.')
+        payload['embeds'] = [e.to_dict() for e in embeds]
+
+    if embed is not MISSING:
+        if embed is None:
+            payload['embeds'] = []
+        else:
+            payload['embeds'] = [embed.to_dict()]
+
+    if content is not MISSING:
+        if content is not None:
+            payload['content'] = str(content)
+        else:
+            payload['content'] = None
+
+    if reply_to is not MISSING:
+        payload['replyMessageIds'] = reply_to
+
+    if silent is not None:
+        payload['isSilent'] = silent
+
+    if private is not None:
+        payload['isPrivate'] = private
+
+    multipart = []
+    if files:
+        multipart.append({'name': 'payload_json', 'value': json.dumps(payload)})
+        payload = None
+        for index, file in enumerate(files):
+            multipart.append(
+                {
+                    'name': f'files[{index}]',
+                    'value': file.fp,
+                    'filename': file.filename,
+                    'content_type': file.content_type,
+                }
+            )
+
+    return MultipartParameters(payload=payload, multipart=multipart, files=files)
+
 
 class UserbotRoute:
     BASE = 'https://www.guilded.gg/api'
     MEDIA_BASE = 'https://media.guilded.gg'
     CDN_BASE = 'https://s3-us-west-2.amazonaws.com/www.guilded.gg'
     NO_BASE = ''
-    def __init__(self, method, path, *, override_base=None):
+    def __init__(self, method: str, path: str, *, override_base: str = None):
         self.method = method
         self.path = path
 
@@ -93,7 +190,7 @@ class Route(UserbotRoute):
 
 
 class UserbotVoiceRoute(UserbotRoute):
-    def __init__(self, voice_endpoint, method, path):
+    def __init__(self, voice_endpoint: str, method: str, path: str):
         self.BASE = f'https://{voice_endpoint}'
         self.method = method
         self.path = path
@@ -1156,6 +1253,16 @@ class UserbotHTTPClient(HTTPClientBase):
         route = UserbotRoute('PUT', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels/{channel_id}/settings')
         return self.request(route, json=payload)
 
+    def get_channel_webhooks(self, team_id: str, channel_id: str = None):
+        # This endpoint is probably deprecated; it returns an empty list
+        return self.request(UserbotRoute('GET', f'/teams/{team_id}/channels/{channel_id}/webhooks'))
+
+    def get_detailed_webhooks(self, team_id: str, webhook_ids: List[str]):
+        payload = {
+            'webhookIds': webhook_ids,
+        }
+        return self.request(UserbotRoute('POST', f'/teams/{team_id}/webhooks/detail'), json=payload)
+
     # /users
 
     def get_user_profile(self, user_id: str, *, v: int = 3):
@@ -1278,6 +1385,21 @@ class UserbotHTTPClient(HTTPClientBase):
 
     def send_verification_email(self):
         return self.request(UserbotRoute('POST', '/users/me/verify'))
+
+    # /webhooks
+
+    def create_webhook(self, name: str, channel_id:  str):
+        payload = {
+            'name': name,
+            'channelId': channel_id,
+        }
+        return self.request(Route('POST', f'/webhooks'), json=payload)
+
+    def update_webhook(self, webhook_id: str, *, payload: Dict[str, Any]):
+        return self.request(Route('PUT', f'/webhooks/{webhook_id}'), json=payload)
+
+    def delete_webhook(self, webhook_id: str):
+        return self.request(Route('DELETE', f'/webhooks/{webhook_id}'))
 
     # /content
 
@@ -1445,7 +1567,7 @@ class HTTPClient(HTTPClientBase):
             log.info('Guilded responded with HTTP %s', response.status)
 
             authenticated_as = response.headers.get('authenticated-as')
-            if authenticated_as and authenticated_as != self.my_id:
+            if authenticated_as and authenticated_as != self.my_id and authenticated_as != 'None':
                 log.debug('Response provided a new user ID. Previous: %s, New: %s', self.my_id, authenticated_as)
                 last_user = self._users.pop(self.my_id, None)
                 self.my_id = authenticated_as
@@ -1656,6 +1778,29 @@ class HTTPClient(HTTPClientBase):
 
     def get_server_bans(self, server_id: str):
         return self.request(Route('GET', f'/servers/{server_id}/bans'))
+
+    def create_webhook(self, server_id: str, *, name: str, channel_id:  str):
+        payload = {
+            'name': name,
+            'channelId': channel_id,
+        }
+        return self.request(Route('POST', f'/servers/{server_id}/webhooks'), json=payload)
+
+    def get_webhook(self, server_id: str, webhook_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/webhooks/{webhook_id}'))
+
+    def get_channel_webhooks(self, server_id: str, channel_id: str):
+        params = {
+            'channelId': channel_id,
+        }
+
+        return self.request(Route('GET', f'/servers/{server_id}/webhooks'), params=params)
+
+    def update_webhook(self, server_id: str, webhook_id: str, *, payload: Dict[str, Any]):
+        return self.request(Route('PUT', f'/servers/{server_id}/webhooks/{webhook_id}'), json=payload)
+
+    def delete_webhook(self, server_id: str, webhook_id: str):
+        return self.request(Route('DELETE', f'/servers/{server_id}/webhooks/{webhook_id}'))
 
     # /groups
 

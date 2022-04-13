@@ -74,6 +74,19 @@ _Iter = Union[Iterable[T], AsyncIterable[T]]
 Coro = Coroutine[Any, Any, T]
 
 
+class _MissingSentinel:
+    def __eq__(self, _) -> bool:
+        return False
+
+    def __bool__(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return '...'
+
+MISSING: Any = _MissingSentinel()
+
+
 def ISO8601(string: str):
     if string is None:
         return None

@@ -84,7 +84,7 @@ class File:
         If passing a file with ``open``, the file should be opened in ``rb`` mode.
     filename: Optional[:class:`str`]
         The name of this file.
-        This is not *technically* required unless you want to use the ``attachment://` URI in an :class:`.Embed`,
+        This is not *technically* required unless you want to use the ``attachment://`` URI in an :class:`.Embed`.
         Guilded will not use this to name the file on their CDN.
     file_type: :class:`FileType`
         The file's file type.
@@ -114,6 +114,7 @@ class File:
         'file_type',
         'url',
         '_owner',
+        '_original_pos',
         '_closer',
     )
 
@@ -135,6 +136,7 @@ class File:
 
             self.fp: io.BufferedIOBase = fp
             self._owner = False
+            self._original_pos = fp.tell()
             self.file_type = file_type
 
             _fp_name: Optional[str] = getattr(fp, 'name', None)
@@ -156,13 +158,14 @@ class File:
         else:
             self.fp = open(fp, 'rb')
             self._owner = True
+            self._original_pos = 0
 
             if file_type is None:
                 fn = filename or ''
                 if filename is None and isinstance(fp, str):
                     _, fn = os.path.split(fp)
                 try:
-                    extension = fn.split('.')[-1]
+                    extension = fn.split('.')[-1].lower()
                 except IndexError:
                     # The file has no extension
                     raise ValueError('filename must be specified or file must have an extension if file_type is not specified.')
@@ -190,6 +193,15 @@ class File:
     def __bytes__(self) -> bytes:
         return self.fp.read()
 
+    @property
+    def content_type(self) -> Optional[str]:
+        # This exists for uploading files with webhooks
+        if self.file_type is FileType.image:
+            return 'image/png'
+        elif self.file_type is FileType.video:
+            return 'video/mp4'
+        return None
+
     def to_node_dict(self) -> Dict[str, Any]:
         return {
             'object': 'block',
@@ -209,6 +221,11 @@ class File:
         """Manually set this file's file type."""
         self.file_type = file_type
         return self
+
+    def reset(self, *, seek: Union[int, bool] = True) -> None:
+        # https://github.com/Rapptz/discord.py/blob/5c14149873368060c0b86c95914753ab7b283097/discord/file.py#L134-L141
+        if seek:
+            self.fp.seek(self._original_pos)
 
     def close(self) -> None:
         self.fp.close = self._closer

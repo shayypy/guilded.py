@@ -49,24 +49,31 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import asyncio
 import datetime
+import io
 import re
-from typing import Dict, Optional, List, Union
+from typing import TYPE_CHECKING, Dict, Optional, List, Union
 
 from .abc import TeamChannel, User
 
 from .asset import Asset
-from .channel import ChatChannel, DocsChannel, ForumChannel, SchedulingChannel, Thread
+from .channel import ChatChannel, DocsChannel, ForumChannel, ListChannel, SchedulingChannel, Thread
 from .errors import InvalidArgument
 from .emoji import Emoji
-from .enums import try_enum, TeamFlairType, ChannelType
+from .enums import FileType, MediaType, try_enum, TeamFlairType, ChannelType
+from .file import File
 from .flowbot import FlowBot
 from .gateway import UserbotGuildedWebSocket
 from .group import Group
 from .role import Role
 from .user import Member, MemberBan
 from .utils import ISO8601, get, find
+
+if TYPE_CHECKING:
+    from .webhook import Webhook
 
 # ZoneInfo is in the stdlib in Python 3.9+
 try:
@@ -1078,6 +1085,118 @@ class Team:
             emojis.append(emoji)
 
         return emojis
+
+    async def create_webhook(
+        self,
+        *,
+        name: str,
+        avatar: Optional[Union[bytes, File]] = None,
+        channel: TeamChannel,
+    ) -> Webhook:
+        """|coro|
+
+        Create a webhook in a channel.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The webhook's name.
+        channel: Union[:class:`ChatChannel`, :class:`ListChannel`]
+            The channel to create the webhook in.
+        avatar: Optional[Union[:class:`bytes`, :class:`File`]]
+            A :term:`py:bytes-like object` or :class:`File` for the webhook's avatar.
+            If the client is a bot user, providing this does nothing.
+            Else, providing this causes the library to perform an extra API request.
+
+        Raises
+        -------
+        HTTPException
+            Creating the webhook failed.
+        Forbidden
+            You do not have permissions to create a webhook.
+
+        Returns
+        --------
+        :class:`Webhook`
+            The created webhook.
+        """
+
+        from .webhook import Webhook
+
+        if self._state.userbot:
+            data = await self._state.create_webhook(
+                name=name,
+                channel_id=channel.id,
+            )
+            if avatar is not None:
+                if isinstance(avatar, bytes):
+                    avatar = File(io.BytesIO(avatar), file_type=FileType.image)
+                elif not isinstance(avatar, File):
+                    raise TypeError(f'avatar must be type bytes or File, not {avatar.__class__.__name__}')
+
+                avatar.set_media_type(MediaType.user_avatar)
+                await avatar._upload()
+
+                data = await self._state.update_webhook(
+                    data['id'],
+                    payload={'iconUrl': avatar.url}
+                )
+
+        else:
+            data = await self._state.create_webhook(
+                self.id,
+                name=name,
+                channel_id=channel.id,
+            )
+
+        webhook = Webhook.from_state(data, self._state)
+        return webhook
+
+    async def webhooks(self, *, channel: Optional[Union[ChatChannel, ListChannel]] = None) -> List[Webhook]:
+        """|coro|
+
+        Fetch the list of webhooks in this team.
+
+        Parameters
+        -----------
+        channel: Optional[Union[:class:`.ChatChannel`, :class:`.ListChannel`]]
+            The channel to fetch webhooks from.
+            If the client is a bot account, this is required.
+            Otherwise, this parameter is used to filter results from the entire team.
+
+        Returns
+        --------
+        List[:class:`.Webhook`]
+            The webhooks in this team or, if specified, the channel.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permission to get the webhooks.
+        ValueError
+            ``channel`` was not provided but it is required.
+        """
+
+        from .webhook import Webhook
+
+        if self._state.userbot:
+            data = await self._state.get_team_members(self.id)
+        else:
+            if channel is None:
+                raise ValueError('channel must be provided when the client is a bot account.')
+            data = await self._state.get_channel_webhooks(self.id, channel.id)
+
+        data = data['webhooks']
+        webhooks = []
+
+        for webhook_data in data:
+            if self._state.userbot and channel is not None and channel.id != webhook_data['channelId']:
+                continue
+
+            webhook = Webhook.from_state(webhook_data, self._state)
+            webhooks.append(webhook)
+
+        return webhooks
 
 Guild = Team  # discord.py
 Server = Team  # bot API
