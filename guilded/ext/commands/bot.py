@@ -874,11 +874,6 @@ class Bot(BotBase, guilded.Client):
 
     Parameters
     ------------
-    user_id: Optional[:class:`str`]
-        The user ID of this bot, copied from the "Bots" menu. This is used to
-        check if a message is owned by the client, and will be removed in the
-        future. This is also used to map the client's :class:`.Member` object
-        to attributes like :attr:`.Team.me`.
     internal_server_id: Optional[:class:`str`]
         The ID of the bot's internal server.
     command_prefix: Union[:class:`list`, :class:`str`]
@@ -926,6 +921,6 @@ class Bot(BotBase, guilded.Client):
         ``None``.
     """
 
-    def __init__(self, *, user_id: str = None, internal_server_id: str = None, **options):
-        guilded.Client.__init__(self, user_id=user_id, internal_server_id=internal_server_id, **options)
+    def __init__(self, *, internal_server_id: str = None, **options):
+        guilded.Client.__init__(self, internal_server_id=internal_server_id, **options)
         BotBase.__init__(self, **options)

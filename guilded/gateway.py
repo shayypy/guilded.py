@@ -68,7 +68,7 @@ from .enums import ChannelType
 from .message import Message
 from .presence import Presence
 from .role import Role
-from .user import Member
+from .user import ClientUser, Member
 from .utils import find, ISO8601
 from .webhook import Webhook
 
@@ -999,6 +999,8 @@ class GuildedWebSocket(GuildedWebSocketBase):
             self._heartbeater = Heartbeater(ws=self, interval=d['heartbeatIntervalMs'] / 1000)
             self._heartbeater.start()
             self._last_message_id = d['lastMessageId']
+            self.client.http.user = ClientUser(state=self.client.http, data=d['user'])
+            self.client.http.my_id = self.client.http.user.id
             return
 
         if op == self.MISSABLE:

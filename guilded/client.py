@@ -121,6 +121,14 @@ class ClientBase:
         await self.close()
 
     @property
+    def user(self) -> Optional[ClientUser]:
+        return self.http.user
+
+    @property
+    def user_id(self) -> Optional[str]:
+        return self.http.my_id
+
+    @property
     def cached_messages(self):
         return list(self.http._messages.values())
 
@@ -575,7 +583,6 @@ class UserbotClient(ClientBase):
         self.http: UserbotHTTPClient = UserbotHTTPClient(
             max_messages=self.max_messages,
         )
-        self.user: Optional[ClientUser] = None
 
         self.disable_team_websockets: bool = options.pop('disable_team_websockets', False)
         self._login_presence = options.pop('presence', None)
@@ -610,8 +617,9 @@ class UserbotClient(ClientBase):
         application, where this would be done on connection to the gateway.
         """
         data = await self.http.login(email, password)
-        self.user = ClientUser(state=self.http, data=data)
+        self.http.user = ClientUser(state=self.http, data=data)
         self.http.my_id = self.user.id
+        self.http._users[self.http.my_id] = self.user
 
         for team_data in data.get('teams', []):
             team = Team(state=self.http, data=team_data)
@@ -1175,11 +1183,6 @@ class Client(ClientBase):
 
     Parameters
     -----------
-    user_id: Optional[:class:`str`]
-        The user ID of this bot, copied from the "Bots" menu. This is used to
-        check if a message is owned by the client, and will be removed in the
-        future. This is also used to map the client's :class:`.Member` object
-        to attributes like :attr:`.Team.me`.
     internal_server_id: Optional[:class:`str`]
         The ID of the bot's internal server.
     max_messages: Optional[:class:`int`]
@@ -1202,20 +1205,13 @@ class Client(ClientBase):
         ``None``.
     """
 
-    def __init__(self, *, user_id: str = None, internal_server_id: str = None, **options):
+    def __init__(self, *, internal_server_id: str = None, **options):
         super().__init__(**options)
-        self._user_id = user_id
         self.internal_server_id = internal_server_id
 
         self.http: HTTPClient = HTTPClient(
-            user_id=user_id,
             max_messages=self.max_messages,
         )
-        self.user: Optional[ClientUser] = None
-
-    @property
-    def user_id(self):
-        return self._user_id or self.http.my_id
 
     async def start(self, token=None, *, reconnect=True):
         self.http.token = token or self.http.token
@@ -1229,22 +1225,6 @@ class Client(ClientBase):
 
         await self._async_setup_hook()
         await self.setup_hook()
-
-        if self.user_id:
-            # Fetch the client user
-            user_data = await self.http.get_user(self.user_id)
-        else:
-            user_data = {
-                'id': self.user_id,
-                'name': '',
-                'bot': True,
-            }
-
-        self.user = ClientUser(
-            state=self.http,
-            data=user_data,
-        )
-        self.http._users[self.user.id] = self.user
 
         # Cache our internal server
         if self.internal_server_id:

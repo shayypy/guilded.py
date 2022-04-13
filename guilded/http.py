@@ -205,6 +205,8 @@ class HTTPClientBase:
         self._max_messages = max_messages
 
         self.ws = None
+        self.user = None
+        self.my_id = None
 
         self._users = {}
         self._teams = {}
@@ -526,8 +528,6 @@ class UserbotHTTPClient(HTTPClientBase):
     def __init__(self, *, max_messages=1000):
         self.userbot = True
         super().__init__(max_messages=max_messages)
-
-        self.my_id = None
 
         self.email = None
         self.password = None
@@ -1532,11 +1532,10 @@ class UserbotHTTPClient(HTTPClientBase):
 
 
 class HTTPClient(HTTPClientBase):
-    def __init__(self, *, user_id, max_messages=1000):
+    def __init__(self, *, max_messages=1000):
         self.userbot = False
         super().__init__(max_messages=max_messages)
 
-        self.my_id = user_id
         self.token = None
 
     @property
