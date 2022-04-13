@@ -24,5 +24,5 @@ If applicable, please attach screenshots to help explain/demonstrate the problem
 
 **Environment**
  - OS:
- - Python version (make sure you're using >=3.7):
+ - Python version (make sure you're using >=3.8):
  - Library version:
