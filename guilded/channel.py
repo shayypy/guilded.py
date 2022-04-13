@@ -63,12 +63,14 @@ from .errors import InvalidArgument
 from .file import File
 #from .gateway import GuildedVoiceWebSocket
 from .group import Group
-from .message import HasContentMixin
+from .message import ChatMessage, HasContentMixin
 from .user import Member
 from .utils import get, ISO8601
 from .status import Game
 
 if TYPE_CHECKING:
+    from .emoji import Emoji
+    from .user import User
     from .webhook import Webhook
 
 
@@ -138,7 +140,7 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
         )
         return webhook
 
-    async def webhooks(self):
+    async def webhooks(self) -> List[Webhook]:
         """|coro|
 
         Fetch the list of webhooks in this channel.
@@ -240,29 +242,29 @@ class Doc(HasContentMixin):
         else:
             self.content: str = data['content']
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<Doc id={self.id!r} title={self.title!r} author={self.author!r} channel={self.channel!r}>'
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return isinstance(other, Doc) and other.id == self.id
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.title
 
     @property
-    def team_id(self):
+    def team_id(self) -> str:
         return self.team.id
 
     @property
-    def group_id(self):
+    def group_id(self) -> str:
         return self.group.id
 
     @property
-    def channel_id(self):
+    def channel_id(self) -> str:
         return self.channel.id
 
     @property
-    def replies(self):
+    def replies(self) -> List[DocReply]:
         """List[:class:`.DocReply`]: The list of cached replies to this doc."""
         return list(self._replies.values())
 
@@ -278,7 +280,7 @@ class Doc(HasContentMixin):
         doc, if they are cached."""
         return self.team.get_member(self.author_id)
 
-    async def add_reaction(self, emoji):
+    async def add_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
         Add a reaction to this doc.
@@ -294,7 +296,7 @@ class Doc(HasContentMixin):
             emoji_id: int = getattr(emoji, 'id', emoji)
             await self._state.add_reaction_emote(self.channel.id, self.id, emoji_id)
 
-    async def remove_self_reaction(self, emoji):
+    async def remove_self_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
         |onlyuserbot|
@@ -308,14 +310,14 @@ class Doc(HasContentMixin):
         """
         await self._state.remove_self_content_reaction('doc', self.id, emoji.id)
 
-    async def delete(self):
+    async def delete(self) -> None:
         """|coro|
 
         Delete this doc.
         """
         await self._state.delete_doc(self.channel.id, self.id)
 
-    async def edit(self, *content, **kwargs):
+    async def edit(self, *content, **kwargs) -> Doc:
         """|coro|
 
         Edit this doc.
@@ -379,7 +381,7 @@ class Doc(HasContentMixin):
         doc = Doc(data=data, channel=self.channel, game=self.game, state=self._state)
         return doc
 
-    async def reply(self, *content, **kwargs):
+    async def reply(self, *content, **kwargs) -> DocReply:
         """|coro|
 
         |onlyuserbot|
@@ -402,11 +404,11 @@ class Doc(HasContentMixin):
         reply = DocReply(data=data['reply'], parent=self, state=self._state)
         return reply
 
-    def get_reply(self, id: int):
+    def get_reply(self, id: int) -> Optional[DocReply]:
         """Optional[:class:`.DocReply`]: Get a reply by its ID."""
         return self._replies.get(id)
 
-    async def fetch_replies(self):
+    async def fetch_replies(self) -> List[DocReply]:
         """|coro|
 
         |onlyuserbot|
@@ -425,7 +427,7 @@ class Doc(HasContentMixin):
 
         return replies
 
-    async def fetch_reply(self, id: int):
+    async def fetch_reply(self, id: int) -> DocReply:
         """|coro|
 
         |onlyuserbot|
@@ -445,7 +447,7 @@ class Doc(HasContentMixin):
         reply = DocReply(data=data['metadata']['reply'], parent=self, state=self._state)
         return reply
 
-    async def move(self, to):
+    async def move(self, to) -> None:
         """|coro|
 
         |onlyuserbot|
@@ -469,18 +471,18 @@ class DocsChannel(guilded.abc.TeamChannel):
         self._docs = {}
 
     @property
-    def docs(self):
+    def docs(self) -> List[Doc]:
         """List[:class:`.Doc`]: The list of cached docs in this channel."""
         return list(self._docs.values())
 
-    def get_doc(self, id: int):
+    def get_doc(self, id: int) -> Optional[Doc]:
         """Optional[:class:`.Doc`]: Get a cached doc in this channel."""
         return self._docs.get(id)
 
-    async def getch_doc(self, id: int):
+    async def getch_doc(self, id: int) -> Doc:
         return self.get_doc(id) or await self.fetch_doc(id)
 
-    async def create_doc(self, *content, **kwargs):
+    async def create_doc(self, *content, **kwargs) -> Doc:
         """|coro|
 
         Create a new doc in this channel.
@@ -641,10 +643,10 @@ class ForumTopic(HasContentMixin):
         self.reply_count: int = int(data.get('replyCount', 0))
         self._replies = {}
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.title
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<ForumTopic id={self.id!r} title={self.title!r} channel={self.channel!r}>'
 
     @property
@@ -660,14 +662,14 @@ class ForumTopic(HasContentMixin):
         return self.team.get_member(self.author_id)
 
     @property
-    def replies(self):
+    def replies(self) -> List[ForumReply]:
         return list(self._replies.values())
 
-    def get_reply(self, id):
+    def get_reply(self, id) -> Optional[ForumReply]:
         """Optional[:class:`.ForumReply`]: Get a reply by its ID."""
         return self._replies.get(id)
 
-    async def fetch_replies(self, *, limit=50):
+    async def fetch_replies(self, *, limit=50) -> List[ForumReply]:
         """|coro|
 
         Fetch the replies to this topic.
@@ -684,7 +686,7 @@ class ForumTopic(HasContentMixin):
 
         return replies
 
-    async def fetch_reply(self, id: int):
+    async def fetch_reply(self, id: int) -> ForumReply:
         """|coro|
 
         Fetch a reply to this topic.
@@ -722,14 +724,14 @@ class ForumTopic(HasContentMixin):
         data = await self._state.create_forum_topic_reply(self.channel.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
         return data['replyId']
 
-    async def delete(self):
+    async def delete(self) -> None:
         """|coro|
 
         Delete this topic.
         """
         await self._state.delete_forum_topic(self.channel.id, self.id)
 
-    async def edit(self, *content, **kwargs):
+    async def edit(self, *content, **kwargs) -> None:
         """|coro|
 
         |onlyuserbot|
@@ -755,7 +757,7 @@ class ForumTopic(HasContentMixin):
         except KeyError:
             pass
 
-    async def move(self, to):
+    async def move(self, to: ForumChannel) -> None:
         """|coro|
 
         Move this topic to another :class:`.ForumChannel`.
@@ -767,47 +769,47 @@ class ForumTopic(HasContentMixin):
         """
         await self._state.move_forum_topic(self.channel.id, self.id, to.id)
 
-    async def lock(self):
+    async def lock(self) -> None:
         """|coro|
 
         Lock this topic.
         """
         await self._state.lock_forum_topic(self.channel.id, self.id)
 
-    async def unlock(self):
+    async def unlock(self) -> None:
         """|coro|
 
         Unlock this topic.
         """
         await self._state.unlock_forum_topic(self.channel.id, self.id)
 
-    async def sticky(self):
+    async def sticky(self) -> None:
         """|coro|
 
         Sticky (pin) this topic.
         """
         await self._state.sticky_forum_topic(self.channel.id, self.id)
 
-    async def unsticky(self):
+    async def unsticky(self) -> None:
         """|coro|
 
         Unsticky (unpin) this topic.
         """
         await self._state.unsticky_forum_topic(self.channel.id, self.id)
 
-    async def pin(self):
+    async def pin(self) -> None:
         """|coro|
 
         Pin (sticky) this topic. This is an alias of :meth:`.sticky`.
         """
-        return await self.sticky()
+        await self.sticky()
 
-    async def unpin(self):
+    async def unpin(self) -> None:
         """|coro|
 
         Unpin (unsticky) this topic. This is an alias of :meth:`.unsticky`.
         """
-        return await self.unsticky()
+        await self.unsticky()
 
 
 class ForumChannel(guilded.abc.TeamChannel):
@@ -981,7 +983,7 @@ class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
         return int(self._message_count)
 
     @property
-    def initial_message(self):
+    def initial_message(self) -> Optional[ChatMessage]:
         """Optional[:class:`.ChatMessage`]: The initial message in this thread.
 
         This may be ``None`` if the message was not cached when this object was
@@ -990,11 +992,11 @@ class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
         return self._initial_message
 
     @property
-    def participants(self):
+    def participants(self) -> List[Member]:
         """List[:class:`.Member`]: The cached list of participants in this thread."""
         return [self.team.get_member(member_id) for member_id in self._participant_ids]
 
-    async def archive(self):
+    async def archive(self) -> None:
         """|coro|
 
         Archive this thread.
@@ -1002,7 +1004,7 @@ class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
         request = self._state.archive_team_thread(self.team_id, self.group_id, self.id)
         await request
 
-    async def restore(self):
+    async def restore(self) -> None:
         """|coro|
 
         Restore this thread.
@@ -1010,7 +1012,7 @@ class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
         request = self._state.restore_team_thread(self.team_id, self.group_id, self.id)
         await request
 
-    async def leave(self):
+    async def leave(self) -> None:
         """|coro|
 
         Leave this thread.
@@ -1018,7 +1020,7 @@ class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
         request = self._state.leave_thread(self.id)
         await request
 
-    async def fetch_initial_message(self):
+    async def fetch_initial_message(self) -> ChatMessage:
         """|coro|
 
         Fetch the initial message in this thread. Sometimes this may be
@@ -1075,13 +1077,13 @@ class DMChannel(guilded.abc.Messageable):
         return f'https://guilded.gg/chat/{self.id}'
 
     @property
-    def users(self):
+    def users(self) -> List[User]:
         return list(self._users.values())
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<DMChannel id={self.id!r} recipient={self.recipient!r}>'
 
-    async def hide(self):
+    async def hide(self) -> None:
         """|coro|
 
         Visually hide this DM channel in the client.
@@ -1153,15 +1155,15 @@ class Announcement(HasContentMixin):
         return f'<Announcement id={self.id!r} title={self.title!r} author={self.author!r}>'
 
     @property
-    def team_id(self):
+    def team_id(self) -> str:
         return self.team.id
 
     @property
-    def group_id(self):
+    def group_id(self) -> str:
         return self.group.id
 
     @property
-    def channel_id(self):
+    def channel_id(self) -> str:
         return self.channel.id
 
     @property
@@ -1184,14 +1186,14 @@ class Announcement(HasContentMixin):
         return None
 
     @property
-    def replies(self):
+    def replies(self) -> List[AnnouncementReply]:
         return list(self._replies.values())
 
-    def get_reply(self, id):
+    def get_reply(self, id) -> Optional[AnnouncementReply]:
         """Optional[:class:`.AnnouncementReply`]: Get a reply by its ID."""
         return self._replies.get(id)
 
-    async def sticky(self):
+    async def sticky(self) -> None:
         """|coro|
 
         Sticky (pin) this announcement.
@@ -1199,7 +1201,7 @@ class Announcement(HasContentMixin):
         await self._state.toggle_announcement_pin(self.channel.id, self.id, pinned=True)
         self.pinned = True
 
-    async def unsticky(self):
+    async def unsticky(self) -> None:
         """|coro|
 
         Unsticky (unpin) this announcement.
@@ -1207,28 +1209,28 @@ class Announcement(HasContentMixin):
         await self._state.toggle_announcement_pin(self.channel.id, self.id, pinned=False)
         self.pinned = False
 
-    async def pin(self):
+    async def pin(self) -> None:
         """|coro|
 
         Pin (sticky) this announcement. This is an alias of :meth:`.sticky`.
         """
-        return await self.sticky()
+        await self.sticky()
 
-    async def unpin(self):
+    async def unpin(self) -> None:
         """|coro|
 
         Unpin (unsticky) this announcement. This is an alias of :meth:`.unsticky`.
         """
-        return await self.unsticky()
+        await self.unsticky()
 
-    async def delete(self):
+    async def delete(self) -> None:
         """|coro|
 
         Delete this announcement.
         """
         await self._state.delete_announcement(self.channel.id, self.id)
 
-    async def edit(self, *content, **kwargs):
+    async def edit(self, *content, **kwargs) -> None:
         """|coro|
 
         Edit this announcement.
@@ -1248,7 +1250,7 @@ class Announcement(HasContentMixin):
 
         await self._state.update_announcement(self.channel.id, self.id, payload=payload)
 
-    async def add_reaction(self, emoji):
+    async def add_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
         Add a reaction to this announcement.
@@ -1260,7 +1262,7 @@ class Announcement(HasContentMixin):
         """
         await self._state.add_content_reaction(self.channel.type.value, self.id, emoji.id)
 
-    async def remove_self_reaction(self, emoji):
+    async def remove_self_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
         Remove your reaction from this announcement.
@@ -1272,7 +1274,7 @@ class Announcement(HasContentMixin):
         """
         await self._state.remove_self_content_reaction(self.channel.type.value, self.id, emoji.id)
 
-    async def fetch_replies(self):
+    async def fetch_replies(self) -> None:
         """|coro|
 
         Fetch the replies to this announcement.
@@ -1289,7 +1291,7 @@ class Announcement(HasContentMixin):
 
         return replies
 
-    async def fetch_reply(self, id: int):
+    async def fetch_reply(self, id: int) -> AnnouncementReply:
         """|coro|
 
         Fetch a reply to this announcement.
@@ -1307,7 +1309,7 @@ class Announcement(HasContentMixin):
         reply = AnnouncementReply(data=data['metadata']['reply'], parent=self, state=self._state)
         return reply
 
-    async def reply(self, *content, **kwargs):
+    async def reply(self, *content, **kwargs) -> AnnouncementReply:
         """|coro|
 
         Reply to this announcement.
@@ -1527,19 +1529,19 @@ class Media(HasContentMixin):
             self.youtube_embed_url = data['additionalInfo']['externalVideoSrc']
             self.youtube_video_id = re.sub(r'^https?:\/\/(www\.)youtube\.com\/embed\/', '', self.youtube_embed_url)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<Media id={self.id!r} title={self.title!r} author={self.author!r}>'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.url
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(str(self))
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return isinstance(other, Media) and self.id == other.id and self.url == other.url
 
-    def _update(self, data):
+    def _update(self, data) -> None:
         try:
             self.title = data['title']
         except KeyError:
@@ -1566,11 +1568,11 @@ class Media(HasContentMixin):
             pass
 
     @property
-    def author(self):
+    def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The member that created this media."""
         return self.team.get_member(self.author_id)
 
-    async def add_reaction(self, emoji):
+    async def add_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
         Add a reaction to this media post.
@@ -1582,7 +1584,7 @@ class Media(HasContentMixin):
         """
         await self._state.add_content_reaction(self.channel.content_type, self.id, emoji.id)
 
-    async def remove_self_reaction(self, emoji):
+    async def remove_self_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
         Remove your reaction from this media post.
@@ -1594,7 +1596,7 @@ class Media(HasContentMixin):
         """
         await self._state.remove_self_content_reaction(self.channel.content_type, self.id, emoji.id)
 
-    async def reply(self, *content, **kwargs):
+    async def reply(self, *content, **kwargs) -> MediaReply:
         """|coro|
 
         Reply to this media.
@@ -1619,7 +1621,7 @@ class Media(HasContentMixin):
         """Optional[:class:`.MediaReply`]: Get a reply by its ID."""
         return self._replies.get(id)
 
-    async def fetch_replies(self):
+    async def fetch_replies(self) -> List[MediaReply]:
         """|coro|
 
         |onlyuserbot|
@@ -1638,7 +1640,7 @@ class Media(HasContentMixin):
 
         return replies
 
-    async def fetch_reply(self, id: int):
+    async def fetch_reply(self, id: int) -> MediaReply:
         """|coro|
 
         Fetch a reply to this media.
@@ -1657,7 +1659,7 @@ class Media(HasContentMixin):
         reply = MediaReply(data=data['metadata']['reply'], parent=self, state=self._state)
         return reply
 
-    async def move(self, to):
+    async def move(self, to: MediaChannel) -> None:
         """|coro|
 
         Move this media post to another :class:`.MediaChannel`.
@@ -1669,7 +1671,7 @@ class Media(HasContentMixin):
         """
         await self._state.move_media(self.channel.id, self.id, to.id)
 
-    async def delete(self):
+    async def delete(self) -> None:
         """|coro|
 
         Delete this media post.
@@ -1683,7 +1685,7 @@ class Media(HasContentMixin):
         youtube_url: Optional[str] = None,
         tags: List[str] = None,
         game: Optional[Game] = None,
-    ):
+    ) -> Media:
         """|coro|
 
         Edit this media post.
@@ -1750,7 +1752,7 @@ class Media(HasContentMixin):
         self._update(payload)
         return self
 
-    async def read(self):
+    async def read(self) -> bytes:
         """|coro|
 
         Fetches the raw data of this media as a :class:`bytes`.
@@ -1785,19 +1787,19 @@ class ListItemNote(HasContentMixin):
         self.parent = parent
         self.content = self._get_full_content(data)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<ListItemNote parent={self.parent!r} author={self.author!r}>'
 
     @property
-    def team_id(self):
+    def team_id(self) -> str:
         return self.parent.team_id
 
     @property
-    def group_id(self):
+    def group_id(self) -> str:
         return self.parent.group_id
 
     @property
-    def channel_id(self):
+    def channel_id(self) -> str:
         return self.parent.channel_id
 
     @property
@@ -1814,14 +1816,14 @@ class ListItemNote(HasContentMixin):
         """
         return self.parent.team.get_member(self.parent.note_edited_by_id)
 
-    async def delete(self):
+    async def delete(self) -> None:
         """|coro|
 
         Delete this note.
         """
         return await self.parent.edit(note=None)
 
-    async def edit(self, *content):
+    async def edit(self, *content) -> None:
         """|coro|
 
         Edit this note.
@@ -1916,7 +1918,7 @@ class ListItem(HasContentMixin):
         else:
             self.note: Optional[ListItemNote] = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<ListItem id={self.id!r} author={self.author!r} has_note={self.has_note!r}>'
 
     @property
@@ -1930,10 +1932,6 @@ class ListItem(HasContentMixin):
         if self.channel:
             return f'{self.channel.share_url}/{self.id}'
         return None
-
-    @property
-    def replies(self):
-        return list(self._replies.values())
 
     @property
     def updated_by(self) -> Optional[Member]:
@@ -1978,7 +1976,7 @@ class ListItem(HasContentMixin):
         return list(members)
 
     @property
-    def parent(self):
+    def parent(self) -> Optional[ListItem]:
         """Optional[:class:`.ListItem`]: The item that this item is a child of,
         if it exists and is cached."""
         return self.channel.get_item(self.parent_id)
@@ -1991,7 +1989,7 @@ class ListItem(HasContentMixin):
             return self._has_note
         return self.note is not None
 
-    async def fetch_parent(self):
+    async def fetch_parent(self) -> ListItem:
         """|coro|
         
         Fetch the item that this item is a child of, if it exists.
@@ -2016,14 +2014,14 @@ class ListItem(HasContentMixin):
         self.note = item.note
         return self.note
 
-    async def delete(self):
+    async def delete(self) -> None:
         """|coro|
 
         Delete this item.
         """
         await self._state.delete_list_item(self.channel.id, self.id)
 
-    async def edit(self, **kwargs):
+    async def edit(self, **kwargs) -> None:
         """|coro|
 
         Edit this item.
@@ -2031,6 +2029,7 @@ class ListItem(HasContentMixin):
         All parameters are optional.
 
         .. note::
+
             If ``position`` and ``message`` or ``note`` are specified, this
             method will make multiple API requests.
 
@@ -2078,7 +2077,7 @@ class ListItem(HasContentMixin):
             await self._state.edit_list_item_priority(self.channel.id, positions)
             self.position = position
 
-    async def create_item(self, *message, **kwargs):
+    async def create_item(self, *message, **kwargs) -> ListItem:
         """|coro|
 
         Create an item with this item as its parent.
@@ -2088,7 +2087,7 @@ class ListItem(HasContentMixin):
         kwargs['parent'] = self
         return await self.channel.create_item(*message, **kwargs)
 
-    async def move(self, to):
+    async def move(self, to: ListChannel) -> None:
         """|coro|
 
         Move this item to another channel.
@@ -2100,7 +2099,7 @@ class ListItem(HasContentMixin):
         """
         await self._state.move_list_item(self.channel.id, self.id, to.id)
 
-    async def complete(self):
+    async def complete(self) -> None:
         """|coro|
 
         Mark this list item as complete.
@@ -2109,7 +2108,7 @@ class ListItem(HasContentMixin):
         """
         await self._state.list_item_is_complete(self.channel.id, self.id, True)
 
-    async def uncomplete(self):
+    async def uncomplete(self) -> None:
         """|coro|
 
         Mark this list item as incomplete.
@@ -2128,11 +2127,11 @@ class MediaChannel(guilded.abc.TeamChannel):
         self._medias = {}
 
     @property
-    def medias(self):
+    def medias(self) -> List[Media]:
         """List[:class:`.Media`]: The list of cached medias in this channel."""
         return list(self._medias.values())
 
-    def get_media(self, id):
+    def get_media(self, id) -> Optional[Media]:
         """Optional[:class:`.Media`]: Get a cached media post in this channel."""
         return self._medias.get(id)
 
@@ -2372,7 +2371,7 @@ class ListChannel(guilded.abc.TeamChannel):
         )
         return webhook
 
-    async def webhooks(self):
+    async def webhooks(self) -> List[Webhook]:
         """|coro|
 
         Fetch the list of webhooks in this channel.
@@ -2462,7 +2461,7 @@ class Availability:
     async def edit(self, *,
         start: Optional[datetime.datetime] = None,
         end: Optional[datetime.datetime] = None,
-    ):
+    ) -> Availability:
         """|coro|
 
         |onlyuserbot|

@@ -49,10 +49,12 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import abc
 import datetime
 import re
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from .activity import Activity
 from .asset import Asset
@@ -62,6 +64,12 @@ from .enums import try_enum, UserType
 from .message import HasContentMixin, ChatMessage
 from .presence import Presence
 from .utils import ISO8601
+
+if TYPE_CHECKING:
+    from .channel import Thread
+    from .group import Group
+    from .team import Team
+    from .user import Member
 
 
 __all__ = (
@@ -89,11 +97,11 @@ class Messageable(metaclass=abc.ABCMeta):
     """
     def __init__(self, *, state, data):
         self._state = state
-        self.id = data.get('id')
-        self._channel_id = data.get('id')
+        self.id: str = data.get('id')
+        self._channel_id: str = data.get('id')
 
     @property
-    def _channel(self):
+    def _channel(self) -> Messageable:
         if isinstance(self, User):
             return self.dm_channel
         elif hasattr(self, 'channel'):
@@ -124,6 +132,7 @@ class Messageable(metaclass=abc.ABCMeta):
         \*content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`, :class:`.Member`]
             An argument list of the message content, passed in the order that
             each element should display in the message.
+            You can have at most 4,000 characters of text content.
         reply_to: List[:class:`.ChatMessage`]
             A list of up to 5 messages to reply to.
         silent: :class:`bool`
@@ -200,12 +209,12 @@ class Messageable(metaclass=abc.ABCMeta):
             )
             return message
 
-    async def trigger_typing(self):
+    async def trigger_typing(self) -> None:
         """|coro|
 
         Begin your typing indicator in this channel.
         """
-        return await self._state.trigger_typing(self._channel_id)
+        await self._state.trigger_typing(self._channel_id)
 
     async def history(self,
         *,
@@ -273,7 +282,7 @@ class Messageable(metaclass=abc.ABCMeta):
         message = await self._state.get_channel_message(self._channel_id, id)
         return message
 
-    async def create_thread(self, *content, **kwargs):
+    async def create_thread(self, *content, **kwargs) -> Thread:
         """|coro|
 
         Create a new thread in this channel.
@@ -289,6 +298,11 @@ class Messageable(metaclass=abc.ABCMeta):
         message: Optional[:class:`.ChatMessage`]
             The message to create the thread from. Passing either this or
             values for ``content`` is required.
+
+        Returns
+        --------
+        :class:`.Thread`
+            The thread that was created.
         """
         name = kwargs.get('name')
         message = kwargs.get('message')
@@ -301,14 +315,15 @@ class Messageable(metaclass=abc.ABCMeta):
         thread = self._state.create_channel(data=data.get('thread', data), group=self.group, team=self.team)
         return thread
 
-    async def pins(self):
+    async def pins(self) -> List[ChatMessage]:
         """|coro|
 
-        Fetch the pinned messages in this channel.
+        Fetch the list of pinned messages in this channel.
 
         Returns
         --------
         List[:class:`.ChatMessage`]
+            The pinned messages in this channel.
         """
         messages = []
         data = await self._state.get_pinned_messages(self._channel_id)
@@ -484,13 +499,13 @@ class User(metaclass=abc.ABCMeta):
         self.friend_status = extra.get('friend_status')
         self.friend_requested_at: Optional[datetime.datetime] = ISO8601(extra.get('friend_created_at'))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.display_name or ''
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return isinstance(other, User) and self.id == other.id
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} type={self._user_type!r}>'
 
     @property
@@ -525,7 +540,7 @@ class User(metaclass=abc.ABCMeta):
         return self.colour
 
     @property
-    def _channel_id(self):
+    def _channel_id(self) -> Optional[str]:
         return self.dm_channel.id if self.dm_channel else None
 
     @property
@@ -579,7 +594,7 @@ class User(metaclass=abc.ABCMeta):
         self._state.add_to_dm_channel_cache(channel)
         return channel
 
-    async def hide_dm(self):
+    async def hide_dm(self) -> None:
         """|coro|
 
         Visually hide your DM channel with this user in the client.
@@ -696,7 +711,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
         return f'<#{self.id}>'
 
     @property
-    def group(self):
+    def group(self) -> Group:
         """:class:`.Group`: The group that this channel is in."""
         group = self._group
         if not group and self.team:
@@ -705,17 +720,17 @@ class TeamChannel(metaclass=abc.ABCMeta):
         return group
 
     @property
-    def team(self):
+    def team(self) -> Team:
         """:class:`.Team`: The team that this channel is in."""
         return self._team or self._state._get_team(self.team_id)
 
     @property
-    def server(self):
+    def server(self) -> Team:
         """:class:`.Team`: This is an alias of :attr:`.team`."""
         return self.team
 
     @property
-    def guild(self):
+    def guild(self) -> Team:
         """|dpyattr|
 
         This is an alias of :attr:`.team`.
@@ -723,11 +738,11 @@ class TeamChannel(metaclass=abc.ABCMeta):
         return self.team
 
     @property
-    def parent(self):
+    def parent(self) -> Optional[TeamChannel]:
         return self.team.get_channel_or_thread(self.parent_id)
 
     @property
-    def created_by(self):
+    def created_by(self) -> Optional[Member]:
         return self._created_by or self.team.get_member(self.created_by_id)
 
     @property
@@ -748,13 +763,13 @@ class TeamChannel(metaclass=abc.ABCMeta):
         """
         return self.slowmode
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} team={self.team!r}>'
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         try:
             return self.id == other.id
         except:
@@ -781,7 +796,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
             }],
         }
 
-    async def edit(self, **options):
+    async def edit(self, **options) -> TeamChannel:
         """|coro|
 
         |onlyuserbot|
@@ -857,14 +872,14 @@ class TeamChannel(metaclass=abc.ABCMeta):
 
         return edited_channel
 
-    async def delete(self):
+    async def delete(self) -> None:
         """|coro|
 
         |onlyuserbot|
 
         Delete this channel.
         """
-        return await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
+        await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
 
     async def seen(self, clear_all_badges: bool = False) -> None:
         """|coro|
@@ -882,6 +897,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
 
 GuildChannel = TeamChannel  # discord.py
 ServerChannel = TeamChannel   # bot API
+
 
 class Reply(HasContentMixin, metaclass=abc.ABCMeta):
     """An ABC for replies to posts.
@@ -936,30 +952,30 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         self.replied_to_id: Optional[int] = None
         self.replied_to_author_id: Optional[str] = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<{self.__class__.__name__} id={self.id!r} author={self.author!r} parent={self.parent!r}>'
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return isinstance(other, Reply) and other.id == self.id and other.parent == self.parent
 
     @property
-    def _content_type(self):
+    def _content_type(self) -> str:
         return getattr(self.channel, 'content_type', self.channel.type.value)
 
     @property
-    def author(self) -> Optional[User]:
+    def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
         reply, if they are cached."""
         return self.team.get_member(self.author_id)
 
     @property
-    def edited_by(self) -> Optional[User]:
+    def edited_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that last modified
         the reply, if they exist and are cached."""
         return self.team.get_member(self.edited_by_id)
 
     @property
-    def replied_to(self):
+    def replied_to(self) -> Optional[Member]:
         if self.replied_to_id:
             return self.parent.get_reply(self.replied_to_id)
         return None
@@ -970,12 +986,12 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         return self.parent.channel
 
     @property
-    def group(self):
+    def group(self) -> Group:
         """:class:`~.Group`: The group that the reply is in."""
         return self.parent.group
 
     @property
-    def team(self):
+    def team(self) -> Team:
         """:class:`.Team`: The team that the reply is in."""
         return self.parent.team
 
@@ -997,7 +1013,7 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
 
         return self
 
-    def _update(self, data):
+    def _update(self, data) -> None:
         try:
             self.content = self._get_full_content(data['message'])
         except KeyError:
@@ -1013,7 +1029,7 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         except KeyError:
             pass
 
-    async def add_reaction(self, emoji):
+    async def add_reaction(self, emoji) -> None:
         """|coro|
 
         Add a reaction to this reply.
@@ -1025,7 +1041,7 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         """
         await self._state.add_content_reaction(self._content_type, self.id, emoji.id, reply=True)
 
-    async def remove_self_reaction(self, emoji):
+    async def remove_self_reaction(self, emoji) -> None:
         """|coro|
 
         Remove your reaction from this reply.
@@ -1037,14 +1053,14 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         """
         await self._state.remove_self_content_reaction(self._content_type, self.id, emoji.id, reply=True)
 
-    async def delete(self):
+    async def delete(self) -> None:
         """|coro|
 
         Delete this reply.
         """
         await self._state.delete_content_reply(self._content_type, self.team.id, self.parent.id, self.id)
 
-    async def reply(self, *content, **kwargs):
+    async def reply(self, *content, **kwargs) -> Reply:
         """|coro|
 
         Reply to this reply.
@@ -1054,7 +1070,7 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         kwargs['reply_to'] = self
         return await self.parent.reply(*content, **kwargs)
 
-    async def edit(self, *content):
+    async def edit(self, *content) -> None:
         """|coro|
 
         Edit this reply.
