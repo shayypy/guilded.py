@@ -1135,6 +1135,10 @@ class WebSocketEventParsers:
         })
         server._members[member.id] = member
 
+        if member == self._state.user:
+            self.client.dispatch('team_join', server)
+            self.client.dispatch('guild_join', server)  # discord.py
+
         self.client.dispatch('member_join', member)
 
     async def TeamMemberRemoved(self, data):
