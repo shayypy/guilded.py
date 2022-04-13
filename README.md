@@ -9,7 +9,7 @@ In the works. Fortunately, if you've used discord.py before, you'll already have
 ```py
 import guilded
 
-client = guilded.Client(user_id='bot_user_id')
+client = guilded.Client()
 # If you're using a userbot, you would use UserbotClient() instead.
 
 @client.event
@@ -33,7 +33,7 @@ client.run('token')
 import guilded
 from guilded.ext import commands
 
-bot = commands.Bot(user_id='bot_user_id', command_prefix='!')
+bot = commands.Bot(command_prefix='!')
 # If you're using a userbot, you would use UserbotBot() instead.
 
 @bot.command()
