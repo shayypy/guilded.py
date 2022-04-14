@@ -58,7 +58,7 @@ import sys
 import traceback
 from typing import TYPE_CHECKING, Any, Callable, Optional, Type
 
-from .errors import ClientException, NotFound
+from .errors import ClientException, HTTPException, NotFound
 from .enums import *
 from .embed import Embed
 from .emoji import Emoji
@@ -1228,9 +1228,24 @@ class Client(ClientBase):
 
         # Cache our internal server
         if self.internal_server_id:
-            team = await self.fetch_team(self.internal_server_id, only_info=True)
-            await team.fill_members()
+            try:
+                team = await self.fetch_team(self.internal_server_id, only_info=True)
+            except HTTPException as exc:
+                # The team is probably private or does not exist
+                log.warn(
+                    'Internal server (ID: %s) could not be fetched (%s: %s). Constructing a partial server instance instead.',
+                    self.internal_server_id,
+                    exc.status,
+                    exc.message,
+                )
+                team = Team(
+                    state=self.http,
+                    data={
+                        'id': self.internal_server_id,
+                    }
+                )
 
+            await team.fill_members()
             self.http.add_to_team_cache(team)
 
         await self.connect(token, reconnect=reconnect)

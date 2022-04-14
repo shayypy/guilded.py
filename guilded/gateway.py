@@ -65,7 +65,7 @@ from guilded.abc import TeamChannel
 from .errors import GuildedException, HTTPException
 from .channel import *
 from .enums import ChannelType
-from .message import Message
+from .message import ChatMessage
 from .presence import Presence
 from .role import Role
 from .user import ClientUser, Member
@@ -344,7 +344,7 @@ class UserbotWebSocketEventParsers:
         data['webhookId'] = before.webhook_id
         data['createdAt'] = before.created_at.isoformat(timespec='milliseconds') + 'Z'
 
-        after = Message(state=self._state, channel=before.channel, author=before.author, data=data)
+        after = ChatMessage(state=self._state, channel=before.channel, author=before.author, data=data)
         self._state.add_to_message_cache(after)
         self.client.dispatch('message_edit', before, after)
 
@@ -1008,9 +1008,27 @@ class GuildedWebSocket(GuildedWebSocketBase):
             try:
                 should_fill = self.client.get_team(d['serverId']) is None
                 d['server'] = await self.client.getch_team(d['serverId'], only_info=True)
+            except HTTPException as exc:
+                # The team is probably private or does not exist
+                log.warn(
+                    'Received unfetchable server ID %s (%s: %s). Constructing a partial server instance instead.',
+                    d['serverId'],
+                    exc.status,
+                    exc.message,
+                )
+
+                from .team import Team
+
+                d['server'] = Team(
+                    state=self.client.http,
+                    data={
+                        'id': d['serverId'],
+                    }
+                )
             except:
                 d['server'] = None
-            else:
+
+            if d['server']:
                 if should_fill:
                     await d['server'].fill_members()
                 self.client.http.add_to_team_cache(d['server'])
