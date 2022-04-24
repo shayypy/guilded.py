@@ -145,6 +145,7 @@ class Messageable(metaclass=abc.ABCMeta):
             to ``False``. You should not include sensitive data in these
             because private replies can still be visible to server moderators.
         """
+
         if self._state.userbot:
             content = await self._state.process_list_content(
                 content,
@@ -196,6 +197,8 @@ class Messageable(metaclass=abc.ABCMeta):
                 payload['content'] = str(content)
             if 'private' in kwargs:
                 payload['isPrivate'] = kwargs['private']
+            if 'silent' in kwargs:
+                payload['isSilent'] = kwargs['silent']
             if 'reply_to' in kwargs:
                 payload['replyMessageIds'] = [message.id for message in kwargs['reply_to']]
 

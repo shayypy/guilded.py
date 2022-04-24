@@ -484,6 +484,7 @@ class ChatMessage(HasContentMixin):
             self._replied_to = []
             self.replied_to_ids: List[str] = message.get('replyMessageIds') or []
             self.private: bool = message.get('isPrivate') or False
+            self.silent: bool = message.get('isSilent') or False
 
     def __eq__(self, other) -> bool:
         return isinstance(other, ChatMessage) and self.id == other.id
