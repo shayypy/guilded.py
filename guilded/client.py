@@ -236,6 +236,7 @@ class ClientBase:
         setup in the :func:`~.on_ready` event.
 
         .. warning::
+
             Since this is called *before* the websocket connection is made therefore
             anything that waits for the websocket will deadlock, this includes things
             like :meth:`.wait_for` and :meth:`.wait_until_ready`.
@@ -1269,7 +1270,7 @@ class Client(ClientBase):
             self.http.ws = self.ws
             self.dispatch('connect')
 
-            async def listen_socks(ws):
+            async def listen_socks(ws: GuildedWebSocket):
                 next_backoff_time = 5
                 while True and ws is not None:
                     try:
@@ -1283,6 +1284,9 @@ class Client(ClientBase):
                             log.warning('Websocket closed with code %s. Last message ID was %s', code, ws._last_message_id)
                             await self.close()
                             break
+
+                        if exc.data and exc.data.get('op') == GuildedWebSocket.ERROR:
+                            ws._last_message_id = None
 
                         if ws._last_message_id:
                             log.warning('Websocket closed with code %s, attempting to reconnect in %s seconds with last message ID %s', code, next_backoff_time, ws._last_message_id)

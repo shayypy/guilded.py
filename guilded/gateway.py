@@ -58,7 +58,7 @@ import logging
 import sys
 import threading
 import traceback
-from typing import Union
+from typing import Dict, Optional, Union
 
 from guilded.abc import TeamChannel
 
@@ -77,7 +77,14 @@ log = logging.getLogger(__name__)
 
 class WebSocketClosure(Exception):
     """An exception to make up for the fact that aiohttp doesn't signal closure."""
-    pass
+    def __init__(self, message: str, data: Optional[str]):
+        self.data: Optional[Dict]
+        try:
+            self.data = json.loads(data)
+        except:
+            self.data = None
+
+        super().__init__(message)
 
 
 class GuildedWebSocketBase:
@@ -87,8 +94,8 @@ class GuildedWebSocketBase:
         self._heartbeater = None
 
         # socket
-        self.socket = socket
-        self._close_code = None
+        self.socket: aiohttp.ClientWebSocketResponse = socket
+        self._close_code: Optional[int] = None
 
     @property
     def latency(self):
@@ -101,7 +108,7 @@ class GuildedWebSocketBase:
         elif msg.type is aiohttp.WSMsgType.ERROR:
             raise msg.data
         elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSE):
-            raise WebSocketClosure('Socket is in a closed or closing state.')
+            raise WebSocketClosure('Socket is in a closed or closing state.', msg.data)
         return None
 
 
@@ -886,14 +893,6 @@ class UserbotWebSocketEventParsers:
             self.client.dispatch('team_join', team)
             self.client.dispatch('guild_join', team)  # discord.py
 
-    #async def ChatMessageReactionAdded(self, data):
-    #    self.client.dispatch('raw_reaction_add', data)
-
-    #    message = self._state._get_message(data['message']['id'])
-    #    if message:
-    #        emoji = Emoji(data=data['reaction']['customReaction'])
-    #        self.client.dispatch('reaction_add', emoji, message)
-
     async def TeamWebhookCreated(self, data):
         webhook = Webhook.from_state(data['webhook'], self._state)
         self.client.dispatch('webhook_create', webhook)
@@ -941,7 +940,7 @@ class GuildedWebSocket(GuildedWebSocketBase):
         self.userbot = False
 
         # ws
-        self._last_message_id = None
+        self._last_message_id: Optional[str] = None
 
     async def send(self, payload, *, raw=False):
         payload = json.dumps(payload)
@@ -985,10 +984,10 @@ class GuildedWebSocket(GuildedWebSocketBase):
         self.client.dispatch('socket_response', data)
         log.debug('Received %s', data)
 
-        op = data['op']
-        t = data.get('t')
-        d = data.get('d')
-        message_id = data.get('s')
+        op: int = data['op']
+        t: str = data.get('t')
+        d: Optional[Dict] = data.get('d')
+        message_id: Optional[str] = data.get('s')
         if message_id:
             self._last_message_id = message_id
 
@@ -1047,9 +1046,6 @@ class GuildedWebSocket(GuildedWebSocketBase):
                 exc = GuildedException(e)
                 self.client.dispatch('error', exc)
                 raise exc from e
-
-        if op == self.ERROR:
-            self._last_message_id = None
 
 
 class WebSocketEventParsers:
