@@ -535,13 +535,13 @@ class User(metaclass=abc.ABCMeta):
         self.default_avatar: Asset = Asset._from_default_user_avatar(self._state, 1)
 
         avatar = None
-        _avatar_url = data.get('profilePicture') or data.get('profilePictureLg') or data.get('profilePictureSm') or data.get('profilePictureBlur')
+        _avatar_url = data.get('avatar') or data.get('profilePicture') or data.get('profilePictureLg') or data.get('profilePictureSm') or data.get('profilePictureBlur')
         if _avatar_url:
             avatar = Asset._from_user_avatar(self._state, _avatar_url)
         self.avatar: Optional[Asset] = avatar
 
         banner = None
-        _banner_url = data.get('profileBannerLg') or data.get('profileBannerSm') or data.get('profileBannerBlur')
+        _banner_url = data.get('banner') or data.get('profileBannerLg') or data.get('profileBannerSm') or data.get('profileBannerBlur')
         if _banner_url:
             banner = Asset._from_user_banner(self._state, _banner_url)
         self.banner: Optional[Asset] = banner

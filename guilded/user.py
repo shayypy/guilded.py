@@ -127,8 +127,17 @@ class User(guilded.abc.User, guilded.abc.Messageable):
 
         if 'profilePicture' in data and data['profilePicture'] is not None:
             self.avatar: Optional[Asset] = Asset._from_user_avatar(self._state, data.pop('profilePicture'))
-        elif 'profilePicture' in data:
+        elif 'avatar' in data and data['avatar'] is not None:
+            self.avatar: Optional[Asset] = Asset._from_user_avatar(self._state, data.pop('avatar'))
+        elif 'profilePicture' in data or 'avatar' in data:
             self.avatar: Optional[Asset] = None
+
+        if 'profileBannerBlur' in data and data['profileBannerBlur'] is not None:
+            self.banner: Optional[Asset] = Asset._from_user_banner(self._state, data.pop('profileBannerBlur'))
+        elif 'banner' in data and data['banner'] is not None:
+            self.banner: Optional[Asset] = Asset._from_user_banner(self._state, data.pop('banner'))
+        elif 'profilePicture' in data or 'banner' in data:
+            self.banner: Optional[Asset] = None
 
     async def block(self):
         """|coro|
