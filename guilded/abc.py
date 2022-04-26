@@ -54,7 +54,7 @@ from __future__ import annotations
 import abc
 import datetime
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union, overload
 
 from .activity import Activity
 from .asset import Asset
@@ -63,10 +63,13 @@ from .errors import GuildedException
 from .enums import try_enum, UserType
 from .message import HasContentMixin, ChatMessage
 from .presence import Presence
-from .utils import ISO8601
+from .utils import ISO8601, MISSING
 
 if TYPE_CHECKING:
     from .channel import Thread
+    from .embed import Embed
+    from .emoji import Emoji
+    from .file import File
     from .group import Group
     from .team import Team
     from .user import Member
@@ -109,16 +112,32 @@ class Messageable(metaclass=abc.ABCMeta):
         else:
             return self
 
-    async def send(self, *content, **kwargs) -> ChatMessage:
+    async def send(
+        self,
+        *pos_content: Optional[Union[str, Embed, File, Emoji, Member]],
+        content: Optional[str] = MISSING,
+        file: Optional[File] = MISSING,
+        files: Optional[Sequence[File]] = MISSING,
+        embed: Optional[Embed] = MISSING,
+        embeds: Optional[Sequence[Embed]] = MISSING,
+        reference: Optional[ChatMessage] = MISSING,
+        reply_to: Optional[Sequence[ChatMessage]] = MISSING,
+        mention_author: Optional[bool] = None,
+        silent: Optional[bool] = None,
+        private: bool = False,
+        share: Optional[ChatMessage] = MISSING,
+        delete_after: Optional[float] = None,
+    ) -> ChatMessage:
         """|coro|
 
         Send a message to a Guilded channel.
 
         .. note::
 
-            Guilded supports embeds/attachments/strings in any order, which is
-            not practically possible with keyword arguments. For this reason,
-            it is recommended that you pass arguments positionally instead.
+            For user accounts, Guilded supports content elements in any order,
+            which is not practically possible with keyword arguments.
+            For this reason, it is recommended that you pass arguments positionally in these environments.
+            However, if the client is a bot account, you **must** use keyword arguments for non-text content.
 
         .. warning::
 
@@ -129,10 +148,24 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        \*content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`, :class:`.Member`]
+        \*pos_content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`, :class:`.Member`]
             An argument list of the message content, passed in the order that
             each element should display in the message.
             You can have at most 4,000 characters of text content.
+            If the client is a bot account, only the first value is used as content.
+            This parameter cannot be combined with ``content``.
+        content: :class:`str`
+            The text content to send with the message.
+            This parameter exists so that text content can be passed using a keyword argument.
+            This parameter cannot be combined with ``pos_content``.
+        embed: :class:`.Embed`
+            An embed to send with the message.
+            This parameter cannot be meaningfully combined with ``embeds``.
+        embeds: List[:class:`.Embed`]
+            A list of embeds to send with the message.
+            If the client is a bot account, this can contain at most 1 value.
+            Otherwise, this has no hard limit.
+            This parameter cannot be meaningfully combined with ``embed``.
         reply_to: List[:class:`.ChatMessage`]
             A list of up to 5 messages to reply to.
         silent: :class:`bool`
@@ -144,37 +177,49 @@ class Messageable(metaclass=abc.ABCMeta):
             bot) and the authors of the messages it is replying to. Defaults
             to ``False``. You should not include sensitive data in these
             because private replies can still be visible to server moderators.
+        delete_after: :class:`float`
+            If provided, the number of seconds to wait in the background before deleting the sent message.
+            If the deletion fails, then it is silently ignored.
         """
 
+        if content is not MISSING and pos_content:
+            raise ValueError('Cannot provide both content and pos_content')
+
         if self._state.userbot:
+            if content is not MISSING:
+                pos_content = (content,)
+
             content = await self._state.process_list_content(
-                content,
-                embed=kwargs.get('embed'),
-                embeds=kwargs.get('embeds'),
-                file=kwargs.get('file'),
-                files=kwargs.get('files'),
+                pos_content,
+                embed=embed,
+                embeds=embeds,
+                file=file,
+                files=files,
             )
 
             payload = {
                 'content': self._state.compatible_content(content),
-                'isSilent': kwargs.get('silent', not kwargs.get('mention_author', True)),
-                'isPrivate': kwargs.get('private', False),
+                'isSilent': silent if silent is not None else not mention_author if mention_author is not None else False,
+                'isPrivate': private if private is not None else False,
             }
 
-            if kwargs.get('reference') and kwargs.get('reply_to'):
+            if reference is not MISSING and reply_to is not MISSING:
                 raise ValueError('Cannot provide both reference and reply_to')
 
-            if kwargs.get('reference'):
-                kwargs['reply_to'] = [kwargs['reference']]
+            if reference is not MISSING:
+                reply_to = [reference]
 
-            if kwargs.get('reply_to'):
-                if not isinstance(kwargs['reply_to'], list):
-                    raise TypeError('reply_to must be type list, not %s' % type(kwargs['reply_to']).__name__)
+            if reply_to is not MISSING:
+                if not isinstance(reply_to, list):
+                    raise TypeError('reply_to must be type list, not %s' % reply_to.__class__.__name__)
 
-                payload['repliesToIds'] = [message.id for message in kwargs['reply_to']]
+                payload['repliesToIds'] = [message.id for message in reply_to]
 
-            share_urls = [message.share_url for message in kwargs.get('share', []) if message.share_url is not None]
-            if share_urls:
+            if share is not MISSING:
+                if not isinstance(share, list):
+                    raise TypeError('share must be type list, not %s' % share.__class__.__name__)
+
+                share_urls = [message.share_url for message in share if message.share_url is not None]
                 payload['content']['document']['data']['shareUrls'] = share_urls
 
             message_data = await self._state.send_message(
@@ -184,33 +229,41 @@ class Messageable(metaclass=abc.ABCMeta):
             message_data = message_data.get('message', message_data)
             message_data['channelId'] = self._channel_id
             message_data['teamId'] = self.team.id if self.team else None
-            return self._state.create_message(channel=self._channel, data=message_data)
+            message = self._state.create_message(data=message_data, channel=self._channel)
 
         else:
-            content = content[0] if content else None
+            from .http import handle_message_parameters
 
-            if kwargs.get('reference'):
-                kwargs['reply_to'] = [kwargs['reference']]
+            if pos_content:
+                content = pos_content[0]
 
-            payload = {}
-            if content is not None:
-                payload['content'] = str(content)
-            if 'private' in kwargs:
-                payload['isPrivate'] = kwargs['private']
-            if 'silent' in kwargs:
-                payload['isSilent'] = kwargs['silent']
-            if 'reply_to' in kwargs:
-                payload['replyMessageIds'] = [message.id for message in kwargs['reply_to']]
+            if reference is not MISSING:
+                reply_to = [reference]
+
+            params = handle_message_parameters(
+                content=content,
+                file=file,
+                files=files,
+                embed=embed,
+                embeds=embeds,
+                reply_to=[message.id for message in reply_to] if reply_to is not MISSING else MISSING,
+                private=private,
+                silent=silent if silent is not None else not mention_author if mention_author is not None else None,
+            )
 
             data = await self._state.create_channel_message(
                 self._channel_id,
-                payload=payload,
+                payload=params.payload,
             )
             message = self._state.create_message(
                 data=data['message'],
                 channel=self._channel,
             )
-            return message
+
+        if delete_after is not None:
+            await message.delete(delay=delete_after)
+
+        return message
 
     async def trigger_typing(self) -> None:
         """|coro|

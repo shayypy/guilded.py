@@ -49,6 +49,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+import asyncio
 import datetime
 from enum import Enum
 import logging
@@ -56,6 +57,7 @@ from typing import Any, Dict, Optional, List
 
 from .embed import Embed
 from .enums import try_enum, FormType, MessageType, MentionType, MessageFormInputType, MediaType
+from .errors import HTTPException
 from .file import Attachment
 from .utils import ISO8601, parse_hex_number
 
@@ -473,6 +475,7 @@ class ChatMessage(HasContentMixin):
             self.type: MessageType = try_enum(MessageType, message['type'])
             self.channel_id: str = message['channelId']
             self.content: str = message['content']
+            self.embeds: List[Embed] = [Embed.from_dict(embed) for embed in (message.get('embeds') or [])]
 
             self.author_id: str = message.get('createdBy')
             self.webhook_id: Optional[str] = message.get('createdByWebhookId')
@@ -558,16 +561,48 @@ class ChatMessage(HasContentMixin):
     def replied_to(self):
         return self._replied_to or [self._state._get_message(message_id) for message_id in self.replied_to_ids]
 
-    async def delete(self):
+    async def delete(self, *, delay: Optional[float] = None) -> None:
         """|coro|
 
         Delete this message.
+
+        Parameters
+        -----------
+        delay: Optional[:class:`float`]
+            If provided, the number of seconds to wait in the background before
+            deleting this message. If the deletion fails, then it is silently ignored.
+
+        Raises
+        -------
+        Forbidden
+            You do not have proper permissions to delete this message.
+        NotFound
+            This message has already been deleted.
+        HTTPException
+            Deleting this message failed.
         """
+
         if self._state.userbot:
-            await self._state.delete_message(self.channel_id, self.id)
+            coro = self._state.delete_message(self.channel_id, self.id)
         else:
-            await self._state.delete_channel_message(self.channel_id, self.id)
-        self.deleted_at = datetime.datetime.utcnow()
+            coro = self._state.delete_channel_message(self.channel_id, self.id)
+
+        if delay is not None:
+
+            async def delete(delay: float):
+                await asyncio.sleep(delay)
+                try:
+                    await coro
+                except HTTPException:
+                    pass
+                else:
+                    self.deleted_at = datetime.datetime.utcnow()
+
+            asyncio.create_task(delete(delay))
+
+        else:
+            await coro
+            self.deleted_at = datetime.datetime.utcnow()
 
     async def edit(self, *, content: str = None, embed = None, embeds: Optional[list] = None, file = None, files: Optional[list] = None):
         """|coro|

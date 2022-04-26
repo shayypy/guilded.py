@@ -60,8 +60,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Sequenc
 
 from . import utils
 from . import channel
-from .abc import User as abc_User
-from .abc import TeamChannel
+from .abc import User as abc_User, TeamChannel
 from .embed import _EmptyEmbed, Embed
 from .emoji import Emoji
 from .enums import try_enum, ChannelType, MediaType
