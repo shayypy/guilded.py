@@ -492,7 +492,7 @@ class ClientBase:
 
         return None
 
-    async def fetch_team(self, id: str, *, only_info: bool = False):
+    async def fetch_team(self, id: str):
         """|coro|
 
         Fetch a team from the API.
@@ -501,22 +501,16 @@ class ClientBase:
         -----------
         id: :class:`str`
             The ID of the team.
-        only_info: :class:`bool`
-            If ``True``, uses an endpoint that does not return data about the team's members and bots.
-            Currently defaults to ``False``.
 
         Returns
         --------
         :class:`.Team`
             The team from the ID.
         """
-        if only_info:
-            team = await self.http.get_team_info(id)
-        else:
-            team = await self.http.get_team(id)
-        return Team(state=self.http, data=team)
+        data = await self.http.get_team_info(id)
+        return Team(state=self.http, data=data)
 
-    async def getch_team(self, id: str, *, only_info: bool = True):
+    async def getch_team(self, id: str):
         """|coro|
 
         Try to get a team from internal cache, and if not found, try to fetch from the API.
@@ -525,16 +519,13 @@ class ClientBase:
         -----------
         id: :class:`str`
             The ID of the team.
-        only_info: :class:`bool`
-            If ``True``, uses an endpoint that does not return data about the team's members and bots.
-            Currently defaults to ``False``.
 
         Returns
         --------
         :class:`.Team`
             The team from the ID.
         """
-        return self.get_team(id) or await self.fetch_team(id, only_info=only_info)
+        return self.get_team(id) or await self.fetch_team(id)
 
     async def on_error(self, event_method, *args, **kwargs):
         print(f'Ignoring exception in {event_method}:', file=sys.stderr)
@@ -626,13 +617,7 @@ class UserbotClient(ClientBase):
             team = Team(state=self.http, data=team_data)
 
             if self.cache_on_startup['members'] is True:
-                # We have to re-fetch the team here because member data is not
-                # included in the team objects returned in GET /me
-                team = await self.fetch_team(team.id)
-
-                # Because of the extra data this endpoint returns, we also
-                # want to add this team to our cache, which Team.fetch_members
-                # does not do
+                await team.fill_members()
 
             if self.cache_on_startup['channels'] is True:
                 channels = await team.fetch_channels()
@@ -882,8 +867,8 @@ class UserbotClient(ClientBase):
             The team you joined from the ID
         """
         await self.http.join_team(id)
-        team = await self.http.get_team(id)
-        return
+        team = await self.fetch_team(id)
+        return team
 
     async def fetch_user(self, id: str):
         """|coro|
@@ -1230,7 +1215,7 @@ class Client(ClientBase):
         # Cache our internal server
         if self.internal_server_id:
             try:
-                team = await self.fetch_team(self.internal_server_id, only_info=True)
+                team = await self.fetch_team(self.internal_server_id)
             except HTTPException as exc:
                 # The team is probably private or does not exist
                 log.warn(

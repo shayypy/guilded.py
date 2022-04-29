@@ -1006,7 +1006,7 @@ class GuildedWebSocket(GuildedWebSocketBase):
             d['serverId'] = d.get('serverId')
             try:
                 should_fill = self.client.get_team(d['serverId']) is None
-                d['server'] = await self.client.getch_team(d['serverId'], only_info=True)
+                d['server'] = await self.client.getch_team(d['serverId'])
             except HTTPException as exc:
                 # The team is probably private or does not exist
                 log.warn(

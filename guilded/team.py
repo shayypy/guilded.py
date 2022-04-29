@@ -742,13 +742,12 @@ class Team:
             The members in the team.
         """
         if self._state.userbot:
-            data = await self._state.get_team(self.id)
-            data = data['team']['members']
+            data = await self._state.get_team_members(self.id)
 
         else:
             data = await self._state.get_members(self.id)
-            data = data['members']
 
+        data = data['members']
         member_list = []
         for member in data:
             try:
@@ -823,13 +822,12 @@ class Team:
         """
 
         if self._state.userbot:
-            data = await self._state.get_team(self.id)
-            data = data['team']['members']
+            data = await self._state.get_team_members(self.id)
 
         else:
             data = await self._state.get_members(self.id)
-            data = data['members']
 
+        data = data['members']
         self._members.clear()
         for member_data in data:
             try:
