@@ -811,6 +811,36 @@ class ForumTopic(HasContentMixin):
         """
         await self.unsticky()
 
+    async def add_reaction(self, emoji: Emoji) -> None:
+        """|coro|
+
+        Add a reaction to this topic.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to add.
+        """
+        if self._state.userbot:
+            await self._state.add_content_reaction('post', self.id, emoji.id)
+        else:
+            emoji_id: int = getattr(emoji, 'id', emoji)
+            await self._state.add_reaction_emote(self.channel.id, self.id, emoji_id)
+
+    async def remove_self_reaction(self, emoji: Emoji) -> None:
+        """|coro|
+
+        |onlyuserbot|
+
+        Remove your reaction from this topic.
+
+        Parameters
+        -----------
+        emoji: :class:`.Emoji`
+            The emoji to remove.
+        """
+        await self._state.remove_self_content_reaction('post', self.id, emoji.id)
+
 
 class ForumChannel(guilded.abc.TeamChannel):
     """Represents a forum channel in a team."""
@@ -1284,7 +1314,7 @@ class Announcement(HasContentMixin):
         List[:class:`.AnnouncementReply`]
         """
         replies = []
-        data = await self._state.get_content_replies('announcement', self.id)
+        data = await self._state.get_content_replies(self.channel.type.value, self.id)
         for reply_data in data:
             reply = AnnouncementReply(data=reply_data, parent=self, state=self._state)
             replies.append(reply)

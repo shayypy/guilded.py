@@ -20,6 +20,7 @@ from .group import *
 from .message import *
 from .permissions import *
 from .presence import *
+from .reaction import *
 from .status import *
 from .team import *
 from .user import *

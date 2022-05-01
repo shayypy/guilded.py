@@ -179,7 +179,7 @@ class Emoji(AssetMixin):
         self._team = extra.get('team')
 
         self.id: int = data.get('id')
-        self.name: str = data.get('name')
+        self.name: str = data.get('name') or ''
         self.team_id: Optional[str] = data.get('teamId')
         self.author_id: Optional[str] = data.get('createdBy')
         self.aliases: List[str] = data.get('aliases', [])

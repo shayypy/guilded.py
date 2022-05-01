@@ -64,9 +64,10 @@ from guilded.abc import TeamChannel
 
 from .errors import GuildedException, HTTPException
 from .channel import *
-from .enums import ChannelType
+from .enums import ChannelType, try_enum
 from .message import ChatMessage
 from .presence import Presence
+from .reaction import ContentReaction, RawReactionActionEvent
 from .role import Role
 from .user import ClientUser, Member
 from .utils import find, ISO8601
@@ -892,6 +893,112 @@ class UserbotWebSocketEventParsers:
 
             self.client.dispatch('team_join', team)
             self.client.dispatch('guild_join', team)  # discord.py
+
+    # https://www.guilded.gg/guilded-api/groups/WD56qLmd/channels/557a1ccf-b418-4f31-b756-6003afc3a5db/chat?messageId=4c12a97e-786b-40a4-99e3-236951e64a86
+    async def ChatMessageReactionAdded(self, data):
+        data['type'] = 'ChatMessageReactionAdded'
+        raw = RawReactionActionEvent(state=self._state, data=data)
+        self.client.dispatch('raw_message_reaction_add', raw)
+
+        message = self._state._get_message(data['message']['id'])
+        if message:
+            reaction = ContentReaction(parent=message, data=data['reaction'])
+            if message.team:
+                user = await message.team.getch_member(raw.user_id)
+            else:
+                user = await self.client.getch_user(raw.user_id)
+            self.client.dispatch('message_reaction_add', reaction, user)
+
+    async def ChatMessageReactionDeleted(self, data):
+        data['type'] = 'ChatMessageReactionDeleted'
+        raw = RawReactionActionEvent(state=self._state, data=data)
+        self.client.dispatch('raw_message_reaction_remove', raw)
+
+        message = self._state._get_message(data['message']['id'])
+        if message:
+            reaction = ContentReaction(parent=message, data=data['reaction'])
+            if message.team:
+                user = await message.team.getch_member(raw.user_id)
+            else:
+                user = await self.client.getch_user(raw.user_id)
+            self.client.dispatch('message_reaction_remove', reaction, user)
+
+    def _find_content(
+        self,
+        content_id: Union[str, int],
+        content_type: ChannelType,
+        team_id: str
+    ) -> Optional[Union[
+        Announcement,
+        Doc,
+        ForumTopic,
+        Media,
+    ]]:
+        # Content reaction events do not provide their channel ID so we try to find it here.
+        # The more reliable (likely intended) solution is to store content "top-level" instead of
+        # depending on channel cache.
+        team = self.client.get_team(team_id)
+        if not team:
+            return
+
+        # A smarter way to do this is to have channels use a `._content` instead of using somewhat arbitrary content-type-specific naming
+        store_name = f'_{content_type.value}s'
+        if content_type is ChannelType.forum:
+            store_name = '_topics'
+
+        for channel in team.channels:
+            if channel.type is content_type:
+                store = getattr(channel, store_name, None)
+                if store is None:
+                    return
+                # In the API, there is no distinction between reactions on
+                # replies and reactions on their parents aside from the content ID.
+
+                # This introduces a bug of sorts in that reaction events
+                # will never be dispatched for replies since we need to
+                # know their parent first.
+
+                # We could do yet more iteration to "find" a matching reply
+                # but I decided against this for now.
+
+                if content_id in store:
+                    return store[content_id]
+
+    async def teamContentReactionsAdded(self, data):
+        data['type'] = 'teamContentReactionsAdded'
+        content_type = try_enum(ChannelType, data['contentType'])
+        content = self._find_content(data['contentId'], content_type, data.get('teamId'))
+        if content:
+            data['channelId'] = content.channel.id
+
+        raw = RawReactionActionEvent(state=self._state, data=data)
+        self.client.dispatch(f'raw_{content_type.value}_reaction_add', raw)
+
+        if content:
+            reaction = ContentReaction(parent=content, data=data)
+            if content.team:
+                user = await content.team.getch_member(raw.user_id)
+            else:
+                user = await self.client.getch_user(raw.user_id)
+            self.client.dispatch(f'{content_type.value}_reaction_add', reaction, user)
+
+    async def teamContentReactionsRemoved(self, data):
+        data['type'] = 'teamContentReactionsRemoved'
+        content_type = try_enum(ChannelType, data['contentType'])
+        content = self._find_content(data['contentId'], content_type, data.get('teamId'))
+        if content:
+            data['channelId'] = content.channel.id
+
+        raw = RawReactionActionEvent(state=self._state, data=data)
+        self.client.dispatch(f'raw_{content_type.value}_reaction_remove', raw)
+
+        if content:
+            reaction = ContentReaction(parent=content, data=data)
+            if content.team:
+                user = await content.team.getch_member(raw.user_id)
+            else:
+                user = await self.client.getch_user(raw.user_id)
+            self.client.dispatch(f'{content_type.value}_reaction_remove', reaction, user)
 
     async def TeamWebhookCreated(self, data):
         webhook = Webhook.from_state(data['webhook'], self._state)

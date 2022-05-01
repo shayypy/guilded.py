@@ -49,17 +49,22 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import asyncio
 import datetime
 from enum import Enum
 import logging
-from typing import Any, Dict, Optional, List
+from typing import TYPE_CHECKING, Any, Dict, Optional, List
 
 from .embed import Embed
 from .enums import try_enum, FormType, MessageType, MentionType, MessageFormInputType, MediaType
 from .errors import HTTPException
 from .file import Attachment
 from .utils import ISO8601, parse_hex_number
+
+if TYPE_CHECKING:
+    from .emoji import Emoji
 
 log = logging.getLogger(__name__)
 
@@ -638,7 +643,7 @@ class ChatMessage(HasContentMixin):
         else:
             await self._state.update_channel_message(self.channel_id, self.id, content=content)
 
-    async def add_reaction(self, emoji):
+    async def add_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
         Add a reaction to this message.
@@ -649,13 +654,13 @@ class ChatMessage(HasContentMixin):
             The emoji to react with.
         """
         if self._state.userbot:
-            return await self._state.add_message_reaction(self.channel_id, self.id, emoji.id)
+            await self._state.add_message_reaction(self.channel_id, self.id, emoji.id)
         elif hasattr(emoji, 'id'):
-            return await self._state.add_reaction_emote(self.channel_id, self.id, emoji.id)
+            await self._state.add_reaction_emote(self.channel_id, self.id, emoji.id)
         else:
-            return await self._state.add_reaction_emote(self.channel_id, self.id, emoji)
+            await self._state.add_reaction_emote(self.channel_id, self.id, emoji)
 
-    async def remove_self_reaction(self, emoji):
+    async def remove_self_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
         |onlyuserbot|
@@ -667,7 +672,7 @@ class ChatMessage(HasContentMixin):
         :class:`.Emoji`
             The emoji to remove.
         """
-        return await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji.id)
+        await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji.id)
 
     async def reply(self, *content, **kwargs):
         """|coro|
