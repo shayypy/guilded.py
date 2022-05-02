@@ -50,6 +50,7 @@ if TYPE_CHECKING:
 
 __all__ = (
     'ContentReaction',
+    'RawReactionActionEvent',
     'Reaction',
 )
 
