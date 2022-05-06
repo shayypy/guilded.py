@@ -503,9 +503,6 @@ class HTTPClientBase:
     def get_metadata(self, route: str):
         return self.request(UserbotRoute('GET', '/content/route/metadata'), params={'route': route})
 
-    def get_channel(self, channel_id: str):
-        return self.get_metadata(f'//channels/{channel_id}/chat')
-
     # media.guilded.gg
 
     def upload_file(self, file: File):
@@ -750,6 +747,9 @@ class UserbotHTTPClient(HTTPClientBase):
 
     def remove_self_message_reaction(self, channel_id: str, message_id: str, emoji_id: int):
         return self.request(UserbotRoute('DELETE', f'/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}'))
+
+    def get_channel(self, channel_id: str):
+        return self.get_metadata(f'//channels/{channel_id}/chat')
 
     def get_channel_messages(self,
         channel_id: str,
@@ -1127,14 +1127,15 @@ class UserbotHTTPClient(HTTPClientBase):
     def delete_team_emoji(self, team_id: str, emoji_id: int):
         return self.request(UserbotRoute('DELETE', f'/teams/{team_id}/emoji/{emoji_id}'))
 
-    def create_team_channel(self, team_id: str, name: str, content_type: str, group_id: str = None, category_id: int = None, public: bool = False):
-        payload = {
-            'name': name,
-            'channelCategoryId': category_id,
-            'contentType': content_type,
-            'isPublic': public
-        }
-        return self.request(UserbotRoute('POST', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels'), json=payload)
+    def create_team_channel(
+        self,
+        team_id: str,
+        *,
+        payload: Dict[str, Any],
+    ):
+        group_id = payload.pop('groupId', None)
+        route = UserbotRoute('POST', f'/teams/{team_id}/groups/{group_id or "undefined"}/channels')
+        return self.request(route, json=payload)
 
     def get_team_channels(self, team_id: str):
         return self.request(UserbotRoute('GET', f'/teams/{team_id}/channels'))
@@ -1497,7 +1498,7 @@ class UserbotHTTPClient(HTTPClientBase):
         if channel_data.get('type', '').lower() == 'team':
             data['group'] = data.get('group')
             type_ = try_enum(ChannelType, channel_data.get('contentType', 'chat'))
-            if type_ is ChannelType.announcements:
+            if type_ is ChannelType.announcement:
                 return channel.AnnouncementChannel(state=self, **data)
             elif type_ is ChannelType.chat:
                 if 'threadMessageId' in channel_data:
@@ -1507,7 +1508,7 @@ class UserbotHTTPClient(HTTPClientBase):
                     return channel.Thread(state=self, **data)
                 else:
                     return channel.ChatChannel(state=self, **data)
-            elif type_ is ChannelType.docs:
+            elif type_ is ChannelType.doc:
                 return channel.DocsChannel(state=self, **data)
             elif type_ is ChannelType.forum:
                 return channel.ForumChannel(state=self, **data)
@@ -1519,6 +1520,8 @@ class UserbotHTTPClient(HTTPClientBase):
                 return channel.SchedulingChannel(state=self, **data)
             elif type_ is ChannelType.voice:
                 return channel.VoiceChannel(state=self, **data)
+            else:
+                return TeamChannel(state=self, **data)
         else:
             return channel.DMChannel(state=self, **data)
 
@@ -1625,6 +1628,21 @@ class HTTPClient(HTTPClientBase):
         return await self.session.ws_connect(Route.WEBSOCKET_BASE, headers=headers)
 
     # /channels
+
+    def create_team_channel(
+        self,
+        server_id: str,
+        *,
+        payload: Dict[str, Any],
+    ):
+        payload['serverId'] = server_id
+        return self.request(Route('POST', f'/channels'), json=payload)
+
+    def get_channel(self, channel_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}'))
+
+    def delete_channel(self, channel_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}'))
 
     def create_channel_message(self, channel_id: str, *, payload: Dict[str, Any]):
         route = Route('POST', f'/channels/{channel_id}/messages')
@@ -1815,24 +1833,23 @@ class HTTPClient(HTTPClientBase):
 
     def create_channel(self, **data):
         channel_data = data.get('data', data)
-        if channel_data.get('type', '').lower() == 'dm':
+        if channel_data.get('serverId') is None:
             return channel.DMChannel(state=self, **data)
 
         data['group'] = data.get('group')
-        type_ = try_enum(ChannelType, channel_data.get('contentType', 'chat'))
+        type_ = try_enum(ChannelType, channel_data['type'])
         if type_ is ChannelType.announcements:
             return channel.AnnouncementChannel(state=self, **data)
         elif type_ is ChannelType.chat:
-            if 'threadMessageId' in channel_data:
-                # we assume here that only threads will have this attribute
-                # so from this we can reasonably know whether a channel is
-                # a thread
+            if 'parentId' in channel_data:
+                # We assume that only threads will have this attribute so that
+                # we can reasonably know whether a channel is a thread
                 return channel.Thread(state=self, **data)
             else:
                 return channel.ChatChannel(state=self, **data)
         elif type_ is ChannelType.docs:
             return channel.DocsChannel(state=self, **data)
-        elif type_ is ChannelType.forum:
+        elif type_ is ChannelType.forums:
             return channel.ForumChannel(state=self, **data)
         elif type_ is ChannelType.list:
             return channel.ListChannel(state=self, **data)
@@ -1842,6 +1859,8 @@ class HTTPClient(HTTPClientBase):
             return channel.SchedulingChannel(state=self, **data)
         elif type_ is ChannelType.voice:
             return channel.VoiceChannel(state=self, **data)
+        else:
+            return TeamChannel(state=self, **data)
 
     def create_message(self, **data):
         data['channel'] = data.get('channel')

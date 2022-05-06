@@ -466,8 +466,12 @@ class DocsChannel(guilded.abc.TeamChannel):
     """Represents a docs channel in a team."""
     def __init__(self, **fields):
         super().__init__(**fields)
-        self.type = ChannelType.docs
-        self._shareable_content_type = 'docs'
+        if self._state.userbot:
+            self.type = ChannelType.doc
+            self._shareable_content_type = 'docs'
+        else:
+            self.type = ChannelType.docs
+
         self._docs = {}
 
     @property
@@ -846,8 +850,12 @@ class ForumChannel(guilded.abc.TeamChannel):
     """Represents a forum channel in a team."""
     def __init__(self, **fields):
         super().__init__(**fields)
-        self.type = ChannelType.forum
-        self._shareable_content_type = 'forums'
+        if self._state.userbot:
+            self.type = ChannelType.forum
+            self._shareable_content_type = 'forums'
+        else:
+            self.type = ChannelType.forums
+
         self._topics = {}
 
     @property
@@ -1365,8 +1373,12 @@ class AnnouncementChannel(guilded.abc.TeamChannel):
     """Represents an announcements channel in a team"""
     def __init__(self, **fields):
         super().__init__(**fields)
-        self.type = ChannelType.announcements
-        self._shareable_content_type = 'announcements'
+        if self._state.userbot:
+            self.type = ChannelType.announcement
+            self._shareable_content_type = 'announcements'
+        else:
+            self.type = ChannelType.announcements
+
         self._announcements = {}
 
     @property

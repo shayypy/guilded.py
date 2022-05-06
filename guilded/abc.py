@@ -60,7 +60,7 @@ from .activity import Activity
 from .asset import Asset
 from .colour import Colour
 from .errors import GuildedException
-from .enums import try_enum, UserType
+from .enums import ChannelType, try_enum, UserType
 from .message import HasContentMixin, ChatMessage
 from .presence import Presence
 from .utils import ISO8601, MISSING
@@ -689,31 +689,32 @@ class TeamChannel(metaclass=abc.ABCMeta):
         * :class:`.SchedulingChannel`
         * :class:`.VoiceChannel`
     """
-    def __init__(self, *, state, group, data, **extra):
+    def __init__(self, *, state, data: Dict[str, Any], group: Group, **extra):
         self._state = state
-        self.type = None
         if 'metadata' in data:
             data = data['metadata']
         data = data.get('channel') or data.get('thread') or data
+
+        self.type: ChannelType = try_enum(ChannelType, data.get('contentType') or data.get('type'))
         self._group = group
-        self.group_id: str = data.get('groupId') or (group.id if group else None)
+        self.group_id: str = data.get('groupId')
 
         self._team = extra.get('team') or extra.get('server') or (group.team if group else None)
         self.team_id: str = data.get('teamId') or data.get('serverId')
 
         self.id: str = data['id']
         self.name: str = data.get('name') or ''
-        self.description: str = data.get('description') or ''
+        self.description: str = data.get('description') or data.get('topic') or ''
 
         self.position: int = data.get('priority')
         self.slug: Optional[str] = data.get('slug')
         self.roles_synced: Optional[bool] = data.get('isRoleSynced')
         self.public: bool = data.get('isPublic', False)
-        self._settings: dict = data.get('settings') or {}
+        self._settings: Dict[str, Any] = data.get('settings') or {}
 
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
-        self.added_at: Optional[datetime.datetime] = ISO8601(data.get('addedAt'))  # i have no idea what this is
+        self.added_at: Optional[datetime.datetime] = ISO8601(data.get('addedAt'))  # Probably related to the client's relationship with a thread
         self.archived_at: Optional[datetime.datetime] = ISO8601(data.get('archivedAt'))
         self.auto_archive_at: Optional[datetime.datetime] = ISO8601(data.get('autoArchiveAt'))
         self.created_by_id: Optional[str] = extra.get('createdBy')
@@ -721,11 +722,14 @@ class TeamChannel(metaclass=abc.ABCMeta):
             self._created_by = self._state.create_member(data=data.get('createdByInfo'), team=self.team)
         else:
             self._created_by = None
-        self.archived_by = extra.get('archived_by') or self._state._get_team_member(self.team_id, extra.get('archivedBy'))
+
+        self._archived_by = extra.get('archived_by')
+        self.archived_by_id: Optional[str] = data.get('archivedBy')
         self.created_by_webhook_id: Optional[str] = data.get('createdByWebhookId')
         self.archived_by_webhook_id: Optional[str] = data.get('archivedByWebhookId')
 
-        self.parent_id: Optional[str] = data.get('parentChannelId') or data.get('originatingChannelId')
+        self.category_id: Optional[str] = data.get('categoryId')
+        self.parent_id: Optional[str] = data.get('parentId') or data.get('parentChannelId') or data.get('originatingChannelId')
 
     @property
     def topic(self) -> str:
@@ -800,6 +804,10 @@ class TeamChannel(metaclass=abc.ABCMeta):
     @property
     def created_by(self) -> Optional[Member]:
         return self._created_by or self.team.get_member(self.created_by_id)
+
+    @property
+    def archived_by(self) -> Optional[Member]:
+        return self._archived_by or self.team.get_member(self.archived_by_id)
 
     @property
     def slowmode(self) -> int:
@@ -931,11 +939,12 @@ class TeamChannel(metaclass=abc.ABCMeta):
     async def delete(self) -> None:
         """|coro|
 
-        |onlyuserbot|
-
         Delete this channel.
         """
-        await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
+        if self._state.userbot:
+            await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
+        else:
+            await self._state.delete_channel(self.id)
 
     async def seen(self, clear_all_badges: bool = False) -> None:
         """|coro|

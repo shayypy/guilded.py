@@ -1180,12 +1180,12 @@ class WebSocketEventParsers:
                     channel_data = await self._state.get_channel(channel_id)
                 except HTTPException:
                     channel = self._state.create_channel(
-                        data={'id': channel_id, 'type': 'team', 'serverId': server_id},
+                        data={'id': channel_id, 'type': 'chat', 'serverId': server_id},
                         team=server,
                     )
                 else:
                     channel = self._state.create_channel(
-                        data=channel_data['metadata']['channel'],
+                        data=channel_data['channel'],
                         team=server,
                     )
 
@@ -1344,6 +1344,25 @@ class WebSocketEventParsers:
         # Webhooks are not cached so having a `webhook_update` with only `after` doesn't make sense.
         # In the future this may change with the introduction of better caching control.
         self.client.dispatch('raw_webhook_update', webhook)
+
+    async def TeamChannelCreated(self, data):
+        channel = self._state.create_channel(data=data['channel'], server=data['server'])
+        self._state.add_to_team_channel_cache(channel)
+        self.client.dispatch('team_channel_create', channel)
+
+    async def TeamChannelUpdated(self, data):
+        before = data['server'].get_channel(data['channel']['id'])
+        if not before:
+            return
+
+        after = self._state.create_channel(data=data['channel'], server=data['server'])
+        self._state.add_to_team_channel_cache(after)
+        self.client.dispatch('team_channel_update', before, after)
+
+    async def TeamChannelDeleted(self, data):
+        channel = self._state.create_channel(data=data['channel'], server=data['server'])
+        channel.server._channels.pop(channel.id, None)
+        self.client.dispatch('team_channel_delete', channel)
 
 
 class Heartbeater(threading.Thread):

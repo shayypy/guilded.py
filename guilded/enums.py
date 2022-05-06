@@ -188,6 +188,7 @@ else:
 
 class ChannelType(Enum):
     announcement = 'announcement'
+    calendar = 'calendar'
     chat = 'chat'
     doc = 'doc'
     dm = 'DM'
@@ -199,10 +200,13 @@ class ChannelType(Enum):
     thread = 'temporal'
     voice = 'voice'
 
-    # Aliases
-    announcements = 'announcement'
-    docs = 'doc'
-    news = 'announcement'
+    # bot API
+    announcements = 'announcements'
+    docs = 'docs'
+    forums = 'forums'
+    stream = 'stream'
+
+    # discord.py
     text = 'chat'
 
     def __str__(self):

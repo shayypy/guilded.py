@@ -60,7 +60,7 @@ from typing import TYPE_CHECKING, Dict, Optional, List, Union
 from .abc import TeamChannel, User
 
 from .asset import Asset
-from .channel import ChatChannel, DocsChannel, ForumChannel, ListChannel, SchedulingChannel, Thread
+from .channel import AnnouncementChannel, ChatChannel, DocsChannel, ForumChannel, ListChannel, MediaChannel, SchedulingChannel, Thread, VoiceChannel
 from .errors import InvalidArgument
 from .emoji import Emoji
 from .enums import FileType, MediaType, try_enum, TeamFlairType, ChannelType
@@ -515,17 +515,63 @@ class Team:
         """
         return await self._state.leave_team(self.id)
 
-    async def create_chat_channel(self, *, name: str, category=None, public=False, group=None) -> ChatChannel:
+    async def _create_channel(
+        self,
+        content_type: ChannelType,
+        *,
+        name: str,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> TeamChannel:
+        group = group or self.base_group
+
+        payload = {
+            'name': name,
+            'groupId': group.id if group is not None else None,
+        }
+
+        if self._state.userbot:
+            payload['description'] = topic
+            payload['contentType'] = content_type.value
+            payload['channelCategoryId'] = category.id if category is not None else None
+        else:
+            payload['topic'] = topic
+            payload['type'] = content_type.value
+            payload['categoryId'] = category.id if category is not None else None
+
+        if public is not None:
+            payload['isPublic'] = public
+
+        data = await self._state.create_team_channel(
+            self.id,
+            payload=payload,
+        )
+
+        channel = self._state.create_channel(data=data['channel'], group=group, team=self)
+        self._state.add_to_team_channel_cache(channel)
+        return channel
+
+    async def create_announcement_channel(
+        self,
+        *,
+        name: str,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> AnnouncementChannel:
         """|coro|
 
-        |onlyuserbot|
-
-        Create a new chat (text) channel in the team.
+        Create a new announcement channel in the team.
 
         Parameters
         -----------
         name: :class:`str`
             The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
         category: :class:`.TeamCategory`
             The :class:`.TeamCategory` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
@@ -537,33 +583,43 @@ class Team:
 
         Returns
         --------
-        :class:`ChatChannel`
+        :class:`.AnnouncementChannel`
             The created channel.
         """
-        group = group or self.base_group
-        data = await self._state.create_team_channel(
-            content_type=ChannelType.chat.value,
+        if self._state.userbot:
+            content_type = ChannelType.announcement
+        else:
+            content_type = ChannelType.announcements
+
+        channel = await self._create_channel(
+            content_type,
             name=name,
+            topic=topic,
             public=public,
-            team_id=self.id,
-            group_id=group.id,
-            category_id=category.id if category is not None else None,
+            category=category,
+            group=group,
         )
-        channel = self._state.create_channel(data=data['channel'], group=group, team=self)
-        self._state.add_to_team_channel_cache(channel)
         return channel
 
-    async def create_forum_channel(self, *, name: str, category=None, public=False, group=None) -> ForumChannel:
+    async def create_chat_channel(
+        self,
+        *,
+        name: str,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> ChatChannel:
         """|coro|
 
-        |onlyuserbot|
-
-        Create a new forum channel in the team.
+        Create a new chat channel in the team.
 
         Parameters
         -----------
         name: :class:`str`
             The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
         category: :class:`.TeamCategory`
             The :class:`.TeamCategory` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
@@ -575,26 +631,29 @@ class Team:
 
         Returns
         --------
-        :class:`ForumChannel`
+        :class:`.ChatChannel`
             The created channel.
         """
-        group = group or self.base_group
-        data = await self._state.create_team_channel(
-            content_type=ChannelType.forum.value,
+        channel = await self._create_channel(
+            ChannelType.chat,
             name=name,
+            topic=topic,
             public=public,
-            team_id=self.id,
-            group_id=group.id,
-            category_id=category.id if category is not None else None,
+            category=category,
+            group=group,
         )
-        channel = self._state.create_channel(data=data['channel'], group=group, team=self)
-        self._state.add_to_team_channel_cache(channel)
         return channel
 
-    async def create_docs_channel(self, *, name: str, category=None, public=False, group=None) -> DocsChannel:
+    async def create_docs_channel(
+        self,
+        *,
+        name: str,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> DocsChannel:
         """|coro|
-
-        |onlyuserbot|
 
         Create a new docs channel in the team.
 
@@ -602,6 +661,8 @@ class Team:
         -----------
         name: :class:`str`
             The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
         category: :class:`.TeamCategory`
             The :class:`.TeamCategory` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
@@ -616,23 +677,165 @@ class Team:
         :class:`.DocsChannel`
             The created channel.
         """
-        group = group or self.base_group
-        data = await self._state.create_team_channel(
-            content_type=ChannelType.docs.value,
+        if self._state.userbot:
+            content_type = ChannelType.doc
+        else:
+            content_type = ChannelType.docs
+
+        channel = await self._create_channel(
+            content_type,
             name=name,
+            topic=topic,
             public=public,
-            team_id=self.id,
-            group_id=group.id,
-            category_id=category.id if category is not None else None,
+            category=category,
+            group=group,
         )
-        channel = self._state.create_channel(data=data['channel'], group=group, team=self)
-        self._state.add_to_team_channel_cache(channel)
         return channel
 
-    async def create_scheduling_channel(self, *, name: str, category=None, public=False, group=None) -> SchedulingChannel:
+    async def create_forum_channel(
+        self,
+        *,
+        name: str,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> ForumChannel:
         """|coro|
 
-        |onlyuserbot|
+        Create a new forum channel in the team.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
+            provided, it will be shown under the "Channels" header in the
+            client (no category).
+        public: :class:`bool`
+            Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
+
+        Returns
+        --------
+        :class:`.ForumChannel`
+            The created channel.
+        """
+        if self._state.userbot:
+            content_type = ChannelType.forum
+        else:
+            content_type = ChannelType.forums
+
+        channel = await self._create_channel(
+            content_type,
+            name=name,
+            topic=topic,
+            public=public,
+            category=category,
+            group=group,
+        )
+        return channel
+
+    async def create_media_channel(
+        self,
+        *,
+        name: str,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> MediaChannel:
+        """|coro|
+
+        Create a new media channel in the team.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
+            provided, it will be shown under the "Channels" header in the
+            client (no category).
+        public: :class:`bool`
+            Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
+
+        Returns
+        --------
+        :class:`.MediaChannel`
+            The created channel.
+        """
+        channel = await self._create_channel(
+            ChannelType.media,
+            name=name,
+            topic=topic,
+            public=public,
+            category=category,
+            group=group,
+        )
+        return channel
+
+    async def create_list_channel(
+        self,
+        *,
+        name: str,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> ListChannel:
+        """|coro|
+
+        Create a new list channel in the team.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
+            provided, it will be shown under the "Channels" header in the
+            client (no category).
+        public: :class:`bool`
+            Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
+
+        Returns
+        --------
+        :class:`.ListChannel`
+            The created channel.
+        """
+        channel = await self._create_channel(
+            ChannelType.list,
+            name=name,
+            topic=topic,
+            public=public,
+            category=category,
+            group=group,
+        )
+        return channel
+
+    async def create_scheduling_channel(
+        self,
+        *,
+        name: str,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> SchedulingChannel:
+        """|coro|
 
         Create a new scheduling channel in the team.
 
@@ -640,6 +843,8 @@ class Team:
         -----------
         name: :class:`str`
             The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
         category: :class:`.TeamCategory`
             The :class:`.TeamCategory` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
@@ -654,17 +859,57 @@ class Team:
         :class:`.SchedulingChannel`
             The created channel.
         """
-        group = group or self.base_group
-        data = await self._state.create_team_channel(
-            content_type=ChannelType.scheduling.value,
+        channel = await self._create_channel(
+            ChannelType.scheduling,
             name=name,
+            topic=topic,
             public=public,
-            team_id=self.id,
-            group_id=group.id,
-            category_id=category.id if category is not None else None,
+            category=category,
+            group=group,
         )
-        channel = self._state.create_channel(data=data['channel'], group=group, team=self)
-        self._state.add_to_team_channel_cache(channel)
+        return channel
+
+    async def create_voice_channel(
+        self,
+        *,
+        name: str,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> VoiceChannel:
+        """|coro|
+
+        Create a new voice channel in the team.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
+            provided, it will be shown under the "Channels" header in the
+            client (no category).
+        public: :class:`bool`
+            Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
+
+        Returns
+        --------
+        :class:`.VoiceChannel`
+            The created channel.
+        """
+        channel = await self._create_channel(
+            ChannelType.voice,
+            name=name,
+            topic=topic,
+            public=public,
+            category=category,
+            group=group,
+        )
         return channel
 
     async def fetch_channels(self) -> List[TeamChannel]:
@@ -674,8 +919,7 @@ class Team:
 
         Fetch the list of :class:`TeamChannel`\s in this team.
 
-        This method is an API call. For general usage, consider
-        :attr:`channels` instead.
+        This method is an API call. For general usage, consider :attr:`channels` instead.
         """
         channels = await self._state.get_team_channels(self.id)
         channel_list = []
@@ -700,29 +944,40 @@ class Team:
 
         return channel_list
 
-    async def fetch_channel(self, id) -> TeamChannel:
+    async def fetch_channel(self, id: str) -> TeamChannel:
         """|coro|
 
         Fetch a channel.
 
-        This method is an API call. For general usage, consider
-        :meth:`get_channel` instead.
-
-        .. warning::
-            If this is an early access bot, this method will only work for
-            public channels.
+        This method is an API call. For general usage, consider :meth:`get_channel` instead.
 
         .. note::
-            The channel does not have to be part of the current team because
-            there is no team-specific "get channel" endpoint. Therefore,
-            guilded.py will not raise any explicit indication that you have
-            fetched a channel not part of the current team.
+
+            If the client is a user account, the channel does not have to be
+            part of the current team because there is no team-oriented "get
+            channel" endpoint.
+            guilded.py will not raise any explicit indication that
+            you have fetched a channel not part of the current team.
+
+        Parameters
+        -----------
+        id: :class:`str`
+            The channel's ID.
+
+        Returns
+        --------
+        :class:`~.abc.TeamChannel`
+            The channel from the ID.
         """
-        request = self._state.get_channel(id)
-        data = await request
-        data = data.get('channel', data)
-        data['type'] = 'team'
-        channel = self._state.create_channel(data=data['metadata']['channel'], group=None, team=self)
+
+        data = await self._state.get_channel(id)
+        if self._state.userbot:
+            data = data['metadata']['channel']
+            data['type'] = 'team'
+        else:
+            data = data['channel']
+
+        channel = self._state.create_channel(data=data, group=None, team=self)
         return channel
 
     async def getch_channel(self, id) -> TeamChannel:
