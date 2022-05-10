@@ -590,6 +590,13 @@ class UserbotClient(ClientBase):
             'role_info': cache_on_startup.get('role_info', False),
         }
 
+    @property
+    def average_team_latency(self) -> float:
+        """:class:`float`: The average latency for all open team gateway connections."""
+        all_latencies = [team.ws.latency for team in self.teams if team.ws and not team.ws.socket.closed]
+        average = sum(all_latencies) / len(all_latencies)
+        return average
+
     async def start(self, email: str, password: str, *, reconnect: bool = True):
         """|coro|
 

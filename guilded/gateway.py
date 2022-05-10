@@ -49,6 +49,9 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
+import time
 import aiohttp
 import asyncio
 import concurrent.futures
@@ -58,7 +61,7 @@ import logging
 import sys
 import threading
 import traceback
-from typing import Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from guilded.abc import TeamChannel
 
@@ -72,6 +75,10 @@ from .role import Role
 from .user import ClientUser, Member
 from .utils import find, ISO8601
 from .webhook import Webhook
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
+
 
 log = logging.getLogger(__name__)
 
@@ -106,6 +113,9 @@ class GuildedWebSocketBase:
         msg = await self.socket.receive()
         if msg.type is aiohttp.WSMsgType.TEXT:
             await self.received_event(msg.data)
+        elif msg.type is aiohttp.WSMsgType.PONG:
+            if self._heartbeater:
+                self._heartbeater.received_pong()
         elif msg.type is aiohttp.WSMsgType.ERROR:
             raise msg.data
         elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSE):
@@ -189,6 +199,8 @@ class UserbotGuildedWebSocket(GuildedWebSocketBase):
 
     async def received_event(self, payload):
         if payload.isdigit():
+            if payload == '3' and self._heartbeater:
+                self._heartbeater.received_pong()
             return
 
         self.client.dispatch('socket_raw_receive', payload)
@@ -1027,10 +1039,6 @@ class GuildedWebSocket(GuildedWebSocketBase):
         messages.
     ERROR
         Received upon trying to reconnect with an expired message ID.
-    PING
-        Sent as a heartbeat/keepalive.
-    PONG
-        Received as a response to PINGs.
     socket: :class:`aiohttp.ClientWebSocketResponse`
         The underlying aiohttp websocket instance.
     """
@@ -1049,16 +1057,16 @@ class GuildedWebSocket(GuildedWebSocketBase):
         # ws
         self._last_message_id: Optional[str] = None
 
-    async def send(self, payload, *, raw=False):
+    async def send(self, payload):
         payload = json.dumps(payload)
         self.client.dispatch('socket_raw_send', payload)
         return await self.socket.send_str(payload)
 
-    async def ping(self):
+    async def ping(self) -> None:
         log.debug('Sending heartbeat')
-        await self.send({'op': self.PING})
+        await self.socket.ping()
 
-    async def close(self, code=1000):
+    async def close(self, code=1000) -> None:
         log.debug('Closing websocket connection with code %s', code)
         if self._heartbeater:
             self._heartbeater.stop()
@@ -1068,7 +1076,7 @@ class GuildedWebSocket(GuildedWebSocketBase):
         await self.socket.close(code=code)
 
     @classmethod
-    async def build(cls, client, *, loop=None):
+    async def build(cls, client, *, loop=None) -> Self:
         log.info('Connecting to the gateway')
         try:
             socket = await client.http.ws_connect()
@@ -1085,7 +1093,7 @@ class GuildedWebSocket(GuildedWebSocketBase):
 
         return ws
 
-    async def received_event(self, payload):
+    async def received_event(self, payload) -> None:
         self.client.dispatch('socket_raw_receive', payload)
         data = json.loads(payload)
         self.client.dispatch('socket_response', data)
@@ -1097,9 +1105,6 @@ class GuildedWebSocket(GuildedWebSocketBase):
         message_id: Optional[str] = data.get('s')
         if message_id:
             self._last_message_id = message_id
-
-        if op == self.PONG:
-            return
 
         if op == self.WELCOME:
             self._heartbeater = Heartbeater(ws=self, interval=d['heartbeatIntervalMs'] / 1000)
@@ -1376,6 +1381,9 @@ class Heartbeater(threading.Thread):
         self.block_msg = 'Websocket heartbeat blocked for more than %s seconds.'
         self.behind_msg = 'Can\'t keep up, websocket is %.1fs behind.'
         self._stop_ev = threading.Event()
+
+        self._last_ping: float = time.perf_counter()
+        self._last_pong: float = time.perf_counter()
         self.latency = float('inf')
 
     def run(self):
@@ -1403,6 +1411,15 @@ class Heartbeater(threading.Thread):
 
             except Exception:
                 self.stop()
+            else:
+                self._last_ping = time.perf_counter()
 
-    def stop(self):
+    def stop(self) -> None:
         self._stop_ev.set()
+
+    def received_pong(self) -> None:
+        self._last_pong = time.perf_counter()
+        self.latency = self._last_pong - self._last_ping
+
+        if self.latency > 10:
+            log.warning(self.behind_msg, self.latency)

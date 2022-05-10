@@ -631,7 +631,8 @@ class UserbotHTTPClient(HTTPClientBase):
         return await self.session.ws_connect(
             'wss://api.guilded.gg/socket.io/?{}'.format(
                 '&'.join([f'{key}={val}' for key, val in gateway_args.items()])
-            )
+            ),
+            autoping=False,
         )
 
     async def voice_ws_connect(self, endpoint, channel_id, token, cookie=None):
@@ -1625,7 +1626,7 @@ class HTTPClient(HTTPClientBase):
                 # Catch up with missed messages
                 headers['guilded-last-message-id'] = self.ws._last_message_id
 
-        return await self.session.ws_connect(Route.WEBSOCKET_BASE, headers=headers)
+        return await self.session.ws_connect(Route.WEBSOCKET_BASE, headers=headers, autoping=False)
 
     # /channels
 
