@@ -56,7 +56,7 @@ import asyncio
 import logging
 import sys
 import traceback
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Type, Union
 
 from .errors import ClientException, HTTPException, NotFound
 from .enums import *
@@ -74,6 +74,9 @@ from .utils import MISSING
 if TYPE_CHECKING:
     from types import TracebackType
     from typing_extensions import Self
+
+    from .abc import TeamChannel
+    from .channel import DMChannel
 
 log = logging.getLogger(__name__)
 
@@ -597,7 +600,7 @@ class UserbotClient(ClientBase):
         average = sum(all_latencies) / len(all_latencies)
         return average
 
-    async def start(self, email: str, password: str, *, reconnect: bool = True):
+    async def start(self, email: str, password: str, *, reconnect: bool = True) -> None:
         """|coro|
 
         Login and connect to Guilded using a user account email and password.
@@ -606,7 +609,7 @@ class UserbotClient(ClientBase):
         await self.setup_hook()
         await self.connect(reconnect=reconnect)
 
-    async def login(self, email: str, password: str):
+    async def login(self, email: str, password: str) -> None:
         """|coro|
 
         Log into the REST API with a user account email and password.
@@ -661,7 +664,7 @@ class UserbotClient(ClientBase):
                 if dm_channel.recipient is not None:
                     dm_channel.recipient.dm_channel = dm_channel
 
-    async def connect(self, *, reconnect: bool = True):
+    async def connect(self, *, reconnect: bool = True) -> None:
         """|coro|
 
         Connect to the main Guilded gateway and subsequent team gateways for
@@ -749,7 +752,7 @@ class UserbotClient(ClientBase):
                 listen_socks(self.ws), *[listen_socks(team.ws, team) for team in self.teams]
             )
 
-    async def close(self):
+    async def close(self) -> None:
         """|coro|
 
         Log out and close any active gateway connections.
@@ -771,7 +774,7 @@ class UserbotClient(ClientBase):
 
         self._ready.clear()
 
-    def run(self, email: str, password: str, *, reconnect: bool = True):
+    def run(self, email: str, password: str, *, reconnect: bool = True) -> None:
         """Login and connect to Guilded, and start the event loop. This is a
         blocking call, nothing after it will be called until the bot has been
         closed.
@@ -799,7 +802,7 @@ class UserbotClient(ClientBase):
         except KeyboardInterrupt:
             return
 
-    async def search_users(self, query: str, *, max_results=20, exclude=None):
+    async def search_users(self, query: str, *, max_results=20, exclude=None) -> List[User]:
         """|coro|
 
         Search Guilded for users. Returns an array of partial users.
@@ -830,7 +833,7 @@ class UserbotClient(ClientBase):
 
         return users
 
-    async def search_teams(self, query: str, *, max_results=20, exclude=None):
+    async def search_teams(self, query: str, *, max_results=20, exclude=None) -> List[Team]:
         """|coro|
 
         Search Guilded for public teams. Returns an array of partial teams.
@@ -863,7 +866,7 @@ class UserbotClient(ClientBase):
 
         return teams
 
-    async def join_team(self, id: str):
+    async def join_team(self, id: str) -> Team:
         """|coro|
 
         Join a public team using its ID.
@@ -877,7 +880,7 @@ class UserbotClient(ClientBase):
         team = await self.fetch_team(id)
         return team
 
-    async def fetch_user(self, id: str):
+    async def fetch_user(self, id: str) -> User:
         """|coro|
 
         Fetch a user from the API.
@@ -890,7 +893,7 @@ class UserbotClient(ClientBase):
         user = await self.http.get_user(id)
         return User(state=self.http, data=user)
 
-    async def getch_user(self, id: str):
+    async def getch_user(self, id: str) -> User:
         """|coro|
 
         Try to get a user from internal cache, and if not found, try to fetch from the API.
@@ -902,7 +905,22 @@ class UserbotClient(ClientBase):
         """
         return self.get_user(id) or await self.fetch_user(id)
 
-    async def getch_channel(self, id: str, team_id: str = None):
+    async def fetch_channel(self, id: str) -> Union[TeamChannel, DMChannel]:
+        """|coro|
+
+        Fetch a channel from the API.
+
+        Returns
+        --------
+        Union[:class:`~.abc.TeamChannel`, :class:`.DMChannel`]
+            The channel from the ID
+        """
+        data = await self.http.get_channel(id)
+        data = data['metadata']['channel']
+        channel = self.http.create_channel(data=data)
+        return channel
+
+    async def getch_channel(self, id: str) -> Union[TeamChannel, DMChannel]:
         """|coro|
 
         Try to get a channel from internal cache, and if not found, try to fetch from the API.
@@ -912,14 +930,7 @@ class UserbotClient(ClientBase):
         Union[:class:`~.abc.TeamChannel`, :class:`.DMChannel`]
             The channel from the ID
         """
-        channel = self.get_channel(id)
-        if team_id is None and channel is None:
-            raise NotFound(id)
-        elif team_id is not None and channel is None:
-            team = await self.getch_team(team_id)
-            channel = team.get_channel(id) or await team.fetch_channel(id)
-
-        return channel
+        return self.get_channel(id) or await self.fetch_channel(id)
 
     async def fetch_game(self, id: int) -> Game:
         """|coro|
@@ -943,19 +954,24 @@ class UserbotClient(ClientBase):
 
         return game
 
-    async def fetch_games(self):
+    async def fetch_games(self) -> List[Game]:
         """|coro|
 
         Fetch the list of documented games that Guilded supports.
 
         Returns
         --------
-        :class:`dict`
+        List[:class:`.Game`]
             The whole game list (`viewable here <https://github.com/GuildedAPI/datatables/blob/main/games.json>`_)
         """
-        return await self.http.get_game_list()
+        data = await self.http.get_game_list()
+        games = []
+        for game_id, game_name in data.items():
+            games.append(Game(game_id=int(game_id), name=game_name))
 
-    async def fill_game_list(self):
+        return games
+
+    async def fill_game_list(self) -> None:
         """|coro|
 
         Fill the internal game list cache from remote data.
@@ -971,8 +987,6 @@ class UserbotClient(ClientBase):
         allow_profile_posts_from: AllowProfilePostsFrom,
     ) -> None:
         """|coro|
-
-        |onlyuserbot|
 
         Update your privacy settings.
 
@@ -991,7 +1005,7 @@ class UserbotClient(ClientBase):
             allow_profile_posts_from=allow_profile_posts_from.value,
         )
 
-    async def fetch_blocked_users(self):
+    async def fetch_blocked_users(self) -> List[User]:
         """|coro|
 
         The users the client has blocked.
@@ -1007,7 +1021,7 @@ class UserbotClient(ClientBase):
 
         return blocked
 
-    async def set_presence(self, presence: Presence):
+    async def set_presence(self, presence: Presence) -> None:
         """|coro|
 
         Set your presence.
@@ -1028,7 +1042,7 @@ class UserbotClient(ClientBase):
         else:
             raise TypeError('presence must be of type Presence or be None, not %s' % presence.__class__.__name__)
 
-    async def set_status(self, status: TransientStatus):
+    async def set_status(self, status: Optional[TransientStatus]) -> None:
         """|coro|
 
         Set your status.
@@ -1050,7 +1064,12 @@ class UserbotClient(ClientBase):
         else:
             raise TypeError('status must inherit from TransientStatus (Game, CustomStatus) or be None, not %s' % status.__class__.__name__)
 
-    async def change_presence(self, **kwargs):
+    async def change_presence(
+        self,
+        *,
+        status: Presence = MISSING,
+        activity: TransientStatus = MISSING,
+    ) -> None:
         """|coro|
         
         Change your presence.
@@ -1068,19 +1087,12 @@ class UserbotClient(ClientBase):
             The activity to display. If ``None``, no activity will be
             displayed.
         """
-        try:
-            presence = kwargs.pop('status')
-            await self.set_presence(presence)
-        except KeyError:
-            pass
+        if status is not MISSING:
+            await self.set_presence(status)
+        if activity is not MISSING:
+            await self.set_status(activity)
 
-        try:
-            status = kwargs.pop('activity')
-            await self.set_status(status)
-        except KeyError:
-            pass
-
-    async def fetch_subdomain(self, subdomain: str):
+    async def fetch_subdomain(self, subdomain: str) -> Optional[Union[User, Team]]:
         """|coro|
 
         Check if a subdomain (profile or team vanity url) is available.
@@ -1105,7 +1117,7 @@ class UserbotClient(ClientBase):
         else:
             return None
 
-    async def fetch_metadata(self, route: str):
+    async def fetch_metadata(self, route: str) -> dict:
         """|coro|
 
         This is essentially a barebones wrapper method for the Get Metadata
@@ -1118,7 +1130,7 @@ class UserbotClient(ClientBase):
         data = await self.http.get_metadata(route)
         return data
 
-    async def fetch_link_embed(self, url: str):
+    async def fetch_link_embed(self, url: str) -> Embed:
         """|coro|
 
         Fetch the OpenGraph data for a URL. The request made here is to
@@ -1140,13 +1152,13 @@ class UserbotClient(ClientBase):
         """
         data = await self.http.get_referral_statistics()
 
-    async def fetch_dm_channels(self):
+    async def fetch_dm_channels(self) -> List[DMChannel]:
         """|coro|
 
-        Fetch your DM channels.
+        Fetch the DM channels that you are participating in.
 
         This endpoint will only return channels that you have not "hidden",
-        i.e. called :meth:`DMChannel.hide` on.
+        i.e. called :meth:`.DMChannel.hide` on.
         """
         data = await self.http.get_dm_channels()
         channels = []
@@ -1156,10 +1168,10 @@ class UserbotClient(ClientBase):
 
         return channels
 
-    async def fetch_emojis(self):
+    async def fetch_emojis(self) -> List[Emoji]:
         """|coro|
 
-        Fetch your emojis.
+        Fetch the emojis that are available to you.
         """
         data = await self.http.get_emojis()
         emojis = []
@@ -1344,3 +1356,30 @@ class Client(ClientBase):
             asyncio.run(runner())
         except KeyboardInterrupt:
             return
+
+    async def fetch_channel(self, id: str) -> TeamChannel:
+        """|coro|
+
+        Fetch a channel from the API.
+
+        Returns
+        --------
+        :class:`~.abc.TeamChannel`
+            The channel from the ID
+        """
+        data = await self.http.get_channel(id)
+        data = data['channel']
+        channel = self.http.create_channel(data=data)
+        return channel
+
+    async def getch_channel(self, id: str) -> TeamChannel:
+        """|coro|
+
+        Try to get a channel from internal cache, and if not found, try to fetch from the API.
+
+        Returns
+        --------
+        :class:`~.abc.TeamChannel`
+            The channel from the ID
+        """
+        return self.get_channel(id) or await self.fetch_channel(id)
