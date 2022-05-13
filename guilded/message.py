@@ -55,16 +55,19 @@ import asyncio
 import datetime
 from enum import Enum
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, List
+from typing import TYPE_CHECKING, Any, Dict, Optional, List, Sequence, Union
 
 from .embed import Embed
 from .enums import try_enum, FormType, MessageType, MentionType, MessageFormInputType, MediaType
 from .errors import HTTPException
 from .file import Attachment
-from .utils import ISO8601, parse_hex_number
+from .utils import ISO8601, MISSING, parse_hex_number
 
 if TYPE_CHECKING:
+    from .abc import Messageable
     from .emoji import Emoji
+    from .file import File
+    from .user import Member
 
 log = logging.getLogger(__name__)
 
@@ -438,7 +441,7 @@ class ChatMessage(HasContentMixin):
         super().__init__()
         self._state = state
         self._raw = data
-        self.channel = channel
+        self.channel: Messageable = channel
         message = data.get('message', data)
 
         self._team = extra.get('team') or extra.get('server')
@@ -674,15 +677,50 @@ class ChatMessage(HasContentMixin):
         """
         await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji.id)
 
-    async def reply(self, *content, **kwargs):
+    async def reply(
+        self,
+        *pos_content: Optional[Union[str, Embed, File, Emoji, Member]],
+        content: Optional[str] = MISSING,
+        file: Optional[File] = MISSING,
+        files: Optional[Sequence[File]] = MISSING,
+        embed: Optional[Embed] = MISSING,
+        embeds: Optional[Sequence[Embed]] = MISSING,
+        reference: Optional[ChatMessage] = MISSING,
+        reply_to: Optional[Sequence[ChatMessage]] = MISSING,
+        mention_author: Optional[bool] = None,
+        silent: Optional[bool] = None,
+        private: bool = False,
+        share: Optional[ChatMessage] = MISSING,
+        delete_after: Optional[float] = None,
+    ) -> ChatMessage:
         """|coro|
 
-        Reply to a message. Functions the same as
-        :meth:`abc.Messageable.send`, but with the ``reply_to`` parameter
-        already set.
+        Reply to this message.
+        This is identical to :meth:`abc.Messageable.send`, but the
+        ``reply_to`` parameter already includes this message.
         """
-        kwargs['reply_to'] = [self]
-        return await self.channel.send(*content, **kwargs)
+
+        reply_to = reply_to if reply_to is not MISSING else []
+        if self not in reply_to:
+            # We don't have a say in where the message appears in the reply
+            # list unfortunately; it is sorted chronologically.
+            reply_to.append(self)
+
+        return await self.channel.send(
+            *pos_content,
+            content=content,
+            file=file,
+            files=files,
+            embed=embed,
+            embeds=embeds,
+            reference=reference,
+            reply_to=reply_to,
+            mention_author=mention_author,
+            silent=silent,
+            private=private,
+            share=share,
+            delete_after=delete_after,
+        )
 
     async def create_thread(self, *content, **kwargs):
         """|coro|
