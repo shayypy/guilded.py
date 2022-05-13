@@ -133,17 +133,21 @@ class TeamFlair:
     type: :class:`.TeamFlairType`
         The type of flair.
     amount: Optional[:class:`int`]
-        * For :attr:`.TeamFlairType.hot`, the number of members who joined the
+        The meaning of this attribute depends on the value of :attr:`.type`:
+
+        * For :attr:`~.TeamFlairType.hot`, the number of members who joined the
           team in the last month.
 
-        * For :attr:`.TeamFlairType.recent_match_win`, the number of matches
+        * For :attr:`~.TeamFlairType.recent_match_win`, the number of matches
           that were recently won.
 
-        * For :attr:`.TeamFlairType.recent_match`, the number of matches that
+        * For :attr:`~.TeamFlairType.recent_match`, the number of matches that
           were recently participated in.
 
-        * For :attr:`.TeamFlairType.ranked`, the rank that the team is placed at.
+        * For :attr:`~.TeamFlairType.ranked`, the rank that the team is placed at.
           (1, 2, or 3)
+
+        If :attr:`.type` is none of the above, then this is ``None``.
     """
 
     def __init__(self, *, data: Dict[str, int]):
@@ -986,9 +990,9 @@ class Team:
 
         |onlyuserbot|
 
-        Fetch the list of :class:`TeamChannel`\s in this team.
+        Fetch the list of :class:`~.abc.TeamChannel`\s in this team.
 
-        This method is an API call. For general usage, consider :attr:`channels` instead.
+        This method is an API call. For general usage, consider :attr:`.channels` instead.
         """
         channels = await self._state.get_team_channels(self.id)
         channel_list = []
@@ -1057,7 +1061,7 @@ class Team:
         Fetch the list of :class:`Member`\s in this team.
 
         If the client is a bot account, the returned data will be summarized;
-        missing :attr:`.Member.nick`, :attr:`.Member.created_at`, and :attr:`.Member.joined_at`.
+        missing :attr:`~.Member.nick`, :attr:`~.Member.created_at`, and :attr:`~.Member.joined_at`.
 
         Returns
         --------
