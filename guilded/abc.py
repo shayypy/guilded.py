@@ -743,6 +743,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
 
     @property
     def share_url(self) -> str:
+        """:class:`str`: The URL which can be used to navigate to this channel."""
         # For channel links, any real type will work in the client, but
         # linking to individual content requires the proper type string
         if hasattr(self, '_shareable_content_type'):
@@ -772,7 +773,7 @@ class TeamChannel(metaclass=abc.ABCMeta):
 
     @property
     def group(self) -> Group:
-        """:class:`.Group`: The group that this channel is in."""
+        """:class:`~guilded.Group`: The group that this channel is in."""
         group = self._group
         if not group and self.team:
             group = self.team.get_group(self.group_id)
@@ -1052,7 +1053,7 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
 
     @property
     def group(self) -> Group:
-        """:class:`~.Group`: The group that the reply is in."""
+        """:class:`~guilded.Group`: The group that the reply is in."""
         return self.parent.group
 
     @property

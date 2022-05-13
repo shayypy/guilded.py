@@ -101,7 +101,7 @@ __all__ = (
 
 
 class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
-    """Represents a chat channel in a team."""
+    """Represents a chat channel in a :class:`.Team`\."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.chat
@@ -465,7 +465,7 @@ class Doc(HasContentMixin):
 
 
 class DocsChannel(guilded.abc.TeamChannel):
-    """Represents a docs channel in a team."""
+    """Represents a docs channel in a :class:`.Team`\."""
     def __init__(self, **fields):
         super().__init__(**fields)
         if self._state.userbot:
@@ -849,7 +849,7 @@ class ForumTopic(HasContentMixin):
 
 
 class ForumChannel(guilded.abc.TeamChannel):
-    """Represents a forum channel in a team."""
+    """Represents a forum channel in a :class:`.Team`\."""
     def __init__(self, **fields):
         super().__init__(**fields)
         if self._state.userbot:
@@ -942,7 +942,7 @@ class ForumChannel(guilded.abc.TeamChannel):
 
 
 class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
-    """Represents a voice channel in a team."""
+    """Represents a voice channel in a :class:`.Team`\."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.voice
@@ -986,7 +986,7 @@ class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
 
 
 class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
-    """Represents a thread in a :class:`.Team`.
+    """Represents a thread in a :class:`.Team`\.
 
     Attributes
     -----------
@@ -1083,6 +1083,26 @@ class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
 
 
 class DMChannel(guilded.abc.Messageable):
+    """Represents a private channel between users.
+
+    Attributes
+    -----------
+    last_message: Optional[:class:`.ChatMessage`]
+        The most recent message in the channel.
+    recipient: Optional[:class:`.User`]
+        The user on the opposing end of this conversation;
+        The first participant who is not yourself.
+    created_at: :class:`datetime.datetime`
+        When the channel was created.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the channel was last updated.
+    deleted_at: Optional[:class:`datetime.datetime`]
+        When the channel was deleted.
+    archived_at: Optional[:class:`datetime.datetime`]
+        When the channel was archived.
+    auto_archive_at: Optional[:class:`datetime.datetime`]
+        When the channel will automatically archive.
+    """
     def __init__(self, *, state, data):
         data = data.get('channel', data)
         super().__init__(state=state, data=data)
@@ -1099,13 +1119,13 @@ class DMChannel(guilded.abc.Messageable):
                 if user.id != self._state.my_id:
                     self.recipient = user
 
-        self.created_at = ISO8601(data.get('createdAt'))
-        self.updated_at = ISO8601(data.get('updatedAt'))
-        self.deleted_at = ISO8601(data.get('deletedAt'))
-        self.archived_at = ISO8601(data.get('archivedAt'))
-        self.auto_archive_at = ISO8601(data.get('autoArchiveAt'))
-        self.voice_participants = data.get('voiceParticipants')
-        self.last_message = None
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
+        self.archived_at: Optional[datetime.datetime] = ISO8601(data.get('archivedAt'))
+        self.auto_archive_at: Optional[datetime.datetime] = ISO8601(data.get('autoArchiveAt'))
+        self.voice_participants: List[User] = data.get('voiceParticipants')
+        self.last_message: Optional[ChatMessage] = None
         if data.get('lastMessage'):
             message_data = data.get('lastMessage')
             author = self._users.get(message_data.get('createdBy'))
@@ -1114,10 +1134,12 @@ class DMChannel(guilded.abc.Messageable):
 
     @property
     def share_url(self) -> str:
+        """:class:`str`: The URL which can be used to navigate to this channel."""
         return f'https://guilded.gg/chat/{self.id}'
 
     @property
     def users(self) -> List[User]:
+        """List[:class:`.User`]: The list of participants in this DM, including yourself."""
         return list(self._users.values())
 
     def __repr__(self) -> str:
@@ -1372,7 +1394,7 @@ class Announcement(HasContentMixin):
 
 
 class AnnouncementChannel(guilded.abc.TeamChannel):
-    """Represents an announcements channel in a team"""
+    """Represents an announcement channel in a :class:`.Team`\."""
     def __init__(self, **fields):
         super().__init__(**fields)
         if self._state.userbot:
@@ -2163,7 +2185,7 @@ class ListItem(HasContentMixin):
 
 
 class MediaChannel(guilded.abc.TeamChannel):
-    """Represents a media channel in a team."""
+    """Represents a media channel in a :class:`.Team`\."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.media
@@ -2288,7 +2310,7 @@ class MediaChannel(guilded.abc.TeamChannel):
 
 
 class ListChannel(guilded.abc.TeamChannel):
-    """Represents a list channel in a team"""
+    """Represents a list channel in a :class:`.Team`\."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.list
