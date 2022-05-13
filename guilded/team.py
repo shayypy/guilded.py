@@ -1020,13 +1020,12 @@ class Team:
 
         This method is an API call. For general usage, consider :meth:`get_channel` instead.
 
-        .. note::
+        .. warning::
 
-            If the client is a user account, the channel does not have to be
-            part of the current team because there is no team-oriented "get
-            channel" endpoint.
-            guilded.py will not raise any explicit indication that
-            you have fetched a channel not part of the current team.
+            Due to API ambiguities, the channel does not have to be part of
+            the current team.
+            guilded.py will not raise any explicit indication that you have
+            fetched a channel not part of the current team.
 
         Parameters
         -----------
