@@ -391,10 +391,79 @@ class Team:
         return list(self._members.values())
 
     @property
-    def channels(self) -> TeamChannel:
+    def channels(self) -> List[TeamChannel]:
         """List[:class:`~.abc.TeamChannel`]: The cached list of channels
         in this team."""
         return list(self._channels.values())
+
+    @property
+    def threads(self) -> List[Thread]:
+        """List[:class:`.Thread`]: The list of threads in this team."""
+        return list(self._threads.values())
+
+    @property
+    def announcement_channels(self) -> List[AnnouncementChannel]:
+        """List[:class:`.AnnouncementChannel`]: The list of announcement channels in this team."""
+        channels = [ch for ch in self._channels.values() if isinstance(ch, AnnouncementChannel)]
+        return channels
+
+    @property
+    def chat_channels(self) -> List[ChatChannel]:
+        """List[:class:`.ChatChannel`]: The list of chat channels in this team."""
+        channels = [ch for ch in self._channels.values() if isinstance(ch, ChatChannel)]
+        return channels
+
+    @property
+    def docs_channels(self) -> List[DocsChannel]:
+        """List[:class:`.DocsChannel`]: The list of docs channels in this team."""
+        channels = [ch for ch in self._channels.values() if isinstance(ch, DocsChannel)]
+        return channels
+
+    @property
+    def forum_channels(self) -> List[ForumChannel]:
+        """List[:class:`.ForumChannel`]: The list of forum channels in this team."""
+        channels = [ch for ch in self._channels.values() if isinstance(ch, ForumChannel)]
+        return channels
+
+    @property
+    def forums(self) -> List[ForumChannel]:
+        """List[:class:`.ForumChannel`]: |dpyattr|
+
+        The list of forum channels in this team.
+        """
+        return self.forum_channels
+
+    @property
+    def media_channels(self) -> List[MediaChannel]:
+        """List[:class:`.MediaChannel`]: The list of media channels in this team."""
+        channels = [ch for ch in self._channels.values() if isinstance(ch, MediaChannel)]
+        return channels
+
+    @property
+    def list_channels(self) -> List[ListChannel]:
+        """List[:class:`.ListChannel`]: The list of list channels in this team."""
+        channels = [ch for ch in self._channels.values() if isinstance(ch, ListChannel)]
+        return channels
+
+    @property
+    def scheduling_channels(self) -> List[SchedulingChannel]:
+        """List[:class:`.SchedulingChannel`]: The list of scheduling channels in this team."""
+        channels = [ch for ch in self._channels.values() if isinstance(ch, SchedulingChannel)]
+        return channels
+
+    @property
+    def text_channels(self) -> List[ChatChannel]:
+        """List[:class:`.ChatChannel`]: |dpyattr|
+
+        The list of chat channels in this team.
+        """
+        return self.chat_channels
+
+    @property
+    def voice_channels(self) -> List[VoiceChannel]:
+        """List[:class:`.VoiceChannel`]: The list of voice channels in this team."""
+        channels = [ch for ch in self._channels.values() if isinstance(ch, VoiceChannel)]
+        return channels
 
     @property
     def groups(self) -> List[Group]:
