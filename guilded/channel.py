@@ -94,6 +94,7 @@ __all__ = (
     'ListItem',
     'ListItemNote',
     'SchedulingChannel',
+    'TextChannel',
     'Thread',
     'VoiceChannel',
 )
@@ -163,6 +164,7 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
         webhooks = await self.team.webhooks(channel=self)
         return webhooks
 
+TextChannel = ChatChannel  # discord.py
 
 class Doc(HasContentMixin):
     """Represents a doc in a :class:`DocsChannel`.
