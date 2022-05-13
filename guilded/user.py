@@ -300,6 +300,7 @@ class Member(User):
 
         self.bot_id: str = extra.get('bot_id')
         self._role_ids: List[int] = data.get('roleIds') or []
+        self._owner: Optional[bool] = data.get('isOwner')
         self.nick: Optional[str] = data.get('nickname')
         self.xp: Optional[int] = data.get('teamXp')
         self.joined_at: datetime.datetime = ISO8601(data.get('joinedAt') or data.get('joinDate'))
@@ -388,6 +389,15 @@ class Member(User):
 
     def _update_roles(self, role_ids: List[int]):
         self._role_ids = [int(role_id) for role_id in role_ids]
+
+    def is_owner(self) -> bool:
+        """:class:`bool`: Whether this member is the owner of their team.
+
+        This may incorrectly be ``False`` when the member and team are both partial.
+        """
+        if self._owner is not None:
+            return self._owner
+        return self.team.owner_id == self.id
 
     async def edit(self, **kwargs):
         """|coro|
