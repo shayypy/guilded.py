@@ -18,6 +18,7 @@ from .file import *
 from .flowbot import *
 from .group import *
 from .message import *
+from .role import *
 from .permissions import *
 from .presence import *
 from .reaction import *
