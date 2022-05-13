@@ -205,7 +205,6 @@ class UserbotGuildedWebSocket(GuildedWebSocketBase):
 
         self.client.dispatch('socket_raw_receive', payload)
         data = self._full_event_parse(payload)
-        self.client.dispatch('socket_response', data)
         log.debug('Received %s', data)
 
         if data.get('sid') is not None:
@@ -1096,7 +1095,6 @@ class GuildedWebSocket(GuildedWebSocketBase):
     async def received_event(self, payload) -> None:
         self.client.dispatch('socket_raw_receive', payload)
         data = json.loads(payload)
-        self.client.dispatch('socket_response', data)
         log.debug('Received %s', data)
 
         op: int = data['op']
@@ -1279,6 +1277,8 @@ class WebSocketEventParsers:
                 self.client.dispatch('member_ban', member)
             if data.get('isKick'):
                 self.client.dispatch('member_kick', member)
+            if not data.get('isKick') and not data.get('isBan'):
+                self.client.dispatch('member_leave', member)
 
             server._members.pop(data['userId'], None)
 
