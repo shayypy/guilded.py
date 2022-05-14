@@ -579,6 +579,10 @@ class Webhook(BaseWebhook):
         The channel ID this webhook is for.
     name: Optional[:class:`str`]
         The webhook's name.
+    created_at: :class:`datetime.datetime`
+        When the webhook was created.
+    deleted_at: Optional[:class:`datetime.datetime`]
+        When the webhook was deleted.
     """
 
     __slots__: Tuple[str, ...] = ('session',)
@@ -589,7 +593,7 @@ class Webhook(BaseWebhook):
 
     @property
     def url(self) -> str:
-        """:class:`str`: Returns the webhook's url."""
+        """:class:`str`: Returns the webhook's URL."""
         return f'https://media.guilded.gg/webhooks/{self.id}/{self.token}'
 
     @classmethod
@@ -611,9 +615,8 @@ class Webhook(BaseWebhook):
         token: :class:`str`
             The authentication token of the webhook.
         session: :class:`aiohttp.ClientSession`
-            The session to use to send requests with. Note
-            that the library does not manage the session and
-            will not close it.
+            The session to use to send requests with.
+            Note that the library does not manage the session and will not close it.
         auth_token: Optional[:class:`str`]
             The bot authentication token for authenticated requests
             involving the webhook.
@@ -625,7 +628,7 @@ class Webhook(BaseWebhook):
         --------
         :class:`Webhook`
             A partial :class:`Webhook`.
-            A partial webhook is just a webhook object with an ID and a token.
+            A partial webhook is a webhook object with only an ID and a token.
         """
         data = {
             'id': id,
@@ -650,9 +653,8 @@ class Webhook(BaseWebhook):
         url: :class:`str`
             The URL of the webhook.
         session: :class:`aiohttp.ClientSession`
-            The session to use to send requests with. Note
-            that the library does not manage the session and
-            will not close it.
+            The session to use to send requests with.
+            Note that the library does not manage the session and will not close it.
         auth_token: Optional[:class:`str`]
             The bot authentication token for authenticated requests
             involving the webhook.
@@ -664,7 +666,7 @@ class Webhook(BaseWebhook):
         --------
         :class:`Webhook`
             A partial :class:`Webhook`.
-            A partial webhook is just a webhook object with an ID and a token.
+            A partial webhook is a webhook object with only an ID and a token.
 
         Raises
         -------
