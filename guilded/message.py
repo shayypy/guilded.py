@@ -312,7 +312,7 @@ class HasContentMixin:
                                                 'profilePicture': mentioned.get('avatar'),
                                                 'colour': Colour.from_str(mentioned.get('color', '#000')),
                                                 'nickname': mentioned.get('name') if mentioned.get('nickname') is True else None,
-                                                'bot': self.created_by_bot
+                                                'type': 'bot' if self.created_by_bot else 'user',
                                             }
                                         ))
                                     else:
@@ -320,7 +320,7 @@ class HasContentMixin:
                                             'id': mentioned.get('id'),
                                             'name': name,
                                             'profilePicture': mentioned.get('avatar'),
-                                            'bot': self.created_by_bot
+                                            'type': 'bot' if self.created_by_bot else 'user',
                                         }))
                             elif mentioned['type'] in ('everyone', 'here'):
                                 # grab the actual display content of the node instead of using a static string
