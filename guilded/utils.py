@@ -303,8 +303,7 @@ class Object:
         Because Guilded IDs are not meaningful in the way that `snowflakes <https://discord.com/developers/docs/reference#snowflakes>`_
         are, a creation date is impossible to attain from only an ID. As a
         result, :attr:`.created_at` will always return 1/1/2016 for backwards
-        compatibility with applications that implement
-        `discord.Object.created_at <https://discordpy.readthedocs.io/en/latest/api.html#discord.Object.created_at>`_.
+        compatibility with applications that implement :attr:`discord.Object.created_at`.
 
 
     .. container:: operations
