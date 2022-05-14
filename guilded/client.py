@@ -976,8 +976,8 @@ class UserbotClient(ClientBase):
 
         Fill the internal game list cache from remote data.
         """
-        games = await self.fetch_games()
-        Game.MAPPING = games
+        data = await self.http.get_game_list()
+        Game.MAPPING = data
 
     async def update_privacy_settings(
         self,
