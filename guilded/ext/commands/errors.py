@@ -49,7 +49,13 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, List, Tuple
 from guilded.errors import ClientException, GuildedException
+
+if TYPE_CHECKING:
+    from inspect import Parameter
 
 
 __all__ = (
@@ -63,6 +69,7 @@ __all__ = (
     'CommandNotFound',
     'DisabledCommand',
     'CommandInvokeError',
+    'MissingRequiredAttachment',
     'TooManyArguments',
     'UserInputError',
     'CommandOnCooldown',
@@ -75,9 +82,12 @@ __all__ = (
     'UserNotFound',
     'ChannelNotFound',
     'ChannelNotReadable',
+    'ThreadNotFound',
     'BadColourArgument',
     'RoleNotFound',
     'BadInviteArgument',
+    'BadGameArgument',
+    'GameNotFound',
     'EmojiNotFound',
     'BadBoolArgument',
     'MissingRole',
@@ -88,6 +98,7 @@ __all__ = (
     'BotMissingPermissions',
     'ConversionError',
     'BadUnionArgument',
+    'BadLiteralArgument',
     'ArgumentParsingError',
     'UnexpectedQuoteError',
     'InvalidEndOfQuotedStringError',
@@ -168,6 +179,21 @@ class MissingRequiredArgument(UserInputError):
     def __init__(self, param):
         self.param = param
         super().__init__(f'{param.name} is a required argument that is missing.')
+
+class MissingRequiredAttachment(UserInputError):
+    """Exception raised when parsing a command and a parameter that requires
+    an attachment is not given.
+
+    This inherits from :exc:`UserInputError`
+
+    Attributes
+    -----------
+    param: :class:`Parameter`
+        The argument that is missing an attachment.
+    """
+    def __init__(self, param: Parameter) -> None:
+        self.param: Parameter = param
+        super().__init__(f'{param.name} is a required argument that is missing an attachment.')
 
 class TooManyArguments(UserInputError):
     """Exception raised when the command was passed too many arguments and its
@@ -338,6 +364,21 @@ class ChannelNotFound(BadArgument):
         self.argument = argument
         super().__init__(f'Channel "{argument}" not found.')
 
+class ThreadNotFound(BadArgument):
+    """Exception raised when the bot can not find the thread.
+
+    This inherits from :exc:`BadArgument`
+
+    Attributes
+    -----------
+    argument: :class:`str`
+        The thread supplied by the caller that was not found
+    """
+
+    def __init__(self, argument: str) -> None:
+        self.argument: str = argument
+        super().__init__(f'Thread "{argument}" not found.')
+
 class BadColourArgument(BadArgument):
     """Exception raised when the colour is not valid.
 
@@ -375,6 +416,37 @@ class BadInviteArgument(BadArgument):
     """
     def __init__(self):
         super().__init__('Invite is invalid or expired.')
+
+class BadGameArgument(BadArgument):
+    """Exception raised when the game mapping is not filled.
+
+    This inherits from :exc:`BadArgument`
+
+    Attributes
+    -----------
+    argument: :class:`str`
+        The game supplied by the caller
+    """
+
+    def __init__(self, argument: str) -> None:
+        self.argument: str = argument
+        super().__init__(f'Game "{argument}" was not found because the internal game mapping is not present.')
+
+class GameNotFound(BadArgument):
+    """Exception raised when the game mapping is filled but the provided
+    argument was not in it.
+
+    This inherits from :exc:`BadArgument`
+
+    Attributes
+    -----------
+    argument: :class:`str`
+        The game supplied by the caller that was not found
+    """
+
+    def __init__(self, argument: str) -> None:
+        self.argument: str = argument
+        super().__init__(f'Game "{argument}" is invalid.')
 
 class EmojiNotFound(BadArgument):
     """Exception raised when the bot can not find the emoji.
@@ -630,6 +702,35 @@ class BadUnionArgument(UserInputError):
             fmt = ' or '.join(to_string)
 
         super().__init__(f'Could not convert "{param.name}" into {fmt}.')
+
+class BadLiteralArgument(UserInputError):
+    """Exception raised when a :data:`typing.Literal` converter fails for all
+    its associated values.
+
+    This inherits from :exc:`UserInputError`
+
+    Attributes
+    -----------
+    param: :class:`inspect.Parameter`
+        The parameter that failed being converted.
+    literals: Tuple[Any, ``...``]
+        A tuple of values compared against in conversion, in order of failure.
+    errors: List[:class:`CommandError`]
+        A list of errors that were caught from failing the conversion.
+    """
+
+    def __init__(self, param: Parameter, literals: Tuple[Any, ...], errors: List[CommandError]) -> None:
+        self.param: Parameter = param
+        self.literals: Tuple[Any, ...] = literals
+        self.errors: List[CommandError] = errors
+
+        to_string = [repr(l) for l in literals]
+        if len(to_string) > 2:
+            fmt = '{}, or {}'.format(', '.join(to_string[:-1]), to_string[-1])
+        else:
+            fmt = ' or '.join(to_string)
+
+        super().__init__(f'Could not convert "{param.name}" into the literal {fmt}.')
 
 class ArgumentParsingError(UserInputError):
     """An exception raised when the parser fails to parse a user's input.
