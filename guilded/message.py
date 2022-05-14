@@ -245,7 +245,7 @@ class HasContentMixin:
         self.attachments: list = []
         self.links: list = []
 
-    def _get_full_content(self, data):
+    def _get_full_content(self, data) -> str:
         try:
             nodes = data['document']['nodes']
         except KeyError:
@@ -483,7 +483,6 @@ class ChatMessage(HasContentMixin):
             self.id: str = message['id']
             self.type: MessageType = try_enum(MessageType, message['type'])
             self.channel_id: str = message['channelId']
-            self.content: str = message['content']
             self.embeds: List[Embed] = [Embed.from_dict(embed) for embed in (message.get('embeds') or [])]
 
             self.author_id: str = message.get('createdBy')
@@ -497,6 +496,13 @@ class ChatMessage(HasContentMixin):
             self.replied_to_ids: List[str] = message.get('replyMessageIds') or []
             self.private: bool = message.get('isPrivate') or False
             self.silent: bool = message.get('isSilent') or False
+
+            self.content: str
+            if isinstance(message['content'], dict):
+                # Webhook execution responses
+                self.content = self._get_full_content(message['content'])
+            else:
+                self.content = message['content']
 
     def __eq__(self, other) -> bool:
         return isinstance(other, ChatMessage) and self.id == other.id
