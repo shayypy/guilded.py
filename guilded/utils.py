@@ -208,6 +208,10 @@ _MARKDOWN_ESCAPE_COMMON = r'^>(?:>>)?\s|\[.+\]\(.+\)'
 
 _MARKDOWN_ESCAPE_REGEX = re.compile(r'(?P<markdown>%s|%s)' % (_MARKDOWN_ESCAPE_SUBREGEX, _MARKDOWN_ESCAPE_COMMON), re.MULTILINE)
 
+_URL_REGEX = r'(?P<url><[^: >]+:\/[^ >]+>|https?:\/\/[^\s<]+[^<.,:;\"\'\]\s])'
+
+_MARKDOWN_STOCK_REGEX = fr'(?P<markdown>[_\\~|\*`]|{_MARKDOWN_ESCAPE_COMMON})'
+
 
 def escape_markdown(text, *, as_needed=False, ignore_links=True):
     r"""A helper function that escapes markdown.
@@ -234,7 +238,6 @@ def escape_markdown(text, *, as_needed=False, ignore_links=True):
         The text with the markdown special characters escaped with a slash.
     """
     if not as_needed:
-        url_regex = r'(?P<url><[^: >]+:\/[^ >]+>|(?:https?|steam):\/\/[^\s<]+[^<.,:;\"\'\]\s])'
         def replacement(match):
             groupdict = match.groupdict()
             is_url = groupdict.get('url')
@@ -244,11 +247,63 @@ def escape_markdown(text, *, as_needed=False, ignore_links=True):
 
         regex = r'(?P<markdown>[_\\~|\*`]|%s)' % _MARKDOWN_ESCAPE_COMMON
         if ignore_links:
-            regex = '(?:%s|%s)' % (url_regex, regex)
+            regex = '(?:%s|%s)' % (_URL_REGEX, regex)
         return re.sub(regex, replacement, text, 0, re.MULTILINE)
     else:
         text = re.sub(r'\\', r'\\\\', text)
         return _MARKDOWN_ESCAPE_REGEX.sub(r'\\\1', text)
+
+
+def remove_markdown(text: str, *, ignore_links: bool = True) -> str:
+    """A helper function that removes markdown characters.
+
+    .. note::
+
+        This function is not markdown aware and may remove meaning from the original text.
+        For example, if the input contains ``10 * 5`` then it will be converted into ``10  5``.
+
+    Parameters
+    -----------
+    text: :class:`str`
+        The text to remove markdown from.
+    ignore_links: :class:`bool`
+        Whether to leave links alone when removing markdown. For example,
+        if a URL in the text contains characters such as ``_`` then it will
+        be left alone. Defaults to ``True``.
+
+    Returns
+    --------
+    :class:`str`
+        The text with the markdown special characters removed.
+    """
+
+    def replacement(match):
+        groupdict = match.groupdict()
+        return groupdict.get('url', '')
+
+    regex = _MARKDOWN_STOCK_REGEX
+    if ignore_links:
+        regex = f'(?:{_URL_REGEX}|{regex})'
+    return re.sub(regex, replacement, text, 0, re.MULTILINE)
+
+
+def escape_mentions(text: str) -> str:
+    """A helper function that escapes everyone, here, role, and user mentions.
+
+    .. note::
+        This does not include channel mentions.
+
+    Parameters
+    -----------
+    text: :class:`str`
+        The text to escape mentions from.
+
+    Returns
+    --------
+    :class:`str`
+        The text with the mentions removed.
+    """
+    return re.sub(r'@(everyone|here|(?:[0-9]{6,10}|[a-zA-Z0-9]{8,10}))', '@\u200b\\1', text)
 
 
 async def maybe_coroutine(f, *args, **kwargs):
