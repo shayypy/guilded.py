@@ -325,7 +325,7 @@ class BotBase:
     async def is_owner(self, user: guilded.User):
         """|coro|
 
-        Checks if a :class:`guilded.User` or :class:`.Member` is the
+        Checks if a :class:`~guilded.User` or :class:`.Member` is the
         owner of this bot. If an :attr:`.owner_id` or :attr:`.owner_ids` are
         not set, this function will always return False, unless the user
         provided is the bot itself.
@@ -648,7 +648,7 @@ class BotBase:
         An extension is a python module that contains commands, cogs, or
         listeners.
 
-        An extension must have a global function, ``setup`` defined as
+        An extension must have a global function, ``setup``, defined as
         the entry point on what to do when the extension is loaded. This entry
         point must have a single argument, the ``bot``.
 
@@ -822,7 +822,7 @@ class UserbotBot(BotBase, guilded.UserbotClient):
     comes with commands-related features.
 
     This is the same as :class:`.Bot` except that it inherits from :class:`.UserbotClient`
-    instead, and is thus for user-bots, not early acess API bots.
+    instead, and is thus for user accounts, not bot accounts.
 
     Parameters
     ------------
@@ -833,11 +833,11 @@ class UserbotBot(BotBase, guilded.UserbotClient):
         when it is created.
     owner_id: Optional[:class:`str`]
         The user's ID who owns this bot. Used for the
-        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        :meth:`~guilded.ext.commands.is_owner` decorator. Must not be specified
         with ``owner_ids``.
     owner_ids: Optional[List[:class:`str`]]
         The users' IDs who own this bot. Used for the
-        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        :meth:`~guilded.ext.commands.is_owner` decorator. Must not be specified
         with ``owner_id``.
     max_messages: Optional[:class:`int`]
         The maximum number of messages to store in the internal message cache.
@@ -883,11 +883,11 @@ class Bot(BotBase, guilded.Client):
         when it is created.
     owner_id: Optional[:class:`str`]
         The user's ID who owns this bot. Used for the
-        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        :meth:`~guilded.ext.commands.is_owner` decorator. Must not be specified
         with ``owner_ids``.
     owner_ids: Optional[List[:class:`str`]]
         The users' IDs who own this bot. Used for the
-        :meth:`guilded.ext.commands.is_owner` decorator. Must not be specified
+        :meth:`~guilded.ext.commands.is_owner` decorator. Must not be specified
         with ``owner_id``.
     max_messages: Optional[:class:`int`]
         The maximum number of messages to store in the internal message cache.
