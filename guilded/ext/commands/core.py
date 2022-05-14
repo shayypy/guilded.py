@@ -1210,7 +1210,8 @@ def team_only():
 
     return check(predicate)
 
-guild_only = team_only
+guild_only = team_only  # discord.py
+server_only = team_only  # bot API
 
 def is_owner():
     """A :func:`.check` that checks if the person invoking this command is the
