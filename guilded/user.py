@@ -62,7 +62,7 @@ from .colour import Colour
 from .enums import MediaType
 from .file import File
 from .role import Role
-from .utils import copy_doc, ISO8601, parse_hex_number
+from .utils import copy_doc, ISO8601
 
 
 __all__ = (
@@ -308,7 +308,7 @@ class Member(User):
         self.colour: Optional[Colour]
         colour = data.get('colour') or data.get('color')
         if colour is not None and not isinstance(colour, Colour):
-            self.colour = parse_hex_number(colour)
+            self.colour = Colour.from_str(colour)
         else:
             self.colour = colour
 
@@ -347,7 +347,7 @@ class Member(User):
     @property
     def roles(self) -> List[Role]:
         """List[:class:`.Role`]: The cached list of roles that this member has."""
-        roles = [self.team.get_role(int(role_id)) for role_id in self._role_ids]
+        roles = [self.team.get_role(int(role_id)) for role_id in self._role_ids if self.team.get_role(int(role_id)) is not None]
         return roles
 
     @property

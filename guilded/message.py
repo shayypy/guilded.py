@@ -57,11 +57,12 @@ from enum import Enum
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, List, Sequence, Union
 
+from .colour import Colour
 from .embed import Embed
 from .enums import try_enum, FormType, MessageType, MentionType, MessageFormInputType, MediaType
 from .errors import HTTPException
 from .file import Attachment
-from .utils import ISO8601, MISSING, parse_hex_number
+from .utils import ISO8601, MISSING
 
 if TYPE_CHECKING:
     from .abc import Messageable
@@ -309,7 +310,7 @@ class HasContentMixin:
                                                 'id': mentioned.get('id'),
                                                 'name': name,
                                                 'profilePicture': mentioned.get('avatar'),
-                                                'colour': parse_hex_number(mentioned.get('color', '000000').strip('#')),
+                                                'colour': Colour.from_str(mentioned.get('color', '#000')),
                                                 'nickname': mentioned.get('name') if mentioned.get('nickname') is True else None,
                                                 'bot': self.created_by_bot
                                             }

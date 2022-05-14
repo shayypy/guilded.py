@@ -26,7 +26,7 @@ import datetime
 from typing import Any, Dict, Optional
 
 from .colour import Colour
-from .utils import ISO8601, parse_hex_number
+from .utils import ISO8601
 from .permissions import Permissions
 
 
@@ -73,11 +73,13 @@ class Role:
 
         self.id: int = int(data['id'])
         self.name: str = data.get('name') or ''
+
+        self.colour: Optional[Colour]
         colour = data.get('colour') or data.get('color')
         if colour == 'transparent':
             self.colour = None
         elif colour is not None and not isinstance(colour, Colour):
-            self.colour = parse_hex_number(colour.strip('#'))
+            self.colour = Colour.from_str(colour)
         else:
             self.colour = colour
 

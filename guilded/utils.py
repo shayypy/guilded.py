@@ -58,7 +58,6 @@ from typing import Any, AsyncIterable, Callable, Coroutine, Iterable, Optional, 
 import unicodedata
 from uuid import uuid1, UUID
 
-from .colour import Colour
 
 GUILDED_EPOCH_DATETIME = datetime.datetime(2016, 1, 1)
 GUILDED_EPOCH_ISO8601 = GUILDED_EPOCH_DATETIME.isoformat() + 'Z'
@@ -250,18 +249,6 @@ def escape_markdown(text, *, as_needed=False, ignore_links=True):
     else:
         text = re.sub(r'\\', r'\\\\', text)
         return _MARKDOWN_ESCAPE_REGEX.sub(r'\\\1', text)
-
-
-def parse_hex_number(argument):
-    arg = ''.join([i * 2 for i in argument]) if len(argument) == 3 else argument
-    try:
-        value = int(arg, base=16)
-        if not (0 <= value <= 0xFFFFFF):
-            raise ValueError(argument)
-    except ValueError as e:
-        raise ValueError(argument) from e
-    else:
-        return Colour(value=value)
 
 
 async def maybe_coroutine(f, *args, **kwargs):

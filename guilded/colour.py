@@ -49,8 +49,15 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import colorsys
 import random
+import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 
 __all__ = (
@@ -59,19 +66,72 @@ __all__ = (
 )
 
 
+def parse_hex_number(argument: str) -> Colour:
+    from .colour import Colour
+
+    arg = ''.join([i * 2 for i in argument]) if len(argument) == 3 else argument
+    try:
+        value = int(arg, base=16)
+        if not (0 <= value <= 0xFFFFFF):
+            raise ValueError(argument)
+    except ValueError as e:
+        raise ValueError(argument) from e
+    else:
+        return Colour(value=value)
+
+
+def parse_rgb_number(number: str) -> int:
+    if number[-1] == '%':
+        value = float(number[:-1])
+        if not (0 <= value <= 100):
+            raise ValueError('rgb percentage can only be between 0 to 100')
+        return round(255 * (value / 100))
+
+    value = int(number)
+    if not (0 <= value <= 255):
+        raise ValueError('rgb number can only be between 0 to 255')
+    return value
+
+
+RGB_REGEX = re.compile(r'rgb\s*\((?P<r>[0-9.]+%?)\s*,\s*(?P<g>[0-9.]+%?)\s*,\s*(?P<b>[0-9.]+%?)\s*\)')
+
+def parse_rgb(argument: str, *, regex: re.Pattern[str] = RGB_REGEX) -> Colour:
+    from .colour import Colour
+
+    match = regex.match(argument)
+    if match is None:
+        raise ValueError('invalid rgb syntax found')
+
+    red = parse_rgb_number(match.group('r'))
+    green = parse_rgb_number(match.group('g'))
+    blue = parse_rgb_number(match.group('b'))
+    return Colour.from_rgb(red, green, blue)
+
+
 class Colour:
-    """Represents a colour in Guilded, such as in embeds or roles. This class is similar
-    to a (red, green, blue) :class:`tuple`.
+    """Represents a colour in Guilded, such as in embeds or roles.
+    This class is similar to a (red, green, blue) :class:`tuple`.
+
     There is an alias for this called Color.
+
     .. container:: operations
+
         .. describe:: x == y
+
              Checks if two colours are equal.
+
         .. describe:: x != y
+
              Checks if two colours are not equal.
+
         .. describe:: hash(x)
+
              Return the colour's hash.
+
         .. describe:: str(x)
+
              Returns the hex format for the colour.
+
     Attributes
     ------------
     value: :class:`int`
@@ -80,28 +140,31 @@ class Colour:
 
     __slots__ = ('value',)
 
-    def __init__(self, value):
+    def __init__(self, value: int):
         if not isinstance(value, int):
             raise TypeError('Expected int parameter, received %s instead.' % value.__class__.__name__)
 
         self.value = value
 
-    def _get_byte(self, byte):
+    def _get_byte(self, byte: int) -> int:
         return (self.value >> (8 * byte)) & 0xff
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return isinstance(other, Colour) and self.value == other.value
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         return not self.__eq__(other)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '#{:0>6x}'.format(self.value)
 
-    def __repr__(self):
+    def __int__(self) -> int:
+        return self.value
+
+    def __repr__(self) -> str:
         return f'<Colour value={self.value}>'
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.value)
 
     @property
@@ -124,15 +187,51 @@ class Colour:
         return (self.r, self.g, self.b)
 
     @classmethod
-    def from_rgb(cls, r, g, b):
+    def from_rgb(cls, r, g, b) -> Self:
         """Constructs a :class:`Colour` from an RGB tuple."""
         return cls((r << 16) + (g << 8) + b)
 
     @classmethod
-    def from_hsv(cls, h, s, v):
+    def from_hsv(cls, h, s, v) -> Self:
         """Constructs a :class:`Colour` from an HSV tuple."""
         rgb = colorsys.hsv_to_rgb(h, s, v)
         return cls.from_rgb(*(int(x * 255) for x in rgb))
+
+    @classmethod
+    def from_str(cls, value: str) -> Self:
+        """Constructs a :class:`Colour` from a string.
+
+        The following formats are accepted:
+
+        - ``0x<hex>``
+        - ``#<hex>``
+        - ``0x#<hex>``
+        - ``rgb(<number>, <number>, <number>)``
+
+        Like CSS, ``<number>`` can be either 0-255 or 0-100% and ``<hex>`` can be
+        either a 6 digit hex number or a 3 digit hex shortcut (e.g. #fff).
+
+        Raises
+        -------
+        ValueError
+            The string could not be converted into a colour.
+        """
+
+        if value[0] == '#':
+            return parse_hex_number(value[1:])
+
+        if value[0:2] == '0x':
+            rest = value[2:]
+            # Legacy backwards compatible syntax
+            if rest.startswith('#'):
+                return parse_hex_number(rest[1:])
+            return parse_hex_number(rest)
+
+        arg = value.lower()
+        if arg[0:3] == 'rgb':
+            return parse_rgb(arg)
+
+        raise ValueError('unknown colour format given')
 
     @classmethod
     def default(cls):
