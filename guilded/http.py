@@ -1401,11 +1401,8 @@ class UserbotHTTPClient(HTTPClientBase):
 
     # /content
 
-    async def get_channel_message(self, channel_id: str, message_id: str):
-        metadata = await self.get_metadata(f'//channels/{channel_id}/chat?messageId={message_id}')
-        channel = self.create_channel(data=metadata['metadata']['channel'])
-        message = self.create_message(data=metadata['metadata']['message'], channel=channel)
-        return message
+    def get_channel_message(self, channel_id: str, message_id: str):
+        return self.get_metadata(f'//channels/{channel_id}/chat?messageId={message_id}')
 
     def get_embed_for_url(self, url: str):
         return self.request(UserbotRoute('GET', '/content/embed_info'), params={'url': url})

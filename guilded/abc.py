@@ -335,7 +335,11 @@ class Messageable(metaclass=abc.ABCMeta):
         :class:`.ChatMessage`
             The message from the ID.
         """
-        message = await self._state.get_channel_message(self._channel_id, id)
+        data = await self._state.get_channel_message(self._channel_id, id)
+        if self._state.userbot:
+            data = data['metadata']['message']
+
+        message = self._state.create_message(data=data, channel=self._channel)
         return message
 
     async def create_thread(self, *content, **kwargs) -> Thread:
