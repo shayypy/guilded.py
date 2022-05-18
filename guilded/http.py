@@ -675,69 +675,11 @@ class UserbotHTTPClient(HTTPClientBase):
 
         return self.request(route, json=payload)
 
-    def edit_message(self, channel_id: str, message_id: str, **fields):
+    def edit_message(self, channel_id: str, message_id: str, *, content: Dict[str, Any]):
         route = UserbotRoute('PUT', f'/channels/{channel_id}/messages/{message_id}')
-        payload = {'content': {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}}}
-
-        try:
-            content = fields['content']
-        except KeyError:
-            if fields.get('old_content'):
-                content = fields.get('old_content')
-                payload['content']['document']['nodes'].append({
-                    'object': 'block',
-                    'type': 'markdown-plain-text',
-                    'data': {},
-                    'nodes': [{'object':'text', 'leaves': [{'object': 'leaf', 'text': str(content), 'marks': []}]}]
-                })
-        else:
-            payload['content']['document']['nodes'].append({
-                'object': 'block',
-                'type': 'markdown-plain-text',
-                'data': {},
-                'nodes': [{'object':'text', 'leaves': [{'object': 'leaf', 'text': str(content), 'marks': []}]}]
-            })
-
-        try:
-            embeds = fields['embeds']
-        except KeyError:
-            if fields.get('old_embeds'):
-                embeds = fields.get('old_embeds')
-                payload['content']['document']['nodes'].append({
-                    'object': 'block',
-                    'type': 'webhookMessage',
-                    'data': {'embeds': embeds},
-                    'nodes': []
-                })
-        else:
-            payload['content']['document']['nodes'].append({
-                'object': 'block',
-                'type': 'webhookMessage',
-                'data': {'embeds': embeds},
-                'nodes': []
-            })
-
-        try:
-            files = fields['files']
-        except KeyError:
-            if fields.get('old_files'):
-                files = fields.get('old_files')
-                for file in files:
-                    payload['content']['document']['nodes'].append({
-                        'object': 'block',
-                        'type': str(file.file_type),
-                        'data': {'src': file.url},
-                        'nodes': []
-                    })
-        else:
-            for file in files:
-                payload['content']['document']['nodes'].append({
-                    'object': 'block',
-                    'type': str(file.file_type),
-                    'data': {'src': file.url},
-                    'nodes': []
-                })
-
+        payload = {
+            'content': content,
+        }
         return self.request(route, json=payload)
 
     def delete_message(self, channel_id: str, message_id: str):
@@ -1646,12 +1588,8 @@ class HTTPClient(HTTPClientBase):
         route = Route('POST', f'/channels/{channel_id}/messages')
         return self.request(route, json=payload)
 
-    def update_channel_message(self, channel_id: str, message_id: str, *, content: str):
+    def update_channel_message(self, channel_id: str, message_id: str, *, payload: Dict[str, Any]):
         route = Route('PUT', f'/channels/{channel_id}/messages/{message_id}')
-        payload = {
-            'content': content,
-        }
-
         return self.request(route, json=payload)
 
     def delete_channel_message(self, channel_id: str, message_id: str):

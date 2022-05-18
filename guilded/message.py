@@ -619,39 +619,120 @@ class ChatMessage(HasContentMixin):
             await coro
             self.deleted_at = datetime.datetime.utcnow()
 
-    async def edit(self, *, content: str = None, embed = None, embeds: Optional[list] = None, file = None, files: Optional[list] = None):
+    async def edit(
+        self,
+        *pos_content: Optional[Union[str, Embed, File, Emoji, Member]],
+        content: Optional[str] = MISSING,
+        file: Optional[File] = MISSING,
+        files: Optional[Sequence[File]] = MISSING,
+        embed: Optional[Embed] = MISSING,
+        embeds: Optional[Sequence[Embed]] = MISSING,
+    ) -> ChatMessage:
         """|coro|
 
-        Edit this message.
+        Edit a message.
+
+        .. note::
+
+            For user accounts, Guilded supports content elements in any order,
+            which is not practically possible with keyword arguments.
+            For this reason, it is recommended that you pass arguments positionally in these environments.
+            However, if the client is a bot account, you **must** use keyword arguments for non-text content.
+
+        .. warning::
+
+            Unlike perhaps-expected ``PATCH`` behavior, this method overwrites
+            all content previously in the message using the new payload.
+
+        Parameters
+        -----------
+        \*pos_content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`, :class:`.Member`]
+            An argument list of the message content, passed in the order that
+            each element should display in the message.
+            You can have at most 4,000 characters of text content.
+            If the client is a bot account, only the first value is used as content.
+            This parameter cannot be combined with ``content``.
+        content: :class:`str`
+            The text content to send with the message.
+            This parameter exists so that text content can be passed using a keyword argument.
+            This parameter cannot be combined with ``pos_content``.
+        embed: :class:`.Embed`
+            An embed to send with the message.
+            This parameter cannot be meaningfully combined with ``embeds``.
+        embeds: List[:class:`.Embed`]
+            A list of embeds to send with the message.
+            If the client is a bot account, this can contain at most 1 value.
+            Otherwise, this has no hard limit.
+            This parameter cannot be meaningfully combined with ``embed``.
+
+        Returns
+        --------
+        :class:`.ChatMessage`
+            The edited message.
+
+        Raises
+        -------
+        NotFound
+            The message does not exist.
+        Forbidden
+            The message is not owned by you or it is in a channel you cannot access.
+        HTTPException
+            Could not edit the message.
+        ValueError
+            Cannot provide both ``content`` and ``pos_content``\.
         """
+
+        if content is not MISSING and pos_content:
+            raise ValueError('Cannot provide both content and pos_content')
+
         if self._state.userbot:
-            payload = {
-                'old_content': self.content,
-                'old_embeds': [embed.to_dict() for embed in self.embeds],
-                'old_files': [await attachment.to_file() for attachment in self.attachments]
-            }
-            if content:
-                payload['content'] = content
-            if embed:
-                embeds = [embed, *(embeds or [])]
-            if embeds is not None:
-                payload['embeds'] = [embed.to_dict() for embed in embeds]
-            if file:
-                files = [file, *(files or [])]
-            if files is not None:
-                pl_files = []
-                for file in files:
-                    file.type = MediaType.attachment
-                    if file.url is None:
-                        await file._upload(self._state)
-                    pl_files.append(file)
+            if content is not MISSING:
+                pos_content = (content,)
 
-                payload['files'] = pl_files
+            content = await self._state.process_list_content(
+                pos_content,
+                embed=embed,
+                embeds=embeds,
+                file=file,
+                files=files,
+            )
+            content = self._state.compatible_content(content)
 
-            await self._state.edit_message(self.channel_id, self.id, **payload)
+            message_data = await self._state.edit_message(
+                self.channel_id,
+                self.id,
+                content=content,
+            )
+            message_data = message_data.get('message', message_data)
+            message_data['channelId'] = self.channel_id
+            message_data['teamId'] = self.team_id
+            message = self._state.create_message(data=message_data, channel=self.channel)
 
         else:
-            await self._state.update_channel_message(self.channel_id, self.id, content=content)
+            from .http import handle_message_parameters
+
+            if pos_content:
+                content = pos_content[0]
+
+            params = handle_message_parameters(
+                content=content,
+                file=file,
+                files=files,
+                embed=embed,
+                embeds=embeds,
+            )
+
+            data = await self._state.update_channel_message(
+                self.channel_id,
+                self.id,
+                payload=params.payload,
+            )
+            message = self._state.create_message(
+                data=data['message'],
+                channel=self.channel,
+            )
+
+        return message
 
     async def add_reaction(self, emoji: Emoji) -> None:
         """|coro|
