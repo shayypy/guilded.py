@@ -166,10 +166,11 @@ class Emoji(AssetMixin):
     name: :class:`str`
         The emoji's name.
     aliases: List[:class:`str`]
-        A list of aliases for the emoji. Likely only applicable to stock
-        (unicode and Guilded) emojis.
+        A list of aliases for the emoji. Likely only applicable when :attr:`.stock` is ``True``\.
     created_at: Optional[:class:`datetime.datetime`]
         When the emoji was created.
+    stock: :class:`bool`
+        Whether the emoji is a stock emoji (Unicode or by Guilded)
     discord: Optional[:class:`.DiscordEmoji`]
         The Discord emoji that the emoji corresponds to.
     """
@@ -187,8 +188,17 @@ class Emoji(AssetMixin):
         self.deleted: bool = data.get('isDeleted', False)
         self._animated: bool = data.get('isAnimated', False)
 
-        self._stock_guilded: bool = extra.get('stock') is True and data.get('category') == 'Guilded'
-        self._stock_unicode: bool = extra.get('stock') is True and data.get('category') != 'Guilded'
+        self.stock: bool = self.id in range(90000000, 90003284)
+        # Stock emoji IDs increment up from 90,000,000.
+        # The ceiling is currently 90,003,283 (grinning..transgender_flag).
+
+        # At time of writing (May 2022), custom emoji IDs are >1,200,000 and
+        # are also incremental.
+        # Presumably, there are checks in place to prevent the 90 millionth
+        # emoji from overwriting :grinning:.
+
+        self._stock_guilded: bool = self.stock and data.get('category') == 'Guilded'
+        self._stock_unicode: bool = self.stock and data.get('category') != 'Guilded'
 
         if self._stock_guilded:
             asset: Asset = Asset._from_guilded_stock_reaction(state, self.name, animated=self._animated)
@@ -250,12 +260,7 @@ class Emoji(AssetMixin):
     @property
     def animated(self) -> bool:
         """:class:`bool`: Whether the emoji is animated."""
-        return self._underlying.animated or 'ia=1' in self.url
-
-    @property
-    def stock(self) -> bool:
-        """:class:`bool`: Whether the emoji is a stock emoji (Unicode or by Guilded)."""
-        return self._stock_guilded or self._stock_unicode
+        return self._underlying._animated or 'ia=1' in self.url
 
     @property
     def url(self) -> str:
