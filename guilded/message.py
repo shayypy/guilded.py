@@ -65,10 +65,14 @@ from .file import Attachment
 from .utils import ISO8601, MISSING
 
 if TYPE_CHECKING:
-    from .abc import Messageable
+    from .types.message import Mention as MentionPayload
+
+    from .abc import Messageable, TeamChannel
     from .emoji import Emoji
     from .file import File
-    from .user import Member
+    from .role import Role
+    from .team import Team
+    from .user import Member, User
 
 log = logging.getLogger(__name__)
 
@@ -232,18 +236,219 @@ class Link:
         return self.url
 
 
+class Mentions:
+    """Represents mentions in Guilded content. This data is determined and
+    sent by Guilded rather than being parsed by the library.
+
+    Attributes
+    -----------
+    everyone: :class:`bool`
+        Whether ``@everyone`` was mentioned.
+    here: :class:`bool`
+        Whether ``@here`` was mentioned.
+    """
+    def __init__(self, *, state, team: Team, data: MentionPayload):
+        self._state = state
+        self._team = team
+        self._users = data.get('users') or []
+        self._channels = data.get('channels') or []
+        self._roles = data.get('roles') or []
+
+        self.everyone = data.get('everyone', False)
+        self.here = data.get('here', False)
+
+    def __repr__(self) -> str:
+        return f'<Mentions users={len(self._users)} channels={len(self._channels)} roles={len(self._roles)} everyone={self.everyone} here={self.here}>'
+
+    @property
+    def users(self) -> List[Union[Member, User]]:
+        """List[Union[:class:`.Member`, :class:`~guilded.User`]]: The list of members who were mentioned."""
+        users = []
+        for user_data in self._users:
+            user = self._state._get_user(user_data['id'])
+            if self._team:
+                user = self._state._get_team_member(self._team.id, user_data['id']) or user
+            if user:
+                users.append(user)
+
+        return users
+
+    @property
+    def channels(self) -> List[TeamChannel]:
+        """List[:class:`~.abc.TeamChannel`]: The list of channels that were mentioned.
+
+        An empty list is always returned in a DM context.
+        """
+        if not self._team:
+            return []
+
+        channels = []
+        for channel_data in self._channels:
+            channel = self._state._get_team_channel_or_thread(self._team.id, channel_data['id'])
+            if channel:
+                channels.append(channel)
+
+        return channels
+
+    @property
+    def roles(self) -> List[Role]:
+        """List[:class:`.Role`]: The list of roles that were mentioned.
+
+        An empty list is always returned in a DM context.
+        """
+        if not self._team:
+            return []
+
+        roles = []
+        for role_data in self._roles:
+            role = self._team.get_role(role_data['id'])
+            if role:
+                roles.append(role)
+
+        return roles
+
+    async def fill(
+        self,
+        *,
+        ignore_cache: bool = False,
+        ignore_errors: bool = False,
+    ) -> None:
+        """|coro|
+
+        Fetch & fill the internal cache with the targets referenced.
+
+        .. note::
+
+            Due to Guilded limitations, this will not fill role information.
+
+        Parameters
+        -----------
+        ignore_cache: :class:`bool`
+            Whether to fetch objects regardless of if they are already cached.
+            Defaults to ``False`` if not specified.
+        ignore_errors: :class:`bool`
+            Whether to ignore :exc:`HTTPException`\s that occur while fetching.
+            Defaults to ``False`` if not specified.
+        """
+        # Bots cannot fetch any role information so they are not handled here.
+
+        # Potential bug here involving old messages that mention former members
+        # or deleted accounts - I am unsure whether Guilded includes these
+        # cases in their `mentions` property.
+
+        # Just fetch the whole member list instead of fetching >=5 members individually.
+        uncached_user_count = len(self._users) - len(self.users)
+        if (
+            self._team and (
+                uncached_user_count >= 5
+                or (len(self._users) >= 5 and ignore_cache)
+            )
+        ):
+            # `fill_members` here would cause potentially unwanted/unexpected
+            # cache usage, especially in large servers.
+            members = await self._team.fetch_members()
+            user_ids = [user['id'] for user in self._users]
+            for member in members:
+                if member.id in user_ids:
+                    self._state.add_to_member_cache(member)
+
+        else:
+            for user_data in self._users:
+                cached_user = self._state._get_user(user_data['id'])
+                if self._team:
+                    cached_user = self._state._get_team_member(self._team.id, user_data['id']) or cached_user
+
+                if ignore_cache or not cached_user:
+                    if self._team:
+                        try:
+                            user = await self._team.fetch_member(user_data['id'])
+                        except HTTPException:
+                            if not ignore_errors:
+                                raise
+                        else:
+                            self._state.add_to_member_cache(user)
+                    else:
+                        try:
+                            user = await self._state.get_user(user_data['id'])
+                        except HTTPException:
+                            if not ignore_errors:
+                                raise
+                        else:
+                            self._state.add_to_user_cache(user)
+
+        for channel_data in self._channels:
+            if not self._team:
+                # This should never happen
+                break
+
+            cached_channel = self._state._get_team_channel_or_thread(self._team.id, channel_data['id'])
+            if ignore_cache or not cached_channel:
+                try:
+                    channel = await self._team.fetch_channel(channel_data['id'])
+                except HTTPException:
+                    if not ignore_errors:
+                        raise
+                else:
+                    self._state.add_to_team_channel_cache(channel)
+
+
 class HasContentMixin:
     def __init__(self):
-        self.mentions: list = []
         self.emojis: list = []
         self.raw_mentions: list = []
-        self.channel_mentions: list = []
         self.raw_channel_mentions: list = []
-        self.role_mentions: list = []
         self.raw_role_mentions: list = []
+        self._user_mentions: list = []
+        self._channel_mentions: list = []
+        self._role_mentions: list = []
+        self._mentions_everyone: bool = False
+        self._mentions_here: bool = False
         self.embeds: list = []
         self.attachments: list = []
         self.links: list = []
+
+    @property
+    def user_mentions(self) -> List[Union[Member, User]]:
+        """List[Union[:class:`.Member`, :class:`~guilded.User`]]: The list of users who are mentioned in the content."""
+        if hasattr(self, '_mentions'):
+            return self._mentions.users
+        return self._user_mentions
+
+    @property
+    def mentions(self) -> List[Union[Member, User]]:
+        """List[Union[:class:`.Member`, :class:`~guilded.User`]]: |dpyattr|
+
+        The list of users who are mentioned in the content.
+        """
+        return self.user_mentions
+
+    @property
+    def channel_mentions(self) -> List[TeamChannel]:
+        """List[:class:`~.abc.TeamChannel`]: The list of channels that are mentioned in the content."""
+        if hasattr(self, '_mentions'):
+            return self._mentions.channels
+        return self._channel_mentions
+
+    @property
+    def role_mentions(self) -> List[Role]:
+        """List[:class:`.Role`]: The list of roles that are mentioned in the content."""
+        if hasattr(self, '_mentions'):
+            return self._mentions.roles
+        return self._role_mentions
+
+    @property
+    def mention_everyone(self) -> bool:
+        """:class:`bool`: Whether the content mentions ``@everyone``\."""
+        if hasattr(self, '_mentions'):
+            return self._mentions.everyone
+        return self._mentions_everyone
+
+    @property
+    def mention_here(self) -> bool:
+        """:class:`bool`: Whether the content mentions ``@here``\."""
+        if hasattr(self, '_mentions'):
+            return self._mentions.here
+        return self._mentions_here
 
     def _get_full_content(self, data) -> str:
         try:
@@ -284,18 +489,19 @@ class HasContentMixin:
                         if element['type'] == 'mention':
                             mentioned = element['data']['mention']
                             if mentioned['type'] == 'role':
+                                self.raw_role_mentions.append(int(mentioned['id']))
                                 content += f'<@{mentioned["id"]}>'
                             elif mentioned['type'] == 'person':
                                 content += f'<@{mentioned["id"]}>'
 
-                                self.raw_mentions.append(f'<@{mentioned["id"]}>')
+                                self.raw_mentions.append(mentioned['id'])
                                 if self.team_id:
                                     user = self._state._get_team_member(self.team_id, mentioned['id'])
                                 else:
                                     user = self._state._get_user(mentioned['id'])
 
                                 if user:
-                                    self.mentions.append(user)
+                                    self._user_mentions.append(user)
                                 else:
                                     name = mentioned.get('name')
                                     if mentioned.get('nickname') is True and mentioned.get('matcher') is not None:
@@ -304,7 +510,7 @@ class HasContentMixin:
                                             # matcher might be empty, oops - no username is available
                                             name = None
                                     if self.team_id:
-                                        self.mentions.append(self._state.create_member(
+                                        self._user_mentions.append(self._state.create_member(
                                             team=self.team,
                                             data={
                                                 'id': mentioned.get('id'),
@@ -316,7 +522,7 @@ class HasContentMixin:
                                             }
                                         ))
                                     else:
-                                        self.mentions.append(self._state.create_user(data={
+                                        self._user_mentions.append(self._state.create_user(data={
                                             'id': mentioned.get('id'),
                                             'name': name,
                                             'profilePicture': mentioned.get('avatar'),
@@ -329,6 +535,11 @@ class HasContentMixin:
                                 except KeyError:
                                     # give up trying to be fancy and use a static string
                                     content += f'@{mentioned["type"]}'
+
+                                if mentioned['type'] == 'everyone':
+                                    self._mentions_everyone = True
+                                elif mentioned['type'] == 'here':
+                                    self._mentions_here = True
 
                         elif element['type'] == 'reaction':
                             rtext = element['nodes'][0]['leaves'][0]['text']
@@ -344,11 +555,12 @@ class HasContentMixin:
                                 content += link.url
                         elif element['type'] == 'channel':
                             channel = element['data']['channel']
-                            content += f'<#{channel.get("id")}>'
-
-                            channel = self._state._get_team_channel(self.team_id, channel.get('id'))
-                            if channel:
-                                self.channel_mentions.append(channel)
+                            if channel.get('id'):
+                                self.raw_channel_mentions.append(channel["id"])
+                                content += f'<#{channel["id"]}>'
+                                channel = self._state._get_team_channel(self.team_id, channel['id'])
+                                if channel:
+                                    self._channel_mentions.append(channel)
 
                 content += '\n'
 
@@ -496,6 +708,7 @@ class ChatMessage(HasContentMixin):
             self.replied_to_ids: List[str] = message.get('replyMessageIds') or []
             self.private: bool = message.get('isPrivate') or False
             self.silent: bool = message.get('isSilent') or False
+            self._mentions: Mentions = Mentions(state=state, team=self.team, data=(message.get('mentions') or {}))
 
             self.content: str
             if isinstance(message['content'], dict):
