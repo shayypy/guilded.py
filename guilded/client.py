@@ -460,7 +460,7 @@ class ClientBase:
         return self.http._get_team(id)
 
     def get_user(self, id: str):
-        """Optional[:class:`guilded.User`]: Get a user from your :attr:`.users`.
+        """Optional[:class:`~guilded.User`]: Get a user from your :attr:`.users`.
 
         Parameters
         -----------
