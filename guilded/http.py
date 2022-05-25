@@ -305,6 +305,12 @@ class HTTPClientBase:
     def remove_from_dm_channel_cache(self, channel_id):
         self._dm_channels.pop(channel_id, None)
 
+    def add_to_user_cache(self, user):
+        self._users[user.id] = user
+
+    def remove_from_user_cache(self, user_id):
+        self._users.pop(user_id, None)
+
     def compatible_content(self, content):
         """Formats list-content (ususally from :meth:`.process_list_content`) into API-compatible nodes"""
 
