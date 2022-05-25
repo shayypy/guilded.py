@@ -66,6 +66,8 @@ from .presence import Presence
 from .utils import ISO8601, MISSING
 
 if TYPE_CHECKING:
+    from .types.user import User as UserPayload
+
     from .channel import Thread
     from .embed import Embed
     from .emoji import Emoji
@@ -507,7 +509,7 @@ class User(metaclass=abc.ABCMeta):
         'friend_requested_at',
     )
 
-    def __init__(self, *, state, data, **extra):
+    def __init__(self, *, state, data: UserPayload, **extra):
         self._state = state
         data = data.get('user', data)
 

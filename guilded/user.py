@@ -64,6 +64,9 @@ from .file import File
 from .role import Role
 from .utils import copy_doc, ISO8601
 
+if TYPE_CHECKING:
+    from .types.user import User as UserPayload
+
 
 __all__ = (
     'BanEntry',
@@ -99,7 +102,7 @@ class Device:
 
 class User(guilded.abc.User, guilded.abc.Messageable):
     """Represents a user in Guilded."""
-    def _update(self, data):
+    def _update(self, data: UserPayload):
         try:
             self.stonks: int = data.pop('stonks')
         except KeyError:

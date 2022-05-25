@@ -23,11 +23,14 @@ SOFTWARE.
 """
 
 import datetime
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from .colour import Colour
 from .utils import ISO8601
 from .permissions import Permissions
+
+if TYPE_CHECKING:
+    from .types.role import Role as RolePayload
 
 
 __all__ = (
@@ -63,7 +66,7 @@ class Role:
         Whether the role is the base ``Member`` role.
     """
 
-    def __init__(self, *, state, data, **extra):
+    def __init__(self, *, state, data: RolePayload, **extra):
         self._state = state
 
         self._team = extra.get('team') or extra.get('server')
