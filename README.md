@@ -51,6 +51,5 @@ For more examples, see the examples directory in this repository.
 Guilded.py has a support channel under its dedicated group for any questions you may have.
 
 1. Join the [Guilded-API](https://community.guildedapi.com) server
-2. Navigate to #library-list
-3. Click on the guilded.py role and click "Add me to role"
-4. You should see a new group pop up in your sidebar - you are now in the Guilded.py group
+2. Click on the far-left plus sign
+3. Click the "Follow" button on the guilded.py group
