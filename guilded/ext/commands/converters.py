@@ -392,7 +392,7 @@ class TeamChannelConverter(UUIDConverter[guilded.abc.TeamChannel]):
 
                 result = _utils_find(check, bot.get_all_channels())  # type: ignore
         else:
-            channel_id = int(match.group(1))
+            channel_id = match.group(1)
             if team:
                 # team.get_channel returns an explicit union instead of the base class
                 result = team.get_channel(channel_id)  # type: ignore
@@ -416,7 +416,7 @@ class TeamChannelConverter(UUIDConverter[guilded.abc.TeamChannel]):
                 iterable: Iterable[TT] = getattr(team, attribute)
                 result: Optional[TT] = _utils_get(iterable, name=argument)
         else:
-            thread_id = int(match.group(1))
+            thread_id = match.group(1)
             if team:
                 result = team.get_thread(thread_id)  # type: ignore
 
