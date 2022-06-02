@@ -1679,6 +1679,9 @@ class HTTPClient(HTTPClientBase):
 
     # /servers
 
+    def get_server(self, server_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}'))
+
     def get_member_roles(self, server_id: str, user_id: str):
         return self.request(Route('GET', f'/servers/{server_id}/members/{user_id}/roles'))
 

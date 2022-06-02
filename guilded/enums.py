@@ -68,6 +68,7 @@ __all__ = (
     'FlowActionType',
     'FlowTriggerType',
     'TeamFlairType',
+    'TeamType',
     'UserType',
 )
 
@@ -372,6 +373,17 @@ class TeamFlairType(Enum):
 
     def __str__(self):
         return self.name
+
+
+class TeamType(Enum):
+    team = 'team'
+    organization = 'organization'
+    community = 'community'
+    clan = 'clan'
+    guild = 'guild'
+    friends = 'friends'
+    streaming = 'streaming'
+    other = 'other'
 
 
 class UserType(Enum):

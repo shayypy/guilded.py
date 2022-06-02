@@ -55,7 +55,7 @@ import asyncio
 import datetime
 import io
 import re
-from typing import TYPE_CHECKING, Dict, Optional, List, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, List, Union
 
 from .abc import TeamChannel, User
 
@@ -63,7 +63,7 @@ from .asset import Asset
 from .channel import AnnouncementChannel, ChatChannel, DocsChannel, ForumChannel, ListChannel, MediaChannel, SchedulingChannel, Thread, VoiceChannel
 from .errors import InvalidArgument
 from .emoji import Emoji
-from .enums import FileType, MediaType, try_enum, TeamFlairType, ChannelType
+from .enums import FileType, MediaType, TeamType, try_enum, TeamFlairType, ChannelType
 from .file import File
 from .flowbot import FlowBot
 from .gateway import UserbotGuildedWebSocket
@@ -173,12 +173,13 @@ class Team:
         The team's id.
     name: :class:`str`
         The team's name.
+    type: Optional[:class:`TeamType`]
+        The type of server. This correlates to one of the options in the
+        server settings page under "Server type".
     owner_id: :class:`str`
         The team's owner's id.
     created_at: :class:`datetime.datetime`
         When the team was created.
-    bio: :class:`str`
-        The team's bio. Seems to be unused in favor of :attr:`.description`\.
     description: :class:`str`
         The team's "About" section.
     avatar: Optional[:class:`.Asset`]
@@ -227,6 +228,11 @@ class Team:
             self.ws = ws
 
         self.id: str = data['id']
+        self.type: Optional[TeamType]
+        if data.get('type'):
+            self.type = try_enum(TeamType, data['type'])
+        else:
+            self.type = None
 
         self._channels = {}
         self._threads = {}
@@ -242,12 +248,13 @@ class Team:
 
         self.owner_id: str = data.get('ownerId')
         self.name: str = data.get('name') or ''
-        self.subdomain: str = data.get('subdomain')
+        self.subdomain: str = data.get('subdomain') or data.get('url')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.bio: str = data.get('bio') or ''
-        self.description: str = data.get('description') or ''
-        self.discord_guild_id: str = data.get('discordGuildId')
-        self.discord_guild_name: str = data.get('discordServerName')
+        self.description: str = data.get('description') or data.get('about') or ''
+        self.default_channel_id: Optional[str] = data.get('defaultChannelId')
+        self.discord_guild_id: Optional[str] = data.get('discordGuildId')
+        self.discord_guild_name: Optional[str] = data.get('discordServerName')
 
         for flair_data in data.get('flair') or []:
             flair = TeamFlair(data=flair_data)
@@ -321,25 +328,32 @@ class Team:
         self.user_is_following: bool = data.get('userFollowsTeam', False)
 
         avatar = None
-        if data.get('profilePicture'):
-            avatar = Asset._from_team_avatar(state, data.get('profilePicture'))
+        avatar_url = data.get('profilePicture') or data.get('avatar')
+        if avatar_url:
+            avatar = Asset._from_team_avatar(state, avatar_url)
         self.avatar: Optional[Asset] = avatar
 
         banner = None
-        if data.get('teamDashImage'):
-            banner = Asset._from_team_banner(state, data.get('teamDashImage'))
+        banner_url = data.get('teamDashImage') or data.get('banner')
+        if banner_url:
+            banner = Asset._from_team_banner(state, banner_url)
         self.banner: Optional[Asset] = banner
 
-        measurements = data.get('measurements') or {}
+        measurements: Dict[str, Any] = data.get('measurements') or {}
 
         self._follower_count = data.get('followerCount') or measurements.get('numFollowers') or 0
         self._member_count = data.get('memberCount') or measurements.get('numMembers') or 0
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<Team id={self.id!r} name={self.name!r}>'
+
+    @property
+    def about(self) -> str:
+        """:class:`str`: This is an alias of :attr:`.description`."""
+        return self.description
 
     @property
     def slug(self) -> Optional[str]:
@@ -515,6 +529,16 @@ class Team:
         Optional[:class:`.Asset`]
         """
         return self.avatar
+
+    @property
+    def default_channel(self) -> Optional[TeamChannel]:
+        """Optional[:class:`~.abc.TeamChannel`]: The default channel of the server.
+
+        It may be preferable to use :meth:`.fetch_default_channel` instead of
+        this property, as it relies solely on cache which may not be present
+        for newly joined teams.
+        """
+        return self.get_channel(self.default_channel_id)
 
     def get_member(self, id: str) -> Optional[Member]:
         """Optional[:class:`.Member`]: Get a member by their ID from the
@@ -1522,6 +1546,26 @@ class Team:
             webhooks.append(webhook)
 
         return webhooks
+
+    async def fetch_default_channel(self) -> TeamChannel:
+        """|coro|
+
+        Fetch the default channel in this team.
+
+        Returns
+        --------
+        :class:`~.abc.TeamChannel`
+            The default channel.
+
+        Raises
+        -------
+        ValueError
+            This team has no default channel.
+        """
+        if not self.default_channel_id:
+            raise ValueError('This team has no default channel.')
+
+        return await self.fetch_channel(self.default_channel_id)
 
 Guild = Team  # discord.py
 Server = Team  # bot API

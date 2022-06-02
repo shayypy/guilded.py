@@ -495,7 +495,7 @@ class ClientBase:
 
         return None
 
-    async def fetch_team(self, id: str):
+    async def fetch_team(self, id: str) -> Team:
         """|coro|
 
         Fetch a team from the API.
@@ -510,10 +510,15 @@ class ClientBase:
         :class:`.Team`
             The team from the ID.
         """
-        data = await self.http.get_team_info(id)
+        if self.http.userbot:
+            data = await self.http.get_team_info(id)
+        else:
+            data = await self.http.get_server(id)
+            data = data['server']
+
         return Team(state=self.http, data=data)
 
-    async def getch_team(self, id: str):
+    async def getch_team(self, id: str) -> Team:
         """|coro|
 
         Try to get a team from internal cache, and if not found, try to fetch from the API.
@@ -530,7 +535,7 @@ class ClientBase:
         """
         return self.get_team(id) or await self.fetch_team(id)
 
-    async def on_error(self, event_method, *args, **kwargs):
+    async def on_error(self, event_method, *args, **kwargs) -> None:
         print(f'Ignoring exception in {event_method}:', file=sys.stderr)
         traceback.print_exc()
 
