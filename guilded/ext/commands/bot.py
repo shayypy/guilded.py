@@ -49,6 +49,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import asyncio
 import collections.abc
 import inspect
@@ -57,7 +59,7 @@ import traceback
 import importlib.util
 import importlib.machinery
 import types
-from typing import Mapping, List, Dict, Optional
+from typing import Any, Callable, Iterable, Mapping, List, Dict, Optional, Union
 
 import guilded
 
@@ -71,10 +73,59 @@ from .view import StringView
 __all__ = (
     'Bot',
     'UserbotBot',
+    'when_mentioned',
+    'when_mentioned_or',
 )
 
 def _is_submodule(parent: str, child: str) -> bool:
     return parent == child or child.startswith(parent + ".")
+
+
+def when_mentioned(bot: BotBase, message: guilded.Message, /) -> List[str]:
+    """A callable that implements a command prefix equivalent to being mentioned.
+
+    These are meant to be passed into the :attr:`.Bot.command_prefix` attribute.
+    """
+    # bot.user will never be None when this is called
+    return [f'<@{bot.user.id}> ']  # type: ignore
+
+
+def when_mentioned_or(*prefixes: str) -> Callable[[BotBase, guilded.Message], List[str]]:
+    """A callable that implements when mentioned or other prefixes provided.
+
+    These are meant to be passed into the :attr:`.Bot.command_prefix` attribute.
+
+    Example
+    --------
+
+    .. code-block:: python3
+
+        bot = commands.Bot(command_prefix=commands.when_mentioned_or('!'))
+
+    .. note::
+
+        This callable returns another callable, so if this is done inside a custom
+        callable, you must call the returned callable, for example:
+
+        .. code-block:: python3
+
+            async def get_prefix(bot, message):
+                extras = await prefixes_for(message.team)  # returns a list
+                return commands.when_mentioned_or(*extras)(bot, message)
+
+
+    See Also
+    ----------
+    :func:`.when_mentioned`
+    """
+
+    def inner(bot, message):
+        r = list(prefixes)
+        r = when_mentioned(bot, message) + r
+        return r
+
+    return inner
+
 
 class _DefaultRepr:
     def __repr__(self):
@@ -84,7 +135,14 @@ _default = _DefaultRepr()
 
 
 class BotBase:
-    def __init__(self, *, command_prefix, help_command=_default, description=None, **options):
+    def __init__(
+        self,
+        command_prefix: Union[Callable[[BotBase, guilded.Message], Union[Iterable[str], str]], Iterable[str], str],
+        *,
+        help_command: Optional[HelpCommand] = _default,
+        description: Optional[str] = None,
+        **options: Any,
+    ):
         self.command_prefix = command_prefix
         self.description = inspect.cleandoc(description) if description else ''
         self.__extensions: Dict[str, types.ModuleType] = {}
@@ -347,35 +405,50 @@ class BotBase:
         else:
             return user.id == self.user.id
 
-    #async def get_prefix(self, message):
-    #    prefix = ret = self.command_prefix
-    #    if callable(prefix):
-    #        ret = await guilded.utils.maybe_coroutine(prefix, self, message)
-    #    if not isinstance(ret, str):
-    #        try:
-    #            ret = list(ret)
-    #        except TypeError:
-    #            # It's possible that a generator raised this exception. Don't
-    #            # replace it with our own error if that's the case.
-    #            if isinstance(ret, collections.abc.Iterable):
-    #                raise
+    async def get_prefix(self, message: guilded.Message, /) -> Union[List[str], str]:
+        """|coro|
 
-    #            raise TypeError('command_prefix must be plain string or iterable of strings, not {ret.__class__.__name__}')
+        Retrieves the prefix the bot is listening to with the message as a context.
 
-    #        if not ret:
-    #            raise ValueError('Iterable command_prefix must contain at least one prefix')
+        Parameters
+        -----------
+        message: :class:`.Message`
+            The message context to get the prefix of.
 
-    #    return ret
+        Returns
+        --------
+        Union[List[:class:`str`], :class:`str`]
+            A list of prefixes or a single prefix that the bot is listening for.
+        """
+        prefix = ret = self.command_prefix
 
-    async def get_context(self, message: guilded.Message):
+        if callable(prefix):
+            ret = await guilded.utils.maybe_coroutine(prefix, self, message)
+
+        if not isinstance(ret, str):
+            try:
+                ret = list(ret)
+            except TypeError:
+                # It's possible that a generator raised this exception. Don't
+                # replace it with our own error if that's the case.
+                if isinstance(ret, collections.abc.Iterable):
+                    raise
+
+                raise TypeError(
+                    'command_prefix must be plain string, iterable of strings, or callable '
+                    f'returning either of these, not {ret.__class__.__name__}'
+                )
+
+        return ret
+
+    async def get_context(self, message: guilded.Message) -> Context:
         view = StringView(str(message.content))
         ctx = Context(prefix=None, view=view, bot=self, message=message)
 
         if self._skip_check(message.author.id, self.user.id):
             return ctx
 
-        prefix = self.command_prefix
-        # later: await self.get_prefix(message)
+        prefix = await self.get_prefix(message)
         invoked_prefix = prefix
 
         if isinstance(prefix, str):
@@ -413,7 +486,7 @@ class BotBase:
         ctx.command = self.all_commands.get(invoker)
         return ctx
 
-    async def invoke(self, ctx):
+    async def invoke(self, ctx: Context) -> None:
         if ctx.command is not None:
             self.dispatch('command', ctx)
             try:
