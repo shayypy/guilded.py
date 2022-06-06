@@ -342,12 +342,14 @@ class FlowTriggerType(Enum):
     twitch_stream_unfollowed = 'BotTriggerTwitchStreamUnfollowed'
     twitch_stream_unsubscribed = 'BotTriggerTwitchStreamUnsubscribed'
     patreon_tiered_membership_created = 'BotTriggerPatreonTieredMembershipCreated'
+    patreon_tiered_membership_updated = 'BotTriggerPatreonTieredMembershipUpdated'
     patreon_tiered_membership_cancelled = 'BotTriggerPatreonTieredMembershipRemoved'
     subscription_created = 'TeamAuditLogServerSubscriptionsSubscriptionCreated'
     subscription_updated = 'BotTriggerServerSubscriptionsSubscriptionUpdated'
     subscription_canceled = 'TeamAuditLogServerSubscriptionsSubscriptionCanceled'
     scheduling_availability_started = 'BotTriggerSchedulingAvailabilityDurationStarted'
     scheduling_availability_ended = 'BotTriggerSchedulingAvailabilityDurationEnded'
+    youtube_video_published = 'BotTriggerYoutubeVideoPublished'
 
 
 class FlowActionType(Enum):
