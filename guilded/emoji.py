@@ -188,9 +188,9 @@ class Emoji(AssetMixin):
         self.deleted: bool = data.get('isDeleted', False)
         self._animated: bool = data.get('isAnimated', False)
 
-        self.stock: bool = self.id in range(90000000, 90003284)
+        self.stock: bool = self.id in range(90000000, 90003376)
         # Stock emoji IDs increment up from 90,000,000.
-        # The ceiling is currently 90,003,283 (grinning..transgender_flag).
+        # The ceiling is currently 90,003,375 (grinning..heavy_equals_sign).
 
         # At time of writing (May 2022), custom emoji IDs are >1,200,000 and
         # are also incremental.
