@@ -730,14 +730,19 @@ class ChatMessage(HasContentMixin):
 
     @property
     def server(self):
-        """Optional[:class:`.Team`]: This is an alias of :attr:`.team`."""
+        """Optional[:class:`.Team`]: This is an alias of :attr:`.team`.
+
+        The team this message was sent in. ``None`` if the message is in a DM.
+        """
         return self.team
 
     @property
     def guild(self):
-        """|dpyattr|
+        """Optional[:class:`.Team`]: |dpyattr|
 
         This is an alias of :attr:`.team`.
+
+        The team this message was sent in. ``None`` if the message is in a DM.
         """
         return self.team
 
