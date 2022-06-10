@@ -652,8 +652,8 @@ class Team:
 
     async def create_announcement_channel(
         self,
-        *,
         name: str,
+        *,
         topic: str = None,
         public: bool = None,
         category: TeamChannel = None,
@@ -700,8 +700,8 @@ class Team:
 
     async def create_chat_channel(
         self,
-        *,
         name: str,
+        *,
         topic: str = None,
         public: bool = None,
         category: TeamChannel = None,
@@ -741,10 +741,47 @@ class Team:
         )
         return channel
 
+    async def create_text_channel(
+        self,
+        name: str,
+        *,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> ChatChannel:
+        """|coro|
+
+        |dpyattr|
+
+        Create a new chat channel in the team.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
+            provided, it will be shown under the "Channels" header in the
+            client (no category).
+        public: :class:`bool`
+            Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
+
+        Returns
+        --------
+        :class:`.ChatChannel`
+            The created channel.
+        """
+        return await self.create_chat_channel(name, topic=topic, public=public, category=category, group=group)
+
     async def create_docs_channel(
         self,
-        *,
         name: str,
+        *,
         topic: str = None,
         public: bool = None,
         category: TeamChannel = None,
@@ -791,8 +828,8 @@ class Team:
 
     async def create_forum_channel(
         self,
-        *,
         name: str,
+        *,
         topic: str = None,
         public: bool = None,
         category: TeamChannel = None,
@@ -837,10 +874,47 @@ class Team:
         )
         return channel
 
+    async def create_forum(
+        self,
+        name: str,
+        *,
+        topic: str = None,
+        public: bool = None,
+        category: TeamChannel = None,
+        group: Group = None,
+    ) -> ForumChannel:
+        """|coro|
+
+        |dpyattr|
+
+        Create a new forum channel in the team.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The channel's name. Can include spaces.
+        topic: :class:`str`
+            The channel's topic.
+        category: :class:`.TeamCategory`
+            The :class:`.TeamCategory` to create this channel under. If not
+            provided, it will be shown under the "Channels" header in the
+            client (no category).
+        public: :class:`bool`
+            Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+        group: :class:`.Group`
+            The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
+
+        Returns
+        --------
+        :class:`.ForumChannel`
+            The created channel.
+        """
+        return await self.create_forum_channel(name, topic=topic, public=public, category=category, group=group)
+
     async def create_media_channel(
         self,
-        *,
         name: str,
+        *,
         topic: str = None,
         public: bool = None,
         category: TeamChannel = None,
@@ -882,8 +956,8 @@ class Team:
 
     async def create_list_channel(
         self,
-        *,
         name: str,
+        *,
         topic: str = None,
         public: bool = None,
         category: TeamChannel = None,
@@ -925,8 +999,8 @@ class Team:
 
     async def create_scheduling_channel(
         self,
-        *,
         name: str,
+        *,
         topic: str = None,
         public: bool = None,
         category: TeamChannel = None,
@@ -968,8 +1042,8 @@ class Team:
 
     async def create_voice_channel(
         self,
-        *,
         name: str,
+        *,
         topic: str = None,
         public: bool = None,
         category: TeamChannel = None,
@@ -1437,8 +1511,8 @@ class Team:
 
     async def create_webhook(
         self,
-        *,
         name: str,
+        *,
         avatar: Optional[Union[bytes, File]] = None,
         channel: TeamChannel,
     ) -> Webhook:
