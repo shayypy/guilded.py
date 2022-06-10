@@ -961,7 +961,7 @@ class ForumChannel(guilded.abc.TeamChannel):
 
     async def create_topic(
         self,
-        *pos_content: Optional[Union[str, Embed, File, Emoji, Member]],
+        *pos_content: Optional[Union[str, Embed, File, Emoji]],
         content: Optional[str] = MISSING,
         title: str,
     ) -> ForumTopic:

@@ -116,7 +116,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
     async def send(
         self,
-        *pos_content: Optional[Union[str, Embed, File, Emoji, Member]],
+        *pos_content: Optional[Union[str, Embed, File, Emoji]],
         content: Optional[str] = MISSING,
         file: Optional[File] = MISSING,
         files: Optional[Sequence[File]] = MISSING,
@@ -150,7 +150,7 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        \*pos_content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`, :class:`.Member`]
+        \*pos_content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
             An argument list of the message content, passed in the order that
             each element should display in the message.
             You can have at most 4,000 characters of text content.

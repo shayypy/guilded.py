@@ -839,7 +839,7 @@ class ChatMessage(HasContentMixin):
 
     async def edit(
         self,
-        *pos_content: Optional[Union[str, Embed, File, Emoji, Member]],
+        *pos_content: Optional[Union[str, Embed, File, Emoji]],
         content: Optional[str] = MISSING,
         file: Optional[File] = MISSING,
         files: Optional[Sequence[File]] = MISSING,
@@ -985,7 +985,7 @@ class ChatMessage(HasContentMixin):
 
     async def reply(
         self,
-        *pos_content: Optional[Union[str, Embed, File, Emoji, Member]],
+        *pos_content: Optional[Union[str, Embed, File, Emoji]],
         content: Optional[str] = MISSING,
         file: Optional[File] = MISSING,
         files: Optional[Sequence[File]] = MISSING,
