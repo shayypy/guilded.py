@@ -53,7 +53,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import TYPE_CHECKING, Optional, List, Union
+from typing import TYPE_CHECKING, Optional, List, Tuple, Union
 
 import guilded.abc  # type: ignore
 
@@ -65,11 +65,13 @@ from .file import File
 from .group import Group
 from .message import ChatMessage, HasContentMixin
 from .user import Member
-from .utils import get, ISO8601
+from .utils import MISSING, get, ISO8601
 from .status import Game
 
 if TYPE_CHECKING:
     from .emoji import Emoji
+    from .embed import Embed
+    from .team import Team
     from .user import User
     from .webhook import Webhook
 
@@ -594,59 +596,89 @@ class ForumTopic(HasContentMixin):
         The topic's ID.
     title: :class:`str`
         The topic's title.
-    content: :class:`str`
+    content: Optional[:class:`str`]
         The topic's content.
-    team: :class:`.Team`
-        The team that the topic is in.
     channel: :class:`.ForumChannel`
         The forum channel that the topic is in.
     created_at: :class:`datetime.datetime`
         When the topic was created.
-    bumped_at: :class:`datetime.datetime`
+    bumped_at: Optional[:class:`datetime.datetime`]
         When the topic was last bumped. This may be the same as
         :attr:`.created_at`.
     edited_at: Optional[:class:`datetime.datetime`]
         When the topic was last edited.
-    stickied: :class:`bool`
+    stickied: Optional[:class:`bool`]
         Whether the topic is stickied (pinned) in its channel.
-    locked: :class:`bool`
+    locked: Optional[:class:`bool`]
         Whether the topic is locked.
-    deleted: :class:`bool`
+    deleted: Optional[:class:`bool`]
         Whether the topic is deleted.
     deleted_by: Optional[:class:`.Member`]
         Who deleted this topic. This will only be present through
         :meth:`on_forum_topic_delete`.
     reply_count: :class:`int`
         How many replies the topic has.
+        If the client is a user account, this represents an API property, else
+        this is the length of :attr:`.replies`.
     """
-    def __init__(self, *, state, data, channel):
+
+    __slots__: Tuple[str, ...] = (
+        '_state',
+        'channel',
+        'channel_id',
+        'team_id',
+        'group_id',
+        'id',
+        'title',
+        'content',
+        'author_id',
+        'webhook_id',
+        'created_at',
+        'edited_at',
+        'bumped_at',
+        'game_id',
+        'visibility',
+        'stickied',
+        'locked',
+        'shared',
+        'deleted',
+        'deleted_by',
+        '_reply_count',
+        '_replies',
+    )
+
+    def __init__(self, *, state, data, channel: ForumChannel):
         super().__init__()
         self._state = state
         self.channel = channel
-        self.group = channel.group
-        self.team = channel.team
 
-        self.channel_id = data.get('channelId') or self.channel.id
-        self.team_id = data.get('teamId') or (self.team.id if self.team else None)
-        self.group_id = data.get('groupId') or (self.group.id if self.group else None)
+        self.channel_id: str = data.get('channelId')
+        self.team_id: str = data.get('teamId') or data.get('serverId')
+        self.group_id: Optional[str] = data.get('groupId')
 
         self.id: int = data['id']
         self.title: str = data['title']
-        self.content: str = self._get_full_content(data['message'])
+        self.content: Optional[str]
+        if self._state.userbot:
+            self.content = self._get_full_content(data['message'])
+        else:
+            self.content = data.get('content')
 
         self.author_id: str = data.get('createdBy')
-        self.game_id: Optional[int] = data.get('gameId')
-        self.created_by_bot_id: Optional[str] = data.get('createdByBotId')
+        self.webhook_id: Optional[str] = data.get('createdByWebhookId')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt') or data.get('updatedAt'))
         self.bumped_at: Optional[datetime.datetime] = ISO8601(data.get('bumpedAt'))
-        self.visibility: str = data.get('visibility')
-        self.stickied: bool = data.get('isSticky')
-        self.locked: bool = data.get('isLocked')
-        self.shared: bool = data.get('isShare')
-        self.deleted: bool = data.get('isDeleted')
+
+        self.game_id: Optional[int] = data.get('gameId')
+        self.visibility: Optional[str] = data.get('visibility')
+        self.stickied: Optional[bool] = data.get('isSticky')
+        self.locked: Optional[bool] = data.get('isLocked')
+        self.shared: Optional[bool] = data.get('isShare')
+        self.deleted: Optional[bool] = data.get('isDeleted')
         self.deleted_by: Optional[Member] = None
-        self.reply_count: int = int(data.get('replyCount', 0))
+
+        self._reply_count: int = int(data.get('replyCount', 0))
         self._replies = {}
 
     def __str__(self) -> str:
@@ -654,6 +686,34 @@ class ForumTopic(HasContentMixin):
 
     def __repr__(self) -> str:
         return f'<ForumTopic id={self.id!r} title={self.title!r} channel={self.channel!r}>'
+
+    @property
+    def team(self) -> Team:
+        """:class:`.Team`: The team that the topic is in."""
+        return self._state._get_team(self.team_id) or self.channel.team
+
+    @property
+    def guild(self) -> Team:
+        """:class:`.Team`: |dpyattr|
+
+        This is an alias of :attr:`.team`.
+
+        The team that the topic is in.
+        """
+        return self.team
+
+    @property
+    def server(self) -> Team:
+        """:class:`.Team`: This is an alias of :attr:`.team`.
+
+        The team that the topic is in.
+        """
+        return self.team
+
+    @property
+    def group(self) -> Group:
+        """Optional[:class:`.Group`]: The group that the topic is in."""
+        return self.team.get_group(self.group_id) or self.channel.group
 
     @property
     def game(self) -> Game:
@@ -671,12 +731,22 @@ class ForumTopic(HasContentMixin):
     def replies(self) -> List[ForumReply]:
         return list(self._replies.values())
 
+    @property
+    def reply_count(self) -> int:
+        return self._reply_count if self._reply_count is not None else len(self.replies)
+
+    @property
+    def share_url(self) -> str:
+        return f'{self.channel.share_url}/{self.id}'
+
     def get_reply(self, id) -> Optional[ForumReply]:
         """Optional[:class:`.ForumReply`]: Get a reply by its ID."""
         return self._replies.get(id)
 
     async def fetch_replies(self, *, limit=50) -> List[ForumReply]:
         """|coro|
+
+        |onlyuserbot|
 
         Fetch the replies to this topic.
 
@@ -695,6 +765,8 @@ class ForumTopic(HasContentMixin):
     async def fetch_reply(self, id: int) -> ForumReply:
         """|coro|
 
+        |onlyuserbot|
+
         Fetch a reply to this topic.
 
         Returns
@@ -707,6 +779,8 @@ class ForumTopic(HasContentMixin):
 
     async def reply(self, *content, **kwargs) -> int:
         """|coro|
+
+        |onlyuserbot|
 
         Create a new reply to this topic.
 
@@ -732,6 +806,8 @@ class ForumTopic(HasContentMixin):
 
     async def delete(self) -> None:
         """|coro|
+
+        |onlyuserbot|
 
         Delete this topic.
         """
@@ -766,6 +842,8 @@ class ForumTopic(HasContentMixin):
     async def move(self, to: ForumChannel) -> None:
         """|coro|
 
+        |onlyuserbot|
+
         Move this topic to another :class:`.ForumChannel`.
 
         Parameters
@@ -778,12 +856,16 @@ class ForumTopic(HasContentMixin):
     async def lock(self) -> None:
         """|coro|
 
+        |onlyuserbot|
+
         Lock this topic.
         """
         await self._state.lock_forum_topic(self.channel.id, self.id)
 
     async def unlock(self) -> None:
         """|coro|
+
+        |onlyuserbot|
 
         Unlock this topic.
         """
@@ -792,12 +874,16 @@ class ForumTopic(HasContentMixin):
     async def sticky(self) -> None:
         """|coro|
 
+        |onlyuserbot|
+
         Sticky (pin) this topic.
         """
         await self._state.sticky_forum_topic(self.channel.id, self.id)
 
     async def unsticky(self) -> None:
         """|coro|
+
+        |onlyuserbot|
 
         Unsticky (unpin) this topic.
         """
@@ -806,12 +892,16 @@ class ForumTopic(HasContentMixin):
     async def pin(self) -> None:
         """|coro|
 
+        |onlyuserbot|
+
         Pin (sticky) this topic. This is an alias of :meth:`.sticky`.
         """
         await self.sticky()
 
     async def unpin(self) -> None:
         """|coro|
+
+        |onlyuserbot|
 
         Unpin (unsticky) this topic. This is an alias of :meth:`.unsticky`.
         """
@@ -861,22 +951,35 @@ class ForumChannel(guilded.abc.TeamChannel):
         self._topics = {}
 
     @property
-    def topics(self):
+    def topics(self) -> List[ForumTopic]:
+        """List[:class:`.ForumTopic`]: The list of topics in this forum."""
         return list(self._topics.values())
 
     def get_topic(self, id) -> Optional[ForumTopic]:
         """Optional[:class:`.ForumTopic`]: Get a topic by its ID."""
         return self._topics.get(id)
 
-    async def create_topic(self, *content, **kwargs) -> ForumTopic:
+    async def create_topic(
+        self,
+        *pos_content: Optional[Union[str, Embed, File, Emoji, Member]],
+        content: Optional[str] = MISSING,
+        title: str,
+    ) -> ForumTopic:
         """|coro|
 
         Create a new topic in this forum.
 
         Parameters
         -----------
-        content: Any
-            The content to create the topic with.
+        \*pos_content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
+            An argument list of the topic's body content, passed in the order
+            that each element should display.
+            If the client is a bot account, only the first value is used as content.
+            This parameter cannot be combined with ``content``.
+        content: :class:`str`
+            The text content to include in the body of the topic.
+            This parameter exists so that text content can be passed using a keyword argument.
+            This parameter cannot be combined with ``pos_content``.
         title: :class:`str`
             The title to create the topic with.
 
@@ -885,13 +988,60 @@ class ForumChannel(guilded.abc.TeamChannel):
         :class:`.ForumTopic`
             The topic that was created.
         """
-        title = kwargs['title']
-        data = await self._state.create_forum_topic(self.id, title=title, content=content)
+
+        if content is not MISSING and pos_content:
+            raise ValueError('Cannot provide both content and pos_content')
+
+        if self._state.userbot:
+            if content is not MISSING:
+                pos_content = (content,)
+
+            content = await self._state.process_list_content(pos_content)
+
+            data = await self._state.create_forum_topic(
+                self.id,
+                title=title,
+                message=self._state.compatible_content(content),
+            )
+
+        else:
+            from .http import handle_message_parameters
+
+            if pos_content:
+                content = pos_content[0]
+
+            params = handle_message_parameters(content=content)
+
+            data = await self._state.create_forum_topic(
+                self.id,
+                title=title,
+                content=params.payload['content'],
+            )
+            data = data['forumTopic']
+
         topic = ForumTopic(data=data, channel=self, state=self._state)
         return topic
 
+    async def create_thread(self, *, name: str, content: Optional[str] = None, **kwargs) -> ForumTopic:
+        """|coro|
+
+        |dpyattr|
+
+        Create a new topic in this forum.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The title to create the topic with.
+        content: Optional[:class:`str`]
+            The content to create the topic with.
+        """
+        return await self.create_topic(title=name, content=str(content))
+
     async def fetch_topic(self, id: int) -> ForumTopic:
         """|coro|
+
+        |onlyuserbot|
 
         Fetch a topic from this forum.
 
@@ -914,6 +1064,8 @@ class ForumChannel(guilded.abc.TeamChannel):
 
     async def fetch_topics(self, *, limit: int = 50, page: int = 1, before: datetime.datetime = None) -> List[ForumTopic]:
         """|coro|
+
+        |onlyuserbot|
 
         Fetch the topics in this forum.
 
@@ -1243,9 +1395,7 @@ class Announcement(HasContentMixin):
 
     @property
     def share_url(self) -> str:
-        if self.channel:
-            return f'{self.channel.share_url}/{self.id}'
-        return None
+        return f'{self.channel.share_url}/{self.id}'
 
     @property
     def replies(self) -> List[AnnouncementReply]:
@@ -1994,12 +2144,6 @@ class ListItem(HasContentMixin):
         return self.team.get_member(self.author_id)
 
     @property
-    def share_url(self) -> str:
-        if self.channel:
-            return f'{self.channel.share_url}/{self.id}'
-        return None
-
-    @property
     def updated_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that last updated
         the item, if they are cached."""
@@ -2024,7 +2168,7 @@ class ListItem(HasContentMixin):
     @property
     def assigned_to(self) -> List[Member]:
         """List[:class:`.Member`]: The members that the item is assigned to,
-        designated by mentions in :attr:`message`."""
+        designated by the mentions in :attr:`.message`\."""
 
         members = set()
         for assigned in self._assigned_to:
@@ -2245,7 +2389,9 @@ class MediaChannel(guilded.abc.TeamChannel):
 
         return medias
 
-    async def create_media(self, *,
+    async def create_media(
+        self,
+        *,
         title: str,
         description: str = None,
         file: Optional[File] = None,
@@ -2662,20 +2808,20 @@ class SchedulingChannel(guilded.abc.TeamChannel):
 
 
 class AnnouncementReply(guilded.abc.Reply):
-    """Represents a reply to an :class:`Announcement`."""
+    """Represents a reply to an :class:`Announcement`\."""
     pass
 
 
 class DocReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`Doc`."""
+    """Represents a reply to a :class:`Doc`\."""
     pass
 
 
 class ForumReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`ForumTopic`."""
+    """Represents a reply to a :class:`ForumTopic`\."""
     pass
 
 
 class MediaReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`Media`."""
+    """Represents a reply to a :class:`Media`\."""
     pass

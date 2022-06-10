@@ -311,7 +311,11 @@ class HTTPClientBase:
     def remove_from_user_cache(self, user_id):
         self._users.pop(user_id, None)
 
-    def compatible_content(self, content):
+    def compatible_content(
+        self,
+        content: Sequence[Union[str, Embed, File, abc_User, Emoji, Mention, Role, TeamChannel]],
+        /,
+    ) -> Dict[str, Any]:
         """Formats list-content (ususally from :meth:`.process_list_content`) into API-compatible nodes"""
 
         compatible = {'object': 'value', 'document': {'object': 'document', 'data': {}, 'nodes': []}}
@@ -822,12 +826,12 @@ class UserbotHTTPClient(HTTPClientBase):
         route = UserbotRoute('GET', f'/channels/{channel_id}/forums/{topic_id}')
         return self.request(route)
 
-    def create_forum_topic(self, channel_id: str, *, title, content):
+    def create_forum_topic(self, channel_id: str, *, title: str, message: Dict[str, Any]):
         route = UserbotRoute('POST', f'/channels/{channel_id}/forums')
         payload = {
             # The client passes an ID here but it is optional
             'title': title,
-            'message': self.compatible_content(content)
+            'message': message,
         }
         return self.request(route, json=payload)
 
@@ -1627,12 +1631,12 @@ class HTTPClient(HTTPClientBase):
 
         return self.request(Route('GET', f'/channels/{channel_id}/messages'), params=params)
 
-    def create_forum_thread(self, channel_id: str, *, title: str, content: str):
+    def create_forum_topic(self, channel_id: str, *, title: str, content: str):
         payload = {
             'title': title,
             'content': content,
         }
-        return self.request(Route('POST', f'/channels/{channel_id}/forum'), json=payload)
+        return self.request(Route('POST', f'/channels/{channel_id}/topics'), json=payload)
 
     def create_list_item(self, channel_id: str, *, message: str, note: str = None):
         payload = {
