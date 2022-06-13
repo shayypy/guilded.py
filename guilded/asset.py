@@ -242,7 +242,7 @@ class Asset(AssetMixin):
         image_hash = strip_cdn_url(image_hash)
         return cls(
             state,
-            url=f'{cls.BASE}/UserAvatar/{image_hash}-Large.png',
+            url=f'{cls.BASE}/UserAvatar/{image_hash}-Large.webp',
             key=image_hash,
         )
 
