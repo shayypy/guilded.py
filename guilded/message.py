@@ -601,6 +601,12 @@ class HasContentMixin:
         # another paragraph node
         return content
 
+    def _create_mentions(self, data: Optional[Dict[str, Any]]) -> Mentions:
+        # Bot accounts only
+        # This will always be called after setting _state and _team/team_id so this should be safe
+        mentions = Mentions(state=self._state, team=self.team, data=data or {})
+        return mentions
+
 
 class ChatMessage(HasContentMixin):
     """A message in Guilded.
@@ -708,7 +714,7 @@ class ChatMessage(HasContentMixin):
             self.replied_to_ids: List[str] = message.get('replyMessageIds') or []
             self.private: bool = message.get('isPrivate') or False
             self.silent: bool = message.get('isSilent') or False
-            self._mentions: Mentions = Mentions(state=state, team=self.team, data=(message.get('mentions') or {}))
+            self._mentions = self._create_mentions(message.get('mentions'))
 
             self.content: str
             if isinstance(message['content'], dict):
