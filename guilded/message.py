@@ -978,16 +978,18 @@ class ChatMessage(HasContentMixin):
     async def remove_self_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
-        |onlyuserbot|
-
-        Remove your reaction to this message.
+        Remove one of your reactions from this message.
 
         Parameters
         -----------
         :class:`.Emoji`
             The emoji to remove.
         """
-        await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji.id)
+        if self._state.userbot:
+            await self._state.remove_self_message_reaction(self.channel_id, self.id, emoji.id)
+        else:
+            emoji_id: int = getattr(emoji, 'id', emoji)
+            await self._state.remove_reaction_emote(self.channel.id, self.id, emoji_id)
 
     async def reply(
         self,

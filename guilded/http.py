@@ -1693,6 +1693,9 @@ class HTTPClient(HTTPClientBase):
     def add_reaction_emote(self, channel_id: str, content_id: str, emoji_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/content/{content_id}/emotes/{emoji_id}'))
 
+    def remove_reaction_emote(self, channel_id: str, content_id: str, emoji_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/content/{content_id}/emotes/{emoji_id}'))
+
     # /servers
 
     def get_server(self, server_id: str):

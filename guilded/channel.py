@@ -301,16 +301,18 @@ class Doc(HasContentMixin):
     async def remove_self_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
-        |onlyuserbot|
-
-        Remove your reaction from this doc.
+        Remove one of your reactions from this doc.
 
         Parameters
         -----------
         emoji: :class:`.Emoji`
             The emoji to remove.
         """
-        await self._state.remove_self_content_reaction('doc', self.id, emoji.id)
+        if self._state.userbot:
+            await self._state.remove_self_content_reaction('doc', self.id, emoji.id)
+        else:
+            emoji_id: int = getattr(emoji, 'id', emoji)
+            await self._state.remove_reaction_emote(self.channel.id, self.id, emoji_id)
 
     async def delete(self) -> None:
         """|coro|
@@ -922,16 +924,18 @@ class ForumTopic(HasContentMixin):
     async def remove_self_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
-        |onlyuserbot|
-
-        Remove your reaction from this topic.
+        Remove one of your reactions from this topic.
 
         Parameters
         -----------
         emoji: :class:`.Emoji`
             The emoji to remove.
         """
-        await self._state.remove_self_content_reaction('post', self.id, emoji.id)
+        if self._state.userbot:
+            await self._state.remove_self_content_reaction('post', self.id, emoji.id)
+        else:
+            emoji_id: int = getattr(emoji, 'id', emoji)
+            await self._state.remove_reaction_emote(self.channel.id, self.id, emoji_id)
 
 
 class ForumChannel(guilded.abc.TeamChannel):
@@ -1471,14 +1475,18 @@ class Announcement(HasContentMixin):
     async def remove_self_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
-        Remove your reaction from this announcement.
+        Remove one of your reactions from this announcement.
 
         Parameters
         -----------
         emoji: :class:`.Emoji`
             The emoji to remove.
         """
-        await self._state.remove_self_content_reaction(self.channel.type.value, self.id, emoji.id)
+        if self._state.userbot:
+            await self._state.remove_self_content_reaction(self.channel.type.value, self.id, emoji.id)
+        else:
+            emoji_id: int = getattr(emoji, 'id', emoji)
+            await self._state.remove_reaction_emote(self.channel.id, self.id, emoji_id)
 
     async def fetch_replies(self) -> None:
         """|coro|
@@ -1797,14 +1805,18 @@ class Media(HasContentMixin):
     async def remove_self_reaction(self, emoji: Emoji) -> None:
         """|coro|
 
-        Remove your reaction from this media post.
+        Remove one of your reactions from this media post.
 
         Parameters
         -----------
         emoji: :class:`.Emoji`
             The emoji to remove.
         """
-        await self._state.remove_self_content_reaction(self.channel.content_type, self.id, emoji.id)
+        if self._state.userbot:
+            await self._state.remove_self_content_reaction(self.channel.content_type, self.id, emoji.id)
+        else:
+            emoji_id: int = getattr(emoji, 'id', emoji)
+            await self._state.remove_reaction_emote(self.channel.id, self.id, emoji_id)
 
     async def reply(self, *content, **kwargs) -> MediaReply:
         """|coro|
