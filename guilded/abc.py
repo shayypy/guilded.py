@@ -230,7 +230,7 @@ class Messageable(metaclass=abc.ABCMeta):
             )
             message_data = message_data.get('message', message_data)
             message_data['channelId'] = self._channel_id
-            message_data['teamId'] = self.team.id if self.team else None
+            message_data['teamId'] = self.team.id if getattr(self, 'team', None) else None
             message = self._state.create_message(data=message_data, channel=self._channel)
 
         else:
@@ -591,6 +591,14 @@ class User(metaclass=abc.ABCMeta):
 
     @property
     def mention(self) -> str:
+        """:class:`str`: The mention string for this user.
+
+        This will not notify members when sent as-is. If the client is a user
+        account, send the :class:`~guilded.User` instance positionally instead,
+        e.g., ``await messageable.send('Here\'s a user mention: ', user)``.
+
+        This will render and deliver a mention when sent in an :class:`.Embed`.
+        """
         return f'<@{self.id}>'
 
     @property
@@ -673,11 +681,48 @@ class User(metaclass=abc.ABCMeta):
 
         await self.dm_channel.hide()
 
-    async def send(self, *content, **kwargs) -> ChatMessage:
+    async def send(
+        self,
+        *pos_content: Optional[Union[str, Embed, File, Emoji]],
+        content: Optional[str] = MISSING,
+        file: Optional[File] = MISSING,
+        files: Optional[Sequence[File]] = MISSING,
+        embed: Optional[Embed] = MISSING,
+        embeds: Optional[Sequence[Embed]] = MISSING,
+        reference: Optional[ChatMessage] = MISSING,
+        reply_to: Optional[Sequence[ChatMessage]] = MISSING,
+        mention_author: Optional[bool] = None,
+        silent: Optional[bool] = None,
+        private: bool = False,
+        share: Optional[ChatMessage] = MISSING,
+        delete_after: Optional[float] = None,
+    ) -> ChatMessage:
+        """|coro|
+
+        |onlyuserbot|
+
+        Send a message to a Guilded user's DM channel.
+
+        This method is identical to :meth:`~.abc.Messageable.send`\.
+        """
         if self.dm_channel is None:
             await self.create_dm()
 
-        return await super().send(*content, **kwargs)
+        return await super().send(
+            *pos_content,
+            content=content,
+            file=file,
+            files=files,
+            embed=embed,
+            embeds=embeds,
+            reference=reference,
+            reply_to=reply_to,
+            mention_author=mention_author,
+            silent=silent,
+            private=private,
+            share=share,
+            delete_after=delete_after,
+        )
 
 
 class TeamChannel(metaclass=abc.ABCMeta):

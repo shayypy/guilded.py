@@ -25,7 +25,7 @@ SOFTWARE.
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from .colour import Colour
 from .utils import ISO8601
@@ -33,6 +33,8 @@ from .permissions import Permissions
 
 if TYPE_CHECKING:
     from .types.role import Role as RolePayload
+    from .user import Member
+    from .team import Team
 
 
 __all__ = (
@@ -107,43 +109,50 @@ class Role:
         else:
             self.discord_role_id: Optional[int] = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<Role id={self.id!r} name={self.name!r}>'
 
     @property
     def mention(self) -> str:
-        """:class:`str`: The mention string of this role. This will not notify
-        members when sent as is. To notify members, send the :class:`.Role`
-        instance positionally in content instead, e.g.,
-        ``await messageable.send('Here\'s a role mention: ', role)``
+        """:class:`str`: The mention string for this role.
+
+        This will not notify members when sent as-is. If the client is a user
+        account, send the :class:`.Role` instance positionally instead,
+        e.g., ``await messageable.send('Here\'s a role mention: ', role)``.
+
+        This will render a role mention when sent in an :class:`.Embed`, but it will not notify anybody.
         """
         return f'<@{self.id}>'
 
     @property
-    def team(self):
+    def team(self) -> Team:
         """:class:`.Team`: The team that this role is from."""
         return self._team or self._state._get_team(self.team_id)
 
     @property
-    def server(self):
-        """:class:`.Team`: This is an alias of :attr:`.team`."""
-        return self.team
+    def server(self) -> Team:
+        """:class:`.Team`: This is an alias of :attr:`.team`.
 
-    @property
-    def guild(self):
-        """|dpyattr|
-
-        This is an alias of :attr:`.team`.
+        The team that this role is from.
         """
         return self.team
 
     @property
-    def members(self):
-        """List[:class:`.Member`]: The cached list of members that have this
-        role."""
+    def guild(self) -> Team:
+        """|dpyattr|
+
+        This is an alias of :attr:`.team`.
+
+        The team that this role is from.
+        """
+        return self.team
+
+    @property
+    def members(self) -> List[Member]:
+        """List[:class:`.Member`]: The list of members that have this role."""
         return list(self._members.values())
 
     @property
@@ -164,8 +173,8 @@ class Role:
         return Permissions(**self._permissions)
 
     @property
-    def bot_member(self):
-        """:class:`.Member`: The bot's member that the role is assigned to."""
+    def bot_member(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The bot member that this managed role is assigned to."""
         return self.team.get_member(self.bot_user_id)
 
     def to_node_dict(self) -> Dict[str, Any]:
@@ -214,7 +223,7 @@ class Role:
             and not self._is_bot_role
         )
 
-    async def award_xp(self, amount: int):
+    async def award_xp(self, amount: int) -> None:
         """|coro|
 
         |onlybot|
