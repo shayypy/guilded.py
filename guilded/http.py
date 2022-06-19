@@ -80,6 +80,7 @@ if TYPE_CHECKING:
 
     T = TypeVar('T')
     BE = TypeVar('BE', bound=BaseException)
+    RichListContent = List[Union[str, Embed, File]]
 
 
 # This is mostly for webhooks but I expect the bot API to be somewhat compliant
@@ -379,7 +380,7 @@ class HTTPClientBase:
         files: List[File] = None,
         embed: Embed = None,
         embeds: List[Embed] = None,
-    ):
+    ) -> RichListContent:
         content = list(pos_content)
 
         if file:
@@ -974,18 +975,19 @@ class UserbotHTTPClient(HTTPClientBase):
     def delete_media(self, channel_id: str, media_id: int):
         return self.request(UserbotRoute('DELETE', f'/channels/{channel_id}/media/{media_id}'))
 
-    def create_list_item(self, channel_id: str, *, message: str, note: str, parent_id: str, position: int, send_notifications: bool):
+    def create_list_item(self, channel_id: str, *, message: RichListContent, note_content: Optional[str], parent_id: Optional[str], position: int, send_notifications: bool = None):
         route = UserbotRoute('POST', f'/channels/{channel_id}/listitems')
         payload = {
             'id': new_uuid(),
             'message': self.compatible_content(message),
-            'note': (self.compatible_content(note) if note else None),
+            'note': self.compatible_content(list(note_content)) if note_content is not None else None,
             'parentId': parent_id,
-            'priority': position
+            'priority': position,
         }
-        params = {
-            'notifyAllClients': str(send_notifications).lower()
-        }
+        params = {}
+        if send_notifications is not None:
+            params['notifyAllClients'] = str(send_notifications).lower()
+
         return self.request(route, json=payload, params=params)
     
     def get_list_item(self, channel_id: str, item_id: str):
@@ -997,14 +999,14 @@ class UserbotHTTPClient(HTTPClientBase):
     def delete_list_item(self, channel_id: str, item_id: str):
         return self.request(UserbotRoute('DELETE', f'/channels/{channel_id}/listitems/{item_id}'))
 
-    def edit_list_item_message(self, channel_id: str, item_id: str, payload):
+    def edit_list_item_message(self, channel_id: str, item_id: str, *, payload: Dict[str, Any]):
         route = UserbotRoute('PUT', f'/channels/{channel_id}/listitems/{item_id}/message')
         return self.request(route, json=payload)
 
-    def edit_list_item_priority(self, channel_id: str, new_orders):
+    def edit_list_item_priorities(self, channel_id: str, ordered: List[str]):
         route = UserbotRoute('PUT', f'/channels/{channel_id}/listitems/priority')
         payload = {
-            'orderedListItemIds': new_orders
+            'orderedListItemIds': ordered,
         }
         return self.request(route, json=payload)
 
@@ -1013,9 +1015,11 @@ class UserbotHTTPClient(HTTPClientBase):
         payload = {'moveToChannelId': to_channel_id}
         return self.request(route, json=payload)
 
-    def list_item_is_complete(self, channel_id: str, item_id: str, is_complete: bool):
+    def set_list_item_complete(self, channel_id: str, item_id: str, is_complete: bool):
         route = UserbotRoute('PUT', f'/channels/{channel_id}/listitems/{item_id}/iscomplete')
-        payload = {'isComplete': is_complete}
+        payload = {
+            'isComplete': is_complete,
+        }
         return self.request(route, json=payload)
 
     def mark_channel_seen(self, channel_id: str, clear_all_badges: bool = False):
@@ -1638,12 +1642,14 @@ class HTTPClient(HTTPClientBase):
         }
         return self.request(Route('POST', f'/channels/{channel_id}/topics'), json=payload)
 
-    def create_list_item(self, channel_id: str, *, message: str, note: str = None):
+    def create_list_item(self, channel_id: str, *, message: str, note_content: Optional[str] = None):
         payload = {
             'message': message,
         }
-        if note is not None:
-            payload['note'] = {'content': note}
+        if note_content is not None:
+            payload['note'] = {
+                'content': note_content,
+            }
 
         return self.request(Route('POST', f'/channels/{channel_id}/items'), json=payload)
 
@@ -1658,6 +1664,12 @@ class HTTPClient(HTTPClientBase):
 
     def delete_list_item(self, channel_id: str, item_id: str):
         return self.request(Route('DELETE', f'/channels/{channel_id}/items/{item_id}'))
+
+    def complete_list_item(self, channel_id: str, item_id: str):
+        return self.request(Route('POST', f'/channels/{channel_id}/items/{item_id}/complete'))
+
+    def uncomplete_list_item(self, channel_id: str, item_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/items/{item_id}/complete'))
 
     def create_doc(self, channel_id: str, *, title: str, content: str):
         payload = {

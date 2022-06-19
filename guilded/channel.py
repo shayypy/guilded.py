@@ -53,7 +53,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import TYPE_CHECKING, Optional, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, List, Tuple, Union
 
 import guilded.abc  # type: ignore
 
@@ -274,14 +274,12 @@ class Doc(HasContentMixin):
 
     @property
     def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        doc, if they are cached."""
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the doc."""
         return self.team.get_member(self.author_id)
 
     @property
     def edited_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that last edited the
-        doc, if they are cached."""
+        """Optional[:class:`.Member`]: The :class:`.Member` that last edited the doc."""
         return self.team.get_member(self.author_id)
 
     async def add_reaction(self, emoji: Emoji) -> None:
@@ -722,9 +720,7 @@ class ForumTopic(HasContentMixin):
 
     @property
     def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        topic, if they are cached.
-        """
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the topic."""
         return self.team.get_member(self.author_id)
 
     @property
@@ -1382,9 +1378,7 @@ class Announcement(HasContentMixin):
 
     @property
     def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        topic, if they are cached.
-        """
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the announcement."""
         return self.team.get_member(self.author_id)
 
     @property
@@ -1982,26 +1976,27 @@ class Media(HasContentMixin):
 
 
 class ListItemNote(HasContentMixin):
-    """Represents the note on a :class:`.ListItem`.
-
-    .. note::
-
-        Item notes are not their own resource in the API, thus they have no ID
-        or dedicated endpoints. Methods on an instance of this class are
-        shortcuts to the parent rather than being unique to a "List Item Note"
-        model.
+    """Represents the note on a :class:`.ListItem`\.
 
     Attributes
     -----------
     parent: :class:`.ListItem`
         The note's parent item.
-    content: :class:`str`
+    content: Optional[:class:`str`]
         The note's content.
     """
-    def __init__(self, *, data, parent):
+    def __init__(self, *, data, parent: ListItem):
         super().__init__()
+        self._state = parent._state
+
         self.parent = parent
-        self.content = self._get_full_content(data)
+
+        self.content: Optional[str]
+        if self._state.userbot:
+            self.content = self._get_full_content(data)
+        else:
+            self.content = data.get('content')
+            self._mentions = self._create_mentions(data.get('mentions'))
 
     def __repr__(self) -> str:
         return f'<ListItemNote parent={self.parent!r} author={self.author!r}>'
@@ -2009,6 +2004,10 @@ class ListItemNote(HasContentMixin):
     @property
     def team_id(self) -> str:
         return self.parent.team_id
+
+    @property
+    def team(self) -> Team:
+        return self.parent.team
 
     @property
     def group_id(self) -> str:
@@ -2020,36 +2019,100 @@ class ListItemNote(HasContentMixin):
 
     @property
     def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        note, if they are cached.
-        """
-        return self.parent.team.get_member(self.parent.note_author_id)
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the note."""
+        return self.parent.team.get_member(self.parent._note_author_id)
 
     @property
-    def edited_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that last edited
-        the note, if they are cached.
-        """
-        return self.parent.team.get_member(self.parent.note_edited_by_id)
+    def updated_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that last updated the note."""
+        return self.parent.team.get_member(self.parent._note_updated_by_id)
+
+    @property
+    def updated_at(self) -> Optional[datetime.datetime]:
+        """Optional[:class:`datetime.datetime`]: When the note was last updated."""
+        return self.parent._note_updated_at
+
+    @property
+    def created_at(self) -> Optional[datetime.datetime]:
+        """Optional[:class:`datetime.datetime`]: When the note was created."""
+        return self.parent._note_created_at
 
     async def delete(self) -> None:
         """|coro|
 
         Delete this note.
         """
-        return await self.parent.edit(note=None)
+        await self.edit(content=None)
 
-    async def edit(self, *content) -> None:
+    async def edit(
+        self,
+        *pos_content: Optional[Union[str, Embed, File, Emoji]],
+        content: Optional[str] = MISSING,
+    ) -> ListItemNote:
         """|coro|
 
         Edit this note.
 
         Parameters
         -----------
-        \*content: Any
-            The new content of the note.
+        \*pos_content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
+            An argument list of the list's main content, passed in the order
+            that each element should display.
+            If the client is a bot account, only the first value is used as content.
+            This parameter cannot be combined with ``content``.
+        content: :class:`str`
+            The text content to include as the main content of the item.
+            This parameter exists so that text content can be passed using a keyword argument.
+            This parameter cannot be combined with ``pos_content``.
+
+        Returns
+        --------
+        :class:`.ListItemNote`
+            The newly edited note.
         """
-        return await self.parent.edit(note=content)
+
+        if content is not MISSING and pos_content:
+            raise ValueError('Cannot provide both content and pos_content')
+
+        if self._state.userbot:
+            if content is not MISSING:
+                pos_content = (content,)
+
+            if pos_content == (None,):
+                payload = {
+                    'note': None,
+                }
+            else:
+                payload = {
+                    'note': await self._state.process_list_content(pos_content),
+                }
+            data = await self._state.edit_list_item_message(
+                self.channel_id,
+                self.parent.id,
+                payload=payload,
+            )
+            item = ListItem(data=data, channel=self.parent.channel, state=self._state)
+            return item.note
+
+        else:
+            if pos_content:
+                content = pos_content[0]
+
+            payload = {
+                'message': self.parent.message,
+            }
+            if content is not MISSING and content is not None:
+                payload['note'] = {
+                    'content': content,
+                }
+
+            data = await self._state.update_list_item(
+                self.channel_id,
+                self.parent.id,
+                payload=payload,
+            )
+            item = ListItem(data=data['listItem'], channel=self.parent.channel, state=self._state)
+            return item.note
 
 
 class ListItem(HasContentMixin):
@@ -2072,17 +2135,8 @@ class ListItem(HasContentMixin):
     position: :class:`int`
         Where the item is in its :attr:`.channel`. A value of ``0`` is
         at the bottom of the list visually.
-    has_note: :class:`bool`
-        Whether the item has a note.
-    note: Optional[:class:`.ListItemNote`]
-        The note of an item. If this instance was not obtained via creation,
-        then this attribute must first be fetched with :meth:`.fetch_note`.
-    note_created_by_bot_id: Optional[:class:`str`]
-        The ID of the bot that created the item's note, if any.
-    note_created_at: Optional[:class:`datetime.datetime`]
-        When the item's note was created.
-    note_edited_at: Optional[:class:`datetime.datetime`]
-        When the note was last edited.
+    note: :class:`.ListItemNote`
+        The item's note.
     updated_at: Optional[:class:`datetime.datetime`]
         When the item was last updated.
     completed_at: Optional[:class:`datetime.datetime`]
@@ -2091,19 +2145,19 @@ class ListItem(HasContentMixin):
         When the item was deleted.
     """
 
-    def __init__(self, *, state, data, channel):
+    def __init__(self, *, state, data, channel: ListChannel):
         super().__init__()
         self._state = state
         self.channel = channel
         self.group = channel.group
         self.team = channel.team
 
-        self.parent_id: Optional[str] = data.get('parentId')
+        self.parent_id: Optional[str] = data.get('parentId') or data.get('parentListItemId')
+        self.channel_id: str = data.get('channelId')
         self.team_id: str = data.get('teamId')
-        self.group_id: Optional[str] = data.get('groupId') or (self.group.id if self.group else None)
-        self.channel_id: str = data.get('channelId') or self.channel.id
+        self.group_id: Optional[str] = data.get('groupId')
 
-        self.webhook_id: Optional[str] = data.get('webhookId')
+        self.webhook_id: Optional[str] = data.get('webhookId') or data.get('createdByWebhookId')
         self.bot_id: Optional[str] = data.get('botId')
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
@@ -2114,51 +2168,46 @@ class ListItem(HasContentMixin):
         self._deleted_by: Optional[Member] = None
         self.deleted_by_id: Optional[str] = data.get('deletedBy')
         self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
-        self._assigned_to = data.get('assignedTo') or []
+        self._assigned_to: List[Dict[str, str]] = data.get('assignedTo') or []
+        self._has_note: bool = data.get('hasNote')
 
         self.id: str = data['id']
         self.position: int = data.get('priority')
-
-        self._raw_message = data['message']
-        self.message: str = self._get_full_content(self._raw_message)
-
-        self._has_note: bool = data.get('hasNote')
-        self.note_author_id: Optional[str] = data.get('noteCreatedBy')
-        self.note_created_by_bot_id: Optional[str] = data.get('noteCreatedByBotId')
-        self.note_created_at: Optional[datetime.datetime] = ISO8601(data.get('noteCreatedAt'))
-        self.note_edited_by_id: Optional[str] = data.get('noteUpdatedBy')
-        self.note_edited_at: Optional[datetime.datetime] = ISO8601(data.get('noteUpdatedAt'))
-        self._raw_note = data.get('note')
-        if self._raw_note:
-            self.note: Optional[ListItemNote] = ListItemNote(data=self._raw_note, parent=self)
+        self.message: str
+        if self._state.userbot:
+            self.message = self._get_full_content(data['message'])
         else:
-            self.note: Optional[ListItemNote] = None
+            self.message = data['message']
+            self._mentions = self._create_mentions(data.get('mentions'))
+
+        _note: Dict[str, Any] = data.get('note') or {}
+        self._note_author_id: Optional[str] = data.get('noteCreatedBy') or _note.get('createdBy')
+        self._note_created_at: Optional[datetime.datetime] = ISO8601(data.get('noteCreatedAt') or _note.get('createdAt'))
+        self._note_updated_by_id: Optional[str] = data.get('noteUpdatedBy') or _note.get('updatedBy')
+        self._note_updated_at: Optional[datetime.datetime] = ISO8601(data.get('noteUpdatedAt') or _note.get('updatedAt'))
+        self.note = ListItemNote(data=_note, parent=self)
 
     def __repr__(self) -> str:
-        return f'<ListItem id={self.id!r} author={self.author!r} has_note={self.has_note!r}>'
+        return f'<ListItem id={self.id!r} author={self.author!r} channel={self.team!r}>'
 
     @property
     def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that created the
-        item, if they are cached."""
+        """Optional[:class:`.Member`]: The :class:`.Member` that created the item."""
         return self.team.get_member(self.author_id)
 
     @property
     def updated_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that last updated
-        the item, if they are cached."""
+        """Optional[:class:`.Member`]: The :class:`.Member` that last updated the item."""
         return self.team.get_member(self.updated_by_id)
 
     @property
     def completed_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that marked the
-        the item as completed, if applicable and they are cached."""
+        """Optional[:class:`.Member`]: The :class:`.Member` that marked the the item as completed."""
         return self.team.get_member(self.completed_by_id)
 
     @property
     def deleted_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that deleted the
-        item, if that information is available and they are cached."""
+        """Optional[:class:`.Member`]: The :class:`.Member` that deleted the item."""
         return self._deleted_by or self.team.get_member(self.deleted_by_id)
 
     @property
@@ -2170,34 +2219,39 @@ class ListItem(HasContentMixin):
         """List[:class:`.Member`]: The members that the item is assigned to,
         designated by the mentions in :attr:`.message`\."""
 
-        members = set()
-        for assigned in self._assigned_to:
-            id_ = assigned.get('mentionId')
-            if assigned.get('mentionType') == 'person':
-                member = self.team.get_member(id_)
-                if member:
-                    members.add(member)
-            elif assigned.get('mentionType') == 'role':
-                role = self.team.get_role(int(id_))
-                if role:
-                    for member in role.members:
+        if self._state.userbot:
+            members = set()
+            for assigned in self._assigned_to:
+                id_ = assigned.get('mentionId')
+                if assigned.get('mentionType') == 'person':
+                    member = self.team.get_member(id_)
+                    if member:
                         members.add(member)
+                elif assigned.get('mentionType') == 'role':
+                    role = self.team.get_role(int(id_))
+                    if role:
+                        for member in role.members:
+                            members.add(member)
+        else:
+            members = set(self.user_mentions)
+            for role in self.role_mentions:
+                for member in role.members:
+                    members.add(member)
 
         return list(members)
 
     @property
     def parent(self) -> Optional[ListItem]:
-        """Optional[:class:`.ListItem`]: The item that this item is a child of,
-        if it exists and is cached."""
+        """Optional[:class:`.ListItem`]: The item that this item is a child of."""
         return self.channel.get_item(self.parent_id)
 
-    @property
     def has_note(self) -> bool:
+        """:class:`bool`: Whether the item has a note."""
         # This property (hasNote) is not returned in the gateway
         # event for list items being created
         if self._has_note is not None:
             return self._has_note
-        return self.note is not None
+        return self.note.content is not None
 
     async def fetch_parent(self) -> ListItem:
         """|coro|
@@ -2207,7 +2261,15 @@ class ListItem(HasContentMixin):
         Returns
         --------
         :class:`.ListItem`
+
+        Raises
+        -------
+        ValueError
+            This item has no parent.
         """
+        if self.parent_id is None:
+            raise ValueError('This item has no parent.')
+
         return await self.channel.fetch_item(self.parent_id)
 
     async def fetch_note(self) -> ListItemNote:
@@ -2231,74 +2293,143 @@ class ListItem(HasContentMixin):
         """
         await self._state.delete_list_item(self.channel.id, self.id)
 
-    async def edit(self, **kwargs) -> None:
+    async def edit(
+        self,
+        *pos_message: Optional[Union[str, Embed, File, Emoji]],
+        message: Optional[str] = MISSING,
+        note_content: Optional[str] = MISSING,
+        position: int = None,
+    ) -> ListItem:
         """|coro|
 
         Edit this item.
 
-        All parameters are optional.
-
         .. note::
 
-            If ``position`` and ``message`` or ``note`` are specified, this
-            method will make multiple API requests.
+            If ``position`` and ``message`` are both specified, this method
+            will make multiple API requests, unless the client is a bot account,
+            in which case the ``position`` parameter is silently ignored.
+
+        All parameters are optional.
 
         Parameters
         -----------
-        message: Any
-            The new main content of the item.
-        note: Any
-            The new note of the item.
+        \*pos_message: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
+            An argument list of the list's main message, passed in the order
+            that each element should display.
+            If the client is a bot account, only the first value is used as content.
+            This parameter cannot be combined with ``message``.
+        message: :class:`str`
+            The text content to set as the main message of the item.
+            This parameter exists so that text content can be passed using a keyword argument.
+            This parameter cannot be combined with ``pos_message``.
+        note_content: :class:`str`
+            The item's note content.
         position: :class:`int`
             The new position of the item. A value of ``0`` appears at the
             bottom visually.
+
+        Returns
+        --------
+        :class:`.ListItem`
+            The newly edited item.
+            If the client is a user account and only the ``priority`` parameter
+            was provided, this is the current instance rather than a new one.
         """
-        message_payload = {}
-        try:
-            message = kwargs.pop('message')
-        except KeyError:
-            pass
+
+        # The parameters are named ``message`` for API compliance but we use ``content`` internally for consistency.
+        content, pos_content = message, pos_message
+
+        if content is not MISSING and pos_content:
+            raise ValueError('Cannot provide both message and pos_message')
+
+        if self._state.userbot:
+            if position is not None:
+                if not isinstance(position, int):
+                    raise TypeError(f'position must be type int, not {position.__class__.__name__}')
+
+                rich_positions = []
+                all_items = await self.channel.fetch_items()
+                for item in all_items:
+                    rich_positions.append(item)
+
+                rich_positions.sort(key=lambda item: item.position)
+                rich_positions.insert(position, self)
+
+                positions = [item.id for item in rich_positions]
+                await self._state.edit_list_item_priorities(self.channel.id, positions)
+                self.position = position
+
+            if content is not MISSING or pos_content:
+                if content is not MISSING:
+                    pos_content = (content,)
+
+                payload = {}
+                if pos_content:
+                    payload['message'] = self._state.compatible_content(await self._state.process_list_content(pos_content))
+
+                if note_content is not MISSING:
+                    if note_content is None:
+                        payload['note'] = None
+                    else:
+                        payload['note'] = self._state.compatible_content([note_content])
+
+                data = await self._state.edit_list_item_message(self.channel.id, self.id, payload=payload)
+                item = ListItem(data=data, channel=self, state=self._state)
+                return item
+
+            return self
+
         else:
-            message_payload['message'] = self._state.compatible_content(message)
-        try:
-            note = kwargs.pop('note')
-        except KeyError:
-            pass
-        else:
-            message_payload['note'] = self._state.compatible_content(note)
+            if pos_content:
+                content = pos_content[0]
 
-        if message_payload:
-            await self._state.edit_list_item_message(self.channel.id, self.id, message_payload)
+            payload = {}
+            if content is not MISSING:
+                payload['message'] = content
+            else:
+                payload['message'] = self.message
 
-        if kwargs.get('position') is not None:
-            position = kwargs['position']
-            if not isinstance(position, int):
-                raise TypeError(f'position must be type int, not {position.__class__.__name__}')
+            if note_content is not MISSING and note_content is not None:
+                payload['note'] = {
+                    'content': note_content
+                }
 
-            rich_positions = []
-            all_items = await self.channel.fetch_items()
-            for item in all_items:
-                rich_positions.append(item)
+            data = await self._state.update_list_item(
+                self.channel_id,
+                self.id,
+                payload=payload,
+            )
+            item = ListItem(data=data['listItem'], channel=self, state=self._state)
+            return item
 
-            rich_positions.sort(key=lambda item: item.position)
-            rich_positions.insert(position, self)
-
-            positions = [item.id for item in rich_positions]
-            await self._state.edit_list_item_priority(self.channel.id, positions)
-            self.position = position
-
-    async def create_item(self, *message, **kwargs) -> ListItem:
+    async def create_item(
+        self,
+        *pos_message: Optional[Union[str, Embed, File, Emoji]],
+        message: str = MISSING,
+        note_content: Optional[str] = MISSING,
+        position: Optional[int] = None,
+    ) -> ListItem:
         """|coro|
+
+        |onlyuserbot|
 
         Create an item with this item as its parent.
 
         This method is identical to :meth:`ListChannel.create_item`.
         """
-        kwargs['parent'] = self
-        return await self.channel.create_item(*message, **kwargs)
+        return await self.channel.create_item(
+            *pos_message,
+            message=message,
+            note_content=note_content,
+            parent=self,
+            position=position,
+        )
 
     async def move(self, to: ListChannel) -> None:
         """|coro|
+
+        |onlyuserbot|
 
         Move this item to another channel.
 
@@ -2314,18 +2445,22 @@ class ListItem(HasContentMixin):
 
         Mark this list item as complete.
 
-        If this item has any children, they will also be modified.
+        If this item has any children, they will also be marked as complete.
         """
-        await self._state.list_item_is_complete(self.channel.id, self.id, True)
+        if self._state.userbot:
+            await self._state.set_list_item_complete(self.channel.id, self.id, True)
+        else:
+            await self._state.complete_list_item(self.channel.id, self.id)
 
     async def uncomplete(self) -> None:
         """|coro|
 
         Mark this list item as incomplete.
-
-        If this item has any children, they will also be modified.
         """
-        await self._state.list_item_is_complete(self.channel.id, self.id, False)
+        if self._state.userbot:
+            await self._state.set_list_item_complete(self.channel.id, self.id, False)
+        else:
+            await self._state.uncomplete_list_item(self.channel.id, self.id)
 
 
 class MediaChannel(guilded.abc.TeamChannel):
@@ -2351,6 +2486,8 @@ class MediaChannel(guilded.abc.TeamChannel):
     async def fetch_media(self, id: int) -> Media:
         """|coro|
 
+        |onlyuserbot|
+
         Fetch a media post in this channel.
 
         Parameters
@@ -2368,6 +2505,8 @@ class MediaChannel(guilded.abc.TeamChannel):
 
     async def fetch_medias(self, *, limit: int = 50) -> List[Media]:
         """|coro|
+
+        |onlyuserbot|
 
         Fetch multiple media posts in this channel.
 
@@ -2400,6 +2539,8 @@ class MediaChannel(guilded.abc.TeamChannel):
         game: Optional[Game] = None,
     ) -> Media:
         """|coro|
+
+        |onlyuserbot|
 
         Create a media post in this channel.
 
@@ -2489,8 +2630,10 @@ class ListChannel(guilded.abc.TeamChannel):
         :class:`.ListItem`
         """
         data = await self._state.get_list_item(self.id, id)
-        listitem = ListItem(data=data, channel=self, state=self._state)
-        return listitem
+        if not self._state.userbot:
+            data = data['listItem']
+        item = ListItem(data=data, channel=self, state=self._state)
+        return item
 
     async def fetch_items(self) -> List[ListItem]:
         """|coro|
@@ -2502,52 +2645,82 @@ class ListChannel(guilded.abc.TeamChannel):
         List[:class:`.ListItem`]
         """
         data = await self._state.get_list_items(self.id)
+        if not self._state.userbot:
+            data = data['listItems']
         items = []
         for item_data in data:
             items.append(ListItem(data=item_data, channel=self, state=self._state))
 
         return items
 
-    async def create_item(self, *message, **kwargs) -> ListItem:
+    async def create_item(
+        self,
+        *pos_message: Optional[Union[str, Embed, File, Emoji]],
+        message: str = MISSING,
+        note_content: Optional[str] = None,
+        parent: Optional[ListItem] = None,
+        position: Optional[int] = None,
+    ) -> ListItem:
         """|coro|
 
         Create an item in this channel.
 
         Parameters
         -----------
-        message: Any
-            The main content of the item.
-        note: Optional[Any]
-            The item's note.
+        \*pos_message: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
+            An argument list of the list's main message, passed in the order
+            that each element should display.
+            If the client is a bot account, only the first value is used as content.
+            This parameter cannot be combined with ``message``.
+        message: :class:`str`
+            The text content to include as the main message of the item.
+            This parameter exists so that text content can be passed using a keyword argument.
+            This parameter cannot be combined with ``pos_message``.
+        note_content: Optional[:class:`str`]
+            The item's note content.
         parent: Optional[:class:`ListItem`]
             An existing item to create this item under.
         position: Optional[:class:`int`]
             The item's position. Defaults to ``0`` if not specified (appears
             at the bottom of the list).
-        send_notifications: Optional[:class:`bool`]
-            Whether to "notify all clients" by creating this item. Defaults to
-            ``False`` if not specified.
 
         Returns
         --------
         :class:`.ListItem`
             The created item.
         """
-        note = tuple(kwargs.get('note', ''))
-        parent = kwargs.get('parent')
-        position = kwargs.get('position', 0)
-        send_notifications = kwargs.get('send_notifications', False)
 
-        data = await self._state.create_list_item(
-            self.id,
-            message=message,
-            note=note,
-            parent_id=(parent.id if parent else None),
-            position=position,
-            send_notifications=send_notifications
-        )
-        listitem = ListItem(data=data, channel=self, state=self._state)
-        return listitem
+        # The parameters are named ``message`` for API compliance but we use ``content`` internally for consistency.
+        content, pos_content = message, pos_message
+
+        if content is not MISSING and pos_content:
+            raise ValueError('Cannot provide both message and pos_message')
+
+        if self._state.userbot:
+            if content is not MISSING:
+                pos_content = (content,)
+
+            data = await self._state.create_list_item(
+                self.id,
+                message=await self._state.process_list_content(pos_content),
+                note_content=note_content,
+                parent_id=parent.id if parent is not None else None,
+                position=position if position is not None else 0,
+            )
+
+        else:
+            if pos_content:
+                content = pos_content[0]
+
+            data = await self._state.create_list_item(
+                self.id,
+                message=content,
+                note_content=note_content,
+            )
+            data = data['listItem']
+
+        item = ListItem(data=data, channel=self, state=self._state)
+        return item
 
     async def create_webhook(self, *, name: str, avatar: Optional[Union[bytes, File]] = None) -> Webhook:
         """|coro|
@@ -2662,12 +2835,12 @@ class Availability:
 
     @property
     def updated_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The member that last updated the availability, if they are cached."""
+        """Optional[:class:`.Member`]: The member that last updated the availability."""
         return self.team.get_member(self.updated_by_id)
 
     @property
     def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The member that created the availability, if they are cached."""
+        """Optional[:class:`.Member`]: The member that created the availability."""
         return self.team.get_member(self.user_id)
 
     async def edit(self, *,
