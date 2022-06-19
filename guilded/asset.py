@@ -221,10 +221,27 @@ class Asset(AssetMixin):
     BASE = 'https://img.guildedcdn.com'
     AWS_BASE = 'https://s3-us-west-2.amazonaws.com/www.guilded.gg'
 
-    def __init__(self, state, *, url: str, key: str, animated: bool = False, banner: bool = False):
+    def __init__(
+        self,
+        state,
+        *,
+        url: str,
+        key: str,
+        animated: bool = False,
+        maybe_animated: bool = False,
+        banner: bool = False,
+    ):
         self._state = state
         self._url = url
+
+        # Force unity if we know a value of one that should affect the other
+        if animated:
+            maybe_animated = True
+        if not maybe_animated:
+            animated = False
+
         self._animated = animated
+        self._maybe_animated = maybe_animated
         self._key = key
         self._banner = banner
 
@@ -238,17 +255,20 @@ class Asset(AssetMixin):
         )
 
     @classmethod
-    def _from_user_avatar(cls, state, image_hash: str):
-        image_hash = strip_cdn_url(image_hash)
+    def _from_user_avatar(cls, state, image_url: str):
+        maybe_animated = '.webp' in image_url
+        format = 'webp' if maybe_animated else 'png'
+        image_hash = strip_cdn_url(image_url)
         return cls(
             state,
-            url=f'{cls.BASE}/UserAvatar/{image_hash}-Large.png',
+            url=f'{cls.BASE}/UserAvatar/{image_hash}-Large.{format}',
             key=image_hash,
+            maybe_animated=maybe_animated,
         )
 
     @classmethod
-    def _from_user_banner(cls, state, image_hash: str):
-        image_hash = strip_cdn_url(image_hash)
+    def _from_user_banner(cls, state, image_url: str):
+        image_hash = strip_cdn_url(image_url)
         return cls(
             state,
             url=f'{cls.BASE}/UserBanner/{image_hash}-Hero.png',
@@ -257,8 +277,8 @@ class Asset(AssetMixin):
         )
 
     @classmethod
-    def _from_team_avatar(cls, state, image_hash: str):
-        image_hash = strip_cdn_url(image_hash)
+    def _from_team_avatar(cls, state, image_url: str):
+        image_hash = strip_cdn_url(image_url)
         return cls(
             state,
             url=f'{cls.BASE}/TeamAvatar/{image_hash}-Large.png',
@@ -266,8 +286,8 @@ class Asset(AssetMixin):
         )
 
     @classmethod
-    def _from_team_banner(cls, state, image_hash: str):
-        image_hash = strip_cdn_url(image_hash)
+    def _from_team_banner(cls, state, image_url: str):
+        image_hash = strip_cdn_url(image_url)
         return cls(
             state,
             url=f'{cls.BASE}/TeamBanner/{image_hash}-Hero.png',
@@ -276,8 +296,8 @@ class Asset(AssetMixin):
         )
 
     @classmethod
-    def _from_group_avatar(cls, state, image_hash: str):
-        image_hash = strip_cdn_url(image_hash)
+    def _from_group_avatar(cls, state, image_url: str):
+        image_hash = strip_cdn_url(image_url)
         return cls(
             state,
             url=f'{cls.BASE}/GroupAvatar/{image_hash}-Large.png',
@@ -285,8 +305,8 @@ class Asset(AssetMixin):
         )
 
     @classmethod
-    def _from_group_banner(cls, state, image_hash: str):
-        image_hash = strip_cdn_url(image_hash)
+    def _from_group_banner(cls, state, image_url: str):
+        image_hash = strip_cdn_url(image_url)
         return cls(
             state,
             url=f'{cls.BASE}/GroupBanner/{image_hash}-Large.png',
@@ -294,8 +314,8 @@ class Asset(AssetMixin):
         )
 
     @classmethod
-    def _from_custom_reaction(cls, state, image_hash: str, animated: bool = False):
-        image_hash = strip_cdn_url(image_hash)
+    def _from_custom_reaction(cls, state, image_url: str, animated: bool = False):
+        image_hash = strip_cdn_url(image_url)
         format = 'apng' if animated else 'webp'
         return cls(
             state,
@@ -387,7 +407,13 @@ class Asset(AssetMixin):
         return self._url.replace(self.BASE, self.AWS_BASE)
 
     def is_animated(self) -> bool:
-        """:class:`bool`: Returns whether the asset is animated."""
+        """:class:`bool`: Returns whether the asset is animated.
+
+        .. note::
+
+            This may return false negatives for assets like user or bot
+            avatars which have no definitive indicator.
+        """
         return self._animated
 
     def replace(
@@ -398,6 +424,12 @@ class Asset(AssetMixin):
         static_format: str = None,
     ):
         """Returns a new asset with the passed components replaced.
+
+        .. warning::
+
+            If this asset is a user or bot avatar, you should not replace
+            ``format`` because avatars uploaded after 10 May 2022 can only
+            use the ``webp`` format.
 
         Parameters
         -----------
@@ -427,7 +459,7 @@ class Asset(AssetMixin):
         current_size = url.path.split('-')[1].replace(f'.{extension}', '')
 
         if format is not None:
-            if self._animated:
+            if self._maybe_animated:
                 if format not in VALID_ASSET_FORMATS:
                     raise InvalidArgument(f'format must be one of {VALID_ASSET_FORMATS}')
             else:
@@ -436,7 +468,7 @@ class Asset(AssetMixin):
             url = url.with_path(f'{path}.{format}')
             extension = format
 
-        if static_format is not None and not self._animated:
+        if static_format is not None and not self._maybe_animated:
             if static_format not in VALID_STATIC_FORMATS:
                 raise InvalidArgument(f'static_format must be one of {VALID_STATIC_FORMATS}')
             url = url.with_path(f'{path}.{static_format}')
@@ -455,7 +487,7 @@ class Asset(AssetMixin):
             url = url.with_path(f'{path.replace(current_size, size)}.{extension}')
 
         url = str(url)
-        return Asset(state=self._state, url=url, key=self._key, animated=self._animated, banner=self._banner)
+        return Asset(state=self._state, url=url, key=self._key, animated=self._animated, maybe_animated=self._maybe_animated, banner=self._banner)
 
     def with_size(self, size: str):
         """Returns a new asset with the specified size.
@@ -490,10 +522,16 @@ class Asset(AssetMixin):
         extension = extension.lstrip('.')
         current_size = url.path.split('-')[1].replace(f'.{extension}', '')
         url = str(url.with_path(f'{path.replace(current_size, size)}.{extension}'))
-        return Asset(state=self._state, url=url, key=self._key, animated=self._animated)
+        return Asset(state=self._state, url=url, key=self._key, animated=self._animated, maybe_animated=self._maybe_animated)
 
     def with_format(self, format: str):
         """Returns a new asset with the specified format.
+
+        .. warning::
+
+            If this asset is a user or bot avatar, you should not use this
+            method because avatars uploaded after 10 May 2022 can only use the
+            ``webp`` format.
 
         Parameters
         -----------
@@ -511,7 +549,7 @@ class Asset(AssetMixin):
             The newly updated asset.
         """
 
-        if self._animated:
+        if self._maybe_animated:
             if format not in VALID_ASSET_FORMATS:
                 raise InvalidArgument(f'format must be one of {VALID_ASSET_FORMATS}')
         else:
@@ -521,7 +559,7 @@ class Asset(AssetMixin):
         url = yarl.URL(self._url)
         path, _ = os.path.splitext(url.path)
         url = str(url.with_path(f'{path}.{format}'))
-        return Asset(state=self._state, url=url, key=self._key, animated=self._animated)
+        return Asset(state=self._state, url=url, key=self._key, animated=self._animated, maybe_animated=self._maybe_animated)
 
     def with_static_format(self, format: str):
         """Returns a new asset with the specified static format.
@@ -545,6 +583,6 @@ class Asset(AssetMixin):
             The newly updated asset.
         """
 
-        if self._animated:
+        if self._maybe_animated:
             return self
         return self.with_format(format)
