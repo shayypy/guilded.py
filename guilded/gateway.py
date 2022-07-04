@@ -64,6 +64,7 @@ from typing import TYPE_CHECKING, Optional
 
 from .errors import GuildedException, HTTPException
 from .channel import *
+from .reaction import RawReactionActionEvent, Reaction
 from .role import Role
 from .user import ClientUser, Member
 from .utils import ISO8601
@@ -491,6 +492,30 @@ class WebSocketEventParsers:
         channel = self._state.create_channel(data=data['channel'], server=server)
         channel.server._channels.pop(channel.id, None)
         self.client.dispatch('server_channel_delete', channel)
+
+    async def ChannelMessageReactionCreated(self, data: ChannelMessageReactionEvent):
+        server = self.client.get_server(data['serverId'])
+
+        data['reaction']['type'] = 'ChannelMessageReactionCreated'
+        payload = RawReactionActionEvent(state=self._state, data=data['reaction'], server=server)
+        self.client.dispatch('raw_message_reaction_add', payload)
+
+        message = self._state._get_message(data['reaction']['messageId'])
+        if message:
+            reaction = Reaction(data=data['reaction'], parent=message)
+            self.client.dispatch('message_reaction_add', reaction)
+
+    async def ChannelMessageReactionDeleted(self, data: ChannelMessageReactionEvent):
+        server = self.client.get_server(data['serverId'])
+
+        data['reaction']['type'] = 'ChannelMessageReactionDeleted'
+        payload = RawReactionActionEvent(state=self._state, data=data['reaction'], server=server)
+        self.client.dispatch('raw_message_reaction_remove', payload)
+
+        message = self._state._get_message(data['reaction']['messageId'])
+        if message:
+            reaction = Reaction(data=data['reaction'], parent=message)
+            self.client.dispatch('message_reaction_remove', reaction)
 
 
 class Heartbeater(threading.Thread):
