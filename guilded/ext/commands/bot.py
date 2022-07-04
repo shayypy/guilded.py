@@ -59,7 +59,7 @@ import traceback
 import importlib.util
 import importlib.machinery
 import types
-from typing import Any, Callable, Iterable, Mapping, List, Dict, Optional, Union
+from typing import Any, Callable, Iterable, Mapping, List, Dict, Optional, Set, Union
 
 import guilded
 
@@ -154,8 +154,10 @@ class BotBase:
         self._after_invoke = None
         self._help_command = None
         self.strip_after_prefix = options.pop('strip_after_prefix', False)
-        self.owner_id = options.get('owner_id')
-        self.owner_ids = options.get('owner_ids', set())
+        self.owner_id: Optional[str] = options.get('owner_id')
+        self.owner_ids: Set[str] = options.get('owner_ids')
+        if self.owner_ids is None:
+            self.owner_ids = set()
 
         if self.owner_id and self.owner_ids:
             raise TypeError('Both owner_id and owner_ids are set.')
