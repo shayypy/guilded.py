@@ -112,7 +112,7 @@ class Colour:
     """Represents a colour in Guilded, such as in embeds or roles.
     This class is similar to a (red, green, blue) :class:`tuple`.
 
-    There is an alias for this called Color.
+    There is an alias for this class called Color.
 
     .. container:: operations
 
