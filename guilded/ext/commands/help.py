@@ -1143,7 +1143,7 @@ class MinimalHelpCommand(HelpCommand):
     def get_opening_note(self):
         """Returns help command's opening note. This is mainly useful to override for i18n purposes.
 
-        The default implementation returns ::
+        The default implementation returns :: none
 
             Use `{prefix}{command_name} [command]` for more info on a command.
             You can also use `{prefix}{command_name} [category]` for more info on a category.
