@@ -82,8 +82,8 @@ class Reaction:
         self.emote = Emote(state=self._state, data=data['emote'])
 
         self._user_ids: Set[str] = set()
-        if self.user_id:
-            self._user_ids.add(self.user_id)
+        if self._user_id:
+            self._user_ids.add(self._user_id)
 
     @property
     def emoji(self) -> Emote:
