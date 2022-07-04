@@ -49,16 +49,18 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .asset import Asset
-from .enums import MediaType
-from .errors import InvalidArgument
-from .file import File
 from .status import Game
-from .user import Member
 from .utils import ISO8601
+
+if TYPE_CHECKING:
+    from .server import Server
+    from .user import Member
 
 
 __all__ = (
@@ -67,12 +69,12 @@ __all__ = (
 
 
 class Group:
-    """Represents a team group in Guilded.
+    """Represents a server group in Guilded.
 
     Attributes
     -----------
-    team: :class:`.Team`
-        The team that the group belongs to.
+    server: :class:`.Server`
+        The server that the group is in.
     id: :class:`str`
         The group's id.
     name: :class:`str`
@@ -86,9 +88,9 @@ class Group:
         Whether the group is public.
     """
 
-    def __init__(self, *, state, team, data):
+    def __init__(self, *, state, data, server: Server):
         self._state = state
-        self.team = team
+        self.server = server
         data = data.get('group', data)
 
         self.id: str = data.get('id')
@@ -96,7 +98,7 @@ class Group:
         self.type: str = data.get('type', 'team')
         self.description: str = data.get('description') or ''
         self.position: Optional[int] = data.get('priority')
-        self.team_id: str = data.get('teamId', team.id)
+        self.server_id: str = data.get('teamId')
 
         self.game_id: Optional[int] = data.get('gameId')
         self._base: bool = data.get('isBase')
@@ -135,83 +137,74 @@ class Group:
 
     @property
     def base(self) -> bool:
-        """:class:`bool`: Whether the group is the base or "home" group of its
-        team."""
-        return self._base or self.team.base_group == self
+        """:class:`bool`: Whether the group is the base or "home" group of its server."""
+        return self._base or self.server.base_group == self
 
     @property
     def avatar(self) -> Optional[Asset]:
         """Optional[:class:`.Asset`]: The group's avatar, if any.
-        If :attr:`.base` is ``True``, this will be the :attr:`.team`\'s avatar instead."""
+        If :attr:`.base` is ``True``, this will be the :attr:`.server`\'s avatar instead."""
         if self.base:
-            return self._avatar or self.team.avatar
+            return self._avatar or self.server.avatar
         return self._avatar
 
     @property
     def banner(self) -> Optional[Asset]:
         """Optional[:class:`.Asset`]: The group's banner, if any.
-        If :attr:`.base` is ``True``, this will be the :attr:`.team`\'s banner instead."""
+        If :attr:`.base` is ``True``, this will be the :attr:`.server`\'s banner instead."""
         if self.base:
-            return self._banner or self.team.banner
+            return self._banner or self.server.banner
         return self._banner
 
     @property
     def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The member who created the group, if
-        they are cached."""
-        return self.team.get_member(self.author_id)
+        """Optional[:class:`.Member`]: The member who created the group."""
+        return self.server.get_member(self.author_id)
 
     @property
     def updated_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The member who last updated the group,
-        if any, and they are cached."""
-        return self.team.get_member(self.updated_by_id)
+        """Optional[:class:`.Member`]: The member who last updated the group, if any."""
+        return self.server.get_member(self.updated_by_id)
 
     @property
     def archived_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The member who archived the group, if
-        any, and they are cached."""
-        return self.team.get_member(self.archived_by_id)
+        """Optional[:class:`.Member`]: The member who archived the group, if any."""
+        return self.server.get_member(self.archived_by_id)
 
     def __str__(self):
         return self.name
 
     def __repr__(self):
-        return f'<Group id={self.id!r} name={self.name!r} team_id={self.team_id!r}>'
+        return f'<Group id={self.id!r} name={self.name!r} server_id={self.server_id!r}>'
 
-    async def delete(self):
+    async def add_member(self, member: Member, /) -> None:
         """|coro|
 
-        Delete this group.
-        """
-        return await self._state.delete_team_group(self.team.id, self.id)
+        Add a member to this group.
 
-    async def edit(self, **fields):
+        Raises
+        -------
+        NotFound
+            This group has been deleted or the member does not exist.
+        Forbidden
+            You do not have permission to add the member to this group.
+        HTTPException
+            Failed to add the member to this group.
+        """
+        await self._state.add_group_member(self.id, member.id)
+
+    async def remove_member(self, member: Member, /) -> None:
         """|coro|
 
-        Edit this group.
+        Remove a member from this group.
 
-        All parameters are optional.
-
-        Parameters
-        -----------
-        icon: Union[:class:`str`, :class:`.File`]
-            The file to upload or an existing CDN URL to use for this
-            group's icon.
+        Raises
+        -------
+        NotFound
+            This group has been deleted or the member does not exist.
+        Forbidden
+            You do not have permission to remove the member from this group.
+        HTTPException
+            Failed to remove the member from this group.
         """
-        try:
-            icon = fields.pop('icon')
-        except KeyError:
-            pass
-        else:
-            if isinstance(icon, str):
-                fields['icon_url'] = icon
-            elif isinstance(icon, File):
-                icon.set_media_type(MediaType.group_icon)
-                fields['icon_url'] = await icon._upload(self._state)
-            elif icon is None:
-                fields['icon_url'] = None
-            else:
-                raise InvalidArgument(f'icon must be type str, File, or None, not {icon.__class__.__name__}')
-
-        return await self._state.update_team_group(self.team.id, self.id, **fields)
+        await self._state.remove_group_member(self.id, member.id)

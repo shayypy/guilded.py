@@ -202,16 +202,6 @@ class File:
             return 'video/mp4'
         return None
 
-    def to_node_dict(self) -> Dict[str, Any]:
-        return {
-            'object': 'block',
-            'type': str(self.file_type),
-            'data': {
-                'src': self.url,
-            },
-            'nodes': [],
-        }
-
     def set_media_type(self, media_type: MediaType):
         """Manually set this file's media type."""
         self.type = media_type

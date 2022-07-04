@@ -27,11 +27,16 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 from typing_extensions import NotRequired
 
 
-class User(TypedDict):
+class UserSummary(TypedDict):
     id: str
     type: NotRequired[Literal['user', 'bot']]
     name: str
-    avatar: NotRequired[str]
+    avatar: NotRequired[Optional[str]]
+
+
+class User(UserSummary):
+    botId: NotRequired[str]
+    createdBy: NotRequired[str]
     profilePicture: NotRequired[str]
     profilePictureSm: NotRequired[str]
     profilePictureLg: NotRequired[str]
@@ -51,3 +56,22 @@ class User(TypedDict):
     badges: NotRequired[List[str]]
     flairInfos: NotRequired[Dict[str, Any]]
     teams: NotRequired[Union[Literal[False], List[Dict[str, Any]]]]
+
+
+class ServerMemberSummary(TypedDict):
+    user: UserSummary
+    roleIds: List[int]
+
+
+class ServerMember(ServerMemberSummary):
+    user: User
+    nickname: NotRequired[str]
+    joinedAt: str
+    isOwner: NotRequired[bool]
+
+
+class ServerMemberBan(TypedDict):
+    user: UserSummary
+    reason: Optional[str]
+    createdBy: str
+    createdAt: str

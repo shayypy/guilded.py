@@ -23,33 +23,43 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import List, Literal, Optional, TypedDict
+from typing import List, TypedDict
 from typing_extensions import NotRequired
 
-from .channel import Mentions
-from .embed import Embed
+
+class EmbedFooter(TypedDict):
+    icon_url: NotRequired[str]
+    text: str
 
 
-class ChatMessage(TypedDict):
-    id: str
-    type: Literal['default', 'system']
-    serverId: NotRequired[str]
-    channelId: str
-    content: Optional[str]
-    embeds: Optional[List[Embed]]
-    replyMessageIds: NotRequired[str]
-    isPrivate: NotRequired[bool]
-    isSilent: NotRequired[bool]
-    mentions: NotRequired[Mentions]
-    createdAt: str
-    createdBy: str
-    createdByWebhookId: NotRequired[str]
-    updatedAt: NotRequired[str]
+class EmbedThumbnail(TypedDict):
+    url: str
 
 
-class DeletedChatMessage(TypedDict):
-    id: str
-    serverId: NotRequired[str]
-    channelId: str
-    deletedAt: str
-    isPrivate: NotRequired[bool]
+class EmbedImage(TypedDict):
+    url: str
+
+
+class EmbedAuthor(TypedDict):
+    name: str
+    url: NotRequired[str]
+    icon_url: NotRequired[str]
+
+
+class EmbedField(TypedDict):
+    name: str
+    value: str
+    inline: NotRequired[bool]
+
+
+class Embed(TypedDict):
+    title: NotRequired[str]
+    description: NotRequired[str]
+    url: NotRequired[str]
+    color: NotRequired[int]
+    footer: NotRequired[EmbedFooter]
+    timestamp: NotRequired[str]
+    thumbnail: NotRequired[EmbedThumbnail]
+    image: NotRequired[EmbedImage]
+    author: NotRequired[EmbedAuthor]
+    fields: NotRequired[List[EmbedField]]

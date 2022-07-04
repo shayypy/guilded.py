@@ -25,7 +25,7 @@ SOFTWARE.
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from .colour import Colour
 from .utils import ISO8601
@@ -34,7 +34,7 @@ from .permissions import Permissions
 if TYPE_CHECKING:
     from .types.role import Role as RolePayload
     from .user import Member
-    from .team import Team
+    from .server import Server
 
 
 __all__ = (
@@ -43,7 +43,7 @@ __all__ = (
 
 
 class Role:
-    """Represents a role in a :class:`.Team`.
+    """Represents a role in a :class:`.Server`.
 
     Attributes
     -----------
@@ -72,11 +72,9 @@ class Role:
 
     def __init__(self, *, state, data: RolePayload, **extra):
         self._state = state
+        self._member_ids = set()
 
-        self._team = extra.get('team') or extra.get('server')
-        self.team_id: str = data.get('teamId') or data.get('serverId')
-
-        self._members = {}
+        self.server_id: str = data.get('serverId') or data.get('teamId')
 
         self.id: int = int(data['id'])
         self.name: str = data.get('name') or ''
@@ -102,13 +100,6 @@ class Role:
         self.self_assignable: bool = data.get('isSelfAssignable', False)
         self.displayed_separately: bool = data.get('isDisplayedSeparately', False)
 
-        self.discord_synced_at: Optional[datetime.datetime] = ISO8601(data.get('discordSyncedAt'))
-        discord_role_id: Optional[int] = data.get('discordRoleId')
-        if discord_role_id is not None:
-            self.discord_role_id: Optional[int] = int(discord_role_id)
-        else:
-            self.discord_role_id: Optional[int] = None
-
     def __str__(self) -> str:
         return self.name
 
@@ -128,32 +119,28 @@ class Role:
         return f'<@{self.id}>'
 
     @property
-    def team(self) -> Team:
-        """:class:`.Team`: The team that this role is from."""
-        return self._team or self._state._get_team(self.team_id)
+    def server(self) -> Server:
+        """:class:`.Server`: The server that this role is from."""
+        return self._state._get_server(self.server_id)
 
     @property
-    def server(self) -> Team:
-        """:class:`.Team`: This is an alias of :attr:`.team`.
-
-        The team that this role is from.
-        """
-        return self.team
-
-    @property
-    def guild(self) -> Team:
+    def guild(self) -> Server:
         """|dpyattr|
 
-        This is an alias of :attr:`.team`.
+        This is an alias of :attr:`.server`.
 
-        The team that this role is from.
+        The server that this role is from.
         """
-        return self.team
+        return self.server
 
     @property
     def members(self) -> List[Member]:
         """List[:class:`.Member`]: The list of members that have this role."""
-        return list(self._members.values())
+        return [
+            self.server.get_member(member_id)
+            for member_id in self._member_ids
+            if self.server.get_member(member_id) is not None
+        ]
 
     @property
     def hoist(self) -> bool:
@@ -175,37 +162,14 @@ class Role:
     @property
     def bot_member(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The bot member that this managed role is assigned to."""
-        return self.team.get_member(self.bot_user_id)
-
-    def to_node_dict(self) -> Dict[str, Any]:
-        return {
-            'object': 'inline',
-            'type': 'mention',
-            'data': {
-                'mention': {
-                    'type': 'role',
-                    'id': self.id,
-                    'matcher': f'@{self.name}',
-                    'name': self.name,
-                    'color': str(self.colour) if self.colour else 'transparent'
-                },
-            },
-            'nodes': [{
-                'object': 'text',
-                'leaves': [{
-                    'object': 'leaf',
-                    'text': f'@{self.name}',
-                    'marks': [],
-                }],
-            }],
-        }
+        return self.server.get_member(self.bot_user_id)
 
     def is_bot(self) -> bool:
-        """:class:`bool`: Whether the role is the internal ``Bot`` role, which every bot in the team has."""
+        """:class:`bool`: Whether the role is the internal ``Bot`` role, which every bot in the server has."""
         return self._is_bot_role and self.bot_user_id is None
 
     def is_bot_managed(self) -> bool:
-        """:class:`bool`: Whether the role is associated with a specific bot in the team."""
+        """:class:`bool`: Whether the role is associated with a specific bot in the server."""
         return self._is_bot_role and self.bot_user_id is not None
 
     def is_default(self) -> bool:
@@ -216,7 +180,10 @@ class Role:
         return self.base
 
     def is_assignable(self) -> bool:
-        """:class:`bool`: Whether the bot can give the role to users, regardless of permissions."""
+        """:class:`bool`: Whether the bot can give the role to users.
+
+        Does not account for your permissions.
+        """
         # TODO: Account for role hierarchy
         return (
             not self.is_default()
@@ -226,8 +193,6 @@ class Role:
     async def award_xp(self, amount: int) -> None:
         """|coro|
 
-        |onlybot|
-
         Award XP to all members with this role. Could be a negative value to
         remove XP.
 
@@ -236,4 +201,4 @@ class Role:
         amount: :class:`int`
             The amount of XP to award.
         """
-        await self._state.award_role_xp(self.team.id, self.id, amount)
+        await self._state.award_role_xp(self.server.id, self.id, amount)

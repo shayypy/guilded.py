@@ -23,33 +23,30 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import List, Literal, Optional, TypedDict
+from typing import TypedDict
 from typing_extensions import NotRequired
 
 from .channel import Mentions
-from .embed import Embed
 
 
-class ChatMessage(TypedDict):
-    id: str
-    type: Literal['default', 'system']
-    serverId: NotRequired[str]
+class CalendarEventCancellation(TypedDict):
+    description: NotRequired[str]
+    createdBy: NotRequired[str]
+
+
+class CalendarEvent(TypedDict):
+    id: int
+    serverId: str
     channelId: str
-    content: Optional[str]
-    embeds: Optional[List[Embed]]
-    replyMessageIds: NotRequired[str]
+    name: str
+    description: NotRequired[str]
+    location: NotRequired[str]
+    url: NotRequired[str]
+    color: NotRequired[int]
+    startsAt: str
+    duration: NotRequired[int]
     isPrivate: NotRequired[bool]
-    isSilent: NotRequired[bool]
     mentions: NotRequired[Mentions]
     createdAt: str
     createdBy: str
-    createdByWebhookId: NotRequired[str]
-    updatedAt: NotRequired[str]
-
-
-class DeletedChatMessage(TypedDict):
-    id: str
-    serverId: NotRequired[str]
-    channelId: str
-    deletedAt: str
-    isPrivate: NotRequired[bool]
+    cancellation: NotRequired[CalendarEventCancellation]

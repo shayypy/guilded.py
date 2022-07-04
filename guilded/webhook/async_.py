@@ -50,7 +50,6 @@ DEALINGS IN THE SOFTWARE.
 """
 
 from __future__ import annotations
-import io
 
 import logging
 import asyncio
@@ -63,14 +62,13 @@ from contextvars import ContextVar
 import aiohttp
 
 from .. import utils
-from ..channel import ChatChannel, ListChannel
-from ..enums import FileType, MediaType
+from ..channel import ChatChannel, ListChannel, ListItem
 from ..errors import HTTPException, Forbidden, NotFound, GuildedServerError
 from ..message import ChatMessage
 from ..user import Member, User
-from ..utils import ISO8601, find
+from ..utils import ISO8601
 from ..asset import Asset
-from ..http import Route, UserbotRoute, handle_message_parameters
+from ..http import Route, handle_message_parameters
 from ..file import File
 
 __all__ = (
@@ -81,13 +79,15 @@ __all__ = (
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from ..abc import TeamChannel
+    from ..abc import ServerChannel
     from ..http import HTTPClient
     from ..embed import Embed
-    from ..team import Team
-    import datetime
+    from ..emote import Emote
+    from ..server import Server
 
     from ..types.webhook import Webhook as WebhookPayload
+
+    import datetime
 
 MISSING = utils.MISSING
 
@@ -95,7 +95,7 @@ MISSING = utils.MISSING
 class AsyncWebhookAdapter:
     async def request(
         self,
-        route: Union[UserbotRoute, Route],
+        route: Route,
         session: aiohttp.ClientSession,
         webhook_id: str,
         *,
@@ -104,21 +104,13 @@ class AsyncWebhookAdapter:
         files: Optional[List[File]] = None,
         auth_token: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
-        userbot: bool = None,
     ) -> Any:
         headers: Dict[str, str] = {}
         files = files or []
         to_send: Optional[Union[str, aiohttp.FormData]] = None
 
         if auth_token is not None:
-            if userbot is None:
-                raise ValueError('userbot must be provided if auth_token is also provided.')
-
-            if userbot:
-                headers['guilded-client-id'] = auth_token
-                headers['cookie'] = f'guilded_mid={auth_token}'
-            else:
-                headers['Authorization'] = f'Bearer {auth_token}'
+            headers['Authorization'] = f'Bearer {auth_token}'
 
         if payload is not None:
             headers['Content-Type'] = 'application/json'
@@ -193,23 +185,7 @@ class AsyncWebhookAdapter:
 
         raise RuntimeError('Unreachable code in HTTP handling.')
 
-    def get_webhook(
-        self,
-        server_id: str,
-        webhook_id: str,
-        *,
-        auth_token: str,
-        userbot: bool,
-        session: aiohttp.ClientSession,
-    ):
-        if userbot:
-            route = UserbotRoute('GET', f'/teams/{server_id}/members')
-        else:
-            route = Route('GET', f'/servers/{server_id}/webhooks/{webhook_id}')
-
-        return self.request(route, session, webhook_id, auth_token=auth_token, userbot=userbot)
-
-    def get_webhook_details(
+    def get_server_webhook(
         self,
         server_id: str,
         webhook_id: str,
@@ -217,13 +193,8 @@ class AsyncWebhookAdapter:
         auth_token: str,
         session: aiohttp.ClientSession,
     ):
-        # This method is intentionally limited so that it fits the "model" of single-entity operations here.
-
-        route = UserbotRoute('POST', f'/teams/{server_id}/webhooks/detail')
-        payload = {
-            'webhookIds': [webhook_id],
-        }
-        return self.request(route, session, webhook_id, payload=payload, auth_token=auth_token, userbot=True)
+        route = Route('GET', f'/servers/{server_id}/webhooks/{webhook_id}')
+        return self.request(route, session, webhook_id, auth_token=auth_token)
 
     def delete_webhook(
         self,
@@ -231,15 +202,10 @@ class AsyncWebhookAdapter:
         webhook_id: str,
         *,
         auth_token: str,
-        userbot: bool,
         session: aiohttp.ClientSession,
     ):
-        if userbot:
-            route = UserbotRoute('DELETE', f'/webhooks/{webhook_id}')
-        else:
-            route = Route('DELETE', f'/servers/{server_id}/webhooks/{webhook_id}')
-
-        return self.request(route, session, webhook_id, auth_token=auth_token, userbot=userbot)
+        route = Route('DELETE', f'/servers/{server_id}/webhooks/{webhook_id}')
+        return self.request(route, session, webhook_id, auth_token=auth_token)
 
     def update_webhook(
         self,
@@ -248,15 +214,10 @@ class AsyncWebhookAdapter:
         payload: Dict[str, Any],
         *,
         auth_token: str,
-        userbot: bool,
         session: aiohttp.ClientSession,
     ):
-        if userbot:
-            route = UserbotRoute('PUT', f'/webhooks/{webhook_id}')
-        else:
-            route = Route('PUT', f'/servers/{server_id}/webhooks/{webhook_id}')
-
-        return self.request(route, session, webhook_id, payload=payload, auth_token=auth_token, userbot=userbot)
+        route = Route('PUT', f'/servers/{server_id}/webhooks/{webhook_id}')
+        return self.request(route, session, webhook_id, payload=payload, auth_token=auth_token)
 
     def execute_webhook(
         self,
@@ -268,7 +229,7 @@ class AsyncWebhookAdapter:
         multipart: Optional[List[Dict[str, Any]]] = None,
         files: Optional[List[File]] = None,
     ):
-        route = UserbotRoute('POST', f'/webhooks/{webhook_id}/{token}', override_base=UserbotRoute.MEDIA_BASE)
+        route = Route('POST', f'/webhooks/{webhook_id}/{token}', override_base=Route.MEDIA_BASE)
         return self.request(route, session, webhook_id, payload=payload, multipart=multipart, files=files)
 
     def delete_channel_message(
@@ -278,12 +239,10 @@ class AsyncWebhookAdapter:
         message_id: str,
         *,
         auth_token: str,
-        userbot: bool,
         session: aiohttp.ClientSession,
     ):
-        cls = UserbotRoute if userbot else Route
-        route = cls('DELETE', f'/channels/{channel_id}/messages/{message_id}')
-        return self.request(route, session, webhook_id, auth_token=auth_token, userbot=userbot)
+        route = Route('DELETE', f'/channels/{channel_id}/messages/{message_id}')
+        return self.request(route, session, webhook_id, auth_token=auth_token)
 
     def get_channel_message(
         self,
@@ -292,14 +251,10 @@ class AsyncWebhookAdapter:
         message_id: str,
         *,
         auth_token: str,
-        userbot: bool,
         session: aiohttp.ClientSession,
     ):
-        if userbot:
-            route = UserbotRoute('GET', f'/content/route/metadata?route=//channels/{channel_id}/chat?messageId={message_id}')
-        else:
-            route = Route('GET', f'/channels/{channel_id}/messages/{message_id}')
-        return self.request(route, session, webhook_id, auth_token=auth_token, userbot=userbot)
+        route = Route('GET', f'/channels/{channel_id}/messages/{message_id}')
+        return self.request(route, session, webhook_id, auth_token=auth_token)
 
 
 async_context: ContextVar[AsyncWebhookAdapter] = ContextVar('async_webhook_context', default=AsyncWebhookAdapter())
@@ -309,12 +264,10 @@ class _WebhookState:
     __slots__ = (
         '_parent',
         '_webhook',
-        'userbot',
     )
 
-    def __init__(self, webhook: Any, parent: Optional[Union[HTTPClient, _WebhookState]], userbot: bool = None):
-        self._webhook: Any = webhook
-        self.userbot: bool = userbot
+    def __init__(self, webhook: Webhook, parent: Optional[Union[HTTPClient, _WebhookState]]):
+        self._webhook: Webhook = webhook
 
         self._parent: Optional[HTTPClient]
         if isinstance(parent, _WebhookState):
@@ -322,32 +275,34 @@ class _WebhookState:
         else:
             self._parent = parent
 
+    def _get_server(self, server_id: str) -> Optional[Server]:
         if self._parent is not None:
-            self.userbot = parent.userbot
-
-    def _get_team(self, team_id: str):
-        if self._parent is not None:
-            return self._parent._get_team(team_id)
+            return self._parent._get_server(server_id)
         return None
 
-    def _get_team_channel(self, team_id: str, channel_id: str):
+    def _get_server_channel(self, server_id: str, channel_id: str) -> Optional[ServerChannel]:
         if self._parent is not None:
-            return self._parent._get_team_channel(team_id, channel_id)
+            return self._parent._get_server_channel(server_id, channel_id)
         return None
 
-    def _get_emoji(self, emoji_id: str):
+    def _get_emote(self, emote_id: str) -> Optional[Emote]:
         if self._parent is not None:
-            return self._parent._get_emoji(emoji_id)
+            return self._parent._get_emote(emote_id)
         return None
 
-    def _get_team_member(self, team_id: str, user_id: str):
+    def _get_server_member(self, server_id: str, user_id: str) -> Optional[Member]:
         if self._parent is not None:
-            return self._parent._get_team_member(team_id, user_id)
+            return self._parent._get_server_member(server_id, user_id)
         return None
 
-    def _get_user(self, user_id: str):
+    def _get_user(self, user_id: str) -> Optional[User]:
         if self._parent is not None:
             return self._parent._get_user(user_id)
+        return None
+
+    def _get_message(self, message_id: str) -> Optional[ChatMessage]:
+        if self._parent is not None:
+            return self._parent._get_message(message_id)
         return None
 
     def store_user(self, data):
@@ -383,7 +338,7 @@ class WebhookMessage(ChatMessage):
     _state: _WebhookState
 
     async def edit(self, *args, **kwargs):
-        raise AttributeError('WebhookMessages cannot be edited.')
+        raise AttributeError('Webhook messages cannot be edited.')
 
     async def delete(self, *, delay: Optional[float] = None) -> None:
         """|coro|
@@ -419,7 +374,7 @@ class WebhookMessage(ChatMessage):
 
             asyncio.create_task(inner_call())
         else:
-            await self._state.delete_message(self.channel_id, self.id)
+            await self._state._webhook.delete_message(self.channel_id, self.id)
 
 
 class BaseWebhook:
@@ -428,42 +383,39 @@ class BaseWebhook:
         '_state',
         'id',
         'channel_id',
-        'team_id',
+        'server_id',
         'name',
-        '_icon_url',
+        '_avatar_url',
         'token',
         'created_by_id',
         'created_at',
         'deleted_at',
     )
 
-    def __init__(self, data: WebhookPayload, auth_token: Optional[str] = None, state: Optional[HTTPClient] = None, userbot: bool = None):
+    def __init__(
+        self,
+        data: WebhookPayload,
+        auth_token: Optional[str] = None,
+        state: Optional[HTTPClient] = None,
+    ):
         self.auth_token: Optional[str] = auth_token
-        if userbot is None and state is not None:
-            userbot = state.userbot
 
-        self._state: Union[HTTPClient, _WebhookState] = state or _WebhookState(self, parent=state, userbot=userbot)
+        self._state: Union[HTTPClient, _WebhookState] = state or _WebhookState(self, parent=state)
         self._update(data.get('webhook', data))
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} id={self.id!r} team={self.team!r}>'
+        return f'<{self.__class__.__name__} id={self.id!r} server={self.server!r}>'
 
     def _update(self, data: WebhookPayload):
         self.id: str = data['id']
         self.channel_id: Optional[str] = data.get('channelId')
-        self.team_id: Optional[str] = data.get('teamId', data.get('serverId'))
+        self.server_id: Optional[str] = data.get('serverId')
         self.name: Optional[str] = data.get('name')
-        self._icon_url = data.get('iconUrl')
+        self._avatar_url: Optional[str] = data.get('avatar')
         self.token: Optional[str] = data.get('token')
         self.created_by_id: Optional[str] = data.get('createdBy')
         self.created_at: Optional[datetime.datetime] = ISO8601(data.get('createdAt'))
         self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
-
-    def _update_details(self, data: WebhookPayload):
-        # This is specifically for the data received for Get Webhook Details
-        self.created_at = ISO8601(data.get('createdAt'))
-        self.created_by_id = data.get('createdBy')
-        self.token = data.get('token')
 
     def is_partial(self) -> bool:
         """:class:`bool`: Whether the webhook is a "partial" webhook."""
@@ -478,25 +430,20 @@ class BaseWebhook:
         return self.auth_token is not None
 
     @property
-    def team(self) -> Optional[Team]:
-        """Optional[:class:`.Team`]: The team this webhook belongs to.
+    def server(self) -> Optional[Server]:
+        """Optional[:class:`.Server`]: The server this webhook belongs to.
 
         If this is a partial webhook, then this will always return ``None``.
         """
-        return self._state and self._state._get_team(self.team_id)
+        return self._state and self._state._get_server(self.server_id)
 
     @property
-    def server(self) -> Optional[Team]:
-        """Optional[:class:`.Team`]: This is an alias of :attr:`.team`."""
-        return self.team
+    def guild(self) -> Optional[Server]:
+        """Optional[:class:`.Server`]: |dpyattr|
 
-    @property
-    def guild(self) -> Optional[Team]:
-        """|dpyattr|
-
-        This is an alias of :attr:`.team`.
+        This is an alias of :attr:`.server`.
         """
-        return self.team
+        return self.server
 
     @property
     def channel(self) -> Optional[Union[ChatChannel, ListChannel]]:
@@ -504,8 +451,8 @@ class BaseWebhook:
 
         If this is a partial webhook, then this will always return ``None``.
         """
-        team = self.team
-        return team and team.get_channel(self.channel_id)  # type: ignore
+        server = self.server
+        return server and server.get_channel(self.channel_id)  # type: ignore
 
     @property
     def avatar(self) -> Optional[Asset]:
@@ -514,8 +461,8 @@ class BaseWebhook:
         If the webhook does not have an uploaded avatar, ``None`` is returned.
         If you want the avatar that the webhook displays, consider :attr:`display_avatar` instead.
         """
-        if self._icon_url is not None:
-            return Asset._from_user_avatar(self._state, self._icon_url)
+        if self._avatar_url is not None:
+            return Asset._from_user_avatar(self._state, self._avatar_url)
         return None
 
     @property
@@ -537,7 +484,7 @@ class Webhook(BaseWebhook):
     """Represents an asynchronous webhook.
 
     There are two main ways to use Webhooks. The first is through the ones
-    received by the library such as :meth:`.Team.webhooks` and
+    received by the library such as :meth:`.Server.webhooks` and
     :meth:`.ChatChannel.webhooks`. The ones received by the library will
     automatically be bound using the library's internal HTTP session.
 
@@ -573,8 +520,8 @@ class Webhook(BaseWebhook):
     token: Optional[:class:`str`]
         The authentication token of the webhook. If this is ``None``
         then the webhook cannot be used to send messages.
-    team_id: Optional[:class:`str`]
-        The team ID this webhook is for.
+    server_id: Optional[:class:`str`]
+        The server ID this webhook is for.
     channel_id: Optional[:class:`str`]
         The channel ID this webhook is for.
     name: Optional[:class:`str`]
@@ -587,8 +534,14 @@ class Webhook(BaseWebhook):
 
     __slots__: Tuple[str, ...] = ('session',)
 
-    def __init__(self, data, session: aiohttp.ClientSession, auth_token: Optional[str] = None, state: Optional[HTTPClient] = None, userbot: Optional[bool] = None):
-        super().__init__(data, auth_token, state, userbot)
+    def __init__(
+        self,
+        data: WebhookPayload,
+        session: aiohttp.ClientSession,
+        auth_token: Optional[str] = None,
+        state: Optional[HTTPClient] = None,
+    ):
+        super().__init__(data, auth_token, state)
         self.session = session
 
     @property
@@ -604,7 +557,6 @@ class Webhook(BaseWebhook):
         *,
         session: aiohttp.ClientSession,
         auth_token: Optional[str] = None,
-        bot: Optional[bool] = True
     ) -> Webhook:
         """Creates a partial :class:`Webhook`.
 
@@ -635,7 +587,7 @@ class Webhook(BaseWebhook):
             'token': token,
         }
 
-        return cls(data, session, auth_token=auth_token, userbot=not bot)
+        return cls(data, session, auth_token=auth_token)
 
     @classmethod
     def from_url(
@@ -644,7 +596,6 @@ class Webhook(BaseWebhook):
         *,
         session: aiohttp.ClientSession,
         auth_token: Optional[str] = None,
-        bot: Optional[bool] = True
     ) -> Webhook:
         """Creates a partial :class:`Webhook` from a webhook URL.
 
@@ -656,11 +607,8 @@ class Webhook(BaseWebhook):
             The session to use to send requests with.
             Note that the library does not manage the session and will not close it.
         auth_token: Optional[:class:`str`]
-            The bot authentication token for authenticated requests
-            involving the webhook.
-            For user authentication, this should be a ``guilded_mid`` cookie.
-        bot: Optional[:class:`bool`]
-            Whether ``auth_token`` represents a bot account.
+            The bot authentication token for authenticated requests involving the webhook.
+            This is required to fetch and delete messages and the webhook itself.
 
         Returns
         --------
@@ -674,22 +622,20 @@ class Webhook(BaseWebhook):
             The URL is invalid.
         """
         # media.guilded.gg/webhooks & www.guilded.gg/api/webhooks are both valid,
-        # but only the former will be generated by the client.
+        # but only the former will be generated by the client, and it is the only one that supports files.
         # [A-Za-z0-9\.\-\_] may be needlessly broad for tokens.
         m = re.search(r'(?:media\.guilded\.gg|guilded\.gg\/api)\/webhooks/(?P<id>[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})/(?P<token>[A-Za-z0-9\.\-\_]{80,90})', url)
         if m is None:
             raise ValueError('Invalid webhook URL given.')
 
         data: Dict[str, Any] = m.groupdict()
-        return cls(data, session, auth_token=auth_token, userbot=not bot)  # type: ignore
+        return cls(data, session, auth_token=auth_token)  # type: ignore
 
     @classmethod
     def from_state(cls, data: WebhookPayload, state: HTTPClient) -> Webhook:
-        session = state.session
-        token = state.cookie if state.userbot else state.token
-        return cls(data, session=session, state=state, auth_token=token)
+        return cls(data, session=state.session, state=state, auth_token=state.token)
 
-    async def fetch(self, *, team: Optional[Team] = None) -> Webhook:
+    async def fetch(self, *, server: Optional[Server] = None) -> Webhook:
         """|coro|
 
         Fetches the current webhook.
@@ -700,9 +646,9 @@ class Webhook(BaseWebhook):
 
         Parameters
         -----------
-        team: Optional[:class:`.Team`]
-            The team that this webhook exists in.
-            This is only required if :attr:`.team_id` is ``None``.
+        server: Optional[:class:`.Server`]
+            The server that the webhook exists in.
+            This is only required if :attr:`.server_id` is ``None``.
 
         Returns
         --------
@@ -716,73 +662,26 @@ class Webhook(BaseWebhook):
         NotFound
             Could not find the webhook by this ID.
         ValueError
-            This instance of a webhook does not have authentication info associated with it,
-            could not find the webhook by this ID (the client is a user account),
-            or no team was provided but it is required.
+            This instance of a webhook does not have authentication info associated with it
+            or no server was provided but it is required.
         """
 
         if not self.auth_token:
             raise ValueError('This instance of a webhook does not have authentication info associated with it.')
-        if not team and not self.team_id:
-            raise ValueError('team must be provided if this instance of a webhook\'s team_id is None.')
+        if not server and not self.server_id:
+            raise ValueError('server must be provided if this instance of a webhook\'s server_id is None.')
 
         adapter = async_context.get()
-        data = await adapter.get_webhook(self.team_id or team.id, self.id, auth_token=self.auth_token, userbot=self._state.userbot, session=self.session)
-        if self._state.userbot:
-            data = find(lambda d: d['id'] == self.id, data['webhooks'])
-            if data is None:
-                raise ValueError(f'Could not find the webhook by the ID {self.id}')
+        data = await adapter.get_server_webhook(
+            self.server_id or server.id,
+            self.id,
+            auth_token=self.auth_token,
+            session=self.session,
+        )
 
         return Webhook(data, self.session, auth_token=self.auth_token, state=self._state)
 
-    async def fill_details(self, *, team: Optional[Team] = None) -> Webhook:
-        """|coro|
-
-        |onlyuserbot|
-
-        Fills the details for the current webhook instance.
-
-        This method is mainly useful for filling in :attr:`.token` if it is not already present.
-        It is separate from :meth:`.fetch` in that :meth:`.fetch` does not provide :attr:`.token` if the client is a user account.
-        Similarly, this method does not provide many of the details that :meth:`.fetch` does.
-
-        This requires an authenticated webhook.
-
-        Parameters
-        -----------
-        team: Optional[:class:`.Team`]
-            The team that this webhook exists in.
-            This is only required if :attr:`.team_id` is ``None``.
-
-        Returns
-        --------
-        :class:`Webhook`
-            The current webhook instance with details filled in.
-
-        Raises
-        -------
-        HTTPException
-            Could not fill the webhook's details.
-        ValueError
-            This instance of a webhook does not have authentication info associated with it,
-            could not find the webhook by this ID,
-            or no team was provided but it is required.
-        """
-
-        if not self.auth_token:
-            raise ValueError('This instance of a webhook does not have authentication info associated with it.')
-        if not team and not self.team_id:
-            raise ValueError('team must be provided if this instance of a webhook\'s team_id is None.')
-
-        adapter = async_context.get()
-        data = await adapter.get_webhook_details(self.team_id or team.id, self.id, auth_token=self.auth_token, session=self.session)
-        if not data:
-            raise ValueError(f'Could not find the webhook by the ID {self.id}')
-
-        self._update_details(data[self.id])
-        return self
-
-    async def delete(self, *, team: Optional[Team] = None) -> Optional[datetime.datetime]:
+    async def delete(self, *, server: Optional[Server] = None) -> None:
         """|coro|
 
         Deletes this webhook.
@@ -791,15 +690,9 @@ class Webhook(BaseWebhook):
 
         Parameters
         -----------
-        team: Optional[:class:`.Team`]
-            The team that this webhook exists in.
-            This is only required if :attr:`.team_id` is ``None`` and the client is a bot account.
-
-        Returns
-        --------
-        Optional[:class:`datetime.datetime`]
-            If the client is a user account, the :class:`datetime.datetime`
-            when this webhook was deleted, else ``None``.
+        server: Optional[:class:`.Server`]
+            The server that the webhook exists in.
+            This is only required if :attr:`.server_id` is ``None``.
 
         Raises
         -------
@@ -811,27 +704,28 @@ class Webhook(BaseWebhook):
             You do not have permissions to delete this webhook.
         ValueError
             This instance of a webhook does not have authentication info associated with it
-            or no team was provided but it is required.
+            or no server was provided but it is required.
         """
+
         if self.auth_token is None:
             raise ValueError('This instance of a webhook does not have authentication info associated with it.')
-        if not team and not self.team_id and not self._state.userbot:
-            raise ValueError('team must be provided if this instance of a webhook\'s team_id is None.')
+        if not server and not self.server_id:
+            raise ValueError('server must be provided if this instance of a webhook\'s server_id is None.')
 
         adapter = async_context.get()
-        data = await adapter.delete_webhook(self.team_id or team.id, self.id, auth_token=self.auth_token, userbot=self._state.userbot, session=self.session)
-        if self._state.userbot:
-            deleted_at = ISO8601(data.get('deletedAt'))
-            self.deleted_at = deleted_at
-            return deleted_at
+        await adapter.delete_webhook(
+            self.server_id or server.id,
+            self.id,
+            auth_token=self.auth_token,
+            session=self.session,
+        )
 
     async def edit(
         self,
         *,
         name: Optional[str] = MISSING,
-        avatar: Optional[Union[bytes, File]] = MISSING,
         channel: Optional[Union[ChatChannel, ListChannel]] = None,
-        team: Optional[Team] = None,
+        server: Optional[Server] = None,
     ) -> Webhook:
         """|coro|
 
@@ -845,12 +739,9 @@ class Webhook(BaseWebhook):
             The webhook's new name.
         channel: Union[:class:`ChatChannel`, :class:`ListChannel`]
             The channel to move the webhook to.
-        avatar: Optional[Union[:class:`bytes`, :class:`File`]]
-            A :term:`py:bytes-like object` or :class:`File` for the webhook's new avatar.
-            If the client is a bot user, providing this does nothing.
-        team: Optional[:class:`.Team`]
-            The team that this webhook exists in.
-            This is only required if :attr:`.team_id` is ``None`` and the client is a bot account.
+        server: Optional[:class:`.Server`]
+            The server that the webhook exists in.
+            This is only required if :attr:`.server_id` is ``None``.
 
         Returns
         --------
@@ -865,12 +756,13 @@ class Webhook(BaseWebhook):
             This webhook does not exist.
         ValueError
             This instance of a webhook does not have authentication info associated with it
-            or no team was provided but it is required.
+            or no server was provided but it is required.
         """
+
         if self.auth_token is None:
             raise ValueError('This instance of a webhook does not have authentication info associated with it.')
-        if not team and not self.team_id and not self._state.userbot:
-            raise ValueError('team must be provided if this instance of a webhook\'s team_id is None.')
+        if not server and not self.server_id:
+            raise ValueError('server must be provided if this instance of a webhook\'s server_id is None.')
 
         payload = {}
         if name is not MISSING:
@@ -879,27 +771,16 @@ class Webhook(BaseWebhook):
         if channel is not None:
             payload['channelId'] = channel.id
 
-        if avatar is not MISSING and self._state.userbot:
-            if isinstance(avatar, bytes):
-                avatar = File(io.BytesIO(avatar), file_type=FileType.image)
-            elif not isinstance(avatar, File):
-                raise TypeError(f'avatar must be type bytes or File, not {avatar.__class__.__name__}')
-
-            avatar.set_media_type(MediaType.user_avatar)
-            await avatar._upload()
-            payload['iconUrl'] = avatar.url
-
         adapter = async_context.get()
         data = await adapter.update_webhook(
-            self.team_id or team.id,
+            self.server_id or server.id,
             self.id,
             auth_token=self.auth_token,
-            userbot=self._state.userbot,
             payload=payload,
             session=self.session
         )
 
-        return Webhook(data=data, session=self.session, auth_token=self.auth_token, userbot=self._state.userbot, state=self._state)
+        return Webhook(data=data, session=self.session, auth_token=self.auth_token, state=self._state)
 
     async def move(self, to: Union[ChatChannel, ListChannel]):
         """|coro|
@@ -925,9 +806,9 @@ class Webhook(BaseWebhook):
         ValueError
             This instance of a webhook does not have authentication info associated with it.
         """
-        return await self.edit(channel=to, team=to.team)
+        return await self.edit(channel=to, server=to.server)
 
-    def _create_message(self, data):
+    def _create_message(self, data: Dict[str, Any]):
         state = _WebhookState(self, parent=self._state)
         # state may be artificial (unlikely at this point...)
         channel = self.channel or ChatChannel(state=self._state, data={'id': data['channelId']}, group=None)  # type: ignore
@@ -942,10 +823,15 @@ class Webhook(BaseWebhook):
         embeds: Sequence[Embed] = MISSING,
         file: File = MISSING,
         files: Sequence[File] = MISSING,
-    ) -> WebhookMessage:
+    ) -> Union[WebhookMessage, ListItem]:
         """|coro|
 
-        Sends a message using this webhook.
+        Sends a message or create a list item using this webhook.
+
+        .. warning::
+
+            If this webhook is in a :class:`ListChannel`, this method will
+            return a :class:`ListItem` instead of a :class:`WebhookMessage`.
 
         The content must be a type that can convert to a string through ``str(content)``.
 
@@ -959,28 +845,30 @@ class Webhook(BaseWebhook):
         Parameters
         ------------
         content: :class:`str`
-            The content of the message to send.
+            The :attr:`~WebhookMessage.content` of the message to send,
+            or the :attr:`~ListItem.message` of the list item to create.
         file: :class:`File`
             The file to upload. This cannot be mixed with ``files`` parameter.
         files: List[:class:`File`]
-            A list of files to send with the content. This cannot be mixed with the
+            A list of files to send. This cannot be mixed with the
             ``file`` parameter.
         embed: :class:`Embed`
             The rich embed for the content to send. This cannot be mixed with
             ``embeds`` parameter.
         embeds: List[:class:`Embed`]
-            A list of embeds to send with the content. Maximum of 10. This cannot
+            A list of embeds to send. Maximum of 10. This cannot
             be mixed with the ``embed`` parameter.
 
         Returns
         ---------
-        :class:`WebhookMessage`
-            The message that was sent.
+        Union[:class:`WebhookMessage`, :class:`ListItem`]
+            If this webhook is in a :class:`ChatChannel`, the :class:`WebhookMessage` that was sent.
+            Otherwise, the :class:`ListItem` that was created.
 
         Raises
         --------
         HTTPException
-            Sending the message failed.
+            Executing the webhook failed.
         NotFound
             This webhook was not found.
         Forbidden
@@ -1016,12 +904,33 @@ class Webhook(BaseWebhook):
             files=params.files,
         )
 
-        message = self._create_message(data)
-        self.team_id = message.team_id
+        # We don't rely on the type of self.channel here because it could easily be None
+        if 'note' in data:
+            # The webhook is in a ListChannel
+            channel = self.channel
+            if channel is None:
+                channel = ListChannel(
+                    data={
+                        'id': data.get('channelId'),
+                        'type': 'list',
+                        'serverId': data.get('teamId'),
+                    },
+                    state=self._state,
+                    group=None,
+                )
+            created = ListItem(state=self._state, data=data, channel=channel)
+        else:
+            # The webhook is in a ChatChannel
+            created = self._create_message(data)
 
-        return message
+        # In case the webhook moved or this was not previously set
+        self.channel_id = created.channel_id
+        if self.server_id is None and created.server_id is not None:
+            self.server_id = created.server_id
 
-    async def fetch_message(self, id: str, *, channel: Optional[ChatChannel] = None) -> WebhookMessage:
+        return created
+
+    async def fetch_message(self, message_id: str, /, *, channel: Optional[ChatChannel] = None) -> WebhookMessage:
         """|coro|
 
         Retrieves a single :class:`.WebhookMessage` sent by this webhook.
@@ -1056,26 +965,29 @@ class Webhook(BaseWebhook):
 
         if not self.auth_token:
             raise ValueError('This instance of a webhook does not have authentication info associated with it.')
-        if self.channel_id is None or channel is None:
-            raise ValueError('channel must be provided if this instance of a webhook\'s channel_id is None.')
 
-        channel_id = channel.id if channel is not None else self.channel_id
+        cached_message = self._state._get_message(message_id)
+        channel_id: str
+        if cached_message is not None:
+            channel_id = cached_message.channel_id
+        elif channel is not None:
+            channel_id = channel.id
+        elif self.channel_id is not None:
+            channel_id = self.channel_id
+        else:
+            raise ValueError('channel must be provided if this instance of a webhook\'s channel_id is None and the message to delete is not cached.')
 
         adapter = async_context.get()
         data = await adapter.get_channel_message(
             self.id,
             channel_id,
-            id,
+            message_id,
             auth_token=self.auth_token,
-            userbot=self._state.userbot,
             session=self.session,
         )
-        if self._state.userbot:
-            data = data['metadata']['message']
-
         return self._create_message(data)
 
-    async def delete_message(self, id: str, *, channel: Optional[ChatChannel] = None) -> None:
+    async def delete_message(self, message_id: str, /, *, channel: Optional[ChatChannel] = None) -> None:
         """|coro|
 
         Deletes a message sent by this webhook.
@@ -1087,7 +999,7 @@ class Webhook(BaseWebhook):
 
         Parameters
         ------------
-        id: :class:`str`
+        message_id: :class:`str`
             The message ID to delete.
         channel: Optional[:class:`.ChatChannel`]
             The channel that this message exists in.
@@ -1106,20 +1018,23 @@ class Webhook(BaseWebhook):
 
         if self.auth_token is None:
             raise ValueError('This instance of a webhook does not have authentication info associated with it.')
-        if self.channel_id is None or channel is None:
-            raise ValueError('channel must be provided if this instance of a webhook\'s channel_id is None.')
 
-        channel_id = channel.id if channel is not None else self.channel_id
+        cached_message = self._state._get_message(message_id)
+        channel_id: str
+        if cached_message is not None:
+            channel_id = cached_message.channel_id
+        elif channel is not None:
+            channel_id = channel.id
+        elif self.channel_id is not None:
+            channel_id = self.channel_id
+        else:
+            raise ValueError('channel must be provided if this instance of a webhook\'s channel_id is None and the message to delete is not cached.')
 
         adapter = async_context.get()
         await adapter.delete_channel_message(
             self.id,
             channel_id,
-            id,
+            message_id,
             auth_token=self.auth_token,
-            userbot=self._state.userbot,
             session=self.session,
         )
-
-    async def edit_message(self, *args, **kwargs):
-        raise AttributeError('Webhook messages cannot be edited.')

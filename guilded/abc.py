@@ -54,12 +54,11 @@ from __future__ import annotations
 import abc
 import datetime
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union, overload
+from typing import TYPE_CHECKING, List, Optional, Sequence
 
 from .activity import Activity
 from .asset import Asset
 from .colour import Colour
-from .errors import GuildedException
 from .enums import ChannelType, try_enum, UserType
 from .message import HasContentMixin, ChatMessage
 from .presence import Presence
@@ -67,13 +66,12 @@ from .utils import ISO8601, MISSING
 
 if TYPE_CHECKING:
     from .types.user import User as UserPayload
+    from .types.channel import ServerChannel as ServerChannelPayload
 
-    from .channel import Thread
     from .embed import Embed
-    from .emoji import Emoji
-    from .file import File
+    from .emote import Emote
     from .group import Group
-    from .team import Team
+    from .server import Server
     from .user import Member
 
 
@@ -82,7 +80,6 @@ __all__ = (
     'Messageable',
     'Reply',
     'ServerChannel',
-    'TeamChannel',
     'User',
 )
 
@@ -116,10 +113,8 @@ class Messageable(metaclass=abc.ABCMeta):
 
     async def send(
         self,
-        *pos_content: Optional[Union[str, Embed, File, Emoji]],
         content: Optional[str] = MISSING,
-        file: Optional[File] = MISSING,
-        files: Optional[Sequence[File]] = MISSING,
+        *,
         embed: Optional[Embed] = MISSING,
         embeds: Optional[Sequence[Embed]] = MISSING,
         reference: Optional[ChatMessage] = MISSING,
@@ -127,19 +122,11 @@ class Messageable(metaclass=abc.ABCMeta):
         mention_author: Optional[bool] = None,
         silent: Optional[bool] = None,
         private: bool = False,
-        share: Optional[ChatMessage] = MISSING,
         delete_after: Optional[float] = None,
     ) -> ChatMessage:
         """|coro|
 
         Send a message to a Guilded channel.
-
-        .. note::
-
-            For user accounts, Guilded supports content elements in any order,
-            which is not practically possible with keyword arguments.
-            For this reason, it is recommended that you pass arguments positionally in these environments.
-            However, if the client is a bot account, you **must** use keyword arguments for non-text content.
 
         .. warning::
 
@@ -150,23 +137,14 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        \*pos_content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
-            An argument list of the message content, passed in the order that
-            each element should display in the message.
-            You can have at most 4,000 characters of text content.
-            If the client is a bot account, only the first value is used as content.
-            This parameter cannot be combined with ``content``.
         content: :class:`str`
             The text content to send with the message.
-            This parameter exists so that text content can be passed using a keyword argument.
-            This parameter cannot be combined with ``pos_content``.
         embed: :class:`.Embed`
             An embed to send with the message.
             This parameter cannot be meaningfully combined with ``embeds``.
         embeds: List[:class:`.Embed`]
             A list of embeds to send with the message.
-            If the client is a bot account, this can contain at most 1 value.
-            Otherwise, this has no hard limit.
+            This can contain at most 1 value.
             This parameter cannot be meaningfully combined with ``embed``.
         reply_to: List[:class:`.ChatMessage`]
             A list of up to 5 messages to reply to.
@@ -184,83 +162,28 @@ class Messageable(metaclass=abc.ABCMeta):
             If the deletion fails, then it is silently ignored.
         """
 
-        if content is not MISSING and pos_content:
-            raise ValueError('Cannot provide both content and pos_content')
+        from .http import handle_message_parameters
 
-        if self._state.userbot:
-            if content is not MISSING:
-                pos_content = (content,)
+        if reference is not MISSING:
+            reply_to = [reference]
 
-            content = await self._state.process_list_content(
-                pos_content,
-                embed=embed,
-                embeds=embeds,
-                file=file,
-                files=files,
-            )
+        params = handle_message_parameters(
+            content=content,
+            embed=embed,
+            embeds=embeds,
+            reply_to=[message.id for message in reply_to] if reply_to is not MISSING else MISSING,
+            private=private,
+            silent=silent if silent is not None else not mention_author if mention_author is not None else None,
+        )
 
-            payload = {
-                'content': self._state.compatible_content(content),
-                'isSilent': silent if silent is not None else not mention_author if mention_author is not None else False,
-                'isPrivate': private if private is not None else False,
-            }
-
-            if reference is not MISSING and reply_to is not MISSING:
-                raise ValueError('Cannot provide both reference and reply_to')
-
-            if reference is not MISSING:
-                reply_to = [reference]
-
-            if reply_to is not MISSING:
-                if not isinstance(reply_to, list):
-                    raise TypeError('reply_to must be type list, not %s' % reply_to.__class__.__name__)
-
-                payload['repliesToIds'] = [message.id for message in reply_to]
-
-            if share is not MISSING:
-                if not isinstance(share, list):
-                    raise TypeError('share must be type list, not %s' % share.__class__.__name__)
-
-                share_urls = [message.share_url for message in share if message.share_url is not None]
-                payload['content']['document']['data']['shareUrls'] = share_urls
-
-            message_data = await self._state.send_message(
-                self._channel_id,
-                payload=payload,
-            )
-            message_data = message_data.get('message', message_data)
-            message_data['channelId'] = self._channel_id
-            message_data['teamId'] = self.team.id if getattr(self, 'team', None) else None
-            message = self._state.create_message(data=message_data, channel=self._channel)
-
-        else:
-            from .http import handle_message_parameters
-
-            if pos_content:
-                content = pos_content[0]
-
-            if reference is not MISSING:
-                reply_to = [reference]
-
-            params = handle_message_parameters(
-                content=content,
-                file=file,
-                files=files,
-                embed=embed,
-                embeds=embeds,
-                reply_to=[message.id for message in reply_to] if reply_to is not MISSING else MISSING,
-                private=private,
-                silent=silent if silent is not None else not mention_author if mention_author is not None else None,
-            )
-
-            data = await self._state.create_channel_message(
-                self._channel_id,
-                payload=params.payload,
-            )
-            message = self._state.create_message(
-                data=data['message'],
-                channel=self._channel,
-            )
+        data = await self._state.create_channel_message(
+            self._channel_id,
+            payload=params.payload,
+        )
+        message = self._state.create_message(
+            data=data['message'],
+            channel=self._channel,
+        )
 
         if delete_after is not None:
             await message.delete(delay=delete_after)
@@ -322,102 +245,70 @@ class Messageable(metaclass=abc.ABCMeta):
 
         return messages
 
-    async def fetch_message(self, id: str) -> ChatMessage:
+    async def fetch_message(self, message_id: str, /) -> ChatMessage:
         """|coro|
 
         Fetch a message.
-
-        Parameters
-        -----------
-        id: :class:`str`
-            The message's ID to fetch.
 
         Returns
         --------
         :class:`.ChatMessage`
             The message from the ID.
         """
-        data = await self._state.get_channel_message(self._channel_id, id)
-        if self._state.userbot:
-            data = data['metadata']['message']
-
-        message = self._state.create_message(data=data, channel=self._channel)
+        data = await self._state.get_channel_message(self._channel_id, message_id)
+        message = self._state.create_message(data=data['message'], channel=self._channel)
         return message
 
-    async def create_thread(self, *content, **kwargs) -> Thread:
-        """|coro|
+    #async def create_thread(self, *content, **kwargs) -> Thread:
+    #    """|coro|
 
-        Create a new thread in this channel.
+    #    Create a new thread in this channel.
 
-        Parameters
-        -----------
-        \*content: Any
-            The content of the message that should be created as the initial
-            message of the newly-created thread. Passing either this or
-            ``message`` is required.
-        name: :class:`str`
-            The name to create the thread with.
-        message: Optional[:class:`.ChatMessage`]
-            The message to create the thread from. Passing either this or
-            values for ``content`` is required.
+    #    Parameters
+    #    -----------
+    #    \*content: Any
+    #        The content of the message that should be created as the initial
+    #        message of the newly-created thread. Passing either this or
+    #        ``message`` is required.
+    #    name: :class:`str`
+    #        The name to create the thread with.
+    #    message: Optional[:class:`.ChatMessage`]
+    #        The message to create the thread from. Passing either this or
+    #        values for ``content`` is required.
 
-        Returns
-        --------
-        :class:`.Thread`
-            The thread that was created.
-        """
-        name = kwargs.get('name')
-        message = kwargs.get('message')
-        if not name:
-            raise TypeError('name is a required argument that is missing.')
-        if not message and not content:
-            raise TypeError('Must include message, an argument list of content, or both.')
+    #    Returns
+    #    --------
+    #    :class:`.Thread`
+    #        The thread that was created.
+    #    """
+    #    name = kwargs.get('name')
+    #    message = kwargs.get('message')
+    #    if not name:
+    #        raise TypeError('name is a required argument that is missing.')
+    #    if not message and not content:
+    #        raise TypeError('Must include message, an argument list of content, or both.')
 
-        data = await self._state.create_thread(self._channel_id, content, name=name, initial_message=message)
-        thread = self._state.create_channel(data=data.get('thread', data), group=self.group, team=self.team)
-        return thread
+    #    data = await self._state.create_thread(self._channel_id, content, name=name, initial_message=message)
+    #    thread = self._state.create_channel(data=data.get('thread', data), group=self.group, server=self.server)
+    #    return thread
 
-    async def pins(self) -> List[ChatMessage]:
-        """|coro|
+    #async def pins(self) -> List[ChatMessage]:
+    #    """|coro|
 
-        Fetch the list of pinned messages in this channel.
+    #    Fetch the list of pinned messages in this channel.
 
-        Returns
-        --------
-        List[:class:`.ChatMessage`]
-            The pinned messages in this channel.
-        """
-        messages = []
-        data = await self._state.get_pinned_messages(self._channel_id)
-        for message_data in data['messages']:
-            message = self._state.create_message(data=message_data, channel=self._channel)
-            messages.append(message)
+    #    Returns
+    #    --------
+    #    List[:class:`.ChatMessage`]
+    #        The pinned messages in this channel.
+    #    """
+    #    messages = []
+    #    data = await self._state.get_pinned_messages(self._channel_id)
+    #    for message_data in data['messages']:
+    #        message = self._state.create_message(data=message_data, channel=self._channel)
+    #        messages.append(message)
 
-        return messages
-
-    async def seen(self, clear_all_badges: bool = False) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Mark this channel as seen; acknowledge all unread messages within it.
-
-        Parameters
-        -----------
-        clear_all_badges: :class:`bool`
-            Whether to clear all badges.
-
-        Raises
-        -------
-        GuildedException
-            The messageable has no channel attached.
-        """
-        if not self._channel:
-            if isinstance(self, User):
-                await self.create_dm()
-            else:
-                raise GuildedException('The messageable has no channel attached.')
-        await self._state.mark_channel_seen(self._channel.id, clear_all_badges=clear_all_badges)
+    #    return messages
 
 
 class User(metaclass=abc.ABCMeta):
@@ -425,7 +316,7 @@ class User(metaclass=abc.ABCMeta):
 
     The following implement this ABC:
 
-        * :class:`guilded.User`
+        * :class:`~guilded.User`
         * :class:`.Member`
         * :class:`.ClientUser`
 
@@ -435,61 +326,27 @@ class User(metaclass=abc.ABCMeta):
         The user's id.
     name: :class:`str`
         The user's name.
-    subdomain: Optional[:class:`str`]
-        The user's "subdomain", or vanity code. Referred to as a "URL" in the
-        client.
-    email: Optional[:class:`str`]
-        The user's email address. This value should only be present when
-        accessing this on your own :class:`.ClientUser`\.
-    service_email: Optional[:class:`str`]
-        The user's "service email".
-    bio: :class:`str`
-        The user's bio. This is referred to as "About" in the client.
-    tagline: :class:`str`
-        The user's tagline. This is the text under the user's name on their
-        profile page in the client.
+    bot_id: Optional[:class:`str`]
+        The user's corresponding bot ID, if any.
+        This will likely only be available for the connected :class:`.ClientUser`.
     avatar: Optional[:class:`.Asset`]
         The user's set avatar, if any.
     banner: Optional[:class:`.Asset`]
         The user's profile banner, if any.
-    presence: Optional[:class:`Presence`]
-        The user's presence.
-    dm_channel: Optional[:class:`DMChannel`]
-        The user's DM channel with you, if fetched/created and/or cached
-        during this session.
-    online_at: :class:`datetime.datetime`
-        When the user was last online.
-    created_at: Optional[:class:`datetime.datetime`]
+    created_at: :class:`datetime.datetime`
         When the user's account was created.
-
-        .. warning::
-
-            Due to API ambiguities, this may erroneously be the same as
-            :attr:`.joined_at` if this is a :class:`.Member`\.
-
-    blocked_at: Optional[:class:`datetime.datetime`]
-        When you blocked the user.
-    bot: :class:`bool`
-        Whether this user is a bot (webhook or flow bot).
-    moderation_status: Optional[Any]
-        The user's moderation status.
-    badges: List[:class:`str`]
-        The user's badges.
-    stonks: Optional[:class:`int`]
-        How many "stonks" the user has.
     """
 
     __slots__ = (
         'type',
         '_user_type',
         'id',
+        'bot_id',
         'dm_channel',
         'name',
         'nick',
         'colour',
         'subdomain',
-        'email',
-        'service_email',
         'games',
         'bio',
         'tagline',
@@ -504,9 +361,6 @@ class User(metaclass=abc.ABCMeta):
         'moderation_status',
         'badges',
         'stonks',
-        '_bot',
-        'friend_status',
-        'friend_requested_at',
     )
 
     def __init__(self, *, state, data: UserPayload, **extra):
@@ -516,13 +370,12 @@ class User(metaclass=abc.ABCMeta):
         self.type = None
         self._user_type = try_enum(UserType, data.get('type', 'user'))
         self.id: str = data.get('id')
+        self.bot_id: str = data.get('botId')
         self.dm_channel = None
         self.name: str = data.get('name') or ''
         self.nick: Optional[str] = None
         self.colour: Colour = Colour(0)
-        self.subdomain: Optional[str] = data.get('subdomain')
-        self.email: Optional[str] = data.get('email')
-        self.service_email: Optional[str] = data.get('serviceEmail')
+        self.slug: Optional[str] = data.get('subdomain')
         self.games: List = data.get('aliases', [])
         self.bio: str = (data.get('aboutInfo') or {}).get('bio') or ''
         self.tagline: str = (data.get('aboutInfo') or {}).get('tagLine') or ''
@@ -556,11 +409,6 @@ class User(metaclass=abc.ABCMeta):
         self.badges: List = data.get('badges') or []
         self.stonks: Optional[int] = data.get('stonks')
 
-        self._bot: bool = data.get('bot', extra.get('bot', False))
-
-        self.friend_status = extra.get('friend_status')
-        self.friend_requested_at: Optional[datetime.datetime] = ISO8601(extra.get('friend_created_at'))
-
     def __str__(self) -> str:
         return self.display_name or ''
 
@@ -571,23 +419,14 @@ class User(metaclass=abc.ABCMeta):
         return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} type={self._user_type!r}>'
 
     @property
-    def slug(self) -> Optional[str]:
-        return self.subdomain
-
-    @property
-    def url(self) -> Optional[str]:
-        return self.subdomain
-
-    @property
     def profile_url(self) -> str:
         return f'https://guilded.gg/profile/{self.id}'
 
     @property
     def vanity_url(self) -> Optional[str]:
-        if self.subdomain:
-            return f'https://guilded.gg/{self.subdomain}'
-        else:
-            return None
+        if self.slug:
+            return f'https://guilded.gg/{self.slug}'
+        return None
 
     @property
     def mention(self) -> str:
@@ -615,7 +454,11 @@ class User(metaclass=abc.ABCMeta):
 
     @property
     def bot(self) -> bool:
-        return self._user_type is UserType.bot or self._bot
+        """:class:`bool`: |dpyattr|
+
+        Whether the user is a bot account or webhook.
+        """
+        return self._user_type is UserType.bot
 
     @property
     def display_avatar(self) -> Asset:
@@ -623,110 +466,9 @@ class User(metaclass=abc.ABCMeta):
         that the client will display in the member list and in chat."""
         return self.avatar or self.default_avatar
 
-    def to_node_dict(self) -> Dict[str, Any]:
-        return {
-            'object': 'inline',
-            'type': 'mention',
-            'data': {
-                'mention': {
-                    'type': 'person',
-                    'id': self.id,
-                    'matcher': f'@{self.display_name}',
-                    'name': self.display_name,
-                    'avatar': self.display_avatar.url,
-                    'color': str(self.colour),
-                    'nickname': self.nick == self.name,
-                },
-            },
-            'nodes': [{
-                'object': 'text',
-                'leaves': [{
-                    'object': 'leaf',
-                    'text': f'@{self.display_name}',
-                    'marks': [],
-                }],
-            }],
-        }
 
-    async def create_dm(self) -> Messageable:
-        """|coro|
-
-        Create a DM channel with this user.
-
-        Returns
-        --------
-        :class:`.DMChannel`
-            The DM channel you created.
-        """
-        data = await self._state.create_dm_channel([self.id])
-        channel = self._state.create_channel(data=data)
-        self.dm_channel = channel
-        self._state.add_to_dm_channel_cache(channel)
-        return channel
-
-    async def hide_dm(self) -> None:
-        """|coro|
-
-        Visually hide your DM channel with this user in the client.
-
-        Equivalent to :meth:`.DMChannel.hide`.
-
-        Raises
-        -------
-        ValueError
-            Your DM channel with this user is not available or does not exist.
-        """
-        if self.dm_channel is None:
-            raise ValueError('No DM channel is cached for this user. You may want to first run the create_dm coroutine.')
-
-        await self.dm_channel.hide()
-
-    async def send(
-        self,
-        *pos_content: Optional[Union[str, Embed, File, Emoji]],
-        content: Optional[str] = MISSING,
-        file: Optional[File] = MISSING,
-        files: Optional[Sequence[File]] = MISSING,
-        embed: Optional[Embed] = MISSING,
-        embeds: Optional[Sequence[Embed]] = MISSING,
-        reference: Optional[ChatMessage] = MISSING,
-        reply_to: Optional[Sequence[ChatMessage]] = MISSING,
-        mention_author: Optional[bool] = None,
-        silent: Optional[bool] = None,
-        private: bool = False,
-        share: Optional[ChatMessage] = MISSING,
-        delete_after: Optional[float] = None,
-    ) -> ChatMessage:
-        """|coro|
-
-        |onlyuserbot|
-
-        Send a message to a Guilded user's DM channel.
-
-        This method is identical to :meth:`~.abc.Messageable.send`\.
-        """
-        if self.dm_channel is None:
-            await self.create_dm()
-
-        return await super().send(
-            *pos_content,
-            content=content,
-            file=file,
-            files=files,
-            embed=embed,
-            embeds=embeds,
-            reference=reference,
-            reply_to=reply_to,
-            mention_author=mention_author,
-            silent=silent,
-            private=private,
-            share=share,
-            delete_after=delete_after,
-        )
-
-
-class TeamChannel(metaclass=abc.ABCMeta):
-    """An ABC for the various types of team channels.
+class ServerChannel(metaclass=abc.ABCMeta):
+    """An ABC for the various types of server channels.
 
     The following implement this ABC:
 
@@ -740,61 +482,32 @@ class TeamChannel(metaclass=abc.ABCMeta):
         * :class:`.SchedulingChannel`
         * :class:`.VoiceChannel`
     """
-    def __init__(self, *, state, data: Dict[str, Any], group: Group, **extra):
+
+    def __init__(self, *, state, data: ServerChannelPayload, group: Group, **extra):
         self._state = state
-        if 'metadata' in data:
-            data = data['metadata']
-        data = data.get('channel') or data.get('thread') or data
-
-        self.type: ChannelType = try_enum(ChannelType, data.get('contentType') or data.get('type'))
         self._group = group
-        self.group_id: str = data.get('groupId')
 
-        self._team = extra.get('team') or extra.get('server') or (group.team if group else None)
-        self.team_id: str = data.get('teamId') or data.get('serverId')
+        self.group_id: str = data.get('groupId')
+        self.server_id: str = data.get('serverId')
+        self.parent_id: Optional[str] = data.get('parentId')
+        self.category_id: Optional[int] = data.get('categoryId')
 
         self.id: str = data['id']
+        self.type: ChannelType = try_enum(ChannelType, data.get('type'))
         self.name: str = data.get('name') or ''
-        self.description: str = data.get('description') or data.get('topic') or ''
-
-        self.position: int = data.get('priority')
-        self.slug: Optional[str] = data.get('slug')
-        self.roles_synced: Optional[bool] = data.get('isRoleSynced')
+        self.topic: str = data.get('topic') or ''
         self.public: bool = data.get('isPublic', False)
-        self._settings: Dict[str, Any] = data.get('settings') or {}
 
+        self.created_by_id: Optional[str] = extra.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
-        self.added_at: Optional[datetime.datetime] = ISO8601(data.get('addedAt'))  # Probably related to the client's relationship with a thread
-        self.archived_at: Optional[datetime.datetime] = ISO8601(data.get('archivedAt'))
-        self.auto_archive_at: Optional[datetime.datetime] = ISO8601(data.get('autoArchiveAt'))
-        self.created_by_id: Optional[str] = extra.get('createdBy')
-        if data.get('createdByInfo'):
-            self._created_by = self._state.create_member(data=data.get('createdByInfo'), team=self.team)
-        else:
-            self._created_by = None
 
-        self._archived_by = extra.get('archived_by')
         self.archived_by_id: Optional[str] = data.get('archivedBy')
-        self.created_by_webhook_id: Optional[str] = data.get('createdByWebhookId')
-        self.archived_by_webhook_id: Optional[str] = data.get('archivedByWebhookId')
-
-        self.category_id: Optional[str] = data.get('categoryId')
-        self.parent_id: Optional[str] = data.get('parentId') or data.get('parentChannelId') or data.get('originatingChannelId')
-
-    @property
-    def topic(self) -> str:
-        return self.description
-
-    @property
-    def vanity_url(self) -> str:
-        if self.slug and self.team.vanity_url:
-            return f'{self.team.vanity_url}/blog/{self.slug}'
-        return None
+        self.archived_at: Optional[datetime.datetime] = ISO8601(data.get('archivedAt'))
 
     @property
     def share_url(self) -> str:
-        """:class:`str`: The URL which can be used to navigate to this channel."""
+        """:class:`str`: The share URL of the channel."""
         # For channel links, any real type will work in the client, but
         # linking to individual content requires the proper type string
         if hasattr(self, '_shareable_content_type'):
@@ -804,19 +517,18 @@ class TeamChannel(metaclass=abc.ABCMeta):
         else:
             type_ = 'chat'
 
-        if self.team and self.team.subdomain:
+        if self.server and self.server.slug:
             # We must have the proper string here, or else when the link is
             # visited, the client will either dead-end at the server overview
-            # or end up on whichever user or server owns that subdomain
-            subdomain = self.team.subdomain
-        elif self.team:
+            # or end up on whichever user or server owns the slug
+            server_portion = self.server.slug
+        elif self.server:
             # Take our best guess - remove everything other than [\w-]:
-            subdomain = re.sub(r'(?![\w-]).', '', self.team.name.replace(' ', '-'))
+            server_portion = re.sub(r'(?![\w-]).', '', self.server.name.replace(' ', '-'))
         else:
-            # We will just let it dead-end
-            subdomain = self.team_id
+            server_portion = f'teams/{self.server_id}'
 
-        return f'https://guilded.gg/{subdomain}/groups/{self.group_id}/channels/{self.id}/{type_}'
+        return f'https://guilded.gg/{server_portion}/groups/{self.group_id}/channels/{self.id}/{type_}'
 
     @property
     def mention(self) -> str:
@@ -826,64 +538,43 @@ class TeamChannel(metaclass=abc.ABCMeta):
     def group(self) -> Group:
         """:class:`~guilded.Group`: The group that this channel is in."""
         group = self._group
-        if not group and self.team:
-            group = self.team.get_group(self.group_id)
+        if not group and self.server:
+            group = self.server.get_group(self.group_id)
 
         return group
 
     @property
-    def team(self) -> Team:
-        """:class:`.Team`: The team that this channel is in."""
-        return self._team or self._state._get_team(self.team_id)
+    def server(self) -> Server:
+        """:class:`.Server`: The server that this channel is in."""
+        return self._state._get_server(self.server_id)
 
     @property
-    def server(self) -> Team:
-        """:class:`.Team`: This is an alias of :attr:`.team`."""
-        return self.team
+    def guild(self) -> Server:
+        """:class:`.Server`: |dpyattr|
 
-    @property
-    def guild(self) -> Team:
-        """|dpyattr|
+        This is an alias of :attr:`.server`.
 
-        This is an alias of :attr:`.team`.
+        The server that this channel is in.
         """
-        return self.team
+        return self.server
 
     @property
-    def parent(self) -> Optional[TeamChannel]:
-        return self.team.get_channel_or_thread(self.parent_id)
+    def parent(self) -> Optional[ServerChannel]:
+        return self.server.get_channel_or_thread(self.parent_id)
 
     @property
     def created_by(self) -> Optional[Member]:
-        return self._created_by or self.team.get_member(self.created_by_id)
+        return self.server.get_member(self.created_by_id)
 
     @property
     def archived_by(self) -> Optional[Member]:
-        return self._archived_by or self.team.get_member(self.archived_by_id)
-
-    @property
-    def slowmode(self) -> int:
-        """:class:`int`: The number of seconds that members will be restricted
-        before they can send another piece of content in the channel."""
-        return self._settings.get('slowMode', 0)
-
-    @property
-    def slowmode_delay(self) -> int:
-        """|dpyattr|
-
-        This is an alias of :attr:`.slowmode`.
-
-        Returns
-        --------
-        :class:`int`
-        """
-        return self.slowmode
+        return self.server.get_member(self.archived_by_id)
 
     def __str__(self) -> str:
         return self.name
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} team={self.team!r}>'
+        return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} server={self.server!r}>'
 
     def __eq__(self, other) -> bool:
         try:
@@ -891,129 +582,64 @@ class TeamChannel(metaclass=abc.ABCMeta):
         except:
             return False
 
-    def to_node_dict(self) -> Dict[str, Any]:
-        return {
-            'object': 'inline',
-            'type': 'channel',
-            'data': {
-                'channel': {
-                    'id': self.id,
-                    'matcher': f'#{self.name}',
-                    'name': self.name,
-                },
-            },
-            'nodes': [{
-                'object': 'text',
-                'leaves': [{
-                    'object': 'leaf',
-                    'text': f'#{self.name}',
-                    'marks': [],
-                }],
-            }],
-        }
-
-    async def edit(self, **options) -> TeamChannel:
+    async def edit(
+        self,
+        *,
+        name: str = MISSING,
+        topic: str = MISSING,
+        public: bool = None,
+    ) -> ServerChannel:
         """|coro|
 
-        |onlyuserbot|
-
         Edit this channel.
+
+        All parameters are optional.
 
         Parameters
         -----------
         name: :class:`str`
             The channel's name.
-        description: :class:`str`
-            The channel's description (topic).
+        topic: :class:`str`
+            The channel's topic. Not applicable to threads.
         public: :class:`bool`
-            Whether the channel should be public (visible to users not in the
-            team).
-        slowmode: :class:`int`
-            The number of seconds that members should be restricted before they
-            can send another piece of content in the channel. Must be one of
-            ``0``, ``5``, ``10``, ``15``, ``30``, ``60``, ``120``, ``300``, ``600``, or ``3600``.
-            Set to ``0`` or ``None`` to disable slowmode.
+            Whether the channel should be public, i.e., visible to users who
+            are not a member of the server.
 
         Returns
         --------
-        :class:`.TeamChannel`
-            The newly-edited channel. If ``slowmode`` was specified, this is a
-            new channel object from Guilded, else it is the current object
-            modified in-place.
+        :class:`.ServerChannel`
+            The newly edited channel.
         """
-        edited_channel = self
-        info_payload = {}
-        try:
-            name = options.pop('name')
-        except KeyError:
-            pass
-        else:
-            info_payload['name'] = name
 
-        if 'description' in options or 'topic' in options:
-            description = options.get('description', options.get('topic'))
-            info_payload['description'] = description
+        payload = {}
+        if name is not MISSING:
+            payload['name'] = name
 
-        try:
-            public = options.pop('public')
-        except KeyError:
-            pass
-        else:
-            info_payload['isPublic'] = public
+        if topic is not MISSING:
+            payload['topic'] = topic
 
-        if info_payload:
-            if self.name and 'name' not in info_payload:
-                # While you aren't required to provide this, not doing so will
-                # cause an unusual-looking "user renamed this channel from name to ."
-                # system message to be sent.
-                info_payload['name'] = self.name
-            await self._state.update_team_channel_info(self.team_id, self.group_id, self.id, info_payload)
-            # We have to edit in-place here because PUT /info does not return the new channel object
-            try: edited_channel.name = name
-            except NameError: pass
-            try: edited_channel.description = description
-            except NameError: pass
-            try: edited_channel.public = public
-            except NameError: pass
+        if public is not None:
+            payload['isPublic'] = public
 
-        settings_payload = {}
-        if 'slowmode' in options or 'slowmode_delay' in options:
-            slowmode = options.get('slowmode', options.get('slowmode_delay'))
-            settings_payload['slowMode'] = slowmode
-
-        if settings_payload:
-            data = await self._state.update_team_channel_settings(self.team_id, self.group_id, self.id, {'channelSettings': settings_payload})
-            edited_channel = self._state.create_channel(data=data, team=self.team)
-            self.team._channels[self.id] = edited_channel
-
-        return edited_channel
+        data = await self._state.update_channel(
+            self.id,
+            payload=payload,
+        )
+        channel = self.__class__.__init__(
+            data=data['channel'],
+            state=self._state,
+            group=self.group,
+        )
+        return channel
 
     async def delete(self) -> None:
         """|coro|
 
         Delete this channel.
         """
-        if self._state.userbot:
-            await self._state.delete_team_channel(self.team_id, self.group_id, self.id)
-        else:
-            await self._state.delete_channel(self.id)
+        await self._state.delete_channel(self.id)
 
-    async def seen(self, clear_all_badges: bool = False) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Mark this channel as seen; acknowledge all unread items within it.
-
-        Parameters
-        -----------
-        clear_all_badges: :class:`bool`
-            Whether to clear all badges.
-        """
-        await self._state.mark_channel_seen(self.id, clear_all_badges=clear_all_badges)
-
-GuildChannel = TeamChannel  # discord.py
-ServerChannel = TeamChannel   # bot API
+GuildChannel = ServerChannel  # discord.py
 
 
 class Reply(HasContentMixin, metaclass=abc.ABCMeta):
@@ -1045,8 +671,8 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         The content that the reply is a child of.
     created_at: :class:`datetime.datetime`
         When the reply was created.
-    edited_at: Optional[:class:`datetime.datetime`]
-        When the reply was last edited.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the reply was last updated.
     deleted_by: Optional[:class:`.Member`]
         Who deleted this reply. This will only be present through a delete
         event, e.g. :func:`on_forum_reply_delete`.
@@ -1062,8 +688,8 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         self.author_id: str = data.get('createdBy')
         self.created_by_bot_id: Optional[str] = data.get('createdByBotId')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_by_id: Optional[str] = data.get('updatedBy')
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+        self.updated_by_id: Optional[str] = data.get('updatedBy')
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
         self.deleted_by: Optional[User] = None
 
         self.replied_to_id: Optional[int] = None
@@ -1083,13 +709,13 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
         reply, if they are cached."""
-        return self.team.get_member(self.author_id)
+        return self.server.get_member(self.author_id)
 
     @property
-    def edited_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that last modified
+    def updated_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that last updated
         the reply, if they exist and are cached."""
-        return self.team.get_member(self.edited_by_id)
+        return self.server.get_member(self.updated_by_id)
 
     @property
     def replied_to(self) -> Optional[Member]:
@@ -1098,8 +724,8 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         return None
 
     @property
-    def channel(self) -> TeamChannel:
-        """:class:`~.abc.TeamChannel`: The channel that the reply is in."""
+    def channel(self) -> ServerChannel:
+        """:class:`~.abc.ServerChannel`: The channel that the reply is in."""
         return self.parent.channel
 
     @property
@@ -1108,9 +734,9 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         return self.parent.group
 
     @property
-    def team(self) -> Team:
-        """:class:`.Team`: The team that the reply is in."""
-        return self.parent.team
+    def server(self) -> Server:
+        """:class:`.Server`: The server that the reply is in."""
+        return self.parent.server
 
     @classmethod
     def _copy(cls, reply):
@@ -1122,8 +748,8 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         self.author_id = reply.author_id
         self.created_by_bot_id = reply.created_by_bot_id
         self.created_at = reply.created_at
-        self.edited_by_id = reply.edited_by_id
-        self.edited_at = reply.edited_at
+        self.updated_by_id = reply.updated_by_id
+        self.updated_at = reply.updated_at
         self.deleted_by = reply.deleted_by
         self.replied_to_id = reply.replied_to_id
         self.replied_to_author_id = reply.replied_to_author_id
@@ -1137,45 +763,45 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
             pass
 
         try:
-            self.edited_at = ISO8601(data['editedAt'])
+            self.updated_at = ISO8601(data['editedAt'])
         except KeyError:
             pass
 
         try:
-            self.edited_by_id = data['updatedBy']
+            self.updated_by_id = data['updatedBy']
         except KeyError:
             pass
 
-    async def add_reaction(self, emoji) -> None:
+    async def add_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Add a reaction to this reply.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to add.
+        emote: :class:`.Emote`
+            The emote to add.
         """
-        await self._state.add_content_reaction(self._content_type, self.id, emoji.id, reply=True)
+        await self._state.add_content_reaction(self._content_type, self.id, emote.id, reply=True)
 
-    async def remove_self_reaction(self, emoji) -> None:
+    async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Remove your reaction from this reply.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to remove.
+        emote: :class:`.Emote`
+            The emote to remove.
         """
-        await self._state.remove_self_content_reaction(self._content_type, self.id, emoji.id, reply=True)
+        await self._state.remove_self_content_reaction(self._content_type, self.id, emote.id, reply=True)
 
     async def delete(self) -> None:
         """|coro|
 
         Delete this reply.
         """
-        await self._state.delete_content_reply(self._content_type, self.team.id, self.parent.id, self.id)
+        await self._state.delete_content_reply(self._content_type, self.server.id, self.parent.id, self.id)
 
     async def reply(self, *content, **kwargs) -> Reply:
         """|coro|

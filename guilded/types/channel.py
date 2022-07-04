@@ -23,13 +23,16 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import Literal, Optional, TypedDict
+from typing import List, Literal, Optional, TypedDict
 from typing_extensions import NotRequired
+
+from .user import User
+from .role import Role
 
 
 class ServerChannel(TypedDict):
     id: str
-    type: Literal['announcement', 'announcements', 'chat', 'calendar', 'forum', 'forums', 'media', 'doc', 'docs', 'voice', 'list', 'scheduling', 'stream', 'streaming']
+    type: Literal['announcements', 'chat', 'calendar', 'forums', 'media', 'docs', 'voice', 'list', 'scheduling', 'stream']
     name: str
     topic: Optional[str]
     createdAt: str
@@ -37,8 +40,16 @@ class ServerChannel(TypedDict):
     updatedAt: NotRequired[str]
     serverId: str
     parentId: NotRequired[str]
-    categoryId: NotRequired[str]
+    categoryId: NotRequired[int]
     groupId: str
     isPublic: NotRequired[bool]
     archivedBy: NotRequired[str]
     archivedAt: NotRequired[str]
+
+
+class Mentions(TypedDict):
+    users: Optional[List[User]]
+    channels: Optional[List[ServerChannel]]
+    roles: Optional[List[Role]]
+    everyone: bool
+    here: bool

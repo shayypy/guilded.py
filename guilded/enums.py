@@ -51,24 +51,17 @@ DEALINGS IN THE SOFTWARE.
 
 import types
 from collections import namedtuple
-from typing import Any, ClassVar, Dict, List, Optional, TYPE_CHECKING, Type, TypeVar
+from typing import Any, ClassVar, Dict, List, TYPE_CHECKING, Type, TypeVar
 
 
 __all__ = (
     'ChannelType',
     'MessageType',
-    'MentionType',
-    'FormType',
-    'MessageFormInputType',
     'FileType',
     'MediaType',
-    'AllowContactFrom',
-    'AllowFriendRequestsFrom',
-    'AllowProfilePostsFrom',
     'FlowActionType',
     'FlowTriggerType',
-    'TeamFlairType',
-    'TeamType',
+    'ServerType',
     'UserType',
 )
 
@@ -188,27 +181,28 @@ else:
 
 
 class ChannelType(Enum):
-    announcement = 'announcement'
+    announcements = 'announcements'
     calendar = 'calendar'
     chat = 'chat'
-    doc = 'doc'
+    docs = 'docs'
     dm = 'DM'
-    forum = 'forum'
+    forums = 'forums'
     media = 'media'
     list = 'list'
     scheduling = 'scheduling'
-    streaming = 'streaming'
+    stream = 'stream'
     thread = 'temporal'
     voice = 'voice'
 
-    # bot API
-    announcements = 'announcements'
-    docs = 'docs'
-    forums = 'forums'
-    stream = 'stream'
+    # aliases
+    announcement = 'announcements'
+    doc = 'docs'
+    forum = 'forums'
+    streaming = 'stream'
 
     # discord.py
     text = 'chat'
+    news = 'announcements'
 
     def __str__(self):
         return self.value
@@ -220,25 +214,6 @@ class MessageType(Enum):
 
     def __str__(self):
         return self.name
-
-
-class MentionType(Enum):
-    user = 'user'
-    channel = 'channel'
-    role = 'role'
-
-    def __str__(self):
-        return self.name
-
-
-class FormType(Enum):
-    poll = 'poll'
-    form = 'form'
-
-
-class MessageFormInputType(Enum):
-    radios = 'Radios'
-    checkboxes = 'Checkboxes'
 
 
 class MediaType(Enum):
@@ -257,6 +232,7 @@ class MediaType(Enum):
 
     # Aliases
     attachment = 'ContentMedia'
+    emote = 'CustomReaction'
     emoji = 'CustomReaction'
     avatar = 'UserAvatar'
     profile_avatar = 'UserAvatar'
@@ -275,34 +251,6 @@ class FileType(Enum):
     can pass this into :class:`File`\'s ``file_type`` keyword argument."""
     image = 'image'
     video = 'video'
-
-    def __str__(self):
-        return self.value
-
-
-class AllowFriendRequestsFrom(Enum):
-    members = 'serverMembersOnly'
-    everyone = 'everyone'
-
-    def __str__(self):
-        return self.value
-
-
-class AllowContactFrom(Enum):
-    friends_and_members = 'friendsAndServerMembers'
-    members = 'friendsAndServerMembers'
-    friends = 'friendsOnly'
-    everyone = 'everyone'
-
-    def __str__(self):
-        return self.value
-
-
-class AllowProfilePostsFrom(Enum):
-    friends_and_members = 'friendsAndServerMembers'
-    members = 'friendsAndServerMembers'
-    friends = 'friendsOnly'
-    everyone = 'everyone'
 
     def __str__(self):
         return self.value
@@ -364,20 +312,7 @@ class FlowActionType(Enum):
     create_a_doc = 'CreateDoc'
 
 
-class TeamFlairType(Enum):
-    hot = 1
-    new = 2
-    veteran = 3
-    recent_match_win = 4
-    recent_match = 5
-    popular = 6
-    ranked = 7
-
-    def __str__(self):
-        return self.name
-
-
-class TeamType(Enum):
+class ServerType(Enum):
     team = 'team'
     organization = 'organization'
     community = 'community'

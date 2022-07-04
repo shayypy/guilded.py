@@ -86,7 +86,7 @@ __all__ = (
     'IntIDConverter',
     'GenericIDConverter',
     'UUIDConverter',
-    'TeamChannelConverter',
+    'ServerChannelConverter',
     'GuildChannelConverter',
     'ServerChannelConverter',
     'AnnouncementChannelConverter',
@@ -99,13 +99,14 @@ __all__ = (
     'SchedulingChannelConverter',
     'ThreadConverter',
     'VoiceChannelConverter',
-    'TeamConverter',
+    'ServerConverter',
     'GuildConverter',
     'ServerConverter',
     'ChatMessageConverter',
     'MessageConverter',
     'ColourConverter',
     'ColorConverter',
+    'EmoteConverter',
     'EmojiConverter',
     'GameConverter',
     'RoleConverter',
@@ -119,14 +120,14 @@ _utils_get = guilded.utils.get
 _utils_find = guilded.utils.find
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
-CT = TypeVar('CT', bound=guilded.abc.TeamChannel)
+CT = TypeVar('CT', bound=guilded.abc.ServerChannel)
 TT = TypeVar('TT', bound=guilded.Thread)
 
 
-def _get_from_teams(bot, getter, argument):
+def _get_from_servers(bot, getter, argument):
     result = None
-    for team in bot.teams:
-        result = getattr(team, getter)(argument)
+    for server in bot.servers:
+        result = getattr(server, getter)(argument)
         if result:
             return result
     return result
@@ -172,11 +173,11 @@ class Converter(Protocol[T_co]):
 # There are multiple different types of IDs in Guilded:
 
 # - 6-10 digit ints:
-#   roles, emojis, games, media posts, profile posts,
+#   roles, emotes, games, media posts, profile posts,
 #   content replies (sometimes incremental), docs
 
 # - 8-char alphanumeric strings ("generic IDs"):
-#   teams, groups, users, invites, announcements
+#   servers, groups, users, invites, announcements
 
 # - UUIDs:
 #   channels, messages, flowbots, webhooks, list items
@@ -237,7 +238,7 @@ class ObjectConverter(Converter[guilded.Object]):
 class MemberConverter(GenericIDConverter[guilded.Member]):
     """Converts to a :class:`~guilded.Member`.
 
-    All lookups are via the current team. If in a DM context, then the lookup
+    All lookups are via the current server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -248,35 +249,35 @@ class MemberConverter(GenericIDConverter[guilded.Member]):
     4. Lookup by nickname
     """
 
-    def find_member_named(self, team: guilded.Team, argument: str):
+    def find_member_named(self, server: guilded.Server, argument: str):
         # Guilded doesn't really have a query-members-through-gateway ability,
         # so instead we just search the internal cache.
-        return _utils_find(lambda m: m.name == argument or m.nick == argument, team.members)
+        return _utils_find(lambda m: m.name == argument or m.nick == argument, server.members)
 
     async def convert(self, ctx: Context, argument: str) -> guilded.Member:
         bot = ctx.bot
         match = self._get_id_match(argument)
-        team = ctx.team
+        server = ctx.server
         result = None
         user_id = None
         if match is None:
             # not a mention
-            result = self.find_member_named(team, argument)
+            result = self.find_member_named(server, argument)
         else:
             user_id = match.group(1)
-            if team:
-                result = team.get_member(user_id) or _utils_get(ctx.message.mentions, id=user_id)
+            if server:
+                result = server.get_member(user_id) or _utils_get(ctx.message.mentions, id=user_id)
             else:
-                result = _get_from_teams(bot, 'get_member', user_id)
+                result = _get_from_servers(bot, 'get_member', user_id)
 
         if result is None:
-            if team is None:
+            if server is None:
                 raise MemberNotFound(argument)
 
             if user_id is not None:
-                result = await team.getch_member(user_id)
+                result = await server.getch_member(user_id)
             else:
-                result = self.find_member_named(team, argument)
+                result = self.find_member_named(server, argument)
 
             if not result:
                 raise MemberNotFound(argument)
@@ -356,10 +357,10 @@ class ChatMessageConverter(UUIDConverter[guilded.ChatMessage]):
 MessageConverter = ChatMessageConverter  # discord.py
 
 
-class TeamChannelConverter(UUIDConverter[guilded.abc.TeamChannel]):
-    """Converts to a :class:`~discord.abc.TeamChannel`.
+class ServerChannelConverter(UUIDConverter[guilded.abc.ServerChannel]):
+    """Converts to a :class:`~guilded.abc.ServerChannel`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -378,12 +379,12 @@ class TeamChannelConverter(UUIDConverter[guilded.abc.TeamChannel]):
 
         match = UUIDConverter._get_id_match(argument) or re.match(r'<#(\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b)>$', argument)
         result = None
-        team = ctx.team
+        server = ctx.server
 
         if match is None:
             # not a mention
-            if team:
-                iterable: Iterable[CT] = getattr(team, attribute)
+            if server:
+                iterable: Iterable[CT] = getattr(server, attribute)
                 result: Optional[CT] = _utils_get(iterable, name=argument)
             else:
 
@@ -393,11 +394,11 @@ class TeamChannelConverter(UUIDConverter[guilded.abc.TeamChannel]):
                 result = _utils_find(check, bot.get_all_channels())  # type: ignore
         else:
             channel_id = match.group(1)
-            if team:
-                # team.get_channel returns an explicit union instead of the base class
-                result = team.get_channel(channel_id)  # type: ignore
+            if server:
+                # server.get_channel returns an explicit union instead of the base class
+                result = server.get_channel(channel_id)  # type: ignore
             else:
-                result = _get_from_teams(bot, 'get_channel', channel_id)
+                result = _get_from_servers(bot, 'get_channel', channel_id)
 
         if not isinstance(result, type):
             raise ChannelNotFound(argument)
@@ -408,30 +409,30 @@ class TeamChannelConverter(UUIDConverter[guilded.abc.TeamChannel]):
     def _resolve_thread(ctx: Context, argument: str, attribute: str, type: Type[TT]) -> TT:
         match = UUIDConverter._get_id_match(argument) or re.match(r'<#(\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b)>$', argument)
         result = None
-        team = ctx.team
+        server = ctx.server
 
         if match is None:
             # not a mention
-            if team:
-                iterable: Iterable[TT] = getattr(team, attribute)
+            if server:
+                iterable: Iterable[TT] = getattr(server, attribute)
                 result: Optional[TT] = _utils_get(iterable, name=argument)
         else:
             thread_id = match.group(1)
-            if team:
-                result = team.get_thread(thread_id)  # type: ignore
+            if server:
+                result = server.get_thread(thread_id)  # type: ignore
 
         if not result or not isinstance(result, type):
             raise ThreadNotFound(argument)
 
         return result
 
-GuildChannelConverter = TeamChannelConverter  # discord.py
-ServerChannelConverter = TeamChannelConverter  # bot API
+GuildChannelConverter = ServerChannelConverter  # discord.py
+
 
 class AnnouncementChannelConverter(UUIDConverter[guilded.AnnouncementChannel]):
     """Converts to a :class:`~guilded.AnnouncementChannel`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -442,13 +443,13 @@ class AnnouncementChannelConverter(UUIDConverter[guilded.AnnouncementChannel]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.AnnouncementChannel:
-        return TeamChannelConverter._resolve_channel(ctx, argument, 'announcement_channels', guilded.AnnouncementChannel)
+        return ServerChannelConverter._resolve_channel(ctx, argument, 'announcement_channels', guilded.AnnouncementChannel)
 
 
 class ChatChannelConverter(UUIDConverter[guilded.ChatChannel]):
     """Converts to a :class:`~guilded.ChatChannel`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -459,7 +460,7 @@ class ChatChannelConverter(UUIDConverter[guilded.ChatChannel]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.ChatChannel:
-        return TeamChannelConverter._resolve_channel(ctx, argument, 'chat_channels', guilded.ChatChannel)
+        return ServerChannelConverter._resolve_channel(ctx, argument, 'chat_channels', guilded.ChatChannel)
 
 TextChannelConverter = ChatChannelConverter  # discord.py
 
@@ -467,7 +468,7 @@ TextChannelConverter = ChatChannelConverter  # discord.py
 class DocsChannelConverter(UUIDConverter[guilded.DocsChannel]):
     """Converts to a :class:`~guilded.DocsChannel`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -478,13 +479,13 @@ class DocsChannelConverter(UUIDConverter[guilded.DocsChannel]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.DocsChannel:
-        return TeamChannelConverter._resolve_channel(ctx, argument, 'docs_channels', guilded.DocsChannel)
+        return ServerChannelConverter._resolve_channel(ctx, argument, 'docs_channels', guilded.DocsChannel)
 
 
 class ForumChannelConverter(UUIDConverter[guilded.ForumChannel]):
     """Converts to a :class:`~guilded.ForumChannel`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -495,13 +496,13 @@ class ForumChannelConverter(UUIDConverter[guilded.ForumChannel]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.ForumChannel:
-        return TeamChannelConverter._resolve_channel(ctx, argument, 'forum_channels', guilded.ForumChannel)
+        return ServerChannelConverter._resolve_channel(ctx, argument, 'forum_channels', guilded.ForumChannel)
 
 
 class ListChannelConverter(UUIDConverter[guilded.ListChannel]):
     """Converts to a :class:`~guilded.ListChannel`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -512,13 +513,13 @@ class ListChannelConverter(UUIDConverter[guilded.ListChannel]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.ListChannel:
-        return TeamChannelConverter._resolve_channel(ctx, argument, 'list_channels', guilded.ListChannel)
+        return ServerChannelConverter._resolve_channel(ctx, argument, 'list_channels', guilded.ListChannel)
 
 
 class MediaChannelConverter(UUIDConverter[guilded.MediaChannel]):
     """Converts to a :class:`~guilded.MediaChannel`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -529,13 +530,13 @@ class MediaChannelConverter(UUIDConverter[guilded.MediaChannel]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.MediaChannel:
-        return TeamChannelConverter._resolve_channel(ctx, argument, 'media_channels', guilded.MediaChannel)
+        return ServerChannelConverter._resolve_channel(ctx, argument, 'media_channels', guilded.MediaChannel)
 
 
 class SchedulingChannelConverter(UUIDConverter[guilded.SchedulingChannel]):
     """Converts to a :class:`~guilded.SchedulingChannel`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -546,13 +547,13 @@ class SchedulingChannelConverter(UUIDConverter[guilded.SchedulingChannel]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.SchedulingChannel:
-        return TeamChannelConverter._resolve_channel(ctx, argument, 'scheduling_channels', guilded.SchedulingChannel)
+        return ServerChannelConverter._resolve_channel(ctx, argument, 'scheduling_channels', guilded.SchedulingChannel)
 
 
 class ThreadConverter(UUIDConverter[guilded.Thread]):
     """Converts to a :class:`~guilded.Thread`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -563,13 +564,13 @@ class ThreadConverter(UUIDConverter[guilded.Thread]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.Thread:
-        return TeamChannelConverter._resolve_thread(ctx, argument, 'threads', guilded.Thread)
+        return ServerChannelConverter._resolve_thread(ctx, argument, 'threads', guilded.Thread)
 
 
 class VoiceChannelConverter(UUIDConverter[guilded.VoiceChannel]):
     """Converts to a :class:`~guilded.VoiceChannel`.
 
-    All lookups are via the local team. If in a DM context, then the lookup
+    All lookups are via the local server. If in a DM context, then the lookup
     is done by the global cache.
 
     The lookup strategy is as follows (in order):
@@ -580,11 +581,11 @@ class VoiceChannelConverter(UUIDConverter[guilded.VoiceChannel]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.VoiceChannel:
-        return TeamChannelConverter._resolve_channel(ctx, argument, 'voice_channels', guilded.VoiceChannel)
+        return ServerChannelConverter._resolve_channel(ctx, argument, 'voice_channels', guilded.VoiceChannel)
 
 
-class TeamConverter(GenericIDConverter[guilded.Team]):
-    """Converts to a :class:`~guilded.Team`.
+class ServerConverter(GenericIDConverter[guilded.Server]):
+    """Converts to a :class:`~guilded.Server`.
 
     The lookup strategy is as follows (in order):
 
@@ -592,63 +593,64 @@ class TeamConverter(GenericIDConverter[guilded.Team]):
     2. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.Team:
+    async def convert(self, ctx: Context, argument: str) -> guilded.Server:
         bot = ctx.bot
         match = self._get_id_match(argument)
         result = None
 
         if match is not None:
-            team_id = match.group(1)
-            result = bot.get_team(team_id)
+            server_id = match.group(1)
+            result = bot.get_server(server_id)
 
         if result is None:
-            result = _utils_get(bot.teams, name=argument)
+            result = _utils_get(bot.servers, name=argument)
 
             if result is None:
-                raise TeamNotFound(argument)
+                raise ServerNotFound(argument)
 
         return result
 
-GuildConverter = TeamConverter  # discord.py
-ServerConverter = TeamConverter  # bot API
+GuildConverter = ServerConverter  # discord.py
 
 
-class EmojiConverter(IntIDConverter[guilded.Emoji]):
-    """Converts to a :class:`~guilded.Emoji`.
+class EmoteConverter(IntIDConverter[guilded.Emote]):
+    """Converts to a :class:`~guilded.Emote`.
 
-    All lookups are done for the local team first, if available.
+    All lookups are done for the local server first, if available.
     If that lookup fails, then it checks the client's global cache.
 
     The lookup strategy is as follows (in order):
 
     1. Lookup by ID
-    2. Lookup by extracting ID from the emoji
+    2. Lookup by extracting ID from the emote
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.Emoji:
+    async def convert(self, ctx: Context, argument: str) -> guilded.Emote:
         match = self._get_id_match(argument)
         result = None
         bot = ctx.bot
-        team = ctx.team
+        server = ctx.server
 
         if match is None:
-            # Try to get the emoji by name.
-            if team:
-                result = _utils_get(team.emojis, name=argument)
+            # Try to get the emote by name.
+            if server:
+                result = _utils_get(server.emotes, name=argument)
 
             if result is None:
-                result = _utils_get(bot.emojis, name=argument)
+                result = _utils_get(bot.emotes, name=argument)
         else:
-            emoji_id = int(match.group(1))
+            emote_id = int(match.group(1))
 
-            # Try to look up emoji by id.
-            result = bot.get_emoji(emoji_id)
+            # Try to look up emote by id.
+            result = bot.get_emote(emote_id)
 
         if result is None:
-            raise EmojiNotFound(argument)
+            raise EmoteNotFound(argument)
 
         return result
+
+EmojiConverter = EmoteConverter  # discord.py
 
 
 class ColourConverter(Converter[guilded.Colour]):
@@ -685,7 +687,7 @@ class GameConverter(Converter[guilded.Game]):
     """Converts to a :class:`~guilded.Game`.
 
     :attr:`~guilded.Game.MAPPING` must be populated for this converter to work
-    as expected. Call :meth:`~guilded.UserbotClient.fill_game_list` at least
+    as expected. Call :meth:`~guilded.Client.fill_game_list` at least
     once in your process's lifetime to ensure this.
 
     The lookup strategy is as follows (in order):
@@ -712,7 +714,7 @@ class GameConverter(Converter[guilded.Game]):
 class RoleConverter(IntIDConverter[guilded.Role]):
     """Converts to a :class:`~guilded.Role`.
 
-    All lookups are via the local team. If in a DM context, the converter raises
+    All lookups are via the local server. If in a DM context, the converter raises
     the :exc:`.NoPrivateMessage` exception.
 
     The lookup strategy is as follows (in order):
@@ -723,8 +725,8 @@ class RoleConverter(IntIDConverter[guilded.Role]):
     """
 
     async def convert(self, ctx: Context, argument: str):
-        team = ctx.team
-        if not team:
+        server = ctx.server
+        if not server:
             raise NoPrivateMessage()
 
         result = None
@@ -732,9 +734,9 @@ class RoleConverter(IntIDConverter[guilded.Role]):
 
         if match is not None:
             role_id = int(match.group(1))
-            result = team.get_role(role_id)
+            result = server.get_role(role_id)
         else:
-            result = _utils_get(team.roles, name=argument)
+            result = _utils_get(server.roles, name=argument)
 
         if not result:
             raise RoleNotFound(argument)
@@ -773,13 +775,13 @@ class clean_content(Converter[str]):
     async def convert(self, ctx: Context, argument: str) -> str:
         msg = ctx.message
 
-        if ctx.team:
+        if ctx.server:
 
             def resolve_member_or_role(id: Union[str, int]) -> str:
-                resolved = _utils_get(msg.mentions, id=id) or ctx.team.get_member(id)
+                resolved = _utils_get(msg.mentions, id=id) or ctx.server.get_member(id)
                 if not resolved and id.isdigit():
                     id = int(id)
-                    resolved = _utils_get(msg.role_mentions, id=id) or ctx.team.get_role(id)
+                    resolved = _utils_get(msg.role_mentions, id=id) or ctx.server.get_role(id)
                     if resolved:
                         return f'@{resolved.name}'
                 elif resolved:
@@ -792,10 +794,10 @@ class clean_content(Converter[str]):
                 m = _utils_get(msg.mentions, id=id) or ctx.bot.get_user(id)
                 return f'@{m.name}' if m else '@deleted-user'
 
-        if self.fix_channel_mentions and ctx.team:
+        if self.fix_channel_mentions and ctx.server:
 
             def resolve_channel(id: str) -> str:
-                c = ctx.team.get_channel_or_thread(id)
+                c = ctx.server.get_channel_or_thread(id)
                 return f'#{c.name}' if c else '#deleted-channel'
 
         else:
@@ -911,7 +913,7 @@ CONVERTER_MAPPING: Dict[Type[Any], Any] = {
     guilded.ChatMessage: ChatMessageConverter,
     guilded.Colour: ColourConverter,
     guilded.DocsChannel: DocsChannelConverter,
-    guilded.Emoji: EmojiConverter,
+    guilded.Emote: EmoteConverter,
     guilded.ForumChannel: ForumChannelConverter,
     guilded.Game: GameConverter,
     guilded.ListChannel: ListChannelConverter,
@@ -920,8 +922,8 @@ CONVERTER_MAPPING: Dict[Type[Any], Any] = {
     guilded.Object: ObjectConverter,
     guilded.Role: RoleConverter,
     guilded.SchedulingChannel: SchedulingChannelConverter,
-    guilded.Team: TeamConverter,
-    guilded.abc.TeamChannel: TeamChannelConverter,
+    guilded.Server: ServerConverter,
+    guilded.abc.ServerChannel: ServerChannelConverter,
     guilded.Thread: ThreadConverter,
     guilded.User: UserConverter,
     guilded.VoiceChannel: VoiceChannelConverter,

@@ -11,7 +11,7 @@ description = '''An example bot to showcase the guilded.ext.commands extension
 module, as well as to furthermore demonstrate the similarities between
 guilded.py and discord.py.'''
 
-bot = commands.UserbotBot(command_prefix='?', description=description)
+bot = commands.Bot(command_prefix='?', description=description)
 
 @bot.event
 async def on_ready():
@@ -65,4 +65,4 @@ async def _bot(ctx):
     """Is the bot cool?"""
     await ctx.send('Yes, the bot is cool.')
 
-bot.run('email', 'password')
+bot.run('token')

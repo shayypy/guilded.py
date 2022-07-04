@@ -78,7 +78,8 @@ __all__ = (
     'MessageNotFound',
     'ObjectNotFound',
     'MemberNotFound',
-    'TeamNotFound',
+    'ServerNotFound',
+    'GuildNotFound',
     'UserNotFound',
     'ChannelNotFound',
     'ChannelNotReadable',
@@ -88,6 +89,7 @@ __all__ = (
     'BadInviteArgument',
     'BadGameArgument',
     'GameNotFound',
+    'EmoteNotFound',
     'EmojiNotFound',
     'BadBoolArgument',
     'MissingRole',
@@ -292,19 +294,22 @@ class MemberNotFound(BadArgument):
         self.argument = argument
         super().__init__(f'Member "{argument}" not found.')
 
-class TeamNotFound(BadArgument):
-    """Exception raised when the team provided was not found in the bot's cache.
+class ServerNotFound(BadArgument):
+    """Exception raised when the server provided was not found in the bot's cache.
 
     This inherits from :exc:`BadArgument`
 
     Attributes
     -----------
     argument: :class:`str`
-        The team supplied by the caller that was not found
+        The server supplied by the caller that was not found
     """
     def __init__(self, argument):
         self.argument = argument
-        super().__init__(f'Team "{argument}" not found.')
+        super().__init__(f'Server "{argument}" not found.')
+
+GuildNotFound = ServerNotFound  # discord.py
+
 
 class UserNotFound(BadArgument):
     """Exception raised when the user provided was not found in the bot's
@@ -343,7 +348,7 @@ class ChannelNotReadable(BadArgument):
 
     Attributes
     -----------
-    argument: :class:`.abc.TeamChannel`
+    argument: :class:`.abc.ServerChannel`
         The channel supplied by the caller that was not readable
     """
     def __init__(self, argument):
@@ -448,19 +453,22 @@ class GameNotFound(BadArgument):
         self.argument: str = argument
         super().__init__(f'Game "{argument}" is invalid.')
 
-class EmojiNotFound(BadArgument):
-    """Exception raised when the bot can not find the emoji.
+class EmoteNotFound(BadArgument):
+    """Exception raised when the bot can not find the emote.
 
     This inherits from :exc:`BadArgument`
 
     Attributes
     -----------
     argument: :class:`str`
-        The emoji supplied by the caller that was not found
+        The emote supplied by the caller that was not found
     """
     def __init__(self, argument):
         self.argument = argument
-        super().__init__(f'Emoji "{argument}" not found.')
+        super().__init__(f'Emote "{argument}" not found.')
+
+EmojiNotFound = EmoteNotFound  # discord.py
+
 
 class BadBoolArgument(BadArgument):
     """Exception raised when a boolean argument was not convertable.
@@ -629,13 +637,13 @@ class MissingPermissions(CheckFailure):
 
     Attributes
     -----------
-    missing_perms: :class:`list`
+    missing_permissons: :class:`list`
         The required permissions that are missing.
     """
     def __init__(self, missing_perms, *args):
         self.missing_perms = missing_perms
 
-        missing = [perm.replace('_', ' ').replace('team', 'server').title() for perm in missing_perms]
+        missing = [perm.replace('_', ' ').title() for perm in missing_perms]
 
         if len(missing) > 2:
             fmt = '{}, and {}'.format(", ".join(missing[:-1]), missing[-1])
@@ -652,13 +660,13 @@ class BotMissingPermissions(CheckFailure):
 
     Attributes
     -----------
-    missing_perms: :class:`list`
+    missing_permissons: :class:`list`
         The required permissions that are missing.
     """
     def __init__(self, missing_perms, *args):
         self.missing_perms = missing_perms
 
-        missing = [perm.replace('_', ' ').replace('team', 'server').title() for perm in missing_perms]
+        missing = [perm.replace('_', ' ').title() for perm in missing_perms]
 
         if len(missing) > 2:
             fmt = '{}, and {}'.format(", ".join(missing[:-1]), missing[-1])

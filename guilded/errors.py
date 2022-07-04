@@ -58,7 +58,8 @@ __all__ = (
     'NotFound',
     'TooManyRequests',
     'GuildedServerError',
-    'InvalidArgument'
+    'InvalidData',
+    'InvalidArgument',
 )
 
 
@@ -66,9 +67,11 @@ class GuildedException(Exception):
     """Base class for all guilded.py exceptions."""
     pass
 
+
 class ClientException(GuildedException):
     """Thrown when an operation in the :class:`Client` fails."""
     pass
+
 
 class HTTPException(GuildedException):
     """A non-ok response from Guilded was returned whilst performing an HTTP
@@ -98,25 +101,38 @@ class HTTPException(GuildedException):
 
         super().__init__(f'{self.status} ({self.code}): {self.message}')
 
+
 class BadRequest(HTTPException):
     """Thrown on status code 400"""
     pass
+
 
 class Forbidden(HTTPException):
     """Thrown on status code 403"""
     pass
 
+
 class NotFound(HTTPException):
     """Thrown on status code 404"""
     pass
+
 
 class TooManyRequests(HTTPException):
     """Thrown on status code 429"""
     pass
 
+
 class GuildedServerError(HTTPException):
     """Thrown on status code 500"""
     pass
+
+
+class InvalidData(ClientException):
+    """Exception that's raised when the library encounters unknown or invalid
+    data from Guilded.
+    """
+    pass
+
 
 error_mapping = {
     400: BadRequest,
@@ -125,6 +141,7 @@ error_mapping = {
     429: TooManyRequests,
     500: GuildedServerError
 }
+
 
 class InvalidArgument(ClientException):
     """Thrown when an argument to a function is invalid some way (e.g. wrong

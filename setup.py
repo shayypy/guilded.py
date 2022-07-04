@@ -15,7 +15,7 @@ setuptools.setup(
     name='guilded.py',
     version=version,
     author='shay (shayypy)',
-    description='An API wrapper in Python for Guilded\'s user & bot APIs',
+    description='An API wrapper in Python for Guilded\'s bot API',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/shayypy/guilded.py',

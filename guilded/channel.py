@@ -53,25 +53,28 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import TYPE_CHECKING, Any, Dict, Optional, List, Tuple, Union
+from typing import TYPE_CHECKING, Optional, List, Tuple
 
 import guilded.abc  # type: ignore
 
 from .asset import Asset
-from .enums import ChannelType, FileType, MediaType
-from .errors import InvalidArgument
-from .file import File
-#from .gateway import GuildedVoiceWebSocket
+from .enums import ChannelType, FileType
 from .group import Group
 from .message import ChatMessage, HasContentMixin
 from .user import Member
-from .utils import MISSING, get, ISO8601
+from .utils import MISSING, ISO8601
 from .status import Game
 
 if TYPE_CHECKING:
-    from .emoji import Emoji
-    from .embed import Embed
-    from .team import Team
+    from .types.doc import Doc as DocPayload
+    from .types.list_item import (
+        ListItem as ListItemPayload,
+        ListItemNote as ListItemNotePayload,
+    )
+    from .types.forum_topic import ForumTopic as ForumTopicPayload
+
+    from .emote import Emote
+    from .server import Server
     from .user import User
     from .webhook import Webhook
 
@@ -102,14 +105,14 @@ __all__ = (
 )
 
 
-class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
-    """Represents a chat channel in a :class:`.Team`\."""
+class ChatChannel(guilded.abc.ServerChannel, guilded.abc.Messageable):
+    """Represents a chat channel in a :class:`.Server`."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.chat
         self._channel_id = self.id
 
-    async def create_webhook(self, *, name: str, avatar: Optional[Union[bytes, File]] = None) -> Webhook:
+    async def create_webhook(self, *, name: str) -> Webhook:
         """|coro|
 
         Create a webhook in this channel.
@@ -118,10 +121,6 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
         -----------
         name: :class:`str`
             The webhook's name.
-        avatar: Optional[Union[:class:`bytes`, :class:`File`]]
-            A :term:`py:bytes-like object` or :class:`File` for the webhook's avatar.
-            If the client is a bot user, providing this does nothing.
-            Else, providing this causes the library to perform an extra API request.
 
         Returns
         --------
@@ -136,10 +135,9 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
             You do not have permissions to create a webhook.
         """
 
-        webhook = await self.team.create_webhook(
+        webhook = await self.server.create_webhook(
             channel=self,
             name=name,
-            avatar=avatar,
         )
         return webhook
 
@@ -163,10 +161,11 @@ class ChatChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
             You do not have permissions to get the webhooks.
         """
 
-        webhooks = await self.team.webhooks(channel=self)
+        webhooks = await self.server.webhooks(channel=self)
         return webhooks
 
 TextChannel = ChatChannel  # discord.py
+
 
 class Doc(HasContentMixin):
     """Represents a doc in a :class:`DocsChannel`.
@@ -195,59 +194,48 @@ class Doc(HasContentMixin):
         The doc's text content.
     channel: :class:`.DocsChannel`
         The channel that the doc is in.
-    group: :class:`.Group`
-        The group that the doc is in.
-    team: :class:`.Team`
-        The team that the doc is in.
-    tags: List[:class:`str`]
-        The list of tags assigned to the doc.
-    public: :class:`bool`
-        Whether the doc is public.
-    draft: :class:`bool`
-        Whether the doc is a draft.
     created_at: :class:`datetime.datetime`
         When the doc was created.
-    edited_at: Optional[:class:`datetime.datetime`]
+    updated_at: Optional[:class:`datetime.datetime`]
         When the doc was last modified.
-    game: Optional[:class:`.Game`]
-        The game associated with the doc.
     """
-    def __init__(self, *, state, data, channel, game=None):
+
+    __slots__: Tuple[str, ...] = (
+        '_state',
+        'channel',
+        'server_id',
+        'channel_id',
+        'id',
+        'title',
+        'content',
+        '_mentions',
+        'author_id',
+        'created_at',
+        'updated_by_id',
+        'updated_at',
+    )
+
+    def __init__(self, *, state, data: DocPayload, channel: DocsChannel):
         super().__init__()
         self._state = state
 
         self.channel = channel
-        self.group = channel.group
-        self.team = channel.team
+        self.server_id: str = data.get('serverId')
+        self.channel_id: str = data.get('channelId')
+
+        self.id: int = data['id']
+        self.title: str = data['title']
+        self.content: str = data['content']
+        self._mentions = self._create_mentions(data.get('mentions'))
 
         self.author_id: str = data.get('createdBy')
-        self.edited_by_id: Optional[str] = data.get('updatedBy') or data.get('modifiedBy')
-
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt') or data.get('modifiedAt'))
 
-        self.id: int = int(data['id'])
-        self.title: str = data['title']
-
-        if state.userbot:
-            self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
-            self._replies = {}
-
-            tags = data.get('tags')
-            if tags and isinstance(tags, str):
-                tags = tags.split(',')
-            self.tags: List[str] = tags or []
-
-            self.public: bool = data.get('isPublic', False)
-            self.credentialed: bool = data.get('isCredentialed', False)
-            self.draft: bool = data.get('isDraft', False)
-            self.content: str = self._get_full_content(data['content'])
-
-        else:
-            self.content: str = data['content']
+        self.updated_by_id: Optional[str] = data.get('updatedBy')
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
 
     def __repr__(self) -> str:
-        return f'<Doc id={self.id!r} title={self.title!r} author={self.author!r} channel={self.channel!r}>'
+        return f'<Doc id={self.id!r} title={self.title!r} channel={self.channel!r}>'
 
     def __eq__(self, other) -> bool:
         return isinstance(other, Doc) and other.id == self.id
@@ -256,63 +244,65 @@ class Doc(HasContentMixin):
         return self.title
 
     @property
-    def team_id(self) -> str:
-        return self.team.id
+    def server(self) -> Server:
+        """:class:`.Server`: The server that the doc is in."""
+        return self._state._get_server(self.server_id)
 
     @property
-    def group_id(self) -> str:
-        return self.group.id
+    def guild(self) -> Server:
+        """:class:`.Server`: |dpyattr|
+
+        This is an alias of :attr:`.server`.
+
+        The server that the doc is in.
+        """
+        return self.server
 
     @property
-    def channel_id(self) -> str:
-        return self.channel.id
+    def group(self) -> Group:
+        """Optional[:class:`.Group`]: The group that the doc is in."""
+        return self.channel.group
 
-    @property
-    def replies(self) -> List[DocReply]:
-        """List[:class:`.DocReply`]: The list of cached replies to this doc."""
-        return list(self._replies.values())
+    #@property
+    #def replies(self) -> List[DocReply]:
+    #    """List[:class:`.DocReply`]: The list of cached replies to this doc."""
+    #    return list(self._replies.values())
 
     @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the doc."""
-        return self.team.get_member(self.author_id)
+        return self.server.get_member(self.author_id)
 
     @property
-    def edited_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that last edited the doc."""
-        return self.team.get_member(self.author_id)
+    def updated_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The :class:`.Member` that last updated the doc."""
+        return self.server.get_member(self.updated_by_id)
 
-    async def add_reaction(self, emoji: Emoji) -> None:
+    async def add_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Add a reaction to this doc.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to add.
+        emote: :class:`.Emote`
+            The emote to add.
         """
-        if self._state.userbot:
-            await self._state.add_content_reaction('doc', self.id, emoji.id)
-        else:
-            emoji_id: int = getattr(emoji, 'id', emoji)
-            await self._state.add_reaction_emote(self.channel.id, self.id, emoji_id)
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.add_reaction_emote(self.channel.id, self.id, emote_id)
 
-    async def remove_self_reaction(self, emoji: Emoji) -> None:
+    async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Remove one of your reactions from this doc.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to remove.
+        emote: :class:`.Emote`
+            The emote to remove.
         """
-        if self._state.userbot:
-            await self._state.remove_self_content_reaction('doc', self.id, emoji.id)
-        else:
-            emoji_id: int = getattr(emoji, 'id', emoji)
-            await self._state.remove_reaction_emote(self.channel.id, self.id, emoji_id)
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
 
     async def delete(self) -> None:
         """|coro|
@@ -321,27 +311,22 @@ class Doc(HasContentMixin):
         """
         await self._state.delete_doc(self.channel.id, self.id)
 
-    async def edit(self, *content, **kwargs) -> Doc:
+    async def edit(
+        self,
+        *,
+        title: str = MISSING,
+        content: str = MISSING,
+    ) -> Doc:
         """|coro|
 
         Edit this doc.
 
         Parameters
         -----------
-        content: Any
-            The content of the doc.
-        title: str
+        title: :class:`str`
             The title of the doc.
-        game: Optional[:class:`.Game`]
-            The game associated with the doc.
-        draft: Optional[:class:`bool`]
-            Whether the doc should be a draft.
-        public: Optional[:class:`bool`]
-            Whether the doc should be public.
-        tags: List[:class:`str`]
-            The list of tags for this doc. Overrides the existing list, if any.
-            You can provide a maximum of 539 tags. You may include duplicates,
-            however this behavior is forbidden in the desktop client.
+        content: :class:`str`
+            The content of the doc.
 
         Returns
         --------
@@ -349,166 +334,123 @@ class Doc(HasContentMixin):
             The updated doc.
         """
 
-        title = kwargs.pop('title', self.title)
-
-        # TODO: This may have issues with non-text content if no content is provided explicitly to this method
-        if content is not None:
-            content = tuple(content)
-            if len(content) < 1:
-                content = (self.content,)
-            if not self._state.userbot:
-                content = content[0]
-
         payload = {
-            'title': title,
-            'content': content,
+            'title': title if title is not MISSING else self.title,
+            'content': content if content is not MISSING else self.content,
         }
 
-        if self._state.userbot:
-            # We need to provide this or else Guilded will throw a 500
-            payload['isDraft'] = kwargs.pop('draft', self.draft)
-
-            try:
-                payload['gameId'] = kwargs.pop('game', self.game).id
-            except (KeyError, AttributeError):
-                pass
-            try:
-                payload['isPublic'] = kwargs.pop('public')
-            except KeyError:
-                pass
-            try:
-                payload['tags'] = kwargs.pop('tags')
-            except KeyError:
-                pass
-
         data = await self._state.update_doc(self.channel.id, self.id, payload=payload)
-        doc = Doc(data=data, channel=self.channel, game=self.game, state=self._state)
+        doc = Doc(data=data, channel=self.channel, state=self._state)
         return doc
 
-    async def reply(self, *content, **kwargs) -> DocReply:
-        """|coro|
+    #async def reply(self, content: str) -> DocReply:
+    #    """|coro|
 
-        |onlyuserbot|
+    #    Reply to this doc.
 
-        Reply to this doc.
+    #    Parameters
+    #    -----------
+    #    \*content: Any
+    #        The content to create the reply with.
+    #    reply_to: Optional[:class:`.DocReply`]
+    #        An existing reply to reply to.
 
-        Parameters
-        -----------
-        \*content: Any
-            The content to create the reply with.
-        reply_to: Optional[:class:`.DocReply`]
-            An existing reply to reply to.
+    #    Returns
+    #    --------
+    #    :class:`.DocReply`
+    #        The created reply.
+    #    """
+    #    data = await self._state.create_content_reply('doc', self.server.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+    #    reply = DocReply(data=data['reply'], parent=self, state=self._state)
+    #    return reply
 
-        Returns
-        --------
-        :class:`.DocReply`
-            The created reply.
-        """
-        data = await self._state.create_content_reply('doc', self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
-        reply = DocReply(data=data['reply'], parent=self, state=self._state)
-        return reply
+    #def get_reply(self, id: int) -> Optional[DocReply]:
+    #    """Optional[:class:`.DocReply`]: Get a reply by its ID."""
+    #    return self._replies.get(id)
 
-    def get_reply(self, id: int) -> Optional[DocReply]:
-        """Optional[:class:`.DocReply`]: Get a reply by its ID."""
-        return self._replies.get(id)
+    #async def fetch_replies(self) -> List[DocReply]:
+    #    """|coro|
 
-    async def fetch_replies(self) -> List[DocReply]:
-        """|coro|
+    #    Fetch the replies to this doc.
 
-        |onlyuserbot|
+    #    Returns
+    #    --------
+    #    List[:class:`.DocReply`]
+    #    """
+    #    replies = []
+    #    data = await self._state.get_content_replies('doc', self.id)
+    #    for reply_data in data:
+    #        reply = DocReply(data=reply_data, parent=self, state=self._state)
+    #        replies.append(reply)
 
-        Fetch the replies to this doc.
+    #    return replies
 
-        Returns
-        --------
-        List[:class:`.DocReply`]
-        """
-        replies = []
-        data = await self._state.get_content_replies('doc', self.id)
-        for reply_data in data:
-            reply = DocReply(data=reply_data, parent=self, state=self._state)
-            replies.append(reply)
+    #async def fetch_reply(self, id: int) -> DocReply:
+    #    """|coro|
 
-        return replies
+    #    Fetch a reply to this doc.
 
-    async def fetch_reply(self, id: int) -> DocReply:
-        """|coro|
+    #    Parameters
+    #    -----------
+    #    id: :class:`int`
+    #        The ID of the reply.
 
-        |onlyuserbot|
+    #    Returns
+    #    --------
+    #    :class:`.DocReply`
+    #    """
+    #    data = await self._state.get_content_reply('docs', self.channel.id, self.id, id)
+    #    reply = DocReply(data=data['metadata']['reply'], parent=self, state=self._state)
+    #    return reply
 
-        Fetch a reply to this doc.
+    #async def move(self, to) -> None:
+    #    """|coro|
 
-        Parameters
-        -----------
-        id: :class:`int`
-            The ID of the reply.
+    #    Move this doc to another :class:`.DocsChannel`.
 
-        Returns
-        --------
-        :class:`.DocReply`
-        """
-        data = await self._state.get_content_reply('docs', self.channel.id, self.id, id)
-        reply = DocReply(data=data['metadata']['reply'], parent=self, state=self._state)
-        return reply
-
-    async def move(self, to) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Move this doc to another :class:`.DocsChannel`.
-
-        Parameters
-        -----------
-        to: :class:`.DocsChannel`
-            The channel to move this doc to.
-        """
-        await self._state.move_doc(self.channel.id, self.id, to.id)
+    #    Parameters
+    #    -----------
+    #    to: :class:`.DocsChannel`
+    #        The channel to move this doc to.
+    #    """
+    #    await self._state.move_doc(self.channel.id, self.id, to.id)
 
 
-class DocsChannel(guilded.abc.TeamChannel):
-    """Represents a docs channel in a :class:`.Team`\."""
+class DocsChannel(guilded.abc.ServerChannel):
+    """Represents a docs channel in a :class:`.Server`."""
     def __init__(self, **fields):
         super().__init__(**fields)
-        if self._state.userbot:
-            self.type = ChannelType.doc
-            self._shareable_content_type = 'docs'
-        else:
-            self.type = ChannelType.docs
-
+        self.type = ChannelType.docs
         self._docs = {}
 
     @property
     def docs(self) -> List[Doc]:
-        """List[:class:`.Doc`]: The list of cached docs in this channel."""
+        """List[:class:`.Doc`]: The list of docs in this channel."""
         return list(self._docs.values())
 
-    def get_doc(self, id: int) -> Optional[Doc]:
-        """Optional[:class:`.Doc`]: Get a cached doc in this channel."""
-        return self._docs.get(id)
+    def get_doc(self, doc_id: int, /) -> Optional[Doc]:
+        """Optional[:class:`.Doc`]: Get a doc in this channel."""
+        return self._docs.get(doc_id)
 
-    async def getch_doc(self, id: int) -> Doc:
-        return self.get_doc(id) or await self.fetch_doc(id)
+    async def getch_doc(self, doc_id: int, /) -> Doc:
+        return self.get_doc(doc_id) or await self.fetch_doc(doc_id)
 
-    async def create_doc(self, *content, **kwargs) -> Doc:
+    async def create_doc(
+        self,
+        *,
+        title: str,
+        content: str,
+    ) -> Doc:
         """|coro|
 
         Create a new doc in this channel.
 
         Parameters
         -----------
-        content: Any
-            The content to create the doc with.
         title: :class:`str`
             The doc's title.
-        game: Optional[:class:`.Game`]
-            The game associated with the doc.
-        draft: Optional[:class:`bool`]
-            Whether the doc should be a draft.
-        tags: List[:class:`str`]
-            The list of tags for this doc.
-            You can provide a maximum of 539 tags. You may include duplicates,
-            however this behavior is forbidden in the desktop client.
+        content: :class:`str`
+            The content to create the doc with.
 
         Returns
         --------
@@ -516,47 +458,27 @@ class DocsChannel(guilded.abc.TeamChannel):
             The created doc.
         """
 
-        payload = {
-            'title': kwargs.pop('title'),
-            'content': content,
-        }
-
-        if self._state.userbot:
-            # We need to provide this or else Guilded will throw a 500
-            payload['isDraft'] = kwargs.pop('draft', False)
-
-            try:
-                payload['gameId'] = kwargs.pop('game').id
-            except (KeyError, AttributeError):
-                pass
-            try:
-                payload['tags'] = kwargs.pop('tags')
-            except KeyError:
-                pass
-
-        data = await self._state.create_doc(self.id, payload=payload)
-        doc = Doc(data=data, channel=self, game=kwargs.get('game'), state=self._state)
+        data = await self._state.create_doc(self.id, title=title, content=content)
+        doc = Doc(data=data['doc'], channel=self, state=self._state)
         return doc
 
-    async def fetch_doc(self, id: int) -> Doc:
+    async def fetch_doc(self, doc_id: int, /) -> Doc:
         """|coro|
 
         Fetch an doc in this channel.
 
-        Parameters
-        -----------
-        id: :class:`int`
-            The doc's ID.
-
         Returns
         --------
         :class:`.Doc`
+            The doc by the ID.
         """
-        data = await self._state.get_doc(self.id, id)
+
+        data = await self._state.get_doc(self.id, doc_id)
         doc = Doc(data=data, channel=self, state=self._state)
         return doc
 
-    async def fetch_docs(self, *, limit: int = 50, before: datetime.datetime = None) -> List[Doc]:
+    # TODO: async iterator
+    async def fetch_docs(self, *, limit: int = None, before: datetime.datetime = None) -> List[Doc]:
         """|coro|
 
         Fetch multiple docs in this channel.
@@ -566,7 +488,8 @@ class DocsChannel(guilded.abc.TeamChannel):
         Parameters
         -----------
         limit: :class:`int`
-            The maximum number of docs to return. Defaults to 50.
+            The maximum number of docs to return.
+            Defaults to 25, can be at most 100.
         before: :class:`datetime.datetime`
             The latest date that an doc can be from. Defaults to the
             current time.
@@ -574,14 +497,12 @@ class DocsChannel(guilded.abc.TeamChannel):
         Returns
         --------
         List[:class:`.Doc`]
+            The docs in the channel.
         """
-        if self._state.userbot:
-            before = before or datetime.datetime.now(datetime.timezone.utc)
-            data = await self._state.get_docs(self.id, limit=limit, before=before)
-        else:
-            data = await self._state.get_docs(self.id)
+
+        data = await self._state.get_docs(self.id, limit=limit, before=before)
         docs = []
-        for doc_data in data:
+        for doc_data in data['docs']:
             docs.append(Doc(data=doc_data, channel=self, state=self._state))
 
         return docs
@@ -605,81 +526,40 @@ class ForumTopic(HasContentMixin):
     bumped_at: Optional[:class:`datetime.datetime`]
         When the topic was last bumped. This may be the same as
         :attr:`.created_at`.
-    edited_at: Optional[:class:`datetime.datetime`]
-        When the topic was last edited.
-    stickied: Optional[:class:`bool`]
-        Whether the topic is stickied (pinned) in its channel.
-    locked: Optional[:class:`bool`]
-        Whether the topic is locked.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the topic was last updated.
     deleted: Optional[:class:`bool`]
         Whether the topic is deleted.
-    deleted_by: Optional[:class:`.Member`]
-        Who deleted this topic. This will only be present through
-        :meth:`on_forum_topic_delete`.
-    reply_count: :class:`int`
-        How many replies the topic has.
-        If the client is a user account, this represents an API property, else
-        this is the length of :attr:`.replies`.
     """
 
     __slots__: Tuple[str, ...] = (
         '_state',
         'channel',
         'channel_id',
-        'team_id',
-        'group_id',
         'id',
         'title',
         'content',
         'author_id',
         'webhook_id',
         'created_at',
-        'edited_at',
-        'bumped_at',
-        'game_id',
-        'visibility',
-        'stickied',
-        'locked',
-        'shared',
-        'deleted',
-        'deleted_by',
-        '_reply_count',
-        '_replies',
+        'updated_at',
     )
 
-    def __init__(self, *, state, data, channel: ForumChannel):
+    def __init__(self, *, state, data: ForumTopicPayload, channel: ForumChannel):
         super().__init__()
         self._state = state
         self.channel = channel
-
         self.channel_id: str = data.get('channelId')
-        self.team_id: str = data.get('teamId') or data.get('serverId')
-        self.group_id: Optional[str] = data.get('groupId')
+        self.server_id: str = data.get('serverId')
 
         self.id: int = data['id']
-        self.title: str = data['title']
-        self.content: Optional[str]
-        if self._state.userbot:
-            self.content = self._get_full_content(data['message'])
-        else:
-            self.content = data.get('content')
+        self.title: Optional[str] = data.get('title')
+        self.content: Optional[str] = data.get('content')
 
-        self.author_id: str = data.get('createdBy')
         self.webhook_id: Optional[str] = data.get('createdByWebhookId')
+        self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt') or data.get('updatedAt'))
-        self.bumped_at: Optional[datetime.datetime] = ISO8601(data.get('bumpedAt'))
-
-        self.game_id: Optional[int] = data.get('gameId')
-        self.visibility: Optional[str] = data.get('visibility')
-        self.stickied: Optional[bool] = data.get('isSticky')
-        self.locked: Optional[bool] = data.get('isLocked')
-        self.shared: Optional[bool] = data.get('isShare')
-        self.deleted: Optional[bool] = data.get('isDeleted')
-        self.deleted_by: Optional[Member] = None
-
-        self._reply_count: int = int(data.get('replyCount', 0))
-        self._replies = {}
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
 
     def __str__(self) -> str:
         return self.title
@@ -688,266 +568,68 @@ class ForumTopic(HasContentMixin):
         return f'<ForumTopic id={self.id!r} title={self.title!r} channel={self.channel!r}>'
 
     @property
-    def team(self) -> Team:
-        """:class:`.Team`: The team that the topic is in."""
-        return self._state._get_team(self.team_id) or self.channel.team
+    def server(self) -> Server:
+        """:class:`.Server`: The server that the topic is in."""
+        return self._state._get_server(self.server_id)
 
     @property
-    def guild(self) -> Team:
-        """:class:`.Team`: |dpyattr|
+    def guild(self) -> Server:
+        """:class:`.Server`: |dpyattr|
 
-        This is an alias of :attr:`.team`.
+        This is an alias of :attr:`.server`.
 
-        The team that the topic is in.
+        The server that the topic is in.
         """
-        return self.team
-
-    @property
-    def server(self) -> Team:
-        """:class:`.Team`: This is an alias of :attr:`.team`.
-
-        The team that the topic is in.
-        """
-        return self.team
+        return self.server
 
     @property
     def group(self) -> Group:
         """Optional[:class:`.Group`]: The group that the topic is in."""
-        return self.team.get_group(self.group_id) or self.channel.group
-
-    @property
-    def game(self) -> Game:
-        """Optional[:class:`.Game`]: The game that the topic is for."""
-        return Game(game_id=self.game_id)
+        return self.channel.group
 
     @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the topic."""
-        return self.team.get_member(self.author_id)
-
-    @property
-    def replies(self) -> List[ForumReply]:
-        return list(self._replies.values())
-
-    @property
-    def reply_count(self) -> int:
-        return self._reply_count if self._reply_count is not None else len(self.replies)
+        return self.server.get_member(self.author_id)
 
     @property
     def share_url(self) -> str:
+        """:class:`str`: The share URL of the topic."""
         return f'{self.channel.share_url}/{self.id}'
 
-    def get_reply(self, id) -> Optional[ForumReply]:
-        """Optional[:class:`.ForumReply`]: Get a reply by its ID."""
-        return self._replies.get(id)
-
-    async def fetch_replies(self, *, limit=50) -> List[ForumReply]:
-        """|coro|
-
-        |onlyuserbot|
-
-        Fetch the replies to this topic.
-
-        Returns
-        --------
-        List[:class:`.ForumReply`]
-        """
-        replies = []
-        data = await self._state.get_forum_topic_replies(self.channel.id, self.id, limit=limit)
-        for reply_data in data.get('threadReplies', data) or []:
-            reply = ForumReply(data=reply_data, parent=self, state=self._state)
-            replies.append(reply)
-
-        return replies
-
-    async def fetch_reply(self, id: int) -> ForumReply:
-        """|coro|
-
-        |onlyuserbot|
-
-        Fetch a reply to this topic.
-
-        Returns
-        --------
-        :class:`.ForumReply`
-        """
-        data = await self._state.get_content_reply('forums', self.channel.id, self.id, id)
-        reply = ForumReply(data=data['metadata']['reply'], parent=self, state=self._state)
-        return reply
-
-    async def reply(self, *content, **kwargs) -> int:
-        """|coro|
-
-        |onlyuserbot|
-
-        Create a new reply to this topic.
-
-        Parameters
-        -----------
-        content: Any
-            The content to create the reply with.
-        reply_to: Optional[:class:`.ForumReply`]
-            An existing reply to reply to.
-
-        Returns
-        --------
-        :class:`int`
-            The ID of the created reply.
-
-            .. note::
-                Guilded does not return the full object in response to this.
-                Nevertheless, if you are connected to the gateway, it should
-                end up getting cached and accessible via :meth:`.get_reply`.
-        """
-        data = await self._state.create_forum_topic_reply(self.channel.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
-        return data['replyId']
-
-    async def delete(self) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Delete this topic.
-        """
-        await self._state.delete_forum_topic(self.channel.id, self.id)
-
-    async def edit(self, *content, **kwargs) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Edit this topic.
-
-        Parameters
-        -----------
-        \*content: Any
-            The topic's content.
-        title: :class:`str`
-            The topic's title.
-        """
-
-        payload = {
-            'title': kwargs.pop('title', self.title),
-            'content': content,
-        }
-
-        data = await self._state.update_forum_topic(self.channel.id, self.id, payload=payload)
-        try:
-            self.edited_at = ISO8601(data['editedAt'])
-        except KeyError:
-            pass
-
-    async def move(self, to: ForumChannel) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Move this topic to another :class:`.ForumChannel`.
-
-        Parameters
-        -----------
-        to: :class:`.ForumChannel`
-            The forum to move this topic to.
-        """
-        await self._state.move_forum_topic(self.channel.id, self.id, to.id)
-
-    async def lock(self) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Lock this topic.
-        """
-        await self._state.lock_forum_topic(self.channel.id, self.id)
-
-    async def unlock(self) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Unlock this topic.
-        """
-        await self._state.unlock_forum_topic(self.channel.id, self.id)
-
-    async def sticky(self) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Sticky (pin) this topic.
-        """
-        await self._state.sticky_forum_topic(self.channel.id, self.id)
-
-    async def unsticky(self) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Unsticky (unpin) this topic.
-        """
-        await self._state.unsticky_forum_topic(self.channel.id, self.id)
-
-    async def pin(self) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Pin (sticky) this topic. This is an alias of :meth:`.sticky`.
-        """
-        await self.sticky()
-
-    async def unpin(self) -> None:
-        """|coro|
-
-        |onlyuserbot|
-
-        Unpin (unsticky) this topic. This is an alias of :meth:`.unsticky`.
-        """
-        await self.unsticky()
-
-    async def add_reaction(self, emoji: Emoji) -> None:
+    async def add_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Add a reaction to this topic.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to add.
+        emote: :class:`.Emote`
+            The emote to add.
         """
-        if self._state.userbot:
-            await self._state.add_content_reaction('post', self.id, emoji.id)
-        else:
-            emoji_id: int = getattr(emoji, 'id', emoji)
-            await self._state.add_reaction_emote(self.channel.id, self.id, emoji_id)
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.add_reaction_emote(self.channel.id, self.id, emote_id)
 
-    async def remove_self_reaction(self, emoji: Emoji) -> None:
+    async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Remove one of your reactions from this topic.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to remove.
+        emote: :class:`.Emote`
+            The emote to remove.
         """
-        if self._state.userbot:
-            await self._state.remove_self_content_reaction('post', self.id, emoji.id)
-        else:
-            emoji_id: int = getattr(emoji, 'id', emoji)
-            await self._state.remove_reaction_emote(self.channel.id, self.id, emoji_id)
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
 
 
-class ForumChannel(guilded.abc.TeamChannel):
-    """Represents a forum channel in a :class:`.Team`\."""
+class ForumChannel(guilded.abc.ServerChannel):
+    """Represents a forum channel in a :class:`.Server`."""
     def __init__(self, **fields):
         super().__init__(**fields)
-        if self._state.userbot:
-            self.type = ChannelType.forum
-            self._shareable_content_type = 'forums'
-        else:
-            self.type = ChannelType.forums
 
+        self.type = ChannelType.forums
         self._topics = {}
 
     @property
@@ -961,9 +643,9 @@ class ForumChannel(guilded.abc.TeamChannel):
 
     async def create_topic(
         self,
-        *pos_content: Optional[Union[str, Embed, File, Emoji]],
-        content: Optional[str] = MISSING,
+        *,
         title: str,
+        content: str,
     ) -> ForumTopic:
         """|coro|
 
@@ -971,17 +653,10 @@ class ForumChannel(guilded.abc.TeamChannel):
 
         Parameters
         -----------
-        \*pos_content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
-            An argument list of the topic's body content, passed in the order
-            that each element should display.
-            If the client is a bot account, only the first value is used as content.
-            This parameter cannot be combined with ``content``.
-        content: :class:`str`
-            The text content to include in the body of the topic.
-            This parameter exists so that text content can be passed using a keyword argument.
-            This parameter cannot be combined with ``pos_content``.
         title: :class:`str`
             The title to create the topic with.
+        content: :class:`str`
+            The text content to include in the body of the topic.
 
         Returns
         --------
@@ -989,37 +664,13 @@ class ForumChannel(guilded.abc.TeamChannel):
             The topic that was created.
         """
 
-        if content is not MISSING and pos_content:
-            raise ValueError('Cannot provide both content and pos_content')
+        data = await self._state.create_forum_topic(
+            self.id,
+            title=title,
+            content=content,
+        )
 
-        if self._state.userbot:
-            if content is not MISSING:
-                pos_content = (content,)
-
-            content = await self._state.process_list_content(pos_content)
-
-            data = await self._state.create_forum_topic(
-                self.id,
-                title=title,
-                message=self._state.compatible_content(content),
-            )
-
-        else:
-            from .http import handle_message_parameters
-
-            if pos_content:
-                content = pos_content[0]
-
-            params = handle_message_parameters(content=content)
-
-            data = await self._state.create_forum_topic(
-                self.id,
-                title=title,
-                content=params.payload['content'],
-            )
-            data = data['forumTopic']
-
-        topic = ForumTopic(data=data, channel=self, state=self._state)
+        topic = ForumTopic(data=data['forumTopic'], channel=self, state=self._state)
         return topic
 
     async def create_thread(self, *, name: str, content: Optional[str] = None, **kwargs) -> ForumTopic:
@@ -1035,66 +686,67 @@ class ForumChannel(guilded.abc.TeamChannel):
             The title to create the topic with.
         content: Optional[:class:`str`]
             The content to create the topic with.
-        """
-        return await self.create_topic(title=name, content=str(content))
-
-    async def fetch_topic(self, id: int) -> ForumTopic:
-        """|coro|
-
-        |onlyuserbot|
-
-        Fetch a topic from this forum.
-
-        Parameters
-        -----------
-        id: :class:`int`
-            The topic's ID.
 
         Returns
         --------
         :class:`.ForumTopic`
-            The topic by its ID.
+            The topic that was created.
         """
-        data = await self._state.get_forum_topic(self.id, id)
-        topic = ForumTopic(data=data.get('thread', data), channel=self, state=self._state)
-        return topic
+        return await self.create_topic(title=name, content=str(content))
 
-    async def getch_topic(self, id: int) -> ForumTopic:
-        return self.get_topic(id) or await self.fetch_topic(id)
+    #async def fetch_topic(self, id: int) -> ForumTopic:
+    #    """|coro|
 
-    async def fetch_topics(self, *, limit: int = 50, page: int = 1, before: datetime.datetime = None) -> List[ForumTopic]:
-        """|coro|
+    #    Fetch a topic from this forum.
 
-        |onlyuserbot|
+    #    Parameters
+    #    -----------
+    #    id: :class:`int`
+    #        The topic's ID.
 
-        Fetch the topics in this forum.
+    #    Returns
+    #    --------
+    #    :class:`.ForumTopic`
+    #        The topic by its ID.
+    #    """
+    #    data = await self._state.get_forum_topic(self.id, id)
+    #    topic = ForumTopic(data=data.get('thread', data), channel=self, state=self._state)
+    #    return topic
 
-        All parameters are optional.
+    #async def getch_topic(self, id: int) -> ForumTopic:
+    #    return self.get_topic(id) or await self.fetch_topic(id)
 
-        Parameters
-        -----------
-        limit: :class:`int`
-            The maximum number of topics to return. Defaults to 50.
-        before: :class:`datetime.datetime`
-            The latest date that a topic can be from. Defaults to the current
-            time.
+    #async def fetch_topics(self, *, limit: int = 50, page: int = 1, before: datetime.datetime = None) -> List[ForumTopic]:
+    #    """|coro|
 
-        Returns
-        --------
-        List[:class:`.ForumTopic`]
-            The topics in this forum.
-        """
-        before = before or datetime.datetime.now(datetime.timezone.utc)
-        data = await self._state.get_forum_topics(self.id, limit=limit, page=page, before=before)
-        topics = []
-        for topic_data in data.get('threads', data):
-            topic = ForumTopic(data=topic_data, channel=self, state=self._state)
+    #    Fetch the topics in this forum.
 
-        return topics
+    #    All parameters are optional.
+
+    #    Parameters
+    #    -----------
+    #    limit: :class:`int`
+    #        The maximum number of topics to return. Defaults to 50.
+    #    before: :class:`datetime.datetime`
+    #        The latest date that a topic can be from. Defaults to the current
+    #        time.
+
+    #    Returns
+    #    --------
+    #    List[:class:`.ForumTopic`]
+    #        The topics in this forum.
+    #    """
+    #    before = before or datetime.datetime.now(datetime.timezone.utc)
+    #    data = await self._state.get_forum_topics(self.id, limit=limit, page=page, before=before)
+    #    topics = []
+    #    for topic_data in data.get('threads', data):
+    #        topic = ForumTopic(data=topic_data, channel=self, state=self._state)
+
+    #    return topics
 
 
-class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
-    """Represents a voice channel in a :class:`.Team`\."""
+class VoiceChannel(guilded.abc.ServerChannel, guilded.abc.Messageable):
+    """Represents a voice channel in a :class:`.Server`."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.voice
@@ -1137,101 +789,96 @@ class VoiceChannel(guilded.abc.TeamChannel, guilded.abc.Messageable):
     #    )
 
 
-class Thread(guilded.abc.TeamChannel, guilded.abc.Messageable):
-    """Represents a thread in a :class:`.Team`\.
-
-    Attributes
-    -----------
-    initial_message_id: :class:`str`
-        The ID of the initial message in this thread.
+class Thread(guilded.abc.ServerChannel, guilded.abc.Messageable):
+    """Represents a thread in a :class:`.Server`.
     """
     def __init__(self, **fields):
         super().__init__(**fields)
-        data = fields.get('data') or fields.get('channel', {})
         self.type = ChannelType.thread
+    #    data = fields.get('data') or fields.get('channel', {})
 
-        self._message_count = data.get('messageCount') or 0
-        self.initial_message_id = data.get('threadMessageId')
-        self._initial_message = self._state._get_message(self.initial_message_id)
-        # This is unlikely to not be None given the temporal nature of message cache
+    #    self._message_count = data.get('messageCount') or 0
+    #    self.initial_message_id = data.get('threadMessageId')
+    #    self._initial_message = self._state._get_message(self.initial_message_id)
+    #    # This is unlikely to not be None given the temporal nature of message cache
 
-        self._participant_ids = []
+    #    self._participant_ids = []
 
-        for user_id in data.get('userIds') or []:
-            self._participant_ids.append(user_id)
+    #    for user_id in data.get('userIds') or []:
+    #        self._participant_ids.append(user_id)
 
-        for member_data in data.get('participants') or []:
-            if member_data.get('id'):
-                self._participant_ids.append(member_data['id'])
+    #    for member_data in data.get('participants') or []:
+    #        if member_data.get('id'):
+    #            self._participant_ids.append(member_data['id'])
 
-    @property
-    def message_count(self) -> int:
-        """:class:`int`: The number of messages in the thread.
+    #@property
+    #def message_count(self) -> int:
+    #    """:class:`int`: The number of messages in the thread.
 
-        This may be inaccurate if this object has existed for an extended
-        period of time since it does not get updated by the library when new
-        messages are sent within the thread.
-        """
-        return int(self._message_count)
+    #    This may be inaccurate if this object has existed for an extended
+    #    period of time since it does not get updated by the library when new
+    #    messages are sent within the thread.
+    #    """
+    #    return int(self._message_count)
 
-    @property
-    def initial_message(self) -> Optional[ChatMessage]:
-        """Optional[:class:`.ChatMessage`]: The initial message in this thread.
+    #@property
+    #def initial_message(self) -> Optional[ChatMessage]:
+    #    """Optional[:class:`.ChatMessage`]: The initial message in this thread.
 
-        This may be ``None`` if the message was not cached when this object was
-        created. In this case, you may fetch the message with :meth:`.fetch_initial_message`.
-        """
-        return self._initial_message
+    #    This may be ``None`` if the message was not cached when this object was
+    #    created. In this case, you may fetch the message with :meth:`.fetch_initial_message`.
+    #    """
+    #    return self._initial_message
 
-    @property
-    def participants(self) -> List[Member]:
-        """List[:class:`.Member`]: The cached list of participants in this thread."""
-        return [self.team.get_member(member_id) for member_id in self._participant_ids]
+    #@property
+    #def participants(self) -> List[Member]:
+    #    """List[:class:`.Member`]: The cached list of participants in this thread."""
+    #    return [self.server.get_member(member_id) for member_id in self._participant_ids]
 
-    async def archive(self) -> None:
-        """|coro|
+    #async def archive(self) -> None:
+    #    """|coro|
 
-        Archive this thread.
-        """
-        request = self._state.archive_team_thread(self.team_id, self.group_id, self.id)
-        await request
+    #    Archive this thread.
+    #    """
+    #    request = self._state.archive_thread(self.server_id, self.group_id, self.id)
+    #    await request
 
-    async def restore(self) -> None:
-        """|coro|
+    #async def restore(self) -> None:
+    #    """|coro|
 
-        Restore this thread.
-        """
-        request = self._state.restore_team_thread(self.team_id, self.group_id, self.id)
-        await request
+    #    Restore this thread.
+    #    """
+    #    request = self._state.restore_thread(self.server_id, self.group_id, self.id)
+    #    await request
 
-    async def leave(self) -> None:
-        """|coro|
+    #async def leave(self) -> None:
+    #    """|coro|
 
-        Leave this thread.
-        """
-        request = self._state.leave_thread(self.id)
-        await request
+    #    Leave this thread.
+    #    """
+    #    request = self._state.leave_thread(self.id)
+    #    await request
 
-    async def fetch_initial_message(self) -> ChatMessage:
-        """|coro|
+    #async def fetch_initial_message(self) -> ChatMessage:
+    #    """|coro|
 
-        Fetch the initial message in this thread. Sometimes this may be
-        available via :attr:`.initial_message`, but it is unlikely when
-        dealing with existing threads because it relies on message cache.
+    #    Fetch the initial message in this thread. Sometimes this may be
+    #    available via :attr:`.initial_message`, but it is unlikely when
+    #    dealing with existing threads because it relies on message cache.
 
-        This is equivalent to:
+    #    This is equivalent to:
 
-        .. code-block:: python3
+    #    .. code-block:: python3
 
-            initial_message = await thread.fetch_message(thread.initial_message_id)
+    #        initial_message = await thread.fetch_message(thread.initial_message_id)
 
-        Returns
-        --------
-        :class:`.ChatMessage`
-            The initial message in the thread.
-        """
-        message = await self.fetch_message(self.initial_message_id)
-        return message
+    #    Returns
+    #    --------
+    #    :class:`.ChatMessage`
+    #        The initial message in the thread.
+    #    """
+    #    message = await self.fetch_message(self.initial_message_id)
+    #    return message
 
 
 class DMChannel(guilded.abc.Messageable):
@@ -1259,7 +906,7 @@ class DMChannel(guilded.abc.Messageable):
         data = data.get('channel', data)
         super().__init__(state=state, data=data)
         self.type = ChannelType.dm
-        self.team = None
+        self.server = None
         self.group = None
 
         self._users = {}
@@ -1322,30 +969,22 @@ class Announcement(HasContentMixin):
         The announcement's text content.
     channel: :class:`.AnnouncementChannel`
         The channel that the announcement is in.
-    group: :class:`.Group`
-        The group that the announcement is in.
-    team: :class:`.Team`
-        The team that the announcement is in.
     public: :class:`bool`
         Whether the announcement is public.
     pinned: :class:`bool`
         Whether the announcement is pinned.
     created_at: :class:`datetime.datetime`
         When the announcement was created.
-    edited_at: Optional[:class:`datetime.datetime`]
-        When the announcement was last edited.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the announcement was last updated.
     slug: Optional[:class:`str`]
-        The announcement's URL slug.
-    game: Optional[:class:`.Game`]
-        The game associated with the announcement.
+        The announcement's blog URL slug.
     """
-    def __init__(self, *, state, data, channel, game=None):
+
+    def __init__(self, *, state, data, channel: AnnouncementChannel):
         super().__init__()
         self._state = state
         self.channel = channel
-        self.group = channel.group
-        self.team = channel.team
-        self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
         self.tags: str = data.get('tags')
         self._replies = {}
 
@@ -1359,36 +998,45 @@ class Announcement(HasContentMixin):
 
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.edited_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
 
         self.id: str = data['id']
         self.title: str = data['title']
         self.content: str = self._get_full_content(data['content'])
 
     def __repr__(self):
-        return f'<Announcement id={self.id!r} title={self.title!r} author={self.author!r}>'
+        return f'<Announcement id={self.id!r} title={self.title!r} channel={self.channel!r}>'
 
     @property
-    def team_id(self) -> str:
-        return self.team.id
+    def server(self) -> Server:
+        """:class:`.Server`: The server that the announcement is in."""
+        return self.channel.server
 
     @property
-    def group_id(self) -> str:
-        return self.group.id
+    def guild(self) -> Server:
+        """:class:`.Server`: |dpyattr|
+
+        This is an alias of :attr:`.server`.
+
+        The server that the announcement is in.
+        """
+        return self.server
 
     @property
-    def channel_id(self) -> str:
-        return self.channel.id
+    def group(self) -> Group:
+        """:class:`.Group`: The group that the announcement is in."""
+        return self.channel.group
 
     @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the announcement."""
-        return self.team.get_member(self.author_id)
+        return self.server.get_member(self.author_id)
 
     @property
     def blog_url(self) -> Optional[str]:
-        if self.channel.vanity_url and self.slug:
-            return f'{self.channel.vanity_url}/{self.slug}'
+        """Optional[:class:`str`]: The blog URL of the announcement."""
+        if self.channel.blog_url and self.slug:
+            return f'{self.channel.blog_url}/{self.slug}'
         return None
 
     @property
@@ -1460,33 +1108,30 @@ class Announcement(HasContentMixin):
 
         await self._state.update_announcement(self.channel.id, self.id, payload=payload)
 
-    async def add_reaction(self, emoji: Emoji) -> None:
+    async def add_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Add a reaction to this announcement.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to add.
+        emote: :class:`.Emote`
+            The emote to add.
         """
-        await self._state.add_content_reaction(self.channel.type.value, self.id, emoji.id)
+        await self._state.add_content_reaction(self.channel.type.value, self.id, emote.id)
 
-    async def remove_self_reaction(self, emoji: Emoji) -> None:
+    async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Remove one of your reactions from this announcement.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to remove.
+        emote: :class:`.Emote`
+            The emote to remove.
         """
-        if self._state.userbot:
-            await self._state.remove_self_content_reaction(self.channel.type.value, self.id, emoji.id)
-        else:
-            emoji_id: int = getattr(emoji, 'id', emoji)
-            await self._state.remove_reaction_emote(self.channel.id, self.id, emoji_id)
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
 
     async def fetch_replies(self) -> None:
         """|coro|
@@ -1540,131 +1185,151 @@ class Announcement(HasContentMixin):
         :class:`.AnnouncementReply`
             The created reply.
         """
-        data = await self._state.create_content_reply(self.channel.type.value, self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+        data = await self._state.create_content_reply(self.channel.type.value, self.server.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
         reply = AnnouncementReply(data=data['reply'], parent=self, state=self._state)
         return reply
 
 
-class AnnouncementChannel(guilded.abc.TeamChannel):
-    """Represents an announcement channel in a :class:`.Team`\."""
+class AnnouncementChannel(guilded.abc.ServerChannel):
+    """Represents an announcement channel in a :class:`.Server`."""
     def __init__(self, **fields):
         super().__init__(**fields)
-        if self._state.userbot:
-            self.type = ChannelType.announcement
-            self._shareable_content_type = 'announcements'
-        else:
-            self.type = ChannelType.announcements
 
+        self.type = ChannelType.announcements
         self._announcements = {}
 
     @property
+    def blog_url(self) -> Optional[str]:
+        """Optional[:class:`str`]: The blog URL of the announcement channel.
+
+        .. note::
+
+            Due to an API limitation, this property cannot check if the
+            channel is set as a blog, and it assumes the slug based on the
+            channel's :attr:`~AnnouncementChannel.name`.
+        """
+
+        if not self.public:
+            # Blog channels must be public
+            return None
+
+        channel_slug = re.sub(r'(?![\w-]).', '', self.server.name.replace(' ', '-'))
+        if not channel_slug:
+            # Guilded does not let you save an empty-when-stripped blog name
+            return None
+
+        server_portion = self.server.slug if self.server.slug is not None else f'teams/{self.server.id}'
+        return f'https://guilded.gg/{server_portion}/blog/{channel_slug}'
+
+    @property
     def announcements(self) -> List[Announcement]:
-        """List[:class:`.Announcement`]: The list of cached announcements in this channel."""
+        """List[:class:`.Announcement`]: The list of announcements in this channel."""
         return list(self._announcements.values())
 
     def get_announcement(self, id) -> Optional[Announcement]:
-        """Optional[:class:`.Announcement`]: Get a cached announcement in this channel."""
+        """Optional[:class:`.Announcement`]: Get an announcement from this channel."""
         return self._announcements.get(id)
 
-    async def getch_announcement(self, id: str) -> Announcement:
-        return self.get_announcement(id) or await self.fetch_announcement(id)
+    #async def getch_announcement(self, id: str) -> Announcement:
+    #    return self.get_announcement(id) or await self.fetch_announcement(id)
 
-    async def fetch_announcement(self, id: str) -> Announcement:
-        """|coro|
+    #async def fetch_announcement(self, id: str) -> Announcement:
+    #    """|coro|
 
-        Fetch an announcement in this channel.
+    #    Fetch an announcement in this channel.
 
-        Parameters
-        -----------
-        id: :class:`str`
-            The announcement's ID.
+    #    Parameters
+    #    -----------
+    #    id: :class:`str`
+    #        The announcement's ID.
 
-        Returns
-        --------
-        :class:`.Announcement`
-        """
-        data = await self._state.get_announcement(self.id, id)
-        announcement = Announcement(data=data['announcement'], channel=self, state=self._state)
-        return announcement
+    #    Returns
+    #    --------
+    #    :class:`.Announcement`
+    #    """
+    #    data = await self._state.get_announcement(self.id, id)
+    #    announcement = Announcement(data=data['announcement'], channel=self, state=self._state)
+    #    return announcement
 
-    async def fetch_announcements(self, *, limit: int = 50, before: datetime.datetime = None) -> List[Announcement]:
-        """|coro|
+    #async def fetch_announcements(self, *, limit: int = 50, before: datetime.datetime = None) -> List[Announcement]:
+    #    """|coro|
 
-        Fetch multiple announcements in this channel.
+    #    Fetch multiple announcements in this channel.
 
-        All parameters are optional.
+    #    All parameters are optional.
 
-        Parameters
-        -----------
-        limit: :class:`int`
-            The maximum number of announcements to return. Defaults to 50.
-        before: :class:`datetime.datetime`
-            The latest date that an announcement can be from. Defaults to the
-            current time.
+    #    Parameters
+    #    -----------
+    #    limit: :class:`int`
+    #        The maximum number of announcements to return. Defaults to 50.
+    #    before: :class:`datetime.datetime`
+    #        The latest date that an announcement can be from. Defaults to the
+    #        current time.
 
-        Returns
-        --------
-        List[:class:`.Announcement`]
-        """
-        before = before or datetime.datetime.now(datetime.timezone.utc)
-        data = await self._state.get_announcements(self.id, limit=limit, before=before)
-        announcements = []
-        for announcement_data in data['announcements']:
-            announcements.append(Announcement(data=announcement_data, channel=self, state=self._state))
+    #    Returns
+    #    --------
+    #    List[:class:`.Announcement`]
+    #    """
 
-        return announcements
+    #    before = before or datetime.datetime.now(datetime.timezone.utc)
+    #    data = await self._state.get_announcements(self.id, limit=limit, before=before)
+    #    announcements = []
+    #    for announcement_data in data['announcements']:
+    #        announcements.append(Announcement(data=announcement_data, channel=self, state=self._state))
 
-    async def fetch_pinned_announcements(self) -> List[Announcement]:
-        """|coro|
+    #    return announcements
 
-        Fetch all pinned announcements in this channel.
+    #async def fetch_pinned_announcements(self) -> List[Announcement]:
+    #    """|coro|
 
-        Returns
-        --------
-        List[:class:`.Announcement`]
-        """
-        data = await self._state.get_pinned_announcements(self.id)
-        announcements = []
-        for announcement_data in data['announcements']:
-            announcements.append(Announcement(data=announcement_data, channel=self, state=self._state))
+    #    Fetch all pinned announcements in this channel.
 
-        return announcements
+    #    Returns
+    #    --------
+    #    List[:class:`.Announcement`]
+    #    """
+    #    data = await self._state.get_pinned_announcements(self.id)
+    #    announcements = []
+    #    for announcement_data in data['announcements']:
+    #        announcements.append(Announcement(data=announcement_data, channel=self, state=self._state))
 
-    async def create_announcement(self, *content, **kwargs) -> Announcement:
-        """|coro|
+    #    return announcements
 
-        Create an announcement in this channel.
+    #async def create_announcement(self, *content, **kwargs) -> Announcement:
+    #    """|coro|
 
-        Parameters
-        -----------
-        content: Any
-            The content of the announcement.
-        title: :class:`str`
-            The title of the announcement.
-        game: Optional[:class:`.Game`]
-            The game to be associated with this announcement.
-        send_notifications: Optional[:class:`bool`]
-            Whether to send notifications to all members ("Notify all
-            members" in the client). Defaults to ``True`` if not specified.
+    #    Create an announcement in this channel.
 
-        Returns
-        --------
-        :class:`.Announcement`
-            The created announcement.
-        """
-        title = kwargs.pop('title')
-        game = kwargs.pop('game', None)
-        dont_send_notifications = not kwargs.pop('send_notifications', True)
+    #    Parameters
+    #    -----------
+    #    content: Any
+    #        The content of the announcement.
+    #    title: :class:`str`
+    #        The title of the announcement.
+    #    game: Optional[:class:`.Game`]
+    #        The game to be associated with this announcement.
+    #    send_notifications: Optional[:class:`bool`]
+    #        Whether to send notifications to all members ("Notify all
+    #        members" in the client). Defaults to ``True`` if not specified.
 
-        data = await self._state.create_announcement(
-            self.id,
-            title=title,
-            content=content,
-            game_id=(game.id if game else None),
-            dont_send_notifications=dont_send_notifications
-        )
-        announcement = Announcement(data=data['announcement'], channel=self, game=game, state=self._state)
-        return announcement
+    #    Returns
+    #    --------
+    #    :class:`.Announcement`
+    #        The created announcement.
+    #    """
+    #    title = kwargs.pop('title')
+    #    game = kwargs.pop('game', None)
+    #    dont_send_notifications = not kwargs.pop('send_notifications', True)
+
+    #    data = await self._state.create_announcement(
+    #        self.id,
+    #        title=title,
+    #        content=content,
+    #        game_id=(game.id if game else None),
+    #        dont_send_notifications=dont_send_notifications
+    #    )
+    #    announcement = Announcement(data=data['announcement'], channel=self, game=game, state=self._state)
+    #    return announcement
 
 
 class Media(HasContentMixin):
@@ -1702,27 +1367,19 @@ class Media(HasContentMixin):
         An asset for the media's thumbnail.
     channel: :class:`.MediaChannel`
         The channel that the media is in.
-    group: :class:`.Group`
-        The group that the media is in.
-    team: :class:`.Team`
-        The team that the media is in.
     public: :class:`bool`
         Whether the media is public.
     created_at: :class:`datetime.datetime`
         When the media was created.
     reply_count: :class:`int`
         How many replies the media has.
-    game: Optional[:class:`.Game`]
-        The game associated with the media.
     """
-    def __init__(self, *, state, data, channel, game=None):
+
+    def __init__(self, *, state, data, channel: MediaChannel):
         super().__init__()
         self._state = state
         self.type = getattr(FileType, (data.get('type', 'image')), None)
         self.channel = channel
-        self.group = channel.group
-        self.team = channel.team
-        self.game: Optional[Game] = game or (Game(game_id=data.get('gameId')) if data.get('gameId') else None)
         self.tags: List[str] = list(data.get('tags') or [])  # sometimes an empty string is present instead of a list
         self._replies = {}
 
@@ -1757,7 +1414,7 @@ class Media(HasContentMixin):
         return len(str(self))
 
     def __eq__(self, other) -> bool:
-        return isinstance(other, Media) and self.id == other.id and self.url == other.url
+        return isinstance(other, Media) and self.id == other.id
 
     def _update(self, data) -> None:
         try:
@@ -1786,193 +1443,209 @@ class Media(HasContentMixin):
             pass
 
     @property
+    def server(self) -> Server:
+        """:class:`.Server`: The server that the media is in."""
+        return self.channel.server
+
+    @property
+    def guild(self) -> Server:
+        """:class:`.Server`: |dpyattr|
+
+        This is an alias of :attr:`.server`.
+
+        The server that the media is in.
+        """
+        return self.server
+
+    @property
+    def group(self) -> Group:
+        """:class:`.Group`: The group that the media is in."""
+        return self.channel.group
+
+    @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The member that created this media."""
-        return self.team.get_member(self.author_id)
+        return self.server.get_member(self.author_id)
 
-    async def add_reaction(self, emoji: Emoji) -> None:
+    async def add_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Add a reaction to this media post.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to add.
+        emote: :class:`.Emote`
+            The emote to add.
         """
-        await self._state.add_content_reaction(self.channel.content_type, self.id, emoji.id)
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.add_reaction_emote(self.channel.id, self.id, emote_id)
 
-    async def remove_self_reaction(self, emoji: Emoji) -> None:
+    async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Remove one of your reactions from this media post.
 
         Parameters
         -----------
-        emoji: :class:`.Emoji`
-            The emoji to remove.
+        emote: :class:`.Emote`
+            The emote to remove.
         """
-        if self._state.userbot:
-            await self._state.remove_self_content_reaction(self.channel.content_type, self.id, emoji.id)
-        else:
-            emoji_id: int = getattr(emoji, 'id', emoji)
-            await self._state.remove_reaction_emote(self.channel.id, self.id, emoji_id)
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
 
-    async def reply(self, *content, **kwargs) -> MediaReply:
-        """|coro|
+    #async def reply(self, *content, **kwargs) -> MediaReply:
+    #    """|coro|
 
-        Reply to this media.
+    #    Reply to this media.
 
-        Parameters
-        -----------
-        content: Any
-            The content to create the reply with.
-        reply_to: Optional[:class:`.MediaReply`]
-            An existing reply to reply to.
+    #    Parameters
+    #    -----------
+    #    content: Any
+    #        The content to create the reply with.
+    #    reply_to: Optional[:class:`.MediaReply`]
+    #        An existing reply to reply to.
 
-        Returns
-        --------
-        :class:`.MediaReply`
-            The created reply.
-        """
-        data = await self._state.create_content_reply(self.channel.content_type, self.team.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
-        reply = MediaReply(data=data['reply'], parent=self, state=self._state)
-        return reply
+    #    Returns
+    #    --------
+    #    :class:`.MediaReply`
+    #        The created reply.
+    #    """
+    #    data = await self._state.create_content_reply(self.channel.content_type, self.server.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
+    #    reply = MediaReply(data=data['reply'], parent=self, state=self._state)
+    #    return reply
 
     def get_reply(self, id: int):
         """Optional[:class:`.MediaReply`]: Get a reply by its ID."""
         return self._replies.get(id)
 
-    async def fetch_replies(self) -> List[MediaReply]:
-        """|coro|
+    #async def fetch_replies(self) -> List[MediaReply]:
+    #    """|coro|
 
-        |onlyuserbot|
+    #    Fetch the replies to this media post.
 
-        Fetch the replies to this media post.
+    #    Returns
+    #    --------
+    #    List[:class:`.MediaReply`]
+    #    """
+    #    replies = []
+    #    data = await self._state.get_content_replies(self.channel.content_type, self.id)
+    #    for reply_data in data:
+    #        reply = MediaReply(data=reply_data, parent=self, state=self._state)
+    #        replies.append(reply)
 
-        Returns
-        --------
-        List[:class:`.MediaReply`]
-        """
-        replies = []
-        data = await self._state.get_content_replies(self.channel.content_type, self.id)
-        for reply_data in data:
-            reply = MediaReply(data=reply_data, parent=self, state=self._state)
-            replies.append(reply)
+    #    return replies
 
-        return replies
+    #async def fetch_reply(self, id: int) -> MediaReply:
+    #    """|coro|
 
-    async def fetch_reply(self, id: int) -> MediaReply:
-        """|coro|
+    #    Fetch a reply to this media.
 
-        Fetch a reply to this media.
+    #    Parameters
+    #    -----------
+    #    id: :class:`int`
+    #        The ID of the reply.
 
-        Parameters
-        -----------
-        id: :class:`int`
-            The ID of the reply.
+    #    Returns
+    #    --------
+    #    :class:`.MediaReply`
+    #    """
+    #    data = await self._state.get_content_reply(self.channel.type.value, self.channel.id, self.id, id)
+    #    # metadata uses 'media' and not 'team_media'
+    #    reply = MediaReply(data=data['metadata']['reply'], parent=self, state=self._state)
+    #    return reply
 
-        Returns
-        --------
-        :class:`.MediaReply`
-        """
-        data = await self._state.get_content_reply(self.channel.type.value, self.channel.id, self.id, id)
-        # metadata uses 'media' and not 'team_media'
-        reply = MediaReply(data=data['metadata']['reply'], parent=self, state=self._state)
-        return reply
+    #async def move(self, to: MediaChannel) -> None:
+    #    """|coro|
 
-    async def move(self, to: MediaChannel) -> None:
-        """|coro|
+    #    Move this media post to another :class:`.MediaChannel`.
 
-        Move this media post to another :class:`.MediaChannel`.
+    #    Parameters
+    #    -----------
+    #    to: :class:`.MediaChannel`
+    #        The media channel to move this media post to.
+    #    """
+    #    await self._state.move_media(self.channel.id, self.id, to.id)
 
-        Parameters
-        -----------
-        to: :class:`.MediaChannel`
-            The media channel to move this media post to.
-        """
-        await self._state.move_media(self.channel.id, self.id, to.id)
+    #async def delete(self) -> None:
+    #    """|coro|
 
-    async def delete(self) -> None:
-        """|coro|
+    #    Delete this media post.
+    #    """
+    #    await self._state.delete_media(self.channel.id, self.id)
 
-        Delete this media post.
-        """
-        await self._state.delete_media(self.channel.id, self.id)
+    #async def edit(self, *,
+    #    title: str = None,
+    #    description: str = None,
+    #    file: Optional[File] = None,
+    #    youtube_url: Optional[str] = None,
+    #    tags: List[str] = None,
+    #    game: Optional[Game] = None,
+    #) -> Media:
+    #    """|coro|
 
-    async def edit(self, *,
-        title: str = None,
-        description: str = None,
-        file: Optional[File] = None,
-        youtube_url: Optional[str] = None,
-        tags: List[str] = None,
-        game: Optional[Game] = None,
-    ) -> Media:
-        """|coro|
+    #    Edit this media post.
 
-        Edit this media post.
+    #    All parameters are optional.
 
-        All parameters are optional.
+    #    Parameters
+    #    -----------
+    #    title: :class:`str`
+    #        The title of the media.
+    #    description: :class:`str`
+    #        The description of the media. Does not accept markdown or any
+    #        inline content.
+    #    file: :class:`.File`
+    #        The file to upload.
+    #    youtube_url: :class:`str`
+    #        The YouTube embed URL to use (``https://www.youtube.com/embed/...``).
+    #    game: :class:`.Game`
+    #        The game associated with the media.
+    #    tags: List[:class:`str`]
+    #        The tags on the media.
 
-        Parameters
-        -----------
-        title: :class:`str`
-            The title of the media.
-        description: :class:`str`
-            The description of the media. Does not accept markdown or any
-            inline content.
-        file: :class:`.File`
-            The file to upload.
-        youtube_url: :class:`str`
-            The YouTube embed URL to use (``https://www.youtube.com/embed/...``).
-        game: :class:`.Game`
-            The game associated with the media.
-        tags: List[:class:`str`]
-            The tags on the media.
+    #    Returns
+    #    --------
+    #    :class:`.Media`
+    #        The newly updated media.
+    #    """
 
-        Returns
-        --------
-        :class:`.Media`
-            The newly updated media.
-        """
+    #    if file and youtube_url:
+    #        raise ValueError('Must not specify both file and youtube_url')
 
-        if file and youtube_url:
-            raise ValueError('Must not specify both file and youtube_url')
+    #    payload = {
+    #        'id': self.id,
+    #        'title': title or self.title,
+    #        'description': description or self.description,
+    #    }
 
-        payload = {
-            'id': self.id,
-            'title': title or self.title,
-            'description': description or self.description,
-        }
+    #    if tags is not None:
+    #        payload['tags'] = tags
+    #    else:
+    #        payload['tags'] = self.tags
 
-        if tags is not None:
-            payload['tags'] = tags
-        else:
-            payload['tags'] = self.tags
+    #    if file:
+    #        file.set_media_type(MediaType.media_channel_upload)
+    #        await file._upload(self._state)
+    #        payload['src'] = file.url
+    #        payload['type'] = file.file_type.value
+    #    elif youtube_url:
+    #        data = await self._state.upload_third_party_media(youtube_url)
+    #        payload['src'] = data['url']
+    #        payload['additionalInfo'] = {'externalVideoSrc': youtube_url}
+    #        payload['type'] = FileType.video.value
+    #    else:
+    #        payload['src'] = self.url
+    #        payload['type'] = self.type.value
 
-        if file:
-            file.set_media_type(MediaType.media_channel_upload)
-            await file._upload(self._state)
-            payload['src'] = file.url
-            payload['type'] = file.file_type.value
-        elif youtube_url:
-            data = await self._state.upload_third_party_media(youtube_url)
-            payload['src'] = data['url']
-            payload['additionalInfo'] = {'externalVideoSrc': youtube_url}
-            payload['type'] = FileType.video.value
-        else:
-            payload['src'] = self.url
-            payload['type'] = self.type.value
+    #    if game is not None:
+    #        payload['gameId'] = game.id
+    #    elif self.game:
+    #        payload['gameId'] = self.game.id
 
-        if game is not None:
-            payload['gameId'] = game.id
-        elif self.game:
-            payload['gameId'] = self.game.id
+    #    await self._state.create_media(self.channel.id, payload=payload)
 
-        await self._state.create_media(self.channel.id, payload=payload)
-
-        self._update(payload)
-        return self
+    #    self._update(payload)
+    #    return self
 
     async def read(self) -> bytes:
         """|coro|
@@ -1988,7 +1661,7 @@ class Media(HasContentMixin):
 
 
 class ListItemNote(HasContentMixin):
-    """Represents the note on a :class:`.ListItem`\.
+    """Represents the note on a :class:`.ListItem`.
 
     Attributes
     -----------
@@ -1996,16 +1669,28 @@ class ListItemNote(HasContentMixin):
         The note's parent item.
     content: Optional[:class:`str`]
         The note's content.
+    created_at: :class:`datetime.datetime`
+        When the note was created.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the note was last updated.
     """
-    def __init__(self, *, data, parent: ListItem):
+    def __init__(self, *, data: ListItemNotePayload, parent: ListItem):
         super().__init__()
         self._state = parent._state
 
         self.parent = parent
 
+        self.author_id: str = data.get('createdBy')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.updated_by_id: Optional[str] = data.get('updatedBy')
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+
         self.content: Optional[str]
-        if self._state.userbot:
-            self.content = self._get_full_content(data)
+        if isinstance(data.get('content'), dict):
+            # Webhook execution responses
+            self.content = self._get_full_content(data['content'])
+            # Realistically we never have to worry about absent note content because the
+            # note of a webhook-created item is always populated with its execution payload
         else:
             self.content = data.get('content')
             self._mentions = self._create_mentions(data.get('mentions'))
@@ -2014,40 +1699,41 @@ class ListItemNote(HasContentMixin):
         return f'<ListItemNote parent={self.parent!r} author={self.author!r}>'
 
     @property
-    def team_id(self) -> str:
-        return self.parent.team_id
+    def server(self) -> Server:
+        """:class:`.Server`: The server that the note's parent item is in."""
+        return self.parent.server
 
     @property
-    def team(self) -> Team:
-        return self.parent.team
+    def guild(self) -> Server:
+        """:class:`.Server`: |dpyattr|
+
+        This is an alias of :attr:`.server`.
+
+        The server that the note's parent item is in.
+        """
+        return self.server
 
     @property
-    def group_id(self) -> str:
-        return self.parent.group_id
+    def group(self) -> Group:
+        """:class:`.Group`: The group that the note's parent item is in."""
+        return self.parent.group
 
     @property
-    def channel_id(self) -> str:
-        return self.parent.channel_id
+    def channel(self) -> ListChannel:
+        """:class:`.ListChannel`: The channel that the note's parent item is in."""
+        return self.parent.channel
 
     @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the note."""
-        return self.parent.team.get_member(self.parent._note_author_id)
+        if self.parent.server:
+            return self.parent.server.get_member(self.author_id)
 
     @property
     def updated_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that last updated the note."""
-        return self.parent.team.get_member(self.parent._note_updated_by_id)
-
-    @property
-    def updated_at(self) -> Optional[datetime.datetime]:
-        """Optional[:class:`datetime.datetime`]: When the note was last updated."""
-        return self.parent._note_updated_at
-
-    @property
-    def created_at(self) -> Optional[datetime.datetime]:
-        """Optional[:class:`datetime.datetime`]: When the note was created."""
-        return self.parent._note_created_at
+        if self.parent.server:
+            return self.parent.server.get_member(self.updated_by_id)
 
     async def delete(self) -> None:
         """|coro|
@@ -2058,7 +1744,7 @@ class ListItemNote(HasContentMixin):
 
     async def edit(
         self,
-        *pos_content: Optional[Union[str, Embed, File, Emoji]],
+        *,
         content: Optional[str] = MISSING,
     ) -> ListItemNote:
         """|coro|
@@ -2067,15 +1753,8 @@ class ListItemNote(HasContentMixin):
 
         Parameters
         -----------
-        \*pos_content: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
-            An argument list of the list's main content, passed in the order
-            that each element should display.
-            If the client is a bot account, only the first value is used as content.
-            This parameter cannot be combined with ``content``.
         content: :class:`str`
-            The text content to include as the main content of the item.
-            This parameter exists so that text content can be passed using a keyword argument.
-            This parameter cannot be combined with ``pos_content``.
+            The text content of the note.
 
         Returns
         --------
@@ -2083,48 +1762,21 @@ class ListItemNote(HasContentMixin):
             The newly edited note.
         """
 
-        if content is not MISSING and pos_content:
-            raise ValueError('Cannot provide both content and pos_content')
-
-        if self._state.userbot:
-            if content is not MISSING:
-                pos_content = (content,)
-
-            if pos_content == (None,):
-                payload = {
-                    'note': None,
-                }
-            else:
-                payload = {
-                    'note': await self._state.process_list_content(pos_content),
-                }
-            data = await self._state.edit_list_item_message(
-                self.channel_id,
-                self.parent.id,
-                payload=payload,
-            )
-            item = ListItem(data=data, channel=self.parent.channel, state=self._state)
-            return item.note
-
-        else:
-            if pos_content:
-                content = pos_content[0]
-
-            payload = {
-                'message': self.parent.message,
+        payload = {
+            'message': self.parent.message,
+        }
+        if content is not MISSING and content is not None:
+            payload['note'] = {
+                'content': content,
             }
-            if content is not MISSING and content is not None:
-                payload['note'] = {
-                    'content': content,
-                }
 
-            data = await self._state.update_list_item(
-                self.channel_id,
-                self.parent.id,
-                payload=payload,
-            )
-            item = ListItem(data=data['listItem'], channel=self.parent.channel, state=self._state)
-            return item.note
+        data = await self._state.update_list_item(
+            self.channel.id,
+            self.parent.id,
+            payload=payload,
+        )
+        item = ListItem(data=data['listItem'], channel=self.parent.channel, state=self._state)
+        return item.note
 
 
 class ListItem(HasContentMixin):
@@ -2134,12 +1786,6 @@ class ListItem(HasContentMixin):
     -----------
     id: :class:`str`
         The item's ID.
-    channel: :class:`.ListChannel`
-        The channel that the item is in.
-    group: :class:`.Group`
-        The group that the item is in.
-    team: :class:`.Team`
-        The team that the item is in.
     created_at: :class:`datetime.datetime`
         When the item was created.
     message: :class:`str`
@@ -2155,100 +1801,113 @@ class ListItem(HasContentMixin):
         When the item was marked as completed.
     deleted_at: Optional[:class:`datetime.datetime`]
         When the item was deleted.
+    parent_id: Optional[:class:`str`]
+        The ID of the item's parent, if the item is nested.
+    webhook_id: Optional[:class:`str`]
+        The ID of the webhook that created the item, if applicable.
     """
 
-    def __init__(self, *, state, data, channel: ListChannel):
+    def __init__(self, *, state, data: ListItemPayload, channel: ListChannel):
         super().__init__()
         self._state = state
-        self.channel = channel
-        self.group = channel.group
-        self.team = channel.team
+        self._channel = channel
 
-        self.parent_id: Optional[str] = data.get('parentId') or data.get('parentListItemId')
+        self.id: str = data['id']
+        self.parent_id: Optional[str] = data.get('parentListItemId') or data.get('parentId')
         self.channel_id: str = data.get('channelId')
-        self.team_id: str = data.get('teamId')
-        self.group_id: Optional[str] = data.get('groupId')
+        self.server_id: str = data.get('serverId') or data.get('teamId')
 
-        self.webhook_id: Optional[str] = data.get('webhookId') or data.get('createdByWebhookId')
-        self.bot_id: Optional[str] = data.get('botId')
+        self.webhook_id: Optional[str] = data.get('createdByWebhookId') or data.get('webhookId')
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_by_id: Optional[str] = data.get('updatedBy')
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
         self.completed_by_id: Optional[str] = data.get('completedBy')
         self.completed_at: Optional[datetime.datetime] = ISO8601(data.get('completedAt'))
-        self._deleted_by: Optional[Member] = None
-        self.deleted_by_id: Optional[str] = data.get('deletedBy')
-        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
-        self._assigned_to: List[Dict[str, str]] = data.get('assignedTo') or []
-        self._has_note: bool = data.get('hasNote')
 
-        self.id: str = data['id']
-        self.position: int = data.get('priority')
-        self.message: str
-        if self._state.userbot:
+        if isinstance(data.get('message'), dict):
+            # Webhook execution response
             self.message = self._get_full_content(data['message'])
+
+            _note = {
+                'content': data.get('note'),
+                'createdAt': data.get('noteCreatedAt'),
+                'createdBy': data.get('noteCreatedBy'),
+                'updatedAt': data.get('noteUpdatedAt'),
+                'updatedBy': data.get('noteUpdatedBy'),
+            }
+            self.note = ListItemNote(data=_note, parent=self)
+
         else:
-            self.message = data['message']
+            self.message: str = data['message']
             self._mentions = self._create_mentions(data.get('mentions'))
 
-        _note: Dict[str, Any] = data.get('note') or {}
-        self._note_author_id: Optional[str] = data.get('noteCreatedBy') or _note.get('createdBy')
-        self._note_created_at: Optional[datetime.datetime] = ISO8601(data.get('noteCreatedAt') or _note.get('createdAt'))
-        self._note_updated_by_id: Optional[str] = data.get('noteUpdatedBy') or _note.get('updatedBy')
-        self._note_updated_at: Optional[datetime.datetime] = ISO8601(data.get('noteUpdatedAt') or _note.get('updatedAt'))
-        self.note = ListItemNote(data=_note, parent=self)
+            self.note = ListItemNote(data=data.get('note') or {}, parent=self)
 
     def __repr__(self) -> str:
-        return f'<ListItem id={self.id!r} author={self.author!r} channel={self.team!r}>'
+        return f'<ListItem id={self.id!r} author={self.author!r} channel={self.channel!r}>'
+
+    @property
+    def server(self) -> Optional[Server]:
+        """Optional[:class:`.Server`]: The server that the item is in.
+
+        Chances are that this will only be ``None`` for partial webhook responses.
+        """
+        return self.channel.server
+
+    @property
+    def guild(self) -> Optional[Server]:
+        """Optional[:class:`.Server`]: |dpyattr|
+
+        This is an alias of :attr:`.server`.
+
+        The server that the item is in.
+        """
+        return self.server
+
+    @property
+    def channel(self) -> ListChannel:
+        """:class:`.ListChannel`: The channel that the item is in."""
+        return self._channel or self._state._get_server_channel(self.server_id, self.channel_id)
+
+    @property
+    def group(self) -> Group:
+        """:class:`.Group`: The group that the item is in."""
+        if self.server:
+            return self.channel.group
 
     @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the item."""
-        return self.team.get_member(self.author_id)
+        if self.server:
+            return self.server.get_member(self.author_id)
 
     @property
     def updated_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that last updated the item."""
-        return self.team.get_member(self.updated_by_id)
+        if self.server:
+            return self.server.get_member(self.updated_by_id)
 
     @property
     def completed_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that marked the the item as completed."""
-        return self.team.get_member(self.completed_by_id)
-
-    @property
-    def deleted_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that deleted the item."""
-        return self._deleted_by or self.team.get_member(self.deleted_by_id)
+        if self.server:
+            return self.server.get_member(self.completed_by_id)
 
     @property
     def share_url(self) -> Optional[str]:
+        """:class:`str`: The share URL of the item."""
         return f'{self.channel.share_url}?listItemId={self.id}'
 
     @property
     def assigned_to(self) -> List[Member]:
         """List[:class:`.Member`]: The members that the item is assigned to,
-        designated by the mentions in :attr:`.message`\."""
+        designated by the user & role mentions in :attr:`.message`."""
 
-        if self._state.userbot:
-            members = set()
-            for assigned in self._assigned_to:
-                id_ = assigned.get('mentionId')
-                if assigned.get('mentionType') == 'person':
-                    member = self.team.get_member(id_)
-                    if member:
-                        members.add(member)
-                elif assigned.get('mentionType') == 'role':
-                    role = self.team.get_role(int(id_))
-                    if role:
-                        for member in role.members:
-                            members.add(member)
-        else:
-            members = set(self.user_mentions)
-            for role in self.role_mentions:
-                for member in role.members:
-                    members.add(member)
+        members = set(self.user_mentions)
+        for role in self.role_mentions:
+            for member in role.members:
+                members.add(member)
 
         return list(members)
 
@@ -2259,10 +1918,6 @@ class ListItem(HasContentMixin):
 
     def has_note(self) -> bool:
         """:class:`bool`: Whether the item has a note."""
-        # This property (hasNote) is not returned in the gateway
-        # event for list items being created
-        if self._has_note is not None:
-            return self._has_note
         return self.note.content is not None
 
     async def fetch_parent(self) -> ListItem:
@@ -2273,6 +1928,7 @@ class ListItem(HasContentMixin):
         Returns
         --------
         :class:`.ListItem`
+            The item's parent.
 
         Raises
         -------
@@ -2288,12 +1944,14 @@ class ListItem(HasContentMixin):
         """|coro|
 
         Fetch this item's note. This should only be necessary if you obtained
-        this object through :meth:`ListChannel.fetch_items`.
+        this object through :meth:`.ListChannel.fetch_items`.
 
         Returns
         --------
         :class:`.ListItemNote`
+            This item's note.
         """
+
         item = await self.channel.fetch_item(self.id)
         self.note = item.note
         return self.note
@@ -2307,150 +1965,80 @@ class ListItem(HasContentMixin):
 
     async def edit(
         self,
-        *pos_message: Optional[Union[str, Embed, File, Emoji]],
+        *,
         message: Optional[str] = MISSING,
         note_content: Optional[str] = MISSING,
-        position: int = None,
     ) -> ListItem:
         """|coro|
 
         Edit this item.
 
-        .. note::
-
-            If ``position`` and ``message`` are both specified, this method
-            will make multiple API requests, unless the client is a bot account,
-            in which case the ``position`` parameter is silently ignored.
-
         All parameters are optional.
 
         Parameters
         -----------
-        \*pos_message: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
-            An argument list of the list's main message, passed in the order
-            that each element should display.
-            If the client is a bot account, only the first value is used as content.
-            This parameter cannot be combined with ``message``.
         message: :class:`str`
             The text content to set as the main message of the item.
-            This parameter exists so that text content can be passed using a keyword argument.
-            This parameter cannot be combined with ``pos_message``.
         note_content: :class:`str`
             The item's note content.
-        position: :class:`int`
-            The new position of the item. A value of ``0`` appears at the
-            bottom visually.
 
         Returns
         --------
         :class:`.ListItem`
             The newly edited item.
-            If the client is a user account and only the ``priority`` parameter
-            was provided, this is the current instance rather than a new one.
         """
 
-        # The parameters are named ``message`` for API compliance but we use ``content`` internally for consistency.
-        content, pos_content = message, pos_message
+        # The parameter is named ``message`` for API compliance but we use ``content`` internally for consistency.
+        content = message
 
-        if content is not MISSING and pos_content:
-            raise ValueError('Cannot provide both message and pos_message')
-
-        if self._state.userbot:
-            if position is not None:
-                if not isinstance(position, int):
-                    raise TypeError(f'position must be type int, not {position.__class__.__name__}')
-
-                rich_positions = []
-                all_items = await self.channel.fetch_items()
-                for item in all_items:
-                    rich_positions.append(item)
-
-                rich_positions.sort(key=lambda item: item.position)
-                rich_positions.insert(position, self)
-
-                positions = [item.id for item in rich_positions]
-                await self._state.edit_list_item_priorities(self.channel.id, positions)
-                self.position = position
-
-            if content is not MISSING or pos_content:
-                if content is not MISSING:
-                    pos_content = (content,)
-
-                payload = {}
-                if pos_content:
-                    payload['message'] = self._state.compatible_content(await self._state.process_list_content(pos_content))
-
-                if note_content is not MISSING:
-                    if note_content is None:
-                        payload['note'] = None
-                    else:
-                        payload['note'] = self._state.compatible_content([note_content])
-
-                data = await self._state.edit_list_item_message(self.channel.id, self.id, payload=payload)
-                item = ListItem(data=data, channel=self, state=self._state)
-                return item
-
-            return self
-
+        payload = {}
+        if content is not MISSING:
+            payload['message'] = content
         else:
-            if pos_content:
-                content = pos_content[0]
+            payload['message'] = self.message
 
-            payload = {}
-            if content is not MISSING:
-                payload['message'] = content
-            else:
-                payload['message'] = self.message
+        if note_content is not MISSING and note_content is not None:
+            payload['note'] = {
+                'content': note_content
+            }
 
-            if note_content is not MISSING and note_content is not None:
-                payload['note'] = {
-                    'content': note_content
-                }
-
-            data = await self._state.update_list_item(
-                self.channel_id,
-                self.id,
-                payload=payload,
-            )
-            item = ListItem(data=data['listItem'], channel=self, state=self._state)
-            return item
-
-    async def create_item(
-        self,
-        *pos_message: Optional[Union[str, Embed, File, Emoji]],
-        message: str = MISSING,
-        note_content: Optional[str] = MISSING,
-        position: Optional[int] = None,
-    ) -> ListItem:
-        """|coro|
-
-        |onlyuserbot|
-
-        Create an item with this item as its parent.
-
-        This method is identical to :meth:`ListChannel.create_item`.
-        """
-        return await self.channel.create_item(
-            *pos_message,
-            message=message,
-            note_content=note_content,
-            parent=self,
-            position=position,
+        data = await self._state.update_list_item(
+            self.channel.id,
+            self.id,
+            payload=payload,
         )
+        item = ListItem(data=data['listItem'], channel=self.channel, state=self._state)
+        return item
 
-    async def move(self, to: ListChannel) -> None:
-        """|coro|
+    #async def create_item(
+    #    self,
+    #    message: str = MISSING,
+    #    *,
+    #    note_content: Optional[str] = MISSING,
+    #) -> ListItem:
+    #    """|coro|
 
-        |onlyuserbot|
+    #    Create an item with this item as its parent.
 
-        Move this item to another channel.
+    #    This method is identical to :meth:`ListChannel.create_item`.
+    #    """
+    #    return await self.channel.create_item(
+    #        message=message,
+    #        note_content=note_content,
+    #        parent=self,
+    #    )
 
-        Parameters
-        -----------
-        to: :class:`.ListChannel`
-            The list channel to move this item to.
-        """
-        await self._state.move_list_item(self.channel.id, self.id, to.id)
+    #async def move(self, to: ListChannel) -> None:
+    #    """|coro|
+
+    #    Move this item to another channel.
+
+    #    Parameters
+    #    -----------
+    #    to: :class:`.ListChannel`
+    #        The list channel to move this item to.
+    #    """
+    #    await self._state.move_list_item(self.channel.id, self.id, to.id)
 
     async def complete(self) -> None:
         """|coro|
@@ -2459,24 +2047,18 @@ class ListItem(HasContentMixin):
 
         If this item has any children, they will also be marked as complete.
         """
-        if self._state.userbot:
-            await self._state.set_list_item_complete(self.channel.id, self.id, True)
-        else:
-            await self._state.complete_list_item(self.channel.id, self.id)
+        await self._state.complete_list_item(self.channel.id, self.id)
 
     async def uncomplete(self) -> None:
         """|coro|
 
         Mark this list item as incomplete.
         """
-        if self._state.userbot:
-            await self._state.set_list_item_complete(self.channel.id, self.id, False)
-        else:
-            await self._state.uncomplete_list_item(self.channel.id, self.id)
+        await self._state.uncomplete_list_item(self.channel.id, self.id)
 
 
-class MediaChannel(guilded.abc.TeamChannel):
-    """Represents a media channel in a :class:`.Team`\."""
+class MediaChannel(guilded.abc.ServerChannel):
+    """Represents a media channel in a :class:`.Server`."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.media
@@ -2492,124 +2074,118 @@ class MediaChannel(guilded.abc.TeamChannel):
         """Optional[:class:`.Media`]: Get a cached media post in this channel."""
         return self._medias.get(id)
 
-    async def getch_media(self, id: int) -> Media:
-        return self.get_media(id) or await self.fetch_media(id)
+    #async def getch_media(self, id: int) -> Media:
+    #    return self.get_media(id) or await self.fetch_media(id)
 
-    async def fetch_media(self, id: int) -> Media:
-        """|coro|
+    #async def fetch_media(self, id: int) -> Media:
+    #    """|coro|
 
-        |onlyuserbot|
+    #    Fetch a media post in this channel.
 
-        Fetch a media post in this channel.
+    #    Parameters
+    #    -----------
+    #    id: :class:`int`
+    #        The media's ID.
 
-        Parameters
-        -----------
-        id: :class:`int`
-            The media's ID.
+    #    Returns
+    #    --------
+    #    :class:`.Media`
+    #    """
+    #    data = await self._state.get_media(self.id, id)
+    #    media = Media(data=data, channel=self, state=self._state)
+    #    return media
 
-        Returns
-        --------
-        :class:`.Media`
-        """
-        data = await self._state.get_media(self.id, id)
-        media = Media(data=data, channel=self, state=self._state)
-        return media
+    #async def fetch_medias(self, *, limit: int = 50) -> List[Media]:
+    #    """|coro|
 
-    async def fetch_medias(self, *, limit: int = 50) -> List[Media]:
-        """|coro|
+    #    Fetch multiple media posts in this channel.
 
-        |onlyuserbot|
+    #    All parameters are optional.
 
-        Fetch multiple media posts in this channel.
+    #    Parameters
+    #    -----------
+    #    limit: :class:`int`
+    #        The maximum number of media posts to return. Defaults to 50.
 
-        All parameters are optional.
+    #    Returns
+    #    --------
+    #    List[:class:`.Media`]
+    #    """
+    #    data = await self._state.get_medias(self.id, limit=limit)
+    #    medias = []
+    #    for media_data in data:
+    #        medias.append(Media(data=media_data, channel=self, state=self._state))
 
-        Parameters
-        -----------
-        limit: :class:`int`
-            The maximum number of media posts to return. Defaults to 50.
+    #    return medias
 
-        Returns
-        --------
-        List[:class:`.Media`]
-        """
-        data = await self._state.get_medias(self.id, limit=limit)
-        medias = []
-        for media_data in data:
-            medias.append(Media(data=media_data, channel=self, state=self._state))
+    #async def create_media(
+    #    self,
+    #    *,
+    #    title: str,
+    #    description: str = None,
+    #    file: Optional[File] = None,
+    #    youtube_url: Optional[str] = None,
+    #    tags: List[str] = None,
+    #    game: Optional[Game] = None,
+    #) -> Media:
+    #    """|coro|
 
-        return medias
+    #    Create a media post in this channel.
 
-    async def create_media(
-        self,
-        *,
-        title: str,
-        description: str = None,
-        file: Optional[File] = None,
-        youtube_url: Optional[str] = None,
-        tags: List[str] = None,
-        game: Optional[Game] = None,
-    ) -> Media:
-        """|coro|
+    #    Parameters
+    #    -----------
+    #    title: :class:`str`
+    #        The title of the media.
+    #    description: Optional[:class:`str`]
+    #        The description of the media. Does not accept markdown or any
+    #        inline content.
+    #    file: :class:`.File`
+    #        The file to upload. Either this or ``youtube_url`` is required.
+    #    youtube_url: :class:`str`
+    #        The YouTube embed URL to use (``https://www.youtube.com/embed/...``).
+    #        Either this or ``file`` is required.
+    #    game: Optional[:class:`.Game`]
+    #        The game associated with the media.
+    #    tags: List[:class:`str`]
+    #        The tags on the media.
 
-        |onlyuserbot|
+    #    Returns
+    #    --------
+    #    :class:`.Media`
+    #        The created media.
+    #    """
+    #    if file and youtube_url:
+    #        raise ValueError('Must not specify both file and youtube_url')
+    #    if not file and not youtube_url:
+    #        raise ValueError('Must specify either file or youtube_url')
 
-        Create a media post in this channel.
+    #    payload = {
+    #        'title': title,
+    #        'description': description or '',
+    #        'tags': tags or [],
+    #    }
 
-        Parameters
-        -----------
-        title: :class:`str`
-            The title of the media.
-        description: Optional[:class:`str`]
-            The description of the media. Does not accept markdown or any
-            inline content.
-        file: :class:`.File`
-            The file to upload. Either this or ``youtube_url`` is required.
-        youtube_url: :class:`str`
-            The YouTube embed URL to use (``https://www.youtube.com/embed/...``).
-            Either this or ``file`` is required.
-        game: Optional[:class:`.Game`]
-            The game associated with the media.
-        tags: List[:class:`str`]
-            The tags on the media.
+    #    if file:
+    #        file.set_media_type(MediaType.media_channel_upload)
+    #        await file._upload(self._state)
+    #        payload['src'] = file.url
+    #        payload['type'] = file.file_type.value
+    #    elif youtube_url:
+    #        data = await self._state.upload_third_party_media(youtube_url)
+    #        payload['src'] = data['url']
+    #        payload['additionalInfo'] = {'externalVideoSrc': youtube_url}
+    #        payload['type'] = FileType.video.value
 
-        Returns
-        --------
-        :class:`.Media`
-            The created media.
-        """
-        if file and youtube_url:
-            raise ValueError('Must not specify both file and youtube_url')
-        if not file and not youtube_url:
-            raise ValueError('Must specify either file or youtube_url')
+    #    if game is not None:
+    #        payload['gameId'] = game.id
 
-        payload = {
-            'title': title,
-            'description': description or '',
-            'tags': tags or [],
-        }
-
-        if file:
-            file.set_media_type(MediaType.media_channel_upload)
-            await file._upload(self._state)
-            payload['src'] = file.url
-            payload['type'] = file.file_type.value
-        elif youtube_url:
-            data = await self._state.upload_third_party_media(youtube_url)
-            payload['src'] = data['url']
-            payload['additionalInfo'] = {'externalVideoSrc': youtube_url}
-            payload['type'] = FileType.video.value
-
-        if game is not None:
-            payload['gameId'] = game.id
-
-        data = await self._state.create_media(self.id, payload=payload)
-        media = Media(data=data, channel=self, game=game, state=self._state)
-        return media
+    #    data = await self._state.create_media(self.id, payload=payload)
+    #    media = Media(data=data, channel=self, game=game, state=self._state)
+    #    return media
 
 
-class ListChannel(guilded.abc.TeamChannel):
-    """Represents a list channel in a :class:`.Team`\."""
+class ListChannel(guilded.abc.ServerChannel):
+    """Represents a list channel in a :class:`.Server`."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.list
@@ -2617,34 +2193,29 @@ class ListChannel(guilded.abc.TeamChannel):
 
     @property
     def items(self) -> List[ListItem]:
-        """List[:class:`.ListItem`]: The list of cached items in this channel."""
+        """List[:class:`.ListItem`]: The list of items in this channel."""
         return list(self._items.values())
 
     def get_item(self, id) -> Optional[ListItem]:
-        """Optional[:class:`.ListItem`]: Get a cached item in this channel."""
+        """Optional[:class:`.ListItem`]: Get an item in this channel."""
         return self._items.get(id)
 
-    async def getch_item(self, id: str) -> ListItem:
-        return self.get_item(id) or await self.fetch_item(id)
+    async def getch_item(self, item_id: str, /) -> ListItem:
+        return self.get_item(item_id) or await self.fetch_item(item_id)
 
-    async def fetch_item(self, id: str) -> ListItem:
+    async def fetch_item(self, item_id: str, /) -> ListItem:
         """|coro|
 
-        Fetch a item in this channel.
-
-        Parameters
-        -----------
-        id: :class:`str`
-            The item's ID.
+        Fetch an item in this channel.
 
         Returns
         --------
         :class:`.ListItem`
+            The item by the ID.
         """
-        data = await self._state.get_list_item(self.id, id)
-        if not self._state.userbot:
-            data = data['listItem']
-        item = ListItem(data=data, channel=self, state=self._state)
+
+        data = await self._state.get_list_item(self.id, item_id)
+        item = ListItem(data=data['listItem'], channel=self, state=self._state)
         return item
 
     async def fetch_items(self) -> List[ListItem]:
@@ -2655,23 +2226,22 @@ class ListChannel(guilded.abc.TeamChannel):
         Returns
         --------
         List[:class:`.ListItem`]
+            The items in this channel.
         """
+
         data = await self._state.get_list_items(self.id)
-        if not self._state.userbot:
-            data = data['listItems']
+
         items = []
-        for item_data in data:
+        for item_data in data['listItems']:
             items.append(ListItem(data=item_data, channel=self, state=self._state))
 
         return items
 
     async def create_item(
         self,
-        *pos_message: Optional[Union[str, Embed, File, Emoji]],
-        message: str = MISSING,
+        message: str,
+        *,
         note_content: Optional[str] = None,
-        parent: Optional[ListItem] = None,
-        position: Optional[int] = None,
     ) -> ListItem:
         """|coro|
 
@@ -2679,22 +2249,10 @@ class ListChannel(guilded.abc.TeamChannel):
 
         Parameters
         -----------
-        \*pos_message: Union[:class:`str`, :class:`.Embed`, :class:`.File`, :class:`.Emoji`]
-            An argument list of the list's main message, passed in the order
-            that each element should display.
-            If the client is a bot account, only the first value is used as content.
-            This parameter cannot be combined with ``message``.
         message: :class:`str`
             The text content to include as the main message of the item.
-            This parameter exists so that text content can be passed using a keyword argument.
-            This parameter cannot be combined with ``pos_message``.
         note_content: Optional[:class:`str`]
             The item's note content.
-        parent: Optional[:class:`ListItem`]
-            An existing item to create this item under.
-        position: Optional[:class:`int`]
-            The item's position. Defaults to ``0`` if not specified (appears
-            at the bottom of the list).
 
         Returns
         --------
@@ -2702,39 +2260,15 @@ class ListChannel(guilded.abc.TeamChannel):
             The created item.
         """
 
-        # The parameters are named ``message`` for API compliance but we use ``content`` internally for consistency.
-        content, pos_content = message, pos_message
-
-        if content is not MISSING and pos_content:
-            raise ValueError('Cannot provide both message and pos_message')
-
-        if self._state.userbot:
-            if content is not MISSING:
-                pos_content = (content,)
-
-            data = await self._state.create_list_item(
-                self.id,
-                message=await self._state.process_list_content(pos_content),
-                note_content=note_content,
-                parent_id=parent.id if parent is not None else None,
-                position=position if position is not None else 0,
-            )
-
-        else:
-            if pos_content:
-                content = pos_content[0]
-
-            data = await self._state.create_list_item(
-                self.id,
-                message=content,
-                note_content=note_content,
-            )
-            data = data['listItem']
-
-        item = ListItem(data=data, channel=self, state=self._state)
+        data = await self._state.create_list_item(
+            self.id,
+            message=message,
+            note_content=note_content,
+        )
+        item = ListItem(data=data['listItem'], channel=self, state=self._state)
         return item
 
-    async def create_webhook(self, *, name: str, avatar: Optional[Union[bytes, File]] = None) -> Webhook:
+    async def create_webhook(self, *, name: str) -> Webhook:
         """|coro|
 
         Create a webhook in this channel.
@@ -2743,10 +2277,6 @@ class ListChannel(guilded.abc.TeamChannel):
         -----------
         name: :class:`str`
             The webhook's name.
-        avatar: Optional[Union[:class:`bytes`, :class:`File`]]
-            A :term:`py:bytes-like object` or :class:`File` for the webhook's avatar.
-            If the client is a bot user, providing this does nothing.
-            Else, providing this causes the library to perform an extra API request.
 
         Returns
         --------
@@ -2761,10 +2291,9 @@ class ListChannel(guilded.abc.TeamChannel):
             You do not have permissions to create a webhook.
         """
 
-        webhook = await self.team.create_webhook(
+        webhook = await self.server.create_webhook(
             channel=self,
             name=name,
-            avatar=avatar,
         )
         return webhook
 
@@ -2788,12 +2317,12 @@ class ListChannel(guilded.abc.TeamChannel):
             You do not have permissions to get the webhooks.
         """
 
-        webhooks = await self.team.webhooks(channel=self)
+        webhooks = await self.server.webhooks(channel=self)
         return webhooks
 
 
 class Availability:
-    """Represents an availability in a :class:`.SchedulingChannel`\.
+    """Represents an availability in a :class:`.SchedulingChannel`.
 
     Attributes
     -----------
@@ -2807,27 +2336,25 @@ class Availability:
         When the availabilty was created.
     updated_at: Optional[:class:`datetime.datetime`]
         When the availabilty was updated.
-    deleted_by: Optional[:class:`.Member`]
-        The member that deleted the availability.
     channel: :class:`.SchedulingChannel`
         The channel that the availability is in.
     """
-    def __init__(self, *, state, data, channel):
+    def __init__(self, *, state, data, channel: SchedulingChannel):
         self._state = state
 
-        self.channel: SchedulingChannel = channel
+        self.channel = channel
         self.channel_id: str = data.get('channelId')
-        self.team_id: str = data.get('teamId')
-        self.user_id: str = data.get('userId')
+        self.server_id: str = data.get('serverId')
 
-        self.id: int = data.get('id', data.get('availabilityId'))
-        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.id: int = data['id']
         self.start: datetime.datetime = ISO8601(data.get('startDate'))
         self.end: datetime.datetime = ISO8601(data.get('endDate'))
 
+        self.user_id: str = data.get('userId')
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+
         self.updated_by_id: Optional[str] = data.get('updatedBy')
-        self.deleted_by: Optional[Member] = None
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
 
     def __eq__(self, other) -> bool:
         return isinstance(other, Availability) and other.id == self.id
@@ -2836,9 +2363,9 @@ class Availability:
         return f'<Availability id={self.id!r} start={self.start!r} end={self.end!r} channel={self.channel!r}>'
 
     @property
-    def team(self):
-        """:class:`.Team`: The team that the availability is in."""
-        return self.channel.team
+    def server(self) -> Server:
+        """:class:`.Server`: The server that the availability is in."""
+        return self._state._get_server(self.server_id)
 
     @property
     def group(self) -> Optional[Group]:
@@ -2846,62 +2373,70 @@ class Availability:
         return self.channel.group
 
     @property
-    def updated_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The member that last updated the availability."""
-        return self.team.get_member(self.updated_by_id)
+    def guild(self) -> Server:
+        """:class:`.Server`: |dpyattr|
+
+        This is an alias of :attr:`.server`
+
+        The server that the availability is in.
+        """
+        return self.server
 
     @property
-    def author(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The member that created the availability."""
-        return self.team.get_member(self.user_id)
+    def user(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member that the availability is for."""
+        return self.server.get_member(self.user_id)
 
-    async def edit(self, *,
-        start: Optional[datetime.datetime] = None,
-        end: Optional[datetime.datetime] = None,
-    ) -> Availability:
-        """|coro|
+    @property
+    def updated_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member that last updated the availability."""
+        return self.server.get_member(self.updated_by_id)
 
-        |onlyuserbot|
+    #async def edit(
+    #    self,
+    #    *,
+    #    start: Optional[datetime.datetime] = None,
+    #    end: Optional[datetime.datetime] = None,
+    #) -> Availability:
+    #    """|coro|
 
-        Edit this availability.
+    #    Edit this availability.
 
-        All parameters are optional.
+    #    All parameters are optional.
 
-        Parameters
-        -----------
-        start: :class:`datetime.datetime`
-            When the availability starts.
-            Time must be in a 30-minute interval (``minute`` must be 0 or 30).
-        end: :class:`datetime.datetime`
-            When the availability ends.
-            Time must be in a 30-minute interval (``minute`` must be 0 or 30).
+    #    Parameters
+    #    -----------
+    #    start: :class:`datetime.datetime`
+    #        When the availability starts.
+    #        Time must be in a 30-minute interval (``minute`` must be 0 or 30).
+    #    end: :class:`datetime.datetime`
+    #        When the availability ends.
+    #        Time must be in a 30-minute interval (``minute`` must be 0 or 30).
 
-        Returns
-        --------
-        :class:`.Availability`
-            The newly edited availability.
-        """
-        payload = {
-            'startDate': start or self.start,
-            'endDate': end or self.end,
-        }
-        data = await self._state.update_availability(self.channel.id, self.id, payload=payload)
-        self.start = payload['startDate']
-        self.end = payload['endDate']
-        return self
+    #    Returns
+    #    --------
+    #    :class:`.Availability`
+    #        The newly edited availability.
+    #    """
+    #    payload = {
+    #        'startDate': start or self.start,
+    #        'endDate': end or self.end,
+    #    }
+    #    data = await self._state.update_availability(self.channel.id, self.id, payload=payload)
+    #    self.start = payload['startDate']
+    #    self.end = payload['endDate']
+    #    return self
 
-    async def delete(self) -> None:
-        """|coro|
+    #async def delete(self) -> None:
+    #    """|coro|
 
-        |onlyuserbot|
-
-        Delete this availability.
-        """
-        await self._state.delete_availability(self.channel.id, self.id)
+    #    Delete this availability.
+    #    """
+    #    await self._state.delete_availability(self.channel.id, self.id)
 
 
-class SchedulingChannel(guilded.abc.TeamChannel):
-    """Represents a scheduling channel in a :class:`.Team`\."""
+class SchedulingChannel(guilded.abc.ServerChannel):
+    """Represents a scheduling channel in a :class:`.Server`."""
     def __init__(self, **fields):
         super().__init__(**fields)
         self.type = ChannelType.scheduling
@@ -2909,104 +2444,104 @@ class SchedulingChannel(guilded.abc.TeamChannel):
 
     @property
     def availabilities(self) -> List[Availability]:
-        """List[:class:`.Availability`]: The list of cached availabilities in this channel."""
+        """List[:class:`.Availability`]: The list of availabilities in this channel."""
         return list(self._availabilities.values())
 
     def get_availability(self, id) -> Optional[Availability]:
-        """Optional[:class:`.Availability`]: Get a cached availability in this channel."""
+        """Optional[:class:`.Availability`]: Get an availability in this channel."""
         return self._availabilities.get(id)
 
-    async def getch_availability(self, id: str) -> Availability:
-        return self.get_availability(id) or await self.fetch_availability(id)
+    #async def getch_availability(self, id: str) -> Availability:
+    #    return self.get_availability(id) or await self.fetch_availability(id)
 
-    async def fetch_availability(self, id: int) -> Availability:
-        """|coro|
+    #async def fetch_availability(self, id: int) -> Availability:
+    #    """|coro|
 
-        Fetch an availability in this channel.
+    #    Fetch an availability in this channel.
 
-        .. note::
+    #    .. note::
 
-            There is no endpoint to fetch a specific availability, so instead
-            this method filters :meth:`.fetch_availabilities` and raises
-            :exc:`InvalidArgument` if no availability was found.
+    #        There is no endpoint to fetch a specific availability, so instead
+    #        this method filters :meth:`.fetch_availabilities` and raises
+    #        :exc:`InvalidArgument` if no availability was found.
 
-        Parameters
-        -----------
-        id: :class:`int`
-            The availability's ID.
+    #    Parameters
+    #    -----------
+    #    id: :class:`int`
+    #        The availability's ID.
 
-        Returns
-        --------
-        :class:`.Availability`
+    #    Returns
+    #    --------
+    #    :class:`.Availability`
 
-        Raises
-        -------
-        InvalidArgument
-            No availability exists in this channel with the ID specified.
-        """
-        availabilities = await self.fetch_availabilities()
-        availability = get(availabilities, id=id)
-        if not availability:
-            raise InvalidArgument(f'No availability exists in this channel with the ID {id}.')
-        return availability
+    #    Raises
+    #    -------
+    #    InvalidArgument
+    #        No availability exists in this channel with the ID specified.
+    #    """
+    #    availabilities = await self.fetch_availabilities()
+    #    availability = get(availabilities, id=id)
+    #    if not availability:
+    #        raise InvalidArgument(f'No availability exists in this channel with the ID {id}.')
+    #    return availability
 
-    async def fetch_availabilities(self) -> List[Availability]:
-        """|coro|
+    #async def fetch_availabilities(self) -> List[Availability]:
+    #    """|coro|
 
-        Fetch all availabilities in this channel.
+    #    Fetch all availabilities in this channel.
 
-        Returns
-        --------
-        List[:class:`.Availability`]
-        """
-        data = await self._state.get_availabilities(self.id)
-        availabilities = []
-        for availability_data in data:
-            availabilities.append(Availability(data=availability_data, channel=self, state=self._state))
+    #    Returns
+    #    --------
+    #    List[:class:`.Availability`]
+    #    """
+    #    data = await self._state.get_availabilities(self.id)
+    #    availabilities = []
+    #    for availability_data in data:
+    #        availabilities.append(Availability(data=availability_data, channel=self, state=self._state))
 
-        return availabilities
+    #    return availabilities
 
-    async def create_availability(self, start: datetime.datetime, end: datetime.datetime) -> Availability:
-        """|coro|
+    #async def create_availability(self, start: datetime.datetime, end: datetime.datetime) -> Availability:
+    #    """|coro|
 
-        Create an availability in this channel.
+    #    Create an availability in this channel.
 
-        Parameters
-        -----------
-        start: :class:`datetime.datetime`
-            When the availability starts.
-            Time must be in a 30-minute interval (``minute`` must be 0 or 30).
-        end: :class:`datetime.datetime`
-            When the availability ends.
-            Time must be in a 30-minute interval (``minute`` must be 0 or 30).
+    #    Parameters
+    #    -----------
+    #    start: :class:`datetime.datetime`
+    #        When the availability starts.
+    #        Time must be in a 30-minute interval (``minute`` must be 0 or 30).
+    #    end: :class:`datetime.datetime`
+    #        When the availability ends.
+    #        Time must be in a 30-minute interval (``minute`` must be 0 or 30).
 
-        Returns
-        --------
-        :class:`.Availability`
-            The created availability.
-        """
-        data = await self._state.create_availability(self.id, start=start, end=end)
-        for availability_data in data['availabilities']:
-            availability = Availability(data=availability_data, channel=self, state=self._state)
-            if availability.id == data['id']:
-                return availability
+    #    Returns
+    #    --------
+    #    :class:`.Availability`
+    #        The created availability.
+    #    """
+    #    data = await self._state.create_availability(self.id, start=start, end=end)
+    #    for availability_data in data['availabilities']:
+    #        availability = Availability(data=availability_data, channel=self, state=self._state)
+    #        if availability.id == data['id']:
+    #            return availability
 
 
 class AnnouncementReply(guilded.abc.Reply):
-    """Represents a reply to an :class:`Announcement`\."""
+    """Represents a reply to an :class:`Announcement`."""
     pass
 
 
 class DocReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`Doc`\."""
+    """Represents a reply to a :class:`Doc`."""
     pass
 
 
 class ForumReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`ForumTopic`\."""
+    """Represents a reply to a :class:`ForumTopic`."""
     pass
 
 
 class MediaReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`Media`\."""
+    """Represents a reply to a :class:`Media`."""
     pass

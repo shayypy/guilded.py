@@ -31,15 +31,17 @@ class Permissions:
     """Wraps up permission values in Guilded.
 
     An instance of this class is constructed by providing kwargs of
-    permission category names to the integer value of the category itself.
-    Data like this is found in the ``role.permissions``
-    and ``channel.userPermissions`` properties in the client API.
+    permission category names to the integer value of the category itself: ::
+
+        guilded.Permissions(general=64, chat=128, ...)
+
 
     .. container:: operations
 
         .. describe:: x == y
 
             Checks if two permissions are equal.
+
         .. describe:: x != y
 
             Checks if two permissions are not equal.
@@ -104,7 +106,7 @@ class Permissions:
         self.xp_value: int = values.get('xp', 0)
         self.streams_value: int = values.get('streams', 0)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return isinstance(other, Permissions) and (
             self.general_value == other.general_value
             and self.recruitment_value == other.recruitment_value
@@ -126,8 +128,28 @@ class Permissions:
             and self.streams_value == other.streams_value
         )
 
-    def __repr__(self):
-        return f'<Permissions general={self.general_value} recruitment={self.recruitment_value} announcements={self.announcements_value} chat={self.chat_value} calendar={self.calendar_value} forums={self.forums_value} docs={self.docs_value} media={self.media_value} voice={self.voice_value} matchmaking={self.matchmaking_value} customization={self.customization_value} forms={self.forms_value} lists={self.lists_value} brackets={self.brackets_value} scheduling={self.scheduling_value} bots={self.bots_value} xp={self.xp_value} streams={self.streams_value}>'
+    def __repr__(self) -> str:
+        return (
+            '<Permissions '
+            f'general={self.general_value} '
+            f'recruitment={self.recruitment_value} '
+            f'announcements={self.announcements_value} '
+            f'chat={self.chat_value} '
+            f'calendar={self.calendar_value} '
+            f'forums={self.forums_value} '
+            f'docs={self.docs_value} '
+            f'media={self.media_value} '
+            f'voice={self.voice_value} '
+            f'matchmaking={self.matchmaking_value} '
+            f'customization={self.customization_value} '
+            f'forms={self.forms_value} '
+            f'lists={self.lists_value} '
+            f'brackets={self.brackets_value} '
+            f'scheduling={self.scheduling_value} '
+            f'bots={self.bots_value} '
+            f'xp={self.xp_value} '
+            f'streams={self.streams_value}>'
+        )
 
     @classmethod
     def all(cls):
@@ -271,32 +293,29 @@ class Permissions:
     @property
     def administrator(self) -> bool:
         """:class:`bool`: Returns ``True`` if a user has every permission.
-        This is a pseudo-permission, i.e., there is no such "administrator"
+
+        This is a pseudo-permission, i.e., there is no "administrator"
         permission that Guilded recognizes, and thus this property being
         ``True`` does not necessarily mean that a user will have all the same
-        privileges as a Discord user with the administrator permission."""
+        exemptions as a Discord user with the administrator permission.
+        """
         return self == Permissions.all()
 
     @property
-    def update_team(self) -> bool:
+    def update_server(self) -> bool:
         """:class:`bool`: Returns ``True`` if a user can update the server's
         settings."""
         return (self.general_value & 4) == 4
 
     @property
-    def update_server(self) -> bool:
-        """:class:`bool`: This is an alias of :attr:`.update_team`."""
-        return self.update_team
-
-    @property
-    def manage_team(self) -> bool:
-        """:class:`bool`: This is an alias of :attr:`.update_team`."""
-        return self.update_team
+    def manage_server(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.update_server`."""
+        return self.update_server
 
     @property
     def manage_guild(self) -> bool:
-        """:class:`bool`: This is an alias of :attr:`.update_team`."""
-        return self.update_team
+        """:class:`bool`: This is an alias of :attr:`.update_server`."""
+        return self.update_server
 
     @property
     def manage_roles(self) -> bool:
@@ -687,8 +706,13 @@ class Permissions:
     @property
     def manage_emojis(self) -> bool:
         """:class:`bool`: Returns ``True`` if a user can create and manage
-        server emoji."""
+        server emojis."""
         return (self.customization_value & 1) == 1
+
+    @property
+    def manage_emotes(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.manage_emojis`"""
+        return self.manage_emojis
 
     @property
     def change_nickname(self) -> bool:
@@ -840,6 +864,7 @@ class Permissions:
     def update_values(self, **values):
         r"""Bulk updates this permission object with raw integer values."""
         for key, value in values.items():
+            key = f'{key}_value'
             if not hasattr(self, key):
                 raise ValueError(f'No permissions category named {key!r} exists')
             if not isinstance(value, int):

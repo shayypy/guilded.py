@@ -1,6 +1,6 @@
 
 __copyright__ = 'shay 2020-present'
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 import logging
 
@@ -11,19 +11,20 @@ from .channel import *
 from .client import *
 from .colour import *
 from .embed import *
-from .emoji import *
+from .emote import *
 from .enums import *
 from .errors import *
 from .file import *
 from .flowbot import *
 from .group import *
+from .invite import *
 from .message import *
 from .role import *
 from .permissions import *
 from .presence import *
 from .reaction import *
+from .server import *
 from .status import *
-from .team import *
 from .user import *
 from .webhook import *
 

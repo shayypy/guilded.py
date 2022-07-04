@@ -1093,9 +1093,9 @@ def check(predicate: Check) -> Callable[[T], T]:
         def owner_or_permissions(**perms):
             original = commands.has_permissions(**perms).predicate
             async def extended_check(ctx):
-                if ctx.team is None:
+                if ctx.server is None:
                     return False
-                return ctx.team.owner_id == ctx.author.id or await original(ctx)
+                return ctx.server.owner_id == ctx.author.id or await original(ctx)
             return commands.check(extended_check)
 
     .. note::
@@ -1157,6 +1157,7 @@ def check(predicate: Check) -> Callable[[T], T]:
 
     return decorator  # type: ignore
 
+
 def dm_only():
     """A :func:`.check` that indicates this command must only be used in a
     DM context. Only private messages are allowed when
@@ -1167,15 +1168,16 @@ def dm_only():
     """
 
     def predicate(ctx: Context) -> bool:
-        if ctx.team is not None:
+        if ctx.server is not None:
             raise PrivateMessageOnly()
         return True
 
     return check(predicate)
 
-def team_only():
+
+def server_only():
     """A :func:`.check` that indicates this command must only be used in a
-    team context only. Basically, no private messages are allowed when
+    server context only. Basically, no private messages are allowed when
     using the command.
 
     This check raises a special exception, :exc:`.NoPrivateMessage`
@@ -1183,14 +1185,14 @@ def team_only():
     """
 
     def predicate(ctx: Context) -> bool:
-        if ctx.team is None:
+        if ctx.server is None:
             raise NoPrivateMessage()
         return True
 
     return check(predicate)
 
-guild_only = team_only  # discord.py
-server_only = team_only  # bot API
+guild_only = server_only  # discord.py
+
 
 def is_owner():
     """A :func:`.check` that checks if the person invoking this command is the
@@ -1208,6 +1210,7 @@ def is_owner():
         return True
 
     return check(predicate)
+
 
 def before_invoke(coro) -> Callable[[T], T]:
     """A decorator that registers a coroutine as a pre-invoke hook.
@@ -1252,6 +1255,7 @@ def before_invoke(coro) -> Callable[[T], T]:
             func.__before_invoke__ = coro
         return func
     return decorator  # type: ignore
+
 
 def after_invoke(coro) -> Callable[[T], T]:
     """A decorator that registers a coroutine as a post-invoke hook.

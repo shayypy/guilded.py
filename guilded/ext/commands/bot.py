@@ -72,10 +72,10 @@ from .view import StringView
 
 __all__ = (
     'Bot',
-    'UserbotBot',
     'when_mentioned',
     'when_mentioned_or',
 )
+
 
 def _is_submodule(parent: str, child: str) -> bool:
     return parent == child or child.startswith(parent + ".")
@@ -110,7 +110,7 @@ def when_mentioned_or(*prefixes: str) -> Callable[[BotBase, guilded.Message], Li
         .. code-block:: python3
 
             async def get_prefix(bot, message):
-                extras = await prefixes_for(message.team)  # returns a list
+                extras = await prefixes_for(message.server)  # returns a list
                 return commands.when_mentioned_or(*extras)(bot, message)
 
 
@@ -887,57 +887,6 @@ class BotBase:
             self._help_command = None
 
 
-class UserbotBot(BotBase, guilded.UserbotClient):
-    """A Guilded bot with commands.
-
-    This is a subclass of :class:`.UserbotClient`, and thus it
-    implements all the functionality of :class:`.UserbotClient` but
-    comes with commands-related features.
-
-    This is the same as :class:`.Bot` except that it inherits from :class:`.UserbotClient`
-    instead, and is thus for user accounts, not bot accounts.
-
-    Parameters
-    ------------
-    command_prefix: Union[:class:`list`, :class:`str`]
-        The command prefix or list of command prefixes to listen for.
-    description: Optional[:class:`str`]
-        A description of this bot. Will show up in the default help command,
-        when it is created.
-    owner_id: Optional[:class:`str`]
-        The user's ID who owns this bot. Used for the
-        :meth:`~guilded.ext.commands.is_owner` decorator. Must not be specified
-        with ``owner_ids``.
-    owner_ids: Optional[List[:class:`str`]]
-        The users' IDs who own this bot. Used for the
-        :meth:`~guilded.ext.commands.is_owner` decorator. Must not be specified
-        with ``owner_id``.
-    max_messages: Optional[:class:`int`]
-        The maximum number of messages to store in the internal message cache.
-        This defaults to ``1000``. Passing in ``None`` disables the message cache.
-    loop: Optional[:class:`asyncio.AbstractEventLoop`]
-        The :class:`asyncio.AbstractEventLoop` to use for asynchronous operations.
-        Defaults to ``None``, in which case the default event loop is used via
-        :func:`asyncio.get_event_loop()`.
-
-    Attributes
-    ------------
-    command_prefix: Union[:class:`list`, :class:`str`]
-        The command prefix or list of command prefixes to listen for.
-    commands: :class:`list`
-        A list of all the :class:`Command` s registered to this bot.
-    description: Optional[:class:`str`]
-        A description of this bot.
-    owner_id: Optional[:class:`str`]
-        The user's ID who owns this bot.
-    owner_ids: Optional[List[:class:`str`]]
-        The users' IDs who own this bot.
-    """
-    def __init__(self, **options):
-        guilded.UserbotClient.__init__(self, **options)
-        BotBase.__init__(self, **options)
-
-
 class Bot(BotBase, guilded.Client):
     """A Guilded bot with commands.
 
@@ -987,13 +936,28 @@ class Bot(BotBase, guilded.Client):
         operations.
     user: :class:`.ClientUser`
         The currently logged-in user.
-    team: :class:`.BaseTeam`
-        The team that this bot is "from".
     ws: Optional[:class:`GuildedWebsocket`]
         The websocket gateway the client is currently connected to. Could be
         ``None``.
     """
 
-    def __init__(self, *, internal_server_id: str = None, **options):
-        guilded.Client.__init__(self, internal_server_id=internal_server_id, **options)
-        BotBase.__init__(self, **options)
+    def __init__(
+        self,
+        command_prefix: Union[Callable[[BotBase, guilded.Message], Union[Iterable[str], str]], Iterable[str], str],
+        *,
+        help_command: Optional[HelpCommand] = _default,
+        description: Optional[str] = None,
+        owner_id: Optional[str] = None,
+        owner_ids: Optional[List[str]] = None,
+        **options: Any,
+    ):
+        guilded.Client.__init__(self, **options)
+        BotBase.__init__(
+            self,
+            command_prefix,
+            help_command=help_command,
+            description=description,
+            owner_id=owner_id,
+            owner_ids=owner_ids,
+            **options,
+        )

@@ -24,28 +24,16 @@ SOFTWARE.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, AsyncIterator, Optional, Set, Union
 
-from .emoji import Emoji
+from .emote import Emote
 from .enums import ChannelType, try_enum
-from .utils import ISO8601
 
 if TYPE_CHECKING:
-    import datetime
-
-    from guilded.abc import User as abc_User
+    from guilded.abc import ServerChannel, User as abc_User
+    from .types.reaction import ChannelMessageReaction as ChannelMessageReactionPayload
 
     from .message import ChatMessage
-    from .channel import (
-        Announcement,
-        AnnouncementReply,
-        Doc,
-        DocReply,
-        ForumTopic,
-        ForumReply,
-        Media,
-        MediaReply,
-    )
     from .user import User, Member
 
 __all__ = (
@@ -60,74 +48,53 @@ class ContentReaction:
 
     Attributes
     -----------
-    parent: Union[:class:`.Announcement`, :class:`.AnnouncementReply`, :class:`.ChatMessage`, :class:`.Doc`, :class:`.DocReply`, :class:`.ForumTopic`, :class:`.ForumReply`, :class:`.Media`, :class:`.MediaReply`]
-        The content that this reaction is on.
-    created_at: :class:`datetime.datetime`
-        When the reaction was added to its content.
-    emoji: :class:`.Emoji`
-        The emoji that the reaction shows.
+    parent: :class:`.ChatMessage`
+        The content that the reaction is on.
+    message: :class:`.ChatMessage`
+        |dpyattr|
+
+        This is an alias of :attr:`.parent`
+
+        The content that the reaction is on.
+    user: Optional[:class:`.Member`]
+        The user that added the reaction.
+    emote: :class:`.Emote`
+        The emote that the reaction shows.
     """
 
     __slots__ = (
         '_state',
         '_user_ids',
-        '_emoji_id',
         'parent',
-        'id',
-        'created_at',
-        'emoji',
+        'message',
+        '_channel_id',
+        '_message_id',
+        'emote',
     )
 
-    def __init__(self, *, data, parent):
+    def __init__(self, *, data: ChannelMessageReactionPayload, parent: ChatMessage):
         self._state = parent._state
-        self.parent: Union[
-            Announcement,
-            AnnouncementReply,
-            ChatMessage,
-            Doc,
-            DocReply,
-            ForumTopic,
-            ForumReply,
-            Media,
-            MediaReply,
-        ]
         self.parent = parent
+        self.message = parent
 
-        self.id: int = data.get('reactionId')  # This seems to always be 0
-        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self._user_ids: List[str] = data.get('reactedUsers') or []
+        self._channel_id = data.get('channelId')
+        self._message_id = data.get('messageId')
 
-        # Messgae reaction events
-        if data.get('createdBy') and data.get('createdBy') not in self._user_ids:
-            self._user_ids.append(data.get('createdBy'))
-        # Content reaction events
-        if data.get('userId') and data.get('userId') not in self._user_ids:
-            self._user_ids.append(data.get('userId'))
+        self.emote = Emote(state=self._state, data=data['emote'])
 
-        self._emoji_id: int = data.get('customReactionId')
-        if 'customReaction' not in data:
-            self.emoji = (
-                self._state._get_emoji(self._emoji_id)
-                or Emoji(state=self._state, data={'id': self._emoji_id, 'webp': ''})
-            )
-        else:
-            self.emoji: Emoji = Emoji(
-                state=self._state,
-                data=data['customReaction'],
-                stock=data['customReaction'].get('webp') is None,
-            )
+        self._user_ids: Set[str] = set()
+        if data.get('createdBy'):
+            self._user_ids.add(data.get('createdBy'))
 
     @property
-    def message(self) -> Optional[ChatMessage]:
-        """Optional[:class:`.ChatMessage`]: |dpyattr|
+    def emoji(self) -> Emote:
+        """:class:`.Emote`: |dpyattr|
 
-        The message that this reaction is on.
+        This is an alias of :attr:`.emote`
 
-        This is the same as :attr:`.parent` except that it is only present if the parent is a :class:`.ChatMessage`.
+        The emote that the reaction shows.
         """
-        from .message import ChatMessage
-
-        return self.parent if isinstance(self.parent, ChatMessage) else None
+        return self.emote
 
     @property
     def me(self) -> bool:
@@ -139,9 +106,24 @@ class ContentReaction:
         """:class:`int`: How many users have added this reaction."""
         return len(self._user_ids)
 
+    @property
+    def channel(self) -> ServerChannel:
+        """:class:`~.abc.ServerChannel`: The channel that the reaction is in."""
+        return self._state._get_server_channel_or_thread(self._channel_id) if self._channel_id is not None else self.parent.channel
+
+    def is_custom_emote(self) -> bool:
+        """:class:`bool`: Whether this reaction uses a custom emote."""
+        return not self.emote.stock
+
+    @property
     def is_custom_emoji(self) -> bool:
-        """:class:`bool`: Whether the reaction uses a custom emoji."""
-        return self.emoji.stock
+        """:class:`bool`: |dpyattr|
+
+        This is an alias of :meth:`.is_custom_emote`\.
+
+        Whether this reaction uses a custom emote.
+        """
+        return self.is_custom_emote
 
     async def remove_self(self) -> None:
         """|coro|
@@ -150,7 +132,7 @@ class ContentReaction:
 
         You cannot remove other users' reactions.
         """
-        await self.parent.remove_self_reaction(self.emoji)
+        await self.parent.remove_self_reaction(self.emote)
 
     async def users(
         self,
@@ -158,7 +140,7 @@ class ContentReaction:
         limit: Optional[int] = None,
         after: Optional[abc_User] = None
     ) -> AsyncIterator[Union[User, Member]]:
-        """An :term:`asynchronous iterator` for the users that have reacted with this emoji to this content.
+        """An :term:`asynchronous iterator` for the users that have reacted with this emote to this content.
 
         Results may not be in any expected order.
 
@@ -168,7 +150,7 @@ class ContentReaction:
         Usage ::
 
             async for user in reaction.users():
-                print(f'{user} reacted with {reaction.emoji}')
+                print(f'{user} reacted with {reaction.emote}')
 
         Flattening into a list ::
 
@@ -189,7 +171,7 @@ class ContentReaction:
         -------
         Union[:class:`.User`, :class:`.Member`]
             The user that created the reaction.
-            This will be a :class:`.User` if there is no team or if the member is otherwise unavailable.
+            This will be a :class:`.User` if there is no server or if the member is otherwise unavailable.
 
         Raises
         -------
@@ -210,14 +192,14 @@ class ContentReaction:
                 after_index = user_ids.index(after.id)
 
             user_ids = self._user_ids[(after_index + 1):]
-            team = self.parent.team
+            server = self.parent.server
 
             cached_users = []
             new_user_ids = []
 
-            if team is not None:
+            if server is not None:
                 for uid in user_ids:
-                    user = team.get_member(uid) or self._state._get_user(uid)
+                    user = server.get_member(uid) or self._state._get_user(uid)
                     if user is None:
                         new_user_ids.append(uid)
                     else:
@@ -225,7 +207,7 @@ class ContentReaction:
 
                 if new_user_ids:
                     data = await self._state.get_detailed_team_members(
-                        team.id,
+                        server.id,
                         user_ids=new_user_ids,
                         ids_for_basic_info=new_user_ids,
                     )
@@ -253,12 +235,12 @@ class ContentReaction:
                 continue
 
             if data:
-                # team will never be None here
+                # server will never be None here
                 limit -= len(data)
                 after = data[-1]['id']
 
                 for raw_member in data:
-                    member = self._state.create_member(data=raw_member, team=team)
+                    member = self._state.create_member(data=raw_member, server=server)
                     yield member
 
                 continue
@@ -287,20 +269,17 @@ class RawReactionActionEvent:
         The channel ID that the reaction's content is in.
     channel_type: :class:`.ChannelType`
         The type of channel that the reaction's content is in.
-    team_id: Optional[:class:`str`]
-        The team ID that the reaction is in, if applicable.
-    emoji: :class:`.Emoji`
-        The emoji that was reacted with.
-        This may be a partial :class:`.Emoji` with only :attr:`.Emoji.id` for
-        events where a reaction was removed from a message.
+    server_id: Optional[:class:`str`]
+        The server ID that the reaction is in, if applicable.
+    emote: :class:`.Emote`
+        The emote that the reaction shows.
     member: Optional[Union[:class:`.Member`, :class:`.User`]]
         The member that added or removed their reaction.
         This is only available if the member was cached prior to this event being received.
         This will only be a :class:`.User` if the reaction is in a DM.
     event_type: :class:`str`
         The event type that this action was created from.
-        For messages, this will be one of ``ChatMessageReactionAdded`` or ``ChatMessageReactionDeleted``,
-        otherwise it will be one of ``teamContentReactionsAdded`` or ``teamContentReactionsRemoved``.
+        For messages, this will be one of ``ChatMessageReactionCreated`` or ``ChatMessageReactionDeleted``.
     """
 
     __slots__ = (
@@ -310,20 +289,20 @@ class RawReactionActionEvent:
         'user_id',
         'channel_id',
         'channel_type',
-        'team_id',
-        'emoji',
+        'server_id',
+        'emote',
         'member',
         'event_type',
     )
 
-    def __init__(self, *, state, data: Dict[str, Any]):
+    def __init__(self, *, state, data: ChannelMessageReactionPayload):
         self._from_message: bool = 'message' in data
         self.parent_id: Union[str, int]
         self.user_id: str
         self.channel_id: str = data.get('channelId')
         self.channel_type: ChannelType
-        self.team_id: Optional[str] = data.get('teamId')
-        self.emoji: Emoji
+        self.server_id: Optional[str] = data.get('serverId')
+        self.emote: Emote
         self.event_type: str = data['type']
 
         # The message reaction events and else-content reaction events are
@@ -333,32 +312,30 @@ class RawReactionActionEvent:
             self.channel_type = ChannelType.chat
             self.user_id = data['reaction'].get('createdBy')
             if 'customReaction' not in data['reaction']:
-                emoji_id: int = data['reaction']['customReactionId']
-                self.emoji = (
-                    state._get_emoji(emoji_id)
-                    or Emoji(state=state, data={'id': emoji_id, 'webp': ''})
+                emote_id: int = data['reaction']['customReactionId']
+                self.emote = (
+                    state._get_emote(emote_id)
+                    or Emote(state=state, data={'id': emote_id, 'url': ''})
                 )
             else:
-                self.emoji = Emoji(
+                self.emote = Emote(
                     state=state,
                     data=data['reaction']['customReaction'],
-                    stock=data['reaction']['customReaction'].get('webp') is None,
                 )
 
         else:
             self.parent_id = int(data['contentId']) if data['contentId'].isdigit() else data['contentId']
             self.channel_type = try_enum(ChannelType, data.get('contentType'))
             self.user_id = data.get('userId')
-            self.emoji = Emoji(
+            self.emote = Emote(
                 state=state,
                 data=data['customReaction'],
-                stock=data['customReaction'].get('webp') is None,
             )
 
         self.message_id = self.parent_id  # discord.py
         self.member: Optional[Union[Member, User]]
-        if self.team_id and self.user_id:
-            self.member = state._get_team_member(self.team_id, self.user_id)
+        if self.server_id and self.user_id:
+            self.member = state._get_server_member(self.server_id, self.user_id)
         elif self.user_id:
             self.member = state._get_user(self.user_id)
         else:

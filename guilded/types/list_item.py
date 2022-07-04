@@ -23,33 +23,40 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import List, Literal, Optional, TypedDict
+from typing import TypedDict
 from typing_extensions import NotRequired
 
 from .channel import Mentions
-from .embed import Embed
 
 
-class ChatMessage(TypedDict):
+class ListItemNoteSummary(TypedDict):
+    createdAt: str
+    createdBy: str
+    updatedAt: NotRequired[str]
+    updatedBy: NotRequired[str]
+
+
+class ListItemSummary(TypedDict):
     id: str
-    type: Literal['default', 'system']
-    serverId: NotRequired[str]
+    serverId: str
     channelId: str
-    content: Optional[str]
-    embeds: Optional[List[Embed]]
-    replyMessageIds: NotRequired[str]
-    isPrivate: NotRequired[bool]
-    isSilent: NotRequired[bool]
+    message: str
     mentions: NotRequired[Mentions]
     createdAt: str
     createdBy: str
     createdByWebhookId: NotRequired[str]
     updatedAt: NotRequired[str]
+    updatedBy: NotRequired[str]
+    parentListItemId: NotRequired[str]
+    completedAt: NotRequired[str]
+    completedBy: NotRequired[str]
+    note: NotRequired[ListItemNoteSummary]
 
 
-class DeletedChatMessage(TypedDict):
-    id: str
-    serverId: NotRequired[str]
-    channelId: str
-    deletedAt: str
-    isPrivate: NotRequired[bool]
+class ListItemNote(ListItemNoteSummary):
+    mentions: NotRequired[Mentions]
+    content: str
+
+
+class ListItem(ListItemSummary):
+    note: NotRequired[ListItemNote]

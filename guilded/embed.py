@@ -168,9 +168,7 @@ class Embed:
         """Converts a :class:`dict` to a :class:`Embed`, provided it is in the
         format that Guilded expects it to be in.
 
-        This format is identical to Discord's format for embeds, but you can
-        find `documentation about it here <https://guildedapi.com/resources/
-        channel#embed-object>`_ anyway.
+        :gdocs:`This format <chat/ChatEmbed>` is identical to :ddocs:`Discord's format <resources/channel#embed-object>`\.
 
         Parameters
         -----------
@@ -217,50 +215,6 @@ class Embed:
                 setattr(self, '_' + attr, value)
 
         return self
-
-    @classmethod
-    def from_unfurl_dict(cls, data):
-        """Similar to :meth:`Embed.from_dict`, but for embed data returned by
-        the `Get Embed for URL <https://guildedapi.com/resources/channel#get-
-        embed-for-url>`_ endpoint.
-
-        You probably won't have to use this yourself.
-        """
-        data['type'] = 'link'
-        try:
-            data['title'] = data.pop('ogTitle')
-        except KeyError:
-            pass
-
-        try:
-            data['description'] = data.pop('ogDescription')
-        except KeyError:
-            pass
-
-        try:
-            data['url'] = data.pop('ogUrl')
-        except KeyError:
-            pass
-
-        try:
-            data['provider'] = data.pop('ogSiteName')
-        except KeyError:
-            pass
-
-        try:
-            data['thumbnail'] = {}
-            data['thumbnail']['url'] = data.pop('ogImage')['url']
-        except KeyError:
-            del data['thumbnail']
-
-        try:
-            data['video'] = {}
-            data['video']['url'] = data.pop('ogVideo')['url']
-        except KeyError:
-            del data['video']
-
-        embed = Embed.from_dict(data)
-        return embed
 
     def copy(self):
         """Returns a shallow copy of the embed."""
@@ -339,9 +293,9 @@ class Embed:
             self._footer['text'] = str(text)
 
         if isinstance(icon_url, Asset):
-            self._footer['iconUrl'] = icon_url.aws_url
+            self._footer['icon_url'] = icon_url.aws_url
         elif icon_url is not EmptyEmbed:
-            self._footer['iconUrl'] = str(icon_url)
+            self._footer['icon_url'] = str(icon_url)
 
         return self
 
@@ -349,6 +303,7 @@ class Embed:
     def image(self):
         """Union[:class:`EmbedProxy`, :attr:`Empty`]: Returns an ``EmbedProxy`` denoting the image contents.
         Possible attributes you can access are:
+
         - ``url``
         - ``proxy_url``
         - ``width``
@@ -389,6 +344,7 @@ class Embed:
     def thumbnail(self):
         """Union[:class:`EmbedProxy`, :attr:`Empty`]: Returns an ``EmbedProxy`` denoting the thumbnail contents.
         Possible attributes you can access are:
+
         - ``url``
         - ``proxy_url``
         - ``width``
@@ -429,6 +385,7 @@ class Embed:
     def video(self):
         """Union[:class:`EmbedProxy`, :attr:`Empty`]: Returns an ``EmbedProxy`` denoting the video contents.
         Possible attributes include:
+
         - ``url`` for the video URL.
         - ``height`` for the video height.
         - ``width`` for the video width.
@@ -476,17 +433,16 @@ class Embed:
             self._author['url'] = str(url)
 
         if isinstance(icon_url, Asset):
-            self._author['iconUrl'] = icon_url.aws_url
+            self._author['icon_url'] = icon_url.aws_url
         elif icon_url is not EmptyEmbed:
-            self._author['iconUrl'] = str(icon_url)
+            self._author['icon_url'] = str(icon_url)
 
         return self
 
     def remove_author(self):
         """Clears embed's author information.
         This function returns the class instance to allow for fluent-style
-        chaining.
-        """
+        chaining."""
         try:
             del self._author
         except AttributeError:
@@ -499,8 +455,7 @@ class Embed:
         """Union[List[:class:`EmbedProxy`], :attr:`Empty`]: Returns a
         :class:`list` of ``EmbedProxy`` denoting the field contents.
         See :meth:`add_field` for possible values you can access.
-        If the attribute has no value then :attr:`Empty` is returned.
-        """
+        If the attribute has no value then :attr:`Empty` is returned."""
         return [EmbedProxy(d) for d in getattr(self, '_fields', [])]
 
     def add_field(self, *, name, value, inline=True):
@@ -574,6 +529,7 @@ class Embed:
         silently swallowed.
 
         .. note::
+
             When deleting a field by index, the index of the other fields
             shift to fill the gap just like a regular list.
 
@@ -620,14 +576,10 @@ class Embed:
         field['inline'] = inline
         return self
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """Converts this embed object into a dict.
 
-        .. note::
-            The resulting dict will be more or less identical to Discord's
-            format for embeds, with the exception that an ``iconUrl`` key is
-            used in place of ``icon_url``\s. This is because ``icon_url``\s do
-            not display on Desktop clients.
+        :gdocs:`The resulting format <chat/ChatEmbed>` is identical to :ddocs:`Discord's format <resources/channel#embed-object>`\.
         """
         # add in the raw data into the dict
         result = {
@@ -671,15 +623,3 @@ class Embed:
             result['title'] = self.title
 
         return result
-
-    def to_node_dict(self) -> Dict[str, Any]:
-        return {
-            'object': 'block',
-            'type': 'webhookMessage',
-            'data': {
-                'embeds': [
-                    self.to_dict(),
-                ],
-            },
-            'nodes': [],
-        }

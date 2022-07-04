@@ -23,33 +23,22 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import List, Literal, Optional, TypedDict
+from typing import TypedDict
 from typing_extensions import NotRequired
 
-from .channel import Mentions
-from .embed import Embed
+from .emote import Emote
 
 
-class ChatMessage(TypedDict):
-    id: str
-    type: Literal['default', 'system']
+class ContentReaction(TypedDict):
+    id: int
     serverId: NotRequired[str]
-    channelId: str
-    content: Optional[str]
-    embeds: Optional[List[Embed]]
-    replyMessageIds: NotRequired[str]
-    isPrivate: NotRequired[bool]
-    isSilent: NotRequired[bool]
-    mentions: NotRequired[Mentions]
     createdAt: str
     createdBy: str
     createdByWebhookId: NotRequired[str]
-    updatedAt: NotRequired[str]
 
 
-class DeletedChatMessage(TypedDict):
-    id: str
-    serverId: NotRequired[str]
+class ChannelMessageReaction(TypedDict):
     channelId: str
-    deletedAt: str
-    isPrivate: NotRequired[bool]
+    messageId: str
+    createdBy: str
+    emote: Emote

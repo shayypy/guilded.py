@@ -37,7 +37,7 @@ __all__ = (
 
 
 class FlowBot:
-    """Represents a flowbot in a :class:`.Team`.
+    """Represents a flowbot in a :class:`.Server`.
 
     Attributes
     -----------
@@ -62,12 +62,8 @@ class FlowBot:
             flow = Flow(data=flow_data, bot=self)
             self._flows[flow.id] = flow
 
-        self._team = extra.get('team')
-        self.team_id: str = data.get('teamId')
-
+        self.server_id: str = data.get('teamId')
         self.user_id: str = data.get('userId')
-
-        self._author = extra.get('author')
         self.author_id: str = data.get('createdBy')
 
         self.id: str = data['id']
@@ -89,33 +85,27 @@ class FlowBot:
         return self.name
 
     def __repr__(self):
-        return f'<FlowBot id={self.id!r} name={self.name!r} enabled={self.enabled} flows={len(self.flows)} team={self.team!r}>'
+        return f'<FlowBot id={self.id!r} name={self.name!r} enabled={self.enabled} flows={len(self.flows)} server={self.server!r}>'
 
     @property
-    def team(self):
-        """:class:`.Team`: The team that this flowbot is in."""
-        return self._team or self._state._get_team(self.team_id)
+    def server(self):
+        """:class:`.Server`: The server that this flowbot is in."""
+        return self._state._get_server(self.server_id)
 
     @property
     def guild(self):
-        """:class:`.Team`: This is an alias of :attr:`.team`."""
-        return self.team
+        """:class:`.Server`: This is an alias of :attr:`.server`."""
+        return self.server
 
     @property
     def author(self):
-        """Optional[:class:`.Member`]: The user that
-        created this flowbot, if they are cached.
-        """
-        return (
-            self._author
-            or self._state._get_team_member(self.team_id, self.author_id)
-        )
+        """Optional[:class:`.Member`]: The user that created this flowbot."""
+        return self._state._get_server_member(self.server_id, self.author_id)
 
     @property
     def member(self):
-        """Optional[:class:`.Member`]: This bot's member object in this team,
-        if it is cached."""
-        return self._state._get_team_member(self.team_id, self.user_id)
+        """Optional[:class:`.Member`]: This bot's member object in this server."""
+        return self._state._get_server_member(self.server_id, self.user_id)
 
     @property
     def flows(self):
@@ -144,7 +134,7 @@ class Flow:
 
         self.enabled: bool = data.get('enabled', False)
         self.error: bool = data.get('error', False)
-        self.team_id: str = data.get('teamId')
+        self.server_id: str = data.get('teamId')
         self.author_id: str = data.get('createdBy')
 
         self.created_at: Optional[datetime.datetime] = ISO8601(data.get('createdAt'))

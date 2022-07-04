@@ -60,10 +60,10 @@ from guilded.utils import MISSING
 if TYPE_CHECKING:
     from guilded.channel import DMChannel
     from guilded.embed import Embed
-    from guilded.emoji import Emoji
+    from guilded.emote import Emote
     from guilded.file import File
     from guilded.message import ChatMessage
-    from guilded.team import Team
+    from guilded.server import Server
     from guilded.user import ClientUser, Member, User
 
     from .core import Cog, Command
@@ -101,7 +101,7 @@ class Context(guilded.abc.Messageable):
         return self.command.cog
 
     @property
-    def channel(self) -> Union[guilded.abc.TeamChannel, DMChannel]:
+    def channel(self) -> Union[guilded.abc.ServerChannel, DMChannel]:
         return self.message.channel
 
     @property
@@ -109,16 +109,12 @@ class Context(guilded.abc.Messageable):
         return self.message.channel_id
 
     @property
-    def team(self) -> Optional[Team]:
-        return self.message.team
+    def server(self) -> Optional[Server]:
+        return self.message.server
 
     @property
-    def guild(self) -> Optional[Team]:
-        return self.team
-
-    @property
-    def server(self) -> Optional[Team]:
-        return self.team
+    def guild(self) -> Optional[Server]:
+        return self.server
 
     @property
     def author(self) -> Union[Member, User]:
@@ -126,7 +122,7 @@ class Context(guilded.abc.Messageable):
 
     @property
     def me(self) -> Union[Member, ClientUser]:
-        return self.team.me if self.team else self.bot.user
+        return self.server.me if self.server else self.bot.user
 
     @property
     def clean_prefix(self) -> str:
@@ -144,10 +140,8 @@ class Context(guilded.abc.Messageable):
 
     async def reply(
         self,
-        *pos_content: Optional[Union[str, Embed, File, Emoji]],
         content: Optional[str] = MISSING,
-        file: Optional[File] = MISSING,
-        files: Optional[Sequence[File]] = MISSING,
+        *,
         embed: Optional[Embed] = MISSING,
         embeds: Optional[Sequence[Embed]] = MISSING,
         reference: Optional[ChatMessage] = MISSING,
@@ -155,21 +149,18 @@ class Context(guilded.abc.Messageable):
         mention_author: Optional[bool] = None,
         silent: Optional[bool] = None,
         private: bool = False,
-        share: Optional[ChatMessage] = MISSING,
         delete_after: Optional[float] = None,
     ) -> ChatMessage:
         """|coro|
 
         Reply to the invoking message.
+
         This is identical to :meth:`abc.Messageable.send`, but the
         ``reply_to`` parameter already includes the context message.
         """
 
         return await self.message.reply(
-            *pos_content,
             content=content,
-            file=file,
-            files=files,
             embed=embed,
             embeds=embeds,
             reference=reference,
@@ -177,6 +168,5 @@ class Context(guilded.abc.Messageable):
             mention_author=mention_author,
             silent=silent,
             private=private,
-            share=share,
             delete_after=delete_after,
         )
