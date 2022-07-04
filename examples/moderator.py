@@ -1,0 +1,37 @@
+import guilded
+
+# This is a guilded.py clone of the plain Node.js sample bot that Guilded
+# provides, with a little extra spice.
+# https://www.guilded.gg/API-Official/groups/53NVy4j3/channels/9fd03b10-c4a1-4c3a-814a-5f6a7b39c632/docs/256914
+
+client = guilded.Client()
+
+@client.event
+async def on_ready():
+    print(f'Logged in as {client.user} (ID: {client.user.id})')
+    print('------')
+
+async def deal_with_message(message):
+    if message.type is not guilded.MessageType.default or message.author.bot or not message.server:
+        # Bots are allowed to say whatever they want, and we can't delete DM messages.
+        return
+
+    # This method assumes the bot has permission to do all of these things,
+    # which it may not.
+    if 'really bad word' in message.content:
+        await message.author.ban(reason=f'Said a really bad word in #{message.channel.name}')
+        await message.delete()
+
+    elif 'bad word' in message.content:
+        await message.reply('You can\'t say that!', private=True)
+        await message.delete()
+
+@client.event
+async def on_message(message):
+    await deal_with_message(message)
+
+@client.event
+async def on_message_update(before, after):
+    await deal_with_message(after)
+
+client.run('token')
