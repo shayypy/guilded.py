@@ -256,13 +256,15 @@ class Asset(AssetMixin):
 
     @classmethod
     def _from_user_avatar(cls, state, image_url: str):
+        animated = 'ia=1' in image_url
         maybe_animated = '.webp' in image_url
-        format = 'webp' if maybe_animated else 'png'
+        format = 'webp' if animated or maybe_animated else 'png'
         image_hash = strip_cdn_url(image_url)
         return cls(
             state,
             url=f'{cls.BASE}/UserAvatar/{image_hash}-Large.{format}',
             key=image_hash,
+            animated=animated,
             maybe_animated=maybe_animated,
         )
 

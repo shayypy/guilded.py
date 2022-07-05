@@ -293,9 +293,9 @@ class Embed:
             self._footer['text'] = str(text)
 
         if isinstance(icon_url, Asset):
-            self._footer['icon_url'] = icon_url.aws_url
+            self._footer['iconUrl'] = icon_url.aws_url
         elif icon_url is not EmptyEmbed:
-            self._footer['icon_url'] = str(icon_url)
+            self._footer['iconUrl'] = str(icon_url)
 
         return self
 
@@ -433,9 +433,9 @@ class Embed:
             self._author['url'] = str(url)
 
         if isinstance(icon_url, Asset):
-            self._author['icon_url'] = icon_url.aws_url
+            self._author['iconUrl'] = icon_url.aws_url
         elif icon_url is not EmptyEmbed:
-            self._author['icon_url'] = str(icon_url)
+            self._author['iconUrl'] = str(icon_url)
 
         return self
 
