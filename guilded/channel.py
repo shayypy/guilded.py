@@ -53,11 +53,12 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import TYPE_CHECKING, Optional, List, Tuple
+from typing import TYPE_CHECKING, AsyncIterator, Optional, List, Tuple, Union
 
 import guilded.abc  # type: ignore
 
 from .asset import Asset
+from .colour import Colour
 from .enums import ChannelType, FileType
 from .group import Group
 from .message import ChatMessage, HasContentMixin
@@ -66,6 +67,7 @@ from .utils import MISSING, ISO8601
 from .status import Game
 
 if TYPE_CHECKING:
+    from .types.calendar_event import CalendarEvent as CalendarEventPayload
     from .types.doc import Doc as DocPayload
     from .types.list_item import (
         ListItem as ListItemPayload,
@@ -84,6 +86,8 @@ __all__ = (
     'AnnouncementChannel',
     'AnnouncementReply',
     'Availability',
+    'CalendarChannel',
+    'CalendarEvent',
     'ChatChannel',
     'DMChannel',
     'Doc',
@@ -103,6 +107,485 @@ __all__ = (
     'Thread',
     'VoiceChannel',
 )
+
+
+class CalendarChannel(guilded.abc.ServerChannel):
+    """Represents a calendar channel in a :class:`.Server`."""
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.calendar
+
+    async def create_event(
+        self,
+        *,
+        name: str,
+        starts_at: Optional[datetime.datetime],
+        duration: Optional[Union[datetime.timedelta, int]],
+        description: Optional[str] = MISSING,
+        location: Optional[str] = MISSING,
+        url: Optional[str] = MISSING,
+        colour: Optional[Union[Colour, int]] = MISSING,
+        color: Optional[Union[Colour, int]] = MISSING,
+        private: bool = MISSING,
+    ) -> CalendarEvent:
+        """|coro|
+
+        Create an event in this channel.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The name of the event.
+        starts_at: :class:`datetime.datetime`
+            When the event starts.
+        duration: Union[:class:`datetime.timedelta`, :class:`int`]
+            The duration of the event.
+        description: Optional[:class:`str`]
+            The description of the event.
+        location: Optional[:class:`str`]
+            The location of the event.
+        url: Optional[:class:`str`]
+            A URL to associate with the event.
+        colour: Optional[Union[:class:`.Colour`, :class:`int`]]
+            The colour of the event when viewing in the channel.
+            This parameter is also aliased to ``color``.
+            If this is an :class:`int`, the value must be in minutes.
+        private: Optional[:class:`bool`]
+            Whether the event should be private.
+
+        Returns
+        --------
+        :class:`.CalendarEvent`
+            The created event.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to create events.
+        HTTPException
+            Failed to create the event.
+        """
+
+        payload = {
+            'name': name,
+        }
+
+        if description is not MISSING:
+            payload['description'] = description
+
+        if location is not MISSING:
+            payload['location'] = location
+
+        if starts_at is not MISSING:
+            if starts_at is not None:
+                starts_at = self._state.valid_ISO8601(starts_at)
+
+            payload['startsAt'] = starts_at
+
+        if url is not MISSING:
+            payload['url'] = url
+
+        if colour is not MISSING or color is not MISSING:
+            if colour is MISSING:
+                colour = color
+            if isinstance(colour, Colour):
+                colour = colour.value
+
+            payload['color'] = colour
+
+        if duration is not MISSING:
+            if isinstance(duration, datetime.timedelta):
+                duration = duration.seconds / 60
+
+            payload['duration'] = duration
+
+        if private is not MISSING:
+            payload['isPrivate'] = private
+
+        data = await self._state.create_calendar_event(self.id, payload=payload)
+        event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=self)
+        return event
+
+    async def fetch_event(self, event_id: int, /) -> CalendarEvent:
+        """|coro|
+
+        Fetch an event in this channel from the API.
+
+        Returns
+        --------
+        :class:`.CalendarEvent`
+            The event from the ID.
+
+        Raises
+        -------
+        NotFound
+            There is no event with the ID.
+        Forbidden
+            You do not have permissions to get events in this channel.
+        HTTPException
+            Failed to get the event.
+        """
+
+        data = await self._state.get_calendar_event(self.id, event_id)
+        event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=self)
+        return event
+
+    async def events(
+        self,
+        limit: Optional[int] = 25,
+        after: Optional[Union[datetime.datetime, CalendarEvent]] = None,
+        before: Optional[Union[datetime.datetime, CalendarEvent]] = None,
+    ) -> AsyncIterator[CalendarEvent]:
+        """An :term:`asynchronous iterator` for the events in this channel.
+
+        Results are ordered ascending by :attr:`.CalendarEvent.starts_at`.
+
+        Examples
+        ---------
+
+        Usage ::
+
+            async for event in channel.events():
+                print(f'{event} starts at {event.starts_at}')
+
+        Flattening into a list ::
+
+            events = [event async for event in channel.events()]
+            # events is now a list of CalendarEvent
+
+        Parameters
+        -----------
+        limit: Optional[:class:`int`]
+            The maximum number of events to return.
+            Defaults to 25 if not specified.
+        before: Optional[Union[:class:`.CalendarEvent`, :class:`datetime.datetime`]]
+            The event to stop pagination at.
+        after: Optional[Union[:class:`.CalendarEvent`, :class:`datetime.datetime`]]
+            The event to begin pagination at.
+
+        Yields
+        -------
+        :class:`.CalendarEvent`
+            An event in this channel.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to get events in this channel.
+        HTTPException
+            Failed to get the events.
+        """
+
+        if isinstance(before, CalendarEvent):
+            before = before.starts_at
+        if isinstance(after, CalendarEvent):
+            after = after.starts_at
+
+        while True:
+            sublimit = min(500 if limit is None else limit, 500)
+            if sublimit < 1:
+                return
+
+            data = await self._state.get_calendar_events(
+                self.id,
+                limit=sublimit,
+                before=before,
+                after=after,
+            )
+            data = data['calendarEvents']
+
+            # Adjust sublimit according to how much data is left
+            if len(data) < 500:
+                limit = 0
+            else:
+                limit -= len(data)
+
+            for event_data in data:
+                yield CalendarEvent(state=self._state, data=event_data, channel=self)
+
+
+class CalendarEvent(HasContentMixin):
+    """Represents an event in a :class:`CalendarChannel`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two events are equal.
+
+        .. describe:: x != y
+
+            Checks if two events are not equal.
+
+        .. describe:: str(x)
+
+            Returns the name of the event.
+
+    .. versionadded:: 1.2.0
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The event's ID.
+    name: :class:`str`
+        The event's name.
+    description: Optional[:class:`str`]
+        The event's description.
+    channel: :class:`.CalendarChannel`
+        The channel that the event is in.
+    created_at: :class:`datetime.datetime`
+        When the event was created.
+    starts_at: Optional[:class:`datetime.datetime`]
+        When the event starts.
+    location: Optional[:class:`str`]
+        The location of the event.
+    url: Optional[:class:`str`]
+        A URL to associate with the event.
+        This is not an in-app share link, but rather something that is set by
+        users while creating the event.
+    private: :class:`bool`
+        Whether the event is private.
+    duration: Optional[:class:`datetime.timedelta`]
+        The duration of the event. Minimum 60 seconds.
+    cancellation_description: Optional[:class:`str`]
+        The description of the event cancellation, if any.
+
+        There is an alias for this attribute called :attr:`.cancelation_description`.
+    """
+
+    __slots__: Tuple[str, ...] = (
+        '_state',
+        'channel',
+        'id',
+        'server_id',
+        'channel_id',
+        'author_id',
+        'name',
+        'description',
+        '_mentions',
+        'location',
+        'url',
+        'starts_at',
+        'created_at',
+        'private',
+        '_colour',
+        'duration',
+        'cancellation_description',
+        'cancelled_by_id',
+    )
+
+    def __init__(self, *, state, data: CalendarEventPayload, channel: CalendarChannel):
+        super().__init__()
+        self._state = state
+        self.channel = channel
+
+        self.id = data['id']
+        self.server_id = data.get('serverId')
+        self.channel_id = data.get('channelId')
+        self.author_id = data.get('createdBy')
+
+        self.name = data.get('name')
+        self.description = data.get('description')
+        self._mentions = self._create_mentions(data.get('mentions'))
+
+        self.location = data.get('location')
+        self.url = data.get('url')
+        self.starts_at = ISO8601(data.get('startsAt'))
+        self.created_at = ISO8601(data.get('createdAt'))
+        self.private = data.get('isPrivate') or False
+        self._colour = data.get('color')
+
+        self.duration: Optional[datetime.timedelta]
+        _duration = data.get('duration')  # minutes
+        if _duration is not None:
+            self.duration = datetime.timedelta(minutes=_duration)
+        else:
+            self.duration = None
+
+        _cancellation = data.get('cancellation') or {}
+        self.cancellation_description = _cancellation.get('description')
+        self.cancelled_by_id = _cancellation.get('createdBy')
+
+    def __repr__(self) -> str:
+        return f'<CalendarEvent id={self.id!r} name={self.name!r} channel={self.channel!r}>'
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, CalendarEvent) and self.id == other.id
+
+    @property
+    def server(self) -> Server:
+        """:class:`.Server`: The server that the event is in."""
+        return self._state._get_server(self.server_id) or self.channel.server
+
+    @property
+    def guild(self) -> Server:
+        """:class:`.Server`: |dpyattr|
+
+        This is an alias of :attr:`.server`.
+
+        The server that the event is in.
+        """
+        return self.server
+
+    @property
+    def group(self) -> Optional[Group]:
+        """:class:`.Group`: The group that the event is in."""
+        return self.channel.group
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member that created the event."""
+        return self.server.get_member(self.author_id)
+
+    @property
+    def colour(self) -> Optional[Colour]:
+        """Optional[:class:`.Colour`]: The colour of the event when viewing in the channel."""
+        return Colour(self._colour) if self._colour is not None else None
+
+    color = colour
+
+    @property
+    def cancelation_description(self) -> Optional[str]:
+        """Optional[:class:`str`]: The description of the event cancelation, if any.
+
+        There is an alias for this attribute called :attr:`.cancellation_description`.
+        """
+        return self.cancellation_description
+
+    @property
+    def cancelled_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member that cancelled the event, if any.
+
+        There is an alias for this attribute called :attr:`.canceled_by`.
+        """
+        return self.server.get_member(self.cancelled_by_id)
+
+    @property
+    def canceled_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member that canceled the event, if any.
+
+        There is an alias for this attribute called :attr:`.cancelled_by`.
+        """
+        return self.server.get_member(self.cancelled_by_id)
+
+    @property
+    def share_url(self) -> str:
+        return f'{self.channel.share_url}/{self.id}'
+
+    async def edit(
+        self,
+        *,
+        name: str = MISSING,
+        description: Optional[str] = MISSING,
+        location: Optional[str] = MISSING,
+        starts_at: Optional[datetime.datetime] = MISSING,
+        url: Optional[str] = MISSING,
+        colour: Optional[Union[Colour, int]] = MISSING,
+        color: Optional[Union[Colour, int]] = MISSING,
+        duration: Optional[Union[datetime.timedelta, int]] = MISSING,
+        private: bool = MISSING,
+    ) -> CalendarEvent:
+        """|coro|
+
+        Edit this event.
+
+        All parameters are optional.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The name of the event.
+        description: :class:`str`
+            The description of the event.
+        location: :class:`str`
+            The location of the event.
+        starts_at: :class:`datetime.datetime`
+            When the event starts.
+        url: :class:`str`
+            A URL to associate with the event.
+        colour: Union[:class:`.Colour`, :class:`int`]
+            The colour of the event when viewing in the channel.
+            This parameter is also aliased to ``color``.
+        duration: Union[:class:`datetime.timedelta`, :class:`int`]
+            The duration of the event.
+            If this is an :class:`int`, the value must be in minutes.
+        private: :class:`bool`
+            Whether the event should be private.
+
+        Returns
+        --------
+        :class:`.CalendarEvent`
+            The newly edited event.
+
+        Raises
+        -------
+        NotFound
+            The event has been deleted.
+        Forbidden
+            You do not have permissions to edit the event.
+        HTTPException
+            Failed to edit the event.
+        """
+
+        payload = {}
+
+        if name is not MISSING:
+            payload['name'] = name
+
+        if description is not MISSING:
+            payload['description'] = description
+
+        if location is not MISSING:
+            payload['location'] = location
+
+        if starts_at is not MISSING:
+            if starts_at is not None:
+                starts_at = self._state.valid_ISO8601(starts_at)
+
+            payload['startsAt'] = starts_at
+
+        if url is not MISSING:
+            payload['url'] = url
+
+        if colour is not MISSING or color is not MISSING:
+            if colour is MISSING:
+                colour = color
+            if isinstance(colour, Colour):
+                colour = colour.value
+
+            payload['color'] = colour
+
+        if duration is not MISSING:
+            if isinstance(duration, datetime.timedelta):
+                duration = duration.seconds / 60
+
+            payload['duration'] = duration
+
+        if private is not MISSING:
+            payload['isPrivate'] = private
+
+        data = await self._state.update_calendar_event(self.channel.id, self.id, payload=payload)
+        event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=self.channel)
+        return event
+
+    async def delete(self) -> None:
+        """|coro|
+
+        Delete this event.
+
+        Raises
+        -------
+        NotFound
+            The event has already been deleted.
+        Forbidden
+            You do not have permissions to delete the event.
+        HTTPException
+            Failed to delete the event.
+        """
+        await self._state.delete_calendar_event(self.channel.id, self.id)
 
 
 class ChatChannel(guilded.abc.ServerChannel, guilded.abc.Messageable):

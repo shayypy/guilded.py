@@ -517,6 +517,46 @@ class WebSocketEventParsers:
             reaction = Reaction(data=data['reaction'], parent=message)
             self.client.dispatch('message_reaction_remove', reaction)
 
+    async def CalendarEventCreated(self, data: CalendarEventEvent):
+        server = self.client.get_server(data['serverId'])
+        if not server:
+            return
+
+        try:
+            channel = await server.getch_channel(data['calendarEvent']['channelId'])
+        except HTTPException:
+            return
+
+        event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
+        self.client.dispatch('calendar_event_create', event)
+
+    # This event's payload isn't hydrated properly
+    #async def CalendarEventUpdated(self, data: CalendarEventEvent):
+    #    server = self.client.get_server(data['serverId'])
+    #    if not server:
+    #        return
+
+    #    try:
+    #        channel = await server.getch_channel(data['calendarEvent']['channelId'])
+    #    except HTTPException:
+    #        return
+
+    #    event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
+    #    self.client.dispatch('raw_calendar_event_update', event)
+
+    async def CalendarEventDeleted(self, data: CalendarEventEvent):
+        server = self.client.get_server(data['serverId'])
+        if not server:
+            return
+
+        try:
+            channel = await server.getch_channel(data['calendarEvent']['channelId'])
+        except HTTPException:
+            return
+
+        event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
+        self.client.dispatch('calendar_event_delete', event)
+
 
 class Heartbeater(threading.Thread):
     def __init__(self, ws: GuildedWebSocket, *, interval: float):

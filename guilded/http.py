@@ -615,6 +615,29 @@ class HTTPClient(HTTPClientBase):
     def remove_reaction_emote(self, channel_id: str, content_id: str, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/content/{content_id}/emotes/{emote_id}'))
 
+    def create_calendar_event(self, channel_id: str, *, payload: Dict[str, Any]):
+        return self.request(Route('POST', f'/channels/{channel_id}/events'), json=payload)
+
+    def get_calendar_events(self, channel_id: str, *, limit: int = None, before: datetime.datetime = None, after: datetime.datetime = None):
+        params = {}
+        if limit is not None:
+            params['limit'] = limit
+        if before is not None:
+            params['before'] = self.valid_ISO8601(before)
+        if after is not None:
+            params['after'] = self.valid_ISO8601(after)
+
+        return self.request(Route('GET', f'/channels/{channel_id}/events'), params=params)
+
+    def get_calendar_event(self, channel_id: str, event_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/events/{event_id}'))
+
+    def update_calendar_event(self, channel_id: str, event_id: int, *, payload: Dict[str, Any]):
+        return self.request(Route('PATCH', f'/channels/{channel_id}/events/{event_id}'), json=payload)
+
+    def delete_calendar_event(self, channel_id: str, event_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/events/{event_id}'))
+
     # /servers
 
     def get_server(self, server_id: str):
@@ -727,6 +750,7 @@ class HTTPClient(HTTPClientBase):
         else:
             types = {
                 ChannelType.announcements: channel.AnnouncementChannel,
+                ChannelType.calendar: channel.CalendarChannel,
                 ChannelType.chat: channel.ChatChannel,
                 ChannelType.docs: channel.DocsChannel,
                 ChannelType.forums: channel.ForumChannel,
