@@ -134,15 +134,6 @@ class InvalidData(ClientException):
     pass
 
 
-error_mapping = {
-    400: BadRequest,
-    403: Forbidden,
-    404: NotFound,
-    429: TooManyRequests,
-    500: GuildedServerError
-}
-
-
 class InvalidArgument(ClientException):
     """Thrown when an argument to a function is invalid some way (e.g. wrong
     value or wrong type).

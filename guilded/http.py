@@ -50,6 +50,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 from __future__ import annotations
+import sys
 
 import aiohttp
 import asyncio
@@ -58,11 +59,11 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Sequence, Type, TypeVar, Union
 
-from . import channel
+from . import __version__, channel
 from .abc import ServerChannel
 from .embed import Embed
 from .enums import try_enum, ChannelType
-from .errors import HTTPException, error_mapping
+from .errors import Forbidden, GuildedServerError, HTTPException, NotFound
 from .message import ChatMessage
 from .user import User, Member
 from .utils import MISSING
@@ -170,6 +171,18 @@ def handle_message_parameters(
             )
 
     return MultipartParameters(payload=payload, multipart=multipart, files=files)
+
+
+async def json_or_text(response: aiohttp.ClientResponse) -> Union[Dict[str, Any], str]:
+    text = await response.text(encoding='utf-8')
+    try:
+        if response.headers['content-type'] == 'application/json':
+            return json.loads(text)
+    except KeyError:
+        # Thanks Cloudflare
+        pass
+
+    return text
 
 
 class Route:
@@ -397,32 +410,49 @@ class HTTPClient(HTTPClientBase):
 
         self.token: Optional[str] = None
 
-    @property
-    def credentials(self):
-        return {'Authorization': f'Bearer {self.token}'}
+        user_agent = 'guilded.py/{0} (https://github.com/shayypy/guilded.py) Python/{1[0]}.{1[1]} aiohttp/{2}'
+        self.user_agent: str = user_agent.format(__version__, sys.version_info, aiohttp.__version__)
 
     async def request(self, route, **kwargs):
         url = route.url
         method = route.method
-        kwargs['headers'] = kwargs.pop('headers', {})
-        if self.token:
-            kwargs['headers'] = {
-                **kwargs['headers'],
-                **self.credentials,
-            }
 
-        async def perform():
-            log_data = ''
-            if kwargs.get('json'):
-                log_data = f' with {kwargs["json"]}'
-            elif kwargs.get('data'):
-                log_data = f' with {kwargs["data"]}'
-            log_args = ''
-            if kwargs.get('params'):
-                log_args = '?' + '&'.join([f'{key}={val}' for key, val in kwargs['params'].items()])
-            log.info('%s %s%s%s', method, route.url, log_args, log_data)
-            response = await self.session.request(method, url, **kwargs)
-            log.info('Guilded responded with HTTP %s', response.status)
+        # create headers
+        headers: Dict[str, str] = {
+            'User-Agent': self.user_agent,
+        }
+
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+
+        if 'json' in kwargs:
+            headers['Content-Type'] = 'application/json'
+            kwargs['data'] = json.dumps(kwargs.pop('json'))
+
+        kwargs['headers'] = headers
+
+        # route.url doesn't include params since we don't pass them to the Route
+        log_url = url
+        if kwargs.get('params'):
+            log_url = '?' + '&'.join([f'{key}={val}' for key, val in kwargs['params'].items()])
+
+        log_headers = headers.copy()
+        if 'Authorization' in log_headers:
+            log_headers['Authorization'] = 'Bearer [removed]'
+
+        response: Optional[aiohttp.ClientResponse] = None
+        data: Optional[Union[Dict[str, Any], str]] = None
+        for tries in range(5):
+            try:
+                response = await self.session.request(method, url, **kwargs)
+            except OSError as exc:
+                # Connection reset by peer
+                if tries < 4 and exc.errno in (54, 10054):
+                    await asyncio.sleep(1 + tries * 2)
+                    continue
+                raise
+
+            log.debug('%s %s with data %s, headers %s, has returned %s', method, log_url, kwargs.get('data'), log_headers, response.status)
 
             authenticated_as = response.headers.get('authenticated-as')
             if authenticated_as and authenticated_as != self.my_id and authenticated_as != 'None':
@@ -435,55 +465,66 @@ class HTTPClient(HTTPClientBase):
                     last_user.id = self.my_id
                     self._users[self.my_id] = last_user
 
-            if response.status == 204:
-                return None
+            data = await json_or_text(response)
 
-            try:
-                data_txt = await response.text()
-            except UnicodeDecodeError:
-                data = await response.read()
-                log.debug('Response data: bytes')
+            # The request was successful so just return the text/json
+            if 300 > response.status >= 200:
+                log.debug('%s %s has received %s', method, url, data)
+                return data
+
+            if response.status == 429:
+                retry_after = response.headers.get('retry-after')
+                retry_after = float(retry_after) if retry_after is not None else (1 + tries * 2)
+
+                log.warning(
+                    'Rate limited on %s. Retrying in %s seconds',
+                    route.path,
+                    retry_after,
+                )
+                await asyncio.sleep(retry_after)
+                log.debug('Done sleeping for the rate limit. Retrying...')
+
+                continue
+
+            # We've received a 500, 502, 504, or 524, unconditional retry
+            if response.status in {500, 502, 504, 524}:
+                await asyncio.sleep(1 + tries * 2)
+                continue
+
+            if response.status == 403:
+                raise Forbidden(response, data)
+            elif response.status == 404:
+                raise NotFound(response, data)
+            elif response.status >= 500:
+                raise GuildedServerError(response, data)
             else:
-                try:
-                    data = json.loads(data_txt)
-                except json.decoder.JSONDecodeError:
-                    data = data_txt
-                log.debug(f'Response data: {data}')
-            if response.status != 200:
+                raise HTTPException(response, data)
 
-                if response.status == 429:
-                    retry_after = response.headers.get('retry-after')
-                    log.warning(
-                        'Rate limited on %s. Retrying in %s seconds',
-                        route.path,
-                        retry_after if retry_after is not None else 5
-                    )
-                    if retry_after is not None:
-                        await asyncio.sleep(float(retry_after))
-                        data = await perform()
-                    else:
-                        await asyncio.sleep(5)
-                        data = await perform()
+        if response is not None:
+            # We've run out of retries
+            if response.status >= 500:
+                raise GuildedServerError(response, data)
 
-                elif response.status >= 400:
-                    exception = error_mapping.get(response.status, HTTPException)
-                    raise exception(response, data)
+            raise HTTPException(response, data)
 
-            return data
-
-        return await perform()
+        raise RuntimeError('Unreachable code in HTTP handling')
 
     # state
 
     async def ws_connect(self) -> aiohttp.ClientWebSocketResponse:
         self.session = self.session if self.session and not self.session.closed else aiohttp.ClientSession()
 
-        headers = self.credentials.copy()
-        if self.ws:
-            # We have connected before
-            if self.ws._last_message_id:
-                # Catch up with missed messages
-                headers['guilded-last-message-id'] = self.ws._last_message_id
+        headers = {
+            'Authorization': f'Bearer {self.token}',
+            'User-Agent': self.user_agent,
+        }
+        if self.ws and self.ws._last_message_id:
+            # We have connected before, resume and catch up with missed messages
+            headers['guilded-last-message-id'] = self.ws._last_message_id
+
+        log_headers = headers.copy()
+        log_headers['Authorization'] = 'Bearer [removed]'
+        log.debug('Connecting to the gateway with %s', log_headers)
 
         return await self.session.ws_connect(Route.WEBSOCKET_BASE, headers=headers, autoping=False)
 

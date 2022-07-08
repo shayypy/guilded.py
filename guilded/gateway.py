@@ -181,14 +181,13 @@ class GuildedWebSocket:
 
     @classmethod
     async def build(cls, client: Client, *, loop: asyncio.AbstractEventLoop = None) -> Self:
-        log.info('Connecting to the gateway')
         try:
             socket = await client.http.ws_connect()
         except aiohttp.client_exceptions.WSServerHandshakeError as exc:
-            log.error('Failed to connect: %s', exc)
+            log.error('Failed to connect to the gateway: %s', exc)
             return exc
         else:
-            log.info('Connected')
+            log.info('Connected to the gateway')
 
         ws = cls(socket, client, loop=loop or asyncio.get_event_loop())
         ws._parsers = WebSocketEventParsers(client)
@@ -199,7 +198,7 @@ class GuildedWebSocket:
     async def received_event(self, payload: str) -> int:
         self.client.dispatch('socket_raw_receive', payload)
         data: EventSkeleton = json.loads(payload)
-        log.debug('Received %s', data)
+        log.debug('WebSocket has received %s', data)
 
         op = data['op']
         t = data.get('t')
