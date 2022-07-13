@@ -685,6 +685,26 @@ class HTTPClient(HTTPClientBase):
     def delete_calendar_event(self, channel_id: str, event_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/events/{event_id}'))
 
+    def get_calendar_event_rsvp(self, channel_id: str, event_id: int, user_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/events/{event_id}/rsvps/{user_id}'))
+
+    def get_calendar_event_rsvps(self, channel_id: str, event_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/events/{event_id}/rsvps'))
+
+    def put_calendar_event_rsvp(
+        self,
+        channel_id: str,
+        event_id: int,
+        user_id: str,
+        *,
+        payload: Dict[str, Any],
+    ):
+        # This endpoint is used for creation and updating
+        return self.request(Route('PUT', f'/channels/{channel_id}/events/{event_id}/rsvps/{user_id}'), json=payload)
+
+    def delete_calendar_event_rsvp(self, channel_id: str, event_id: int, user_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/events/{event_id}/rsvps/{user_id}'))
+
     # /servers
 
     def get_server(self, server_id: str):

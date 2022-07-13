@@ -55,19 +55,22 @@ import datetime
 import re
 from typing import TYPE_CHECKING, AsyncIterator, Optional, List, Tuple, Union
 
-import guilded.abc  # type: ignore
+import guilded.abc
 
 from .asset import Asset
 from .colour import Colour
-from .enums import ChannelType, FileType
+from .enums import ChannelType, FileType, RSVPStatus, try_enum
 from .group import Group
 from .message import ChatMessage, HasContentMixin
 from .user import Member
-from .utils import MISSING, ISO8601
+from .utils import MISSING, ISO8601, Object
 from .status import Game
 
 if TYPE_CHECKING:
-    from .types.calendar_event import CalendarEvent as CalendarEventPayload
+    from .types.calendar_event import (
+        CalendarEvent as CalendarEventPayload,
+        CalendarEventRsvp as CalendarEventRsvpPayload,
+    )
     from .types.doc import Doc as DocPayload
     from .types.list_item import (
         ListItem as ListItemPayload,
@@ -88,6 +91,7 @@ __all__ = (
     'Availability',
     'CalendarChannel',
     'CalendarEvent',
+    'CalendarEventRSVP',
     'ChatChannel',
     'DMChannel',
     'Doc',
@@ -126,6 +130,7 @@ class CalendarChannel(guilded.abc.ServerChannel):
         url: Optional[str] = MISSING,
         colour: Optional[Union[Colour, int]] = MISSING,
         color: Optional[Union[Colour, int]] = MISSING,
+        rsvp_limit: Optional[int] = MISSING,
         private: bool = MISSING,
     ) -> CalendarEvent:
         """|coro|
@@ -140,6 +145,7 @@ class CalendarChannel(guilded.abc.ServerChannel):
             When the event starts.
         duration: Union[:class:`datetime.timedelta`, :class:`int`]
             The duration of the event.
+            If this is an :class:`int`, the value must be in minutes.
         description: Optional[:class:`str`]
             The description of the event.
         location: Optional[:class:`str`]
@@ -149,7 +155,8 @@ class CalendarChannel(guilded.abc.ServerChannel):
         colour: Optional[Union[:class:`.Colour`, :class:`int`]]
             The colour of the event when viewing in the channel.
             This parameter is also aliased to ``color``.
-            If this is an :class:`int`, the value must be in minutes.
+        rsvp_limit: Optional[:class:`int`]
+            The number of RSVPs to allow before waitlisting.
         private: Optional[:class:`bool`]
             Whether the event should be private.
 
@@ -201,6 +208,9 @@ class CalendarChannel(guilded.abc.ServerChannel):
 
         if private is not MISSING:
             payload['isPrivate'] = private
+
+        if rsvp_limit is not MISSING:
+            payload['rsvpLimit'] = rsvp_limit
 
         data = await self._state.create_calendar_event(self.id, payload=payload)
         event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=self)
@@ -321,6 +331,22 @@ class CalendarEvent(HasContentMixin):
 
             Returns the name of the event.
 
+        .. describe:: x < y
+
+            Checks if an event starts before another event.
+
+        .. describe:: x > y
+
+            Checks if an event starts after another event.
+
+        .. describe:: x <= y
+
+            Checks if an event starts before or at the same time as another event.
+
+        .. describe:: x >= y
+
+            Checks if an event starts after or at the same time as another event.
+
     .. versionadded:: 1.2.0
 
     Attributes
@@ -390,8 +416,8 @@ class CalendarEvent(HasContentMixin):
 
         self.location = data.get('location')
         self.url = data.get('url')
-        self.starts_at = ISO8601(data.get('startsAt'))
-        self.created_at = ISO8601(data.get('createdAt'))
+        self.starts_at: datetime.datetime = ISO8601(data.get('startsAt'))
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.private = data.get('isPrivate') or False
         self._colour = data.get('color')
 
@@ -414,6 +440,18 @@ class CalendarEvent(HasContentMixin):
 
     def __eq__(self, other) -> bool:
         return isinstance(other, CalendarEvent) and self.id == other.id
+
+    def __lt__(self, other) -> bool:
+        return isinstance(other, CalendarEvent) and self.starts_at < other.starts_at
+
+    def __le__(self, other) -> bool:
+        return isinstance(other, CalendarEvent) and self.starts_at <= other.starts_at
+
+    def __gt__(self, other) -> bool:
+        return isinstance(other, CalendarEvent) and self.starts_at > other.starts_at
+
+    def __ge__(self, other) -> bool:
+        return isinstance(other, CalendarEvent) and self.starts_at >= other.starts_at
 
     @property
     def server(self) -> Server:
@@ -486,6 +524,7 @@ class CalendarEvent(HasContentMixin):
         colour: Optional[Union[Colour, int]] = MISSING,
         color: Optional[Union[Colour, int]] = MISSING,
         duration: Optional[Union[datetime.timedelta, int]] = MISSING,
+        rsvp_limit: Optional[int] = MISSING,
         private: bool = MISSING,
     ) -> CalendarEvent:
         """|coro|
@@ -512,6 +551,8 @@ class CalendarEvent(HasContentMixin):
         duration: Union[:class:`datetime.timedelta`, :class:`int`]
             The duration of the event.
             If this is an :class:`int`, the value must be in minutes.
+        rsvp_limit: Optional[:class:`int`]
+            The number of RSVPs to allow before waitlisting.
         private: :class:`bool`
             Whether the event should be private.
 
@@ -567,6 +608,9 @@ class CalendarEvent(HasContentMixin):
         if private is not MISSING:
             payload['isPrivate'] = private
 
+        if rsvp_limit is not MISSING:
+            payload['rsvpLimit'] = rsvp_limit
+
         data = await self._state.update_calendar_event(self.channel.id, self.id, payload=payload)
         event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=self.channel)
         return event
@@ -586,6 +630,258 @@ class CalendarEvent(HasContentMixin):
             Failed to delete the event.
         """
         await self._state.delete_calendar_event(self.channel.id, self.id)
+
+    async def create_rsvp(
+        self,
+        user: guilded.abc.User,
+        /,
+        *,
+        status: RSVPStatus,
+    ) -> CalendarEventRSVP:
+        """|coro|
+
+        Create an RSVP for a user.
+
+        This method can also be used for editing an existing RSVP, which may
+        be preferable if all you need to do is edit it.
+
+        Parameters
+        -----------
+        user: :class:`~.abc.User`
+            The user to create an RSVP for.
+        status: :class:`.RSVPStatus`
+            The status of the RSVP.
+            This cannot be :attr:`~.RSVPStatus.waitlisted`, which is
+            automatically set when :attr:`~.RSVPStatus.going` is used but the
+            event is at max capacity.
+
+        Returns
+        --------
+        :class:`.CalendarEventRSVP`
+            The newly created RSVP.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to create an RSVP for another user.
+        HTTPException
+            Failed to create an RSVP.
+        """
+
+        payload = {
+            'status': status.value,
+        }
+
+        data = await self._state.put_calendar_event_rsvp(
+            self.channel_id,
+            self.id,
+            user.id,
+            payload=payload,
+        )
+        rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=self)
+        return rsvp
+
+    async def fetch_rsvp(self, user: guilded.abc.User, /) -> CalendarEventRSVP:
+        """|coro|
+
+        Fetch a user's RSVP to this event.
+
+        Returns
+        --------
+        :class:`.CalendarEventRSVP`
+            The user's RSVP.
+
+        Raises
+        -------
+        NotFound
+            This user does not have an RSVP for this event.
+        HTTPException
+            Failed to fetch this user's RSVP.
+        """
+
+        data = await self._state.get_calendar_event_rsvp(self.channel_id, self.id, user.id)
+        rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=self)
+        return rsvp
+
+    async def fetch_rsvps(self) -> List[CalendarEventRSVP]:
+        """|coro|
+
+        Fetch all RSVPs to this event.
+
+        Returns
+        --------
+        :class:`.CalendarEventRSVP`
+            A user's RSVP.
+
+        Raises
+        -------
+        HTTPException
+            Failed to fetch the RSVPs.
+        """
+
+        rsvps = []
+        data = await self._state.get_calendar_event_rsvps(self.channel_id, self.id)
+        for rsvp_data in data['calendarEventRsvps']:
+            rsvp = CalendarEventRSVP(data=rsvp_data, event=self)
+            rsvps.append(rsvp)
+
+        return rsvps
+
+
+class CalendarEventRSVP:
+    """Represents an RSVP to a :class:`CalendarEvent`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two RSVPs are equal.
+
+        .. describe:: x != y
+
+            Checks if two RSVPs are not equal.
+
+    .. versionadded:: 1.2.0
+
+    Attributes
+    -----------
+    event: :class:`.CalendarEvent`
+        The event that the RSVP is for.
+    channel_id: Optional[:class:`str`]
+        The ID of the channel that the RSVP's event is in.
+    server_id: :class:`str`
+        The ID of the server that the RSVP's event is in.
+    user_id: :class:`str`
+        The ID of the user that the RSVP is for.
+    status: :class:`.RSVPStatus`
+        The status of the RSVP.
+    created_at: :class:`datetime.datetime`
+        When the RSVP was created.
+    updated_at: :class:`datetime.datetime`
+        When the RSVP was last updated.
+    """
+
+    __slots__: Tuple[str, ...] = (
+        'event',
+        'server_id',
+        'channel_id',
+        'user_id',
+        'author_id',
+        'updated_by_id',
+        'status',
+        'created_at',
+    )
+
+    def __init__(self, *, data: CalendarEventRsvpPayload, event: CalendarEvent):
+        super().__init__()
+        self.event = event
+
+        self.server_id = data.get('serverId')
+        self.channel_id = data.get('channelId')
+        self.user_id = data.get('userId')
+        self.author_id = data.get('createdBy')
+        self.updated_by_id = data.get('updatedBy')
+
+        self.status: RSVPStatus = try_enum(RSVPStatus, data.get('status'))
+        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+
+    def __repr__(self) -> str:
+        return f'<CalendarEventRSVP user_id={self.user_id!r} status={self.status!r} event={self.event!r}>'
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, CalendarEventRSVP) and self.event == other.event and self.user_id == other.user_id
+
+    @property
+    def channel(self) -> CalendarChannel:
+        """:class:`.CalendarChannel`: The channel that the RSVP's event is in."""
+        return self.event._state._get_server_channel(self.server_id, self.channel_id) or self.event.channel
+
+    @property
+    def server(self) -> Server:
+        """:class:`.Server`: The server that the RSVP's event is in."""
+        return self.event._state._get_server(self.server_id) or self.event.server
+
+    @property
+    def guild(self) -> Server:
+        """:class:`.Server`: |dpyattr|
+
+        This is an alias of :attr:`.server`.
+
+        The server that the RSVP's event is in.
+        """
+        return self.server
+
+    @property
+    def group(self) -> Optional[Group]:
+        """:class:`.Group`: The group that the event is in."""
+        return self.channel.group
+
+    @property
+    def author(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member that created the RSVP."""
+        return self.server.get_member(self.author_id)
+
+    @property
+    def updated_by(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The member that last updated the RSVP."""
+        return self.server.get_member(self.updated_by_id)
+
+    @property
+    def member(self) -> Member:
+        """:class:`.Member`: The member that the RSVP is for."""
+        return self.server.get_member(self.user_id)
+
+    async def edit(
+        self,
+        *,
+        status: RSVPStatus,
+    ) -> CalendarEventRSVP:
+        """|coro|
+
+        Edit this RSVP.
+
+        Parameters
+        -----------
+        status: :class:`.RSVPStatus`
+            The status of the RSVP.
+            This cannot be :attr:`~.RSVPStatus.waitlisted`, which is
+            automatically set when :attr:`~.RSVPStatus.going` is used but the
+            event is at max capacity.
+
+        Returns
+        --------
+        :class:`.CalendarEventRSVP`
+            The newly edited RSVP.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to edit this RSVP.
+        NotFound
+            This RSVP was deleted.
+        HTTPException
+            Failed to edit this RSVP.
+        """
+        return await self.event.create_rsvp(
+            Object(self.user_id),
+            status=status,
+        )
+
+    async def delete(self) -> None:
+        """|coro|
+
+        Delete this RSVP.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to delete this RSVP.
+        NotFound
+            This RSVP was already deleted.
+        HTTPException
+            Failed to delete this RSVP.
+        """
+        await self.event._state.delete_calendar_event_rsvp(self.channel_id, self.event.id, self.user_id)
 
 
 class ChatChannel(guilded.abc.ServerChannel, guilded.abc.Messageable):

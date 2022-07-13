@@ -63,6 +63,7 @@ __all__ = (
     'FlowTriggerType',
     'ServerType',
     'UserType',
+    'RSVPStatus',
 )
 
 
@@ -329,6 +330,14 @@ class ServerType(Enum):
 class UserType(Enum):
     user = 'user'
     bot = 'bot'
+
+
+class RSVPStatus(Enum):
+    going = 'going'
+    maybe = 'maybe'
+    declined = 'declined'
+    invited = 'invited'
+    waitlisted = 'waitlisted'
 
 
 T = TypeVar('T')

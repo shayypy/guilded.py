@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import TypedDict
+from typing import Literal, TypedDict
 from typing_extensions import NotRequired
 
 from .channel import Mentions
@@ -43,6 +43,7 @@ class CalendarEvent(TypedDict):
     location: NotRequired[str]
     url: NotRequired[str]
     color: NotRequired[int]
+    rsvpLimit: NotRequired[int]
     startsAt: str
     duration: NotRequired[int]
     isPrivate: NotRequired[bool]
@@ -50,3 +51,15 @@ class CalendarEvent(TypedDict):
     createdAt: str
     createdBy: str
     cancellation: NotRequired[CalendarEventCancellation]
+
+
+class CalendarEventRsvp(TypedDict):
+    calendarEventId: int
+    channelId: NotRequired[str]
+    serverId: str
+    userId: str
+    status: Literal['going', 'maybe', 'declined', 'invited', 'waitlisted']
+    createdBy: str
+    createdAt: str
+    updatedBy: NotRequired[str]
+    updatedAt: NotRequired[str]
