@@ -457,6 +457,11 @@ class HasContentMixin:
         return mentions
 
     def _extract_attachments(self, content: str) -> None:
+        if content is None:
+            content = ''
+        elif not isinstance(content, str):
+            raise TypeError(f'expected str for content, not {content.__class__.__name__}')
+
         self.attachments.clear()
 
         matches: List[Tuple[str, str, str]] = re.findall(ATTACHMENT_REGEX, content)

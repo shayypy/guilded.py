@@ -413,6 +413,7 @@ class CalendarEvent(HasContentMixin):
         self.name = data.get('name')
         self.description = data.get('description')
         self._mentions = self._create_mentions(data.get('mentions'))
+        self._extract_attachments(self.description)
 
         self.location = data.get('location')
         self.url = data.get('url')
@@ -1006,6 +1007,7 @@ class Doc(HasContentMixin):
         self.title: str = data['title']
         self.content: str = data['content']
         self._mentions = self._create_mentions(data.get('mentions'))
+        self._extract_attachments(self.content)
 
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
@@ -1253,7 +1255,7 @@ class DocsChannel(guilded.abc.ServerChannel):
         """
 
         data = await self._state.get_doc(self.id, doc_id)
-        doc = Doc(data=data, channel=self, state=self._state)
+        doc = Doc(data=data['doc'], channel=self, state=self._state)
         return doc
 
     # TODO: async iterator
@@ -1334,6 +1336,7 @@ class ForumTopic(HasContentMixin):
         self.id: int = data['id']
         self.title: Optional[str] = data.get('title')
         self.content: Optional[str] = data.get('content')
+        self._extract_attachments(self.content)
 
         self.webhook_id: Optional[str] = data.get('createdByWebhookId')
         self.author_id: str = data.get('createdBy')
@@ -2473,6 +2476,7 @@ class ListItemNote(HasContentMixin):
         else:
             self.content = data.get('content')
             self._mentions = self._create_mentions(data.get('mentions'))
+            self._extract_attachments(self.content)
 
     def __repr__(self) -> str:
         return f'<ListItemNote parent={self.parent!r} author={self.author!r}>'
@@ -2620,6 +2624,7 @@ class ListItem(HasContentMixin):
         else:
             self.message: str = data['message']
             self._mentions = self._create_mentions(data.get('mentions'))
+            self._extract_attachments(self.message)
 
             self.note = ListItemNote(data=data.get('note') or {}, parent=self)
 
