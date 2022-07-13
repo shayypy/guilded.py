@@ -54,14 +54,15 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, List, Sequence, Union
+import re
+from typing import TYPE_CHECKING, Any, Dict, Optional, List, Sequence, Tuple, Union
 
 from .colour import Colour
 from .embed import Embed
-from .enums import try_enum, MessageType
+from .enums import FileType, try_enum, MessageType
 from .errors import HTTPException
 from .file import Attachment
-from .utils import ISO8601, MISSING
+from .utils import ISO8601, MISSING, valid_video_extensions
 
 if TYPE_CHECKING:
     from .types.channel import Mentions as MentionsPayload
@@ -74,6 +75,12 @@ if TYPE_CHECKING:
     from .user import Member, User
 
 log = logging.getLogger(__name__)
+
+__all__ = (
+    'ChatMessage',
+    'Mentions',
+    'Message',
+)
 
 
 class Mentions:
@@ -233,6 +240,8 @@ class Mentions:
                     self._state.add_to_server_channel_cache(channel)
 
 
+ATTACHMENT_REGEX = re.compile(r'!\[(?P<caption>.+)?\]\((?P<url>https:\/\/(?:s3-us-west-2\.amazonaws\.com\/www\.guilded\.gg|img\.guildedcdn\.com)\/(?:ContentMediaGenericFiles|WebhookPrimaryMedia)\/[a-zA-Z0-9]+-Full\.(?P<extension>webp|jpeg|jpg|png|gif|apng)(?:\?.+)?)\)')
+
 class HasContentMixin:
     def __init__(self):
         self.emotes: list = []
@@ -244,9 +253,8 @@ class HasContentMixin:
         self._role_mentions: list = []
         self._mentions_everyone: bool = False
         self._mentions_here: bool = False
-        self.embeds: list = []
-        self.attachments: list = []
-        self.links: list = []
+        self.embeds: List[Embed] = []
+        self.attachments: List[Attachment] = []
 
     @property
     def user_mentions(self) -> List[Union[Member, User]]:
@@ -434,7 +442,7 @@ class HasContentMixin:
                 if quote_content:
                     content += '\n> {}\n'.format('\n> '.join(quote_content))
 
-            elif node_type in ['image', 'video']:
+            elif node_type in {'image', 'video', 'fileUpload'}:
                 attachment = Attachment(state=self._state, data=node)
                 self.attachments.append(attachment)
 
@@ -447,6 +455,22 @@ class HasContentMixin:
         # This will always be called after setting _state and _server/server_id so this should be safe
         mentions = Mentions(state=self._state, server=self.server, data=data or {})
         return mentions
+
+    def _extract_attachments(self, content: str) -> None:
+        self.attachments.clear()
+
+        matches: List[Tuple[str, str, str]] = re.findall(ATTACHMENT_REGEX, content)
+        for match in matches:
+            caption, url, extension = match
+            attachment = Attachment(
+                state=self._state,
+                data={
+                    'type': FileType.video if extension in valid_video_extensions else FileType.image,
+                    'caption': caption or None,
+                    'url': url,
+                },
+            )
+            self.attachments.append(attachment)
 
 
 class ChatMessage(HasContentMixin):
@@ -473,6 +497,8 @@ class ChatMessage(HasContentMixin):
     embeds: List[:class:`.Embed`]
         The list of embeds in the message.
         This does not include link unfurl embeds.
+    attachments: List[:class:`.Attachment`]
+        The list of media attachments in the message.
     channel: :class:`~.abc.ServerChannel`
         The channel this message was sent in.
     webhook_id: Optional[:class:`str`]
@@ -541,6 +567,7 @@ class ChatMessage(HasContentMixin):
             self.embeds: List[Embed] = [
                 Embed.from_dict(embed) for embed in (data.get('embeds') or [])
             ]
+            self._extract_attachments(self.content)
 
     def __eq__(self, other) -> bool:
         return isinstance(other, ChatMessage) and self.id == other.id

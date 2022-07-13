@@ -51,6 +51,7 @@ DEALINGS IN THE SOFTWARE.
 
 import io
 import os
+import re
 from typing import Any, Dict, Optional, Union
 
 from .asset import AssetMixin
@@ -237,13 +238,16 @@ class Attachment(AssetMixin):
     -----------
     url: :class:`str`
         The URL to the file on Guilded's CDN.
-    filename: :class:`str`
-        The file's name, usually in the format of ``{hash}-{size}.{extension}``.
     file_type: Optional[:class:`FileType`]
         The type of file.
     caption: Optional[:class:`str`]
-        The attachment's caption. This probably won't be present in message
-        attachments.
+        The attachment's caption.
+    size: Optional[:class:`int`]
+        The attachment's size in bytes.
+    height: Optional[:class:`int`]
+        The attachment's height in pixels.
+    width: Optional[:class:`int`]
+        The attachment's width in pixels.
     """
 
     __slots__ = (
@@ -251,15 +255,35 @@ class Attachment(AssetMixin):
         'file_type',
         'type',
         'url',
+        'width',
+        'height',
         'caption',
+        'size',
+        '_filename',
     )
 
-    def __init__(self, *, state, data, **extra):
+    def __init__(self, *, state, data: Dict[str, Any], **extra):
         self._state = state
         self.file_type: FileType = try_enum(FileType, data.get('type'))
-        self.type: MediaType = extra.get('type') or MediaType.attachment
-        self.url: str = data.get('data', {}).get('src')
-        self.caption: Optional[str]
+        self.type: MediaType = extra.get('type') or MediaType.content_media_generic_files
+        self.caption: Optional[str] = data.get('caption')
+
+        inner_data: Dict[str, Any] = data.get('data', {})
+        self.size: Optional[int] = inner_data.get('fileSizeBytes')
+        self._filename: Optional[str] = inner_data.get('name')
+
+        self.url: str = data.get('url') or inner_data.get('src')
+        self.width: Optional[int] = None
+        self.height: Optional[int] = None
+
+        # I also considered re.findall with `(?:\?|&)(?:(w)=(?P<width>\d+)|(h)=(?P<height>\d+))`
+        # but I thought it was too clunky.
+        height_match: Optional[re.Match] = re.search(r'(?:\?|&)h=(?P<value>\d+)', self.url)
+        width_match: Optional[re.Match] = re.search(r'(?:\?|&)w=(?P<value>\d+)', self.url)
+        if width_match:
+            self.width = int(width_match.group('value'))
+        if height_match:
+            self.height = int(height_match.group('value'))
 
         if data.get('nodes'):
             node = data['nodes'][0] or {}
@@ -288,16 +312,34 @@ class Attachment(AssetMixin):
                         )
 
                 self.caption = caption
-            else:
-                self.caption = None
+
+    def __repr__(self) -> str:
+        return f'<Attachment filename={self.filename!r} url={self.url!r}>'
+
+    def __str__(self) -> str:
+        return self.url
 
     @property
     def filename(self) -> str:
-        try:
-            return str(self.url).split('/')[-1]
-        except IndexError:
-            # url could theoretically be None
-            return ''
+        """:class:`str`: The file's name."""
+        if not self._filename:
+            try:
+                # Remove the leading host & path details and trailing query parameters
+                return str(self.url).split('/')[-1].split('?')[0]
+            except IndexError:
+                return ''
+
+        return self._filename
+
+    @property
+    def description(self) -> Optional[str]:
+        """Optional[:class:`str`]: |dpyattr|
+
+        This is an alias of :attr:`.caption`.
+
+        The attachment's caption.
+        """
+        return self.caption
 
     async def to_file(self) -> File:
         """|coro|
@@ -312,5 +354,5 @@ class Attachment(AssetMixin):
 
         data = io.BytesIO(await self.read())
         file = File(data, filename=self.filename, file_type=self.file_type)
-        file.set_media_type(MediaType.content_media)
+        file.set_media_type(self.type)
         return file

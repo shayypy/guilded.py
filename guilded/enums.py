@@ -219,6 +219,8 @@ class MessageType(Enum):
 class MediaType(Enum):
     """Represents a file/attachment's media type in Guilded."""
     content_media = 'ContentMedia'
+    content_media_generic_files = 'ContentMediaGenericFiles'
+    webhook_media = 'WebhookPrimaryMedia'
     custom_reaction = 'CustomReaction'
     user_avatar = 'UserAvatar'
     user_banner = 'UserBanner'
@@ -251,6 +253,7 @@ class FileType(Enum):
     can pass this into :class:`File`\'s ``file_type`` keyword argument."""
     image = 'image'
     video = 'video'
+    file = 'fileUpload'
 
     def __str__(self):
         return self.value
