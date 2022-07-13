@@ -224,8 +224,13 @@ class File:
             self._closer()
 
     async def _upload(self, state):
-        response = await state.upload_file(self)
-        url = response.get('url')
+        if self.file_type in {FileType.image, FileType.video}:
+            coro = state.upload_media
+        else:
+            coro = state.upload_file
+
+        data = await coro(self)
+        url = data.get('url')
         self.url = url
         return self
 
