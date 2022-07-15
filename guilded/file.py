@@ -66,11 +66,7 @@ __all__ = (
 
 
 class File:
-    """Wraps media pre-and-mid-upload.
-
-    .. warning::
-
-        Non-image/video filetypes are not supported by Guilded.
+    """Wraps files pre- and mid-upload.
 
     .. container:: operations
 
@@ -85,8 +81,6 @@ class File:
         If passing a file with ``open``, the file should be opened in ``rb`` mode.
     filename: Optional[:class:`str`]
         The name of this file.
-        This is not *technically* required unless you want to use the ``attachment://`` URI in an :class:`.Embed`.
-        Guilded will not use this to name the file on their CDN.
     file_type: :class:`FileType`
         The file's file type.
         If this could not be detected by the library, defaults to :attr:`FileType.image`. 
