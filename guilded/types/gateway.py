@@ -26,7 +26,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, TypedDict
 from typing_extensions import NotRequired
 
-from .calendar_event import CalendarEvent
+from .calendar_event import CalendarEvent, CalendarEventRsvp
 from .channel import ServerChannel
 from .doc import Doc
 from .list_item import ListItem
@@ -119,6 +119,10 @@ class DocEvent(_ServerEvent):
 
 class CalendarEventEvent(_ServerEvent):
     calendarEvent: CalendarEvent
+
+
+class CalendarEventRsvpEvent(_ServerEvent):
+    calendarEventRsvp: CalendarEventRsvp
 
 
 class ListItemEvent(_ServerEvent):

@@ -522,7 +522,7 @@ class WebSocketEventParsers:
             return
 
         try:
-            channel = await server.getch_channel(data['calendarEvent']['channelId'])
+            channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
         except HTTPException:
             return
 
@@ -536,7 +536,7 @@ class WebSocketEventParsers:
     #        return
 
     #    try:
-    #        channel = await server.getch_channel(data['calendarEvent']['channelId'])
+    #        channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
     #    except HTTPException:
     #        return
 
@@ -549,12 +549,40 @@ class WebSocketEventParsers:
             return
 
         try:
-            channel = await server.getch_channel(data['calendarEvent']['channelId'])
+            channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
         except HTTPException:
             return
 
         event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
         self.client.dispatch('calendar_event_delete', event)
+
+    async def CalendarEventRsvpUpdated(self, data: CalendarEventRsvpEvent):
+        server = self.client.get_server(data['serverId'])
+        if not server:
+            return
+
+        try:
+            channel: CalendarChannel = await server.getch_channel(data['calendarEventRsvp']['channelId'])
+            event = await channel.fetch_event(data['calendarEventRsvp']['calendarEventId'])
+        except HTTPException:
+            return
+
+        rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=event)
+        self.client.dispatch('raw_calendar_event_rsvp_update', rsvp)
+
+    async def CalendarEventRsvpDeleted(self, data: CalendarEventRsvpEvent):
+        server = self.client.get_server(data['serverId'])
+        if not server:
+            return
+
+        try:
+            channel: CalendarChannel = await server.getch_channel(data['calendarEventRsvp']['channelId'])
+            event = await channel.fetch_event(data['calendarEventRsvp']['calendarEventId'])
+        except HTTPException:
+            return
+
+        rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=event)
+        self.client.dispatch('calendar_event_rsvp_delete', rsvp)
 
 
 class Heartbeater(threading.Thread):
