@@ -245,9 +245,9 @@ ATTACHMENT_REGEX = re.compile(r'!\[(?P<caption>.+)?\]\((?P<url>https:\/\/(?:s3-u
 class HasContentMixin:
     def __init__(self):
         self.emotes: list = []
-        self.raw_mentions: list = []
-        self.raw_channel_mentions: list = []
-        self.raw_role_mentions: list = []
+        self._raw_user_mentions: list = []
+        self._raw_channel_mentions: list = []
+        self._raw_role_mentions: list = []
         self._user_mentions: list = []
         self._channel_mentions: list = []
         self._role_mentions: list = []
@@ -264,6 +264,18 @@ class HasContentMixin:
         return self._user_mentions
 
     @property
+    def raw_user_mentions(self) -> List[str]:
+        """List[:class:`str`]: A list of user IDs for the users that are
+        mentioned in the content.
+
+        This is useful if you need the users that are mentioned but do not
+        care about their resolved data.
+        """
+        if hasattr(self, '_mentions'):
+            return [obj['id'] for obj in self._mentions._users]
+        return self._raw_user_mentions
+
+    @property
     def mentions(self) -> List[Union[Member, User]]:
         """List[Union[:class:`.Member`, :class:`~guilded.User`]]: |dpyattr|
 
@@ -272,11 +284,35 @@ class HasContentMixin:
         return self.user_mentions
 
     @property
+    def raw_mentions(self) -> List[str]:
+        """List[:class:`str`]: |dpyattr|
+
+        A list of user IDs for the users that are mentioned in the content.
+
+        This is useful if you need the users that are mentioned but do not
+        care about their resolved data.
+        """
+        return self.raw_user_mentions
+
+    @property
     def channel_mentions(self) -> List[ServerChannel]:
-        """List[:class:`~.abc.ServerChannel`]: The list of channels that are mentioned in the content."""
+        """List[:class:`~.abc.ServerChannel`]: The list of channels that are
+        mentioned in the content."""
         if hasattr(self, '_mentions'):
             return self._mentions.channels
         return self._channel_mentions
+
+    @property
+    def raw_channel_mentions(self) -> List[str]:
+        """List[:class:`str`]: A list of channel IDs for the channels that are
+        mentioned in the content.
+
+        This is useful if you need the channels that are mentioned but do not
+        care about their resolved data.
+        """
+        if hasattr(self, '_mentions'):
+            return [obj['id'] for obj in self._mentions._channels]
+        return self._raw_channel_mentions
 
     @property
     def role_mentions(self) -> List[Role]:
@@ -284,6 +320,18 @@ class HasContentMixin:
         if hasattr(self, '_mentions'):
             return self._mentions.roles
         return self._role_mentions
+
+    @property
+    def raw_role_mentions(self) -> List[int]:
+        """List[:class:`int`]: A list of role IDs for the roles that are
+        mentioned in the content.
+
+        This is useful if you need the roles that are mentioned but do not
+        care about their resolved data.
+        """
+        if hasattr(self, '_mentions'):
+            return [obj['id'] for obj in self._mentions._roles]
+        return self._raw_role_mentions
 
     @property
     def mention_everyone(self) -> bool:
@@ -338,12 +386,12 @@ class HasContentMixin:
                         if element['type'] == 'mention':
                             mentioned = element['data']['mention']
                             if mentioned['type'] == 'role':
-                                self.raw_role_mentions.append(int(mentioned['id']))
+                                self._raw_role_mentions.append(int(mentioned['id']))
                                 content += f'<@{mentioned["id"]}>'
                             elif mentioned['type'] == 'person':
                                 content += f'<@{mentioned["id"]}>'
 
-                                self.raw_mentions.append(mentioned['id'])
+                                self._raw_user_mentions.append(mentioned['id'])
                                 if self.server_id:
                                     user = self._state._get_server_member(self.server_id, mentioned['id'])
                                 else:
@@ -406,7 +454,7 @@ class HasContentMixin:
                         elif element['type'] == 'channel':
                             channel = element['data']['channel']
                             if channel.get('id'):
-                                self.raw_channel_mentions.append(channel["id"])
+                                self._raw_channel_mentions.append(channel["id"])
                                 content += f'<#{channel["id"]}>'
                                 channel = self._state._get_server_channel(self.server_id, channel['id'])
                                 if channel:
