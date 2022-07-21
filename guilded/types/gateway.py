@@ -125,6 +125,10 @@ class CalendarEventRsvpEvent(_ServerEvent):
     calendarEventRsvp: CalendarEventRsvp
 
 
+class CalendarEventRsvpManyUpdatedEvent(_ServerEvent):
+    calendarEventRsvps: List[CalendarEventRsvp]
+
+
 class ListItemEvent(_ServerEvent):
     listItem: ListItem
 

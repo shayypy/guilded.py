@@ -529,19 +529,18 @@ class WebSocketEventParsers:
         event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
         self.client.dispatch('calendar_event_create', event)
 
-    # This event's payload isn't hydrated properly
-    #async def CalendarEventUpdated(self, data: CalendarEventEvent):
-    #    server = self.client.get_server(data['serverId'])
-    #    if not server:
-    #        return
+    async def CalendarEventUpdated(self, data: CalendarEventEvent):
+        server = self.client.get_server(data['serverId'])
+        if not server:
+            return
 
-    #    try:
-    #        channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
-    #    except HTTPException:
-    #        return
+        try:
+            channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
+        except HTTPException:
+            return
 
-    #    event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
-    #    self.client.dispatch('raw_calendar_event_update', event)
+        event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
+        self.client.dispatch('raw_calendar_event_update', event)
 
     async def CalendarEventDeleted(self, data: CalendarEventEvent):
         server = self.client.get_server(data['serverId'])
@@ -569,6 +568,23 @@ class WebSocketEventParsers:
 
         rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=event)
         self.client.dispatch('raw_calendar_event_rsvp_update', rsvp)
+
+    async def CalendarEventRsvpManyUpdated(self, data: CalendarEventRsvpManyUpdatedEvent):
+        server = self.client.get_server(data['serverId'])
+        if not server:
+            return
+
+        try:
+            channel: CalendarChannel = await server.getch_channel(data['calendarEventRsvps'][0]['channelId'])
+            event = await channel.fetch_event(data['calendarEventRsvps'][0]['calendarEventId'])
+        except (HTTPException, IndexError):
+            return
+
+        rsvps = [
+            CalendarEventRSVP(data=rsvp_data, event=event)
+            for rsvp_data in data['calendarEventRsvps']
+        ]
+        self.client.dispatch('bulk_calendar_event_rsvp_create', rsvps)
 
     async def CalendarEventRsvpDeleted(self, data: CalendarEventRsvpEvent):
         server = self.client.get_server(data['serverId'])
