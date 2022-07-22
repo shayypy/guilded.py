@@ -186,7 +186,7 @@ class ChannelType(Enum):
     calendar = 'calendar'
     chat = 'chat'
     docs = 'docs'
-    dm = 'DM'
+    dm = 'dm'
     forums = 'forums'
     media = 'media'
     list = 'list'

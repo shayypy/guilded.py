@@ -53,7 +53,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import TYPE_CHECKING, AsyncIterator, Optional, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Optional, List, Tuple, Union
 
 import guilded.abc
 
@@ -1735,50 +1735,23 @@ class DMChannel(guilded.abc.Messageable):
 
     Attributes
     -----------
-    last_message: Optional[:class:`.ChatMessage`]
-        The most recent message in the channel.
-    recipient: Optional[:class:`.User`]
-        The user on the opposing end of this conversation;
-        The first participant who is not yourself.
     created_at: :class:`datetime.datetime`
         When the channel was created.
     updated_at: Optional[:class:`datetime.datetime`]
         When the channel was last updated.
-    deleted_at: Optional[:class:`datetime.datetime`]
-        When the channel was deleted.
-    archived_at: Optional[:class:`datetime.datetime`]
-        When the channel was archived.
-    auto_archive_at: Optional[:class:`datetime.datetime`]
-        When the channel will automatically archive.
     """
-    def __init__(self, *, state, data):
-        data = data.get('channel', data)
+
+    def __init__(self, *, state, data: Dict[str, Any]):
         super().__init__(state=state, data=data)
         self.type = ChannelType.dm
         self.server = None
         self.group = None
 
-        self._users = {}
+        self._user_ids = set()
         self.recipient = None
-        for user_data in data.get('users', []):
-            user = self._state.create_user(data=user_data)
-            if user:
-                self._users[user.id] = user
-                if user.id != self._state.my_id:
-                    self.recipient = user
 
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
-        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
-        self.archived_at: Optional[datetime.datetime] = ISO8601(data.get('archivedAt'))
-        self.auto_archive_at: Optional[datetime.datetime] = ISO8601(data.get('autoArchiveAt'))
-        self.voice_participants: List[User] = data.get('voiceParticipants')
-        self.last_message: Optional[ChatMessage] = None
-        if data.get('lastMessage'):
-            message_data = data.get('lastMessage')
-            author = self._users.get(message_data.get('createdBy'))
-            message = self._state.create_message(channel=self, data=message_data, author=author)
-            self.last_message = message
 
     @property
     def share_url(self) -> str:
@@ -1787,22 +1760,11 @@ class DMChannel(guilded.abc.Messageable):
 
     @property
     def users(self) -> List[User]:
-        """List[:class:`.User`]: The list of participants in this DM, including yourself."""
-        return list(self._users.values())
+        """List[:class:`~guilded.User`]: The list of participants in this DM, including yourself."""
+        return [self._state._get_user(user_id) for user_id in self._user_ids]
 
     def __repr__(self) -> str:
         return f'<DMChannel id={self.id!r} recipient={self.recipient!r}>'
-
-    async def hide(self) -> None:
-        """|coro|
-
-        Visually hide this DM channel in the client.
-
-        The channel's content will still exist, and the channel can be
-        re-fetched with :meth:`User.create_dm` on whichever :class:`User` this
-        channel is associated with.
-        """
-        await self._state.hide_dm_channel(self.id)
 
 
 class Announcement(HasContentMixin):

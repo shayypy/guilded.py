@@ -293,24 +293,45 @@ class WebSocketEventParsers:
     async def ChatMessageCreated(self, data: ChatMessageCreatedEvent):
         server_id = data['serverId']
         server = self.client.get_server(server_id)
+        if server_id and not server:
+            log.debug('Ignoring ChatMessageCreated event with unknown server ID %s.', server_id)
+            return
+
         message_data = data['message']
 
-        channel = self._state._get_server_channel_or_thread(server_id, message_data['channelId'])
-        if channel is None:
-            try:
-                channel = await server.fetch_channel(message_data['channelId'])
-            except HTTPException:
-                channel = self._state.create_channel(
-                    data={
-                        'id': message_data['channelId'],
-                        'type': 'chat',
-                        'serverId': server_id,
-                    },
-                    server=server,
-                )
+        if server_id is not None:
+            channel = self._state._get_server_channel_or_thread(server_id, message_data['channelId'])
+            if channel is None:
+                try:
+                    channel = await server.fetch_channel(message_data['channelId'])
+                except HTTPException:
+                    channel = self._state.create_channel(
+                        data={
+                            'id': message_data['channelId'],
+                            'type': 'chat',
+                            'serverId': server_id,
+                        },
+                        server=server,
+                    )
 
-        if channel is not None:
-            self._state.add_to_server_channel_cache(channel)
+            if channel is not None:
+                self._state.add_to_server_channel_cache(channel)
+
+        else:
+            channel = self._state._get_dm_channel(message_data['channelId'])
+            if channel is None:
+                try:
+                    channel = await self.client.fetch_channel(message_data['channelId'])
+                except HTTPException:
+                    channel = self._state.create_channel(
+                        data={
+                            'id': message_data['channelId'],
+                            'type': 'dm',
+                        },
+                    )
+
+            if channel is not None:
+                self._state.add_to_dm_channel_cache(channel)
 
         async def user_fallback():
             # This function should really never be needed in the current API
