@@ -29,6 +29,7 @@ from typing_extensions import NotRequired
 from .calendar_event import CalendarEvent, CalendarEventRsvp
 from .channel import ServerChannel
 from .doc import Doc
+from .forum_topic import ForumTopic
 from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
 from .reaction import ChannelMessageReaction
@@ -119,6 +120,10 @@ class DocEvent(_ServerEvent):
 
 class CalendarEventEvent(_ServerEvent):
     calendarEvent: CalendarEvent
+
+
+class ForumTopicEvent(_ServerEvent):
+    forumTopic: ForumTopic
 
 
 class CalendarEventRsvpEvent(_ServerEvent):

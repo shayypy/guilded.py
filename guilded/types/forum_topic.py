@@ -27,13 +27,17 @@ from typing import TypedDict
 from typing_extensions import NotRequired
 
 
-class ForumTopic(TypedDict):
+class ForumTopicSummary(TypedDict):
     id: int
     serverId: str
     channelId: str
-    title: NotRequired[str]
-    content: NotRequired[str]
+    title: str
     createdAt: str
     createdBy: str
     createdByWebhookId: NotRequired[str]
     updatedAt: NotRequired[str]
+    bumpedAt: NotRequired[str]
+
+
+class ForumTopic(ForumTopicSummary):
+    content: str

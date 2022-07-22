@@ -1304,13 +1304,10 @@ class ForumTopic(HasContentMixin):
         The forum channel that the topic is in.
     created_at: :class:`datetime.datetime`
         When the topic was created.
-    bumped_at: Optional[:class:`datetime.datetime`]
-        When the topic was last bumped. This may be the same as
-        :attr:`.created_at`.
     updated_at: Optional[:class:`datetime.datetime`]
         When the topic was last updated.
-    deleted: Optional[:class:`bool`]
-        Whether the topic is deleted.
+    bumped_at: Optional[:class:`datetime.datetime`]
+        When the topic was last bumped.
     """
 
     __slots__: Tuple[str, ...] = (
@@ -1324,6 +1321,7 @@ class ForumTopic(HasContentMixin):
         'webhook_id',
         'created_at',
         'updated_at',
+        'bumped_at',
     )
 
     def __init__(self, *, state, data: ForumTopicPayload, channel: ForumChannel):
@@ -1342,6 +1340,7 @@ class ForumTopic(HasContentMixin):
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.bumped_at: Optional[datetime.datetime] = ISO8601(data.get('bumpedAt'))
 
     def __str__(self) -> str:
         return self.title
@@ -1405,6 +1404,54 @@ class ForumTopic(HasContentMixin):
         emote_id: int = getattr(emote, 'id', emote)
         await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
 
+    async def edit(
+        self,
+        *,
+        title: str = MISSING,
+        content: str = MISSING,
+    ) -> ForumTopic:
+        """|coro|
+
+        Edit this topic.
+
+        All parameters are optional.
+
+        Parameters
+        -----------
+        title: :class:`str`
+            The title of the topic.
+        content: :class:`str`
+            The content of the topic.
+
+        Returns
+        --------
+        :class:`.ForumTopic`
+            The newly edited topic.
+        """
+
+        payload = {}
+
+        if title is not MISSING:
+            payload['title'] = title
+
+        if content is not MISSING:
+            payload['content'] = content
+
+        data = await self._state.update_forum_topic(
+            self.channel.id,
+            self.id,
+            payload=payload,
+        )
+        topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=self.channel)
+        return topic
+
+    async def delete(self) -> None:
+        """|coro|
+
+        Delete this topic.
+        """
+        await self._state.delete_forum_topic(self.channel.id, self.id)
+
 
 class ForumChannel(guilded.abc.ServerChannel):
     """Represents a forum channel in a :class:`.Server`."""
@@ -1412,16 +1459,6 @@ class ForumChannel(guilded.abc.ServerChannel):
         super().__init__(**fields)
 
         self.type = ChannelType.forums
-        self._topics = {}
-
-    @property
-    def topics(self) -> List[ForumTopic]:
-        """List[:class:`.ForumTopic`]: The list of topics in this forum."""
-        return list(self._topics.values())
-
-    def get_topic(self, id) -> Optional[ForumTopic]:
-        """Optional[:class:`.ForumTopic`]: Get a topic by its ID."""
-        return self._topics.get(id)
 
     async def create_topic(
         self,
@@ -1476,55 +1513,85 @@ class ForumChannel(guilded.abc.ServerChannel):
         """
         return await self.create_topic(title=name, content=str(content))
 
-    #async def fetch_topic(self, id: int) -> ForumTopic:
-    #    """|coro|
+    async def fetch_topic(self, topic_id: int, /) -> ForumTopic:
+        """|coro|
 
-    #    Fetch a topic from this forum.
+        Fetch a topic from this forum.
 
-    #    Parameters
-    #    -----------
-    #    id: :class:`int`
-    #        The topic's ID.
+        Returns
+        --------
+        :class:`.ForumTopic`
+            The topic by its ID.
+        """
 
-    #    Returns
-    #    --------
-    #    :class:`.ForumTopic`
-    #        The topic by its ID.
-    #    """
-    #    data = await self._state.get_forum_topic(self.id, id)
-    #    topic = ForumTopic(data=data.get('thread', data), channel=self, state=self._state)
-    #    return topic
+        data = await self._state.get_forum_topic(self.id, topic_id)
+        topic = ForumTopic(data=data['forumTopic'], channel=self, state=self._state)
+        return topic
 
-    #async def getch_topic(self, id: int) -> ForumTopic:
-    #    return self.get_topic(id) or await self.fetch_topic(id)
+    async def topics(
+        self,
+        limit: Optional[int] = 25,
+        before: Optional[Union[datetime.datetime, ForumTopic]] = None,
+    ) -> AsyncIterator[ForumTopic]:
+        """An :term:`asynchronous iterator` for the events in this channel.
 
-    #async def fetch_topics(self, *, limit: int = 50, page: int = 1, before: datetime.datetime = None) -> List[ForumTopic]:
-    #    """|coro|
+        Examples
+        ---------
 
-    #    Fetch the topics in this forum.
+        Usage ::
 
-    #    All parameters are optional.
+            async for topic in channel.topics():
+                print(f"{topic}'s last activity was at {topic.bumped_at or topic.created_at}")
 
-    #    Parameters
-    #    -----------
-    #    limit: :class:`int`
-    #        The maximum number of topics to return. Defaults to 50.
-    #    before: :class:`datetime.datetime`
-    #        The latest date that a topic can be from. Defaults to the current
-    #        time.
+        Flattening into a list ::
 
-    #    Returns
-    #    --------
-    #    List[:class:`.ForumTopic`]
-    #        The topics in this forum.
-    #    """
-    #    before = before or datetime.datetime.now(datetime.timezone.utc)
-    #    data = await self._state.get_forum_topics(self.id, limit=limit, page=page, before=before)
-    #    topics = []
-    #    for topic_data in data.get('threads', data):
-    #        topic = ForumTopic(data=topic_data, channel=self, state=self._state)
+            topics = [topic async for topic in channel.topics()]
+            # topics is now a list of ForumTopic
 
-    #    return topics
+        Parameters
+        -----------
+        limit: Optional[:class:`int`]
+            The maximum number of topics to return.
+            Defaults to 25 if not specified.
+        before: Optional[Union[:class:`.ForumTopic`, :class:`datetime.datetime`]]
+            The topic to stop pagination at.
+
+        Yields
+        -------
+        :class:`.ForumTopic`
+            An topic in this channel.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to get topics in this channel.
+        HTTPException
+            Failed to get the topics.
+        """
+
+        if isinstance(before, ForumTopic):
+            before = before.starts_at
+
+        while True:
+            sublimit = min(100 if limit is None else limit, 100)
+            if sublimit < 1:
+                return
+
+            data = await self._state.get_forum_topics(
+                self.id,
+                limit=sublimit,
+                before=before,
+            )
+            data = data['forumTopics']
+
+            # Adjust sublimit according to how much data is left
+            if len(data) < 100:
+                limit = 0
+            else:
+                limit -= len(data)
+
+            for event_data in data:
+                yield ForumTopic(state=self._state, data=event_data, channel=self)
 
 
 class VoiceChannel(guilded.abc.ServerChannel, guilded.abc.Messageable):

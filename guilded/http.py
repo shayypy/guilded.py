@@ -601,6 +601,30 @@ class HTTPClient(HTTPClientBase):
 
         return self.request(Route('POST', f'/channels/{channel_id}/topics'), json=payload)
 
+    def get_forum_topic(self, channel_id: str, topic_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/topics/{topic_id}'))
+
+    def get_forum_topics(
+        self,
+        channel_id: str,
+        *,
+        before: Optional[datetime.datetime] = None,
+        limit: Optional[int] = None,
+    ):
+        params = {}
+        if before is not None:
+            params['before'] = self.valid_ISO8601(before)
+        if limit is not None:
+            params['limit'] = limit
+
+        return self.request(Route('GET', f'/channels/{channel_id}/topics'), params=params)
+
+    def update_forum_topic(self, channel_id: str, topic_id: int, *, payload: Dict[str, Any]):
+        return self.request(Route('PATCH', f'/channels/{channel_id}/topics/{topic_id}'), json=payload)
+
+    def delete_forum_topic(self, channel_id: str, topic_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}'))
+
     def create_list_item(self, channel_id: str, *, message: str, note_content: Optional[str] = None):
         payload = {
             'message': message,

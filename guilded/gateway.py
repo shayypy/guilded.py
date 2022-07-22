@@ -555,6 +555,45 @@ class WebSocketEventParsers:
         event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
         self.client.dispatch('calendar_event_delete', event)
 
+    async def ForumTopicCreated(self, data: ForumTopicEvent):
+        server = self.client.get_server(data['serverId'])
+        if not server:
+            return
+
+        try:
+            channel: ForumChannel = await server.getch_channel(data['forumTopic']['channelId'])
+        except HTTPException:
+            return
+
+        topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
+        self.client.dispatch('forum_topic_create', topic)
+
+    async def ForumTopicUpdated(self, data: ForumTopicEvent):
+        server = self.client.get_server(data['serverId'])
+        if not server:
+            return
+
+        try:
+            channel: ForumChannel = await server.getch_channel(data['forumTopic']['channelId'])
+        except HTTPException:
+            return
+
+        topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
+        self.client.dispatch('raw_forum_topic_update', topic)
+
+    async def ForumTopicDeleted(self, data: ForumTopicEvent):
+        server = self.client.get_server(data['serverId'])
+        if not server:
+            return
+
+        try:
+            channel: ForumChannel = await server.getch_channel(data['forumTopic']['channelId'])
+        except HTTPException:
+            return
+
+        topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
+        self.client.dispatch('forum_topic_delete', topic)
+
     async def CalendarEventRsvpUpdated(self, data: CalendarEventRsvpEvent):
         server = self.client.get_server(data['serverId'])
         if not server:
