@@ -652,9 +652,6 @@ class CalendarEvent(HasContentMixin):
             The user to create an RSVP for.
         status: :class:`.RSVPStatus`
             The status of the RSVP.
-            This cannot be :attr:`~.RSVPStatus.waitlisted`, which is
-            automatically set when :attr:`~.RSVPStatus.going` is used but the
-            event is at max capacity.
 
         Returns
         --------
@@ -845,9 +842,6 @@ class CalendarEventRSVP:
         -----------
         status: :class:`.RSVPStatus`
             The status of the RSVP.
-            This cannot be :attr:`~.RSVPStatus.waitlisted`, which is
-            automatically set when :attr:`~.RSVPStatus.going` is used but the
-            event is at max capacity.
 
         Returns
         --------
