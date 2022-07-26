@@ -338,6 +338,7 @@ class RSVPStatus(Enum):
     declined = 'declined'
     invited = 'invited'
     waitlisted = 'waitlisted'
+    not_responded = 'not responded'
 
 
 T = TypeVar('T')
