@@ -1311,6 +1311,7 @@ class ForumTopic(HasContentMixin):
         'id',
         'title',
         'content',
+        '_mentions',
         'author_id',
         'webhook_id',
         'created_at',
@@ -1328,6 +1329,7 @@ class ForumTopic(HasContentMixin):
         self.id: int = data['id']
         self.title: Optional[str] = data.get('title')
         self.content: Optional[str] = data.get('content')
+        self._mentions = self._create_mentions(data.get('mentions'))
         self._extract_attachments(self.content)
 
         self.webhook_id: Optional[str] = data.get('createdByWebhookId')

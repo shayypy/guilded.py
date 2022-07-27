@@ -26,6 +26,8 @@ from __future__ import annotations
 from typing import TypedDict
 from typing_extensions import NotRequired
 
+from .channel import Mentions
+
 
 class ForumTopicSummary(TypedDict):
     id: int
@@ -41,3 +43,4 @@ class ForumTopicSummary(TypedDict):
 
 class ForumTopic(ForumTopicSummary):
     content: str
+    mentions: NotRequired[Mentions]
