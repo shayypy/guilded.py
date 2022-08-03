@@ -443,7 +443,7 @@ class BotBase:
 
         return ret
 
-    async def get_context(self, message: guilded.Message, cls=Context) -> Context:
+    async def get_context(self, message: guilded.ChatMessage, /, *, cls = Context) -> Context:
         view = StringView(str(message.content))
         ctx = cls(prefix=None, view=view, bot=self, message=message)
 
