@@ -443,9 +443,9 @@ class BotBase:
 
         return ret
 
-    async def get_context(self, message: guilded.Message) -> Context:
+    async def get_context(self, message: guilded.Message, cls=Context) -> Context:
         view = StringView(str(message.content))
-        ctx = Context(prefix=None, view=view, bot=self, message=message)
+        ctx = cls(prefix=None, view=view, bot=self, message=message)
 
         if self._skip_check(message.author.id, self.user.id):
             return ctx
