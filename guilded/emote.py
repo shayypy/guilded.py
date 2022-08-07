@@ -49,15 +49,18 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 import datetime
-import os
-from typing import Any, Dict, List, Optional
-import yarl
+from typing import TYPE_CHECKING, List, Optional
 
 from .asset import AssetMixin, Asset
 from .errors import InvalidArgument
 from .user import Member
 from .utils import ISO8601
+
+if TYPE_CHECKING:
+    from .types.emote import Emote as EmotePayload
 
 
 __all__ = (
@@ -93,7 +96,7 @@ class Emote(AssetMixin):
         Whether the emote is a stock emote (Unicode or by Guilded).
     """
 
-    def __init__(self, *, state, data, **extra):
+    def __init__(self, *, state, data: EmotePayload, **extra):
         self._state = state
         self._server = extra.get('server')
 
