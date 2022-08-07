@@ -28,6 +28,7 @@ import datetime
 from typing import TYPE_CHECKING, List, Optional
 
 from .colour import Colour
+from .mixins import Hashable
 from .utils import ISO8601
 from .permissions import Permissions
 
@@ -42,8 +43,26 @@ __all__ = (
 )
 
 
-class Role:
+class Role(Hashable):
     """Represents a role in a :class:`.Server`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two roles are equal.
+
+        .. describe:: x != y
+
+            Checks if two roles are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the role's hash.
+
+        .. describe:: str(x)
+
+            Returns the name of the role.
 
     Attributes
     -----------

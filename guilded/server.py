@@ -62,6 +62,7 @@ from .channel import AnnouncementChannel, ChatChannel, DocsChannel, ForumChannel
 from .errors import InvalidData
 from .enums import ServerType, try_enum, ChannelType
 from .group import Group
+from .mixins import Hashable
 from .role import Role
 from .user import Member, MemberBan
 from .utils import ISO8601, Object, get, find
@@ -87,10 +88,28 @@ __all__ = (
 )
 
 
-class Server:
+class Server(Hashable):
     """Represents a server (or "guild") in Guilded.
 
     There is an alias for this class called ``Guild``\.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two servers are equal.
+
+        .. describe:: x != y
+
+            Checks if two servers are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the server's hash.
+
+        .. describe:: str(x)
+
+            Returns the server's name.
 
     Attributes
     -----------

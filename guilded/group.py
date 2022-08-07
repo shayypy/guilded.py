@@ -55,6 +55,7 @@ import datetime
 from typing import TYPE_CHECKING, Optional
 
 from .asset import Asset
+from .mixins import Hashable
 from .status import Game
 from .utils import ISO8601
 
@@ -68,8 +69,26 @@ __all__ = (
 )
 
 
-class Group:
+class Group(Hashable):
     """Represents a server group in Guilded.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two groups are equal.
+
+        .. describe:: x != y
+
+            Checks if two groups are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the group's hash.
+
+        .. describe:: str(x)
+
+            Returns the name of the group.
 
     Attributes
     -----------
@@ -123,6 +142,12 @@ class Group:
             banner = Asset._from_group_banner(state, data.get('banner'))
         self._banner: Optional[Asset] = banner
 
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return f'<Group id={self.id!r} name={self.name!r} server_id={self.server_id!r}>'
+
     @property
     def game(self) -> Game:
         """Optional[:class:`Game`]: The game that the group is for."""
@@ -170,12 +195,6 @@ class Group:
     def archived_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The member who archived the group, if any."""
         return self.server.get_member(self.archived_by_id)
-
-    def __str__(self):
-        return self.name
-
-    def __repr__(self):
-        return f'<Group id={self.id!r} name={self.name!r} server_id={self.server_id!r}>'
 
     async def add_member(self, member: Member, /) -> None:
         """|coro|

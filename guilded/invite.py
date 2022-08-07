@@ -26,12 +26,31 @@ from __future__ import annotations
 
 from typing import Any, Dict, Tuple
 
+from .mixins import Hashable
 from .server import Server
 from .user import User
 
 
-class Invite:
+class Invite(Hashable):
     """Represents an invite that can be used to add members to a :class:`.Server`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two invites are equal.
+
+        .. describe:: x != y
+
+            Checks if two invites are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the invite's hash.
+
+        .. describe:: str(x)
+
+            Returns the URL of the invite.
 
     Attributes
     -----------
@@ -78,6 +97,9 @@ class Invite:
 
     def __repr__(self) -> str:
         return f'<Invite id={self.id!r} code={self.code!r} server={self.server!r}>'
+
+    def __str__(self) -> str:
+        return self.url
 
     @property
     def url(self) -> str:

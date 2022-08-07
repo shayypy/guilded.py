@@ -53,6 +53,7 @@ import asyncio
 import datetime
 from inspect import isawaitable as _isawaitable, signature as _signature
 from operator import attrgetter
+from .mixins import Hashable
 import re
 from typing import Any, AsyncIterable, Callable, Coroutine, Iterable, Optional, TypeVar, Union
 import unicodedata
@@ -347,7 +348,7 @@ def copy_doc(original: Callable) -> Callable[[T], T]:
 
 _GENERIC_ID_REGEX = re.compile(r'^[a-zA-Z0-9]{8,10}$')
 
-class Object:
+class Object(Hashable):
     """Represents a generic Guilded object.
 
     This class is especially useful when interfacing with the early access bot
@@ -370,6 +371,10 @@ class Object:
         .. describe:: x != y
 
             Checks if two objects are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the object's hash.
 
     Attributes
     -----------
@@ -401,6 +406,3 @@ class Object:
 
     def __repr__(self) -> str:
         return f'<Object id={self.id!r}>'
-
-    def __eq__(self, other) -> bool:
-        return hasattr(other, 'id') and self.id == other.id

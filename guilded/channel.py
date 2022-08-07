@@ -61,7 +61,8 @@ from .asset import Asset
 from .colour import Colour
 from .enums import ChannelType, FileType, RSVPStatus, try_enum
 from .group import Group
-from .message import ChatMessage, HasContentMixin
+from .message import HasContentMixin
+from .mixins import Hashable
 from .user import Member
 from .utils import MISSING, ISO8601, Object
 from .status import Game
@@ -314,7 +315,7 @@ class CalendarChannel(guilded.abc.ServerChannel):
                 yield CalendarEvent(state=self._state, data=event_data, channel=self)
 
 
-class CalendarEvent(HasContentMixin):
+class CalendarEvent(Hashable, HasContentMixin):
     """Represents an event in a :class:`CalendarChannel`.
 
     .. container:: operations
@@ -326,6 +327,10 @@ class CalendarEvent(HasContentMixin):
         .. describe:: x != y
 
             Checks if two events are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the hash of the event.
 
         .. describe:: str(x)
 
@@ -438,9 +443,6 @@ class CalendarEvent(HasContentMixin):
 
     def __str__(self) -> str:
         return self.name
-
-    def __eq__(self, other) -> bool:
-        return isinstance(other, CalendarEvent) and self.id == other.id
 
     def __lt__(self, other) -> bool:
         return isinstance(other, CalendarEvent) and self.starts_at < other.starts_at
@@ -941,7 +943,7 @@ class ChatChannel(guilded.abc.ServerChannel, guilded.abc.Messageable):
 TextChannel = ChatChannel  # discord.py
 
 
-class Doc(HasContentMixin):
+class Doc(Hashable, HasContentMixin):
     """Represents a doc in a :class:`DocsChannel`.
 
     .. container:: operations
@@ -953,6 +955,10 @@ class Doc(HasContentMixin):
         .. describe:: x != y
 
             Checks if two docs are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the hash of the doc.
 
         .. describe:: str(x)
 
@@ -1011,9 +1017,6 @@ class Doc(HasContentMixin):
 
     def __repr__(self) -> str:
         return f'<Doc id={self.id!r} title={self.title!r} channel={self.channel!r}>'
-
-    def __eq__(self, other) -> bool:
-        return isinstance(other, Doc) and other.id == self.id
 
     def __str__(self) -> str:
         return self.title
@@ -1283,8 +1286,26 @@ class DocsChannel(guilded.abc.ServerChannel):
         return docs
 
 
-class ForumTopic(HasContentMixin):
+class ForumTopic(Hashable, HasContentMixin):
     """Represents a forum topic.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two topics are equal.
+
+        .. describe:: x != y
+
+            Checks if two topics are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the hash of the topic.
+
+        .. describe:: str(x)
+
+            Returns the title of the topic.
 
     Attributes
     -----------
@@ -1726,8 +1747,22 @@ class Thread(guilded.abc.ServerChannel, guilded.abc.Messageable):
     #    return message
 
 
-class DMChannel(guilded.abc.Messageable):
+class DMChannel(Hashable, guilded.abc.Messageable):
     """Represents a private channel between users.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two DM channels are equal.
+
+        .. describe:: x != y
+
+            Checks if two DM channels are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the hash of the DM channel.
 
     Attributes
     -----------
@@ -1763,8 +1798,26 @@ class DMChannel(guilded.abc.Messageable):
         return f'<DMChannel id={self.id!r} recipient={self.recipient!r}>'
 
 
-class Announcement(HasContentMixin):
+class Announcement(Hashable, HasContentMixin):
     """Represents an announcement in an :class:`.AnnouncementChannel`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two announcements are equal.
+
+        .. describe:: x != y
+
+            Checks if two announcements are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the hash of the announcement.
+
+        .. describe:: str(x)
+
+            Returns the title of the announcement.
 
     Attributes
     -----------
@@ -1811,8 +1864,11 @@ class Announcement(HasContentMixin):
         self.title: str = data['title']
         self.content: str = self._get_full_content(data['content'])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<Announcement id={self.id!r} title={self.title!r} channel={self.channel!r}>'
+
+    def __str__(self) -> str:
+        return self.title
 
     @property
     def server(self) -> Server:
@@ -2139,7 +2195,7 @@ class AnnouncementChannel(guilded.abc.ServerChannel):
     #    return announcement
 
 
-class Media(HasContentMixin):
+class Media(Hashable, HasContentMixin):
     """Represents a media post in a :class:`.MediaChannel`.
 
     .. container:: operations
@@ -2151,6 +2207,10 @@ class Media(HasContentMixin):
         .. describe:: x != y
 
             Checks if two medias are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the hash of the media.
 
         .. describe:: str(x)
 
@@ -2219,9 +2279,6 @@ class Media(HasContentMixin):
 
     def __len__(self) -> int:
         return len(str(self))
-
-    def __eq__(self, other) -> bool:
-        return isinstance(other, Media) and self.id == other.id
 
     def _update(self, data) -> None:
         try:
@@ -2587,8 +2644,22 @@ class ListItemNote(HasContentMixin):
         return item.note
 
 
-class ListItem(HasContentMixin):
+class ListItem(Hashable, HasContentMixin):
     """Represents an item in a :class:`.ListChannel`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two items are equal.
+
+        .. describe:: x != y
+
+            Checks if two items are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the hash of the item.
 
     Attributes
     -----------
@@ -3130,8 +3201,22 @@ class ListChannel(guilded.abc.ServerChannel):
         return webhooks
 
 
-class Availability:
+class Availability(Hashable):
     """Represents an availability in a :class:`.SchedulingChannel`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two availabilities are equal.
+
+        .. describe:: x != y
+
+            Checks if two availabilities are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the hash of the availability.
 
     Attributes
     -----------
@@ -3164,9 +3249,6 @@ class Availability:
 
         self.updated_by_id: Optional[str] = data.get('updatedBy')
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
-
-    def __eq__(self, other) -> bool:
-        return isinstance(other, Availability) and other.id == self.id
 
     def __repr__(self) -> str:
         return f'<Availability id={self.id!r} start={self.start!r} end={self.end!r} channel={self.channel!r}>'

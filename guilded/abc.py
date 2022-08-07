@@ -61,6 +61,7 @@ from .asset import Asset
 from .colour import Colour
 from .enums import ChannelType, try_enum, UserType
 from .message import HasContentMixin, ChatMessage
+from .mixins import Hashable
 from .presence import Presence
 from .utils import ISO8601, MISSING
 
@@ -311,7 +312,7 @@ class Messageable(metaclass=abc.ABCMeta):
     #    return messages
 
 
-class User(metaclass=abc.ABCMeta):
+class User(Hashable, metaclass=abc.ABCMeta):
     """An ABC for user-type models.
 
     The following implement this ABC:
@@ -412,9 +413,6 @@ class User(metaclass=abc.ABCMeta):
     def __str__(self) -> str:
         return self.display_name or ''
 
-    def __eq__(self, other) -> bool:
-        return isinstance(other, User) and self.id == other.id
-
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} type={self._user_type!r}>'
 
@@ -431,10 +429,6 @@ class User(metaclass=abc.ABCMeta):
     @property
     def mention(self) -> str:
         """:class:`str`: The mention string for this user.
-
-        This will not notify members when sent as-is. If the client is a user
-        account, send the :class:`~guilded.User` instance positionally instead,
-        e.g., ``await messageable.send('Here\'s a user mention: ', user)``.
 
         This will render and deliver a mention when sent in an :class:`.Embed`.
         """
@@ -467,7 +461,7 @@ class User(metaclass=abc.ABCMeta):
         return self.avatar or self.default_avatar
 
 
-class ServerChannel(metaclass=abc.ABCMeta):
+class ServerChannel(Hashable, metaclass=abc.ABCMeta):
     """An ABC for the various types of server channels.
 
     The following implement this ABC:
@@ -575,12 +569,6 @@ class ServerChannel(metaclass=abc.ABCMeta):
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} server={self.server!r}>'
-
-    def __eq__(self, other) -> bool:
-        try:
-            return self.id == other.id
-        except:
-            return False
 
     async def edit(
         self,

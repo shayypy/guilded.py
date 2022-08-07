@@ -76,37 +76,33 @@ if TYPE_CHECKING:
 __all__ = (
     'BanEntry',
     'ClientUser',
-    'Device',
     'Member',
     'MemberBan',
     'User',
 )
 
 
-class Device:
-    """Represents a device that the :class:`ClientUser` is logged into.
-
-    Attributes
-    -----------
-    type: :class:`str`
-        The type of device. Could be ``desktop`` or ``mobile``.
-    id: :class:`str`
-        The ID of this device. This is a UUID for mobile devices but an even
-        longer string for desktops.
-    last_online: :class:`datetime.datetime`
-        When this device was last active.
-    active: :class:`bool`
-        Whether this device is "active". This seems to always be ``True``.
-    """
-    def __init__(self, data):
-        self.type: str = data.get('type')
-        self.id: str = data.get('id')
-        self.last_online: datetime.datetime = ISO8601(data.get('lastOnline'))
-        self.active: bool = data.get('isActive', False)
-
-
 class User(guilded.abc.User, guilded.abc.Messageable):
-    """Represents a user in Guilded."""
+    """Represents a user in Guilded.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two users are equal.
+
+        .. describe:: x != y
+
+            Checks if two users are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the user's hash.
+
+        .. describe:: str(x)
+
+            Returns the user's name.
+    """
     def _update(self, data: UserPayload):
         try:
             self.stonks: int = data.pop('stonks')
@@ -199,12 +195,16 @@ class Member(User):
         .. describe:: x == y
 
             Checks if two members are equal.
-            Note that this works with :class:`User` instances too.
+            Note that this works with :class:`~guilded.User` instances too.
 
         .. describe:: x != y
 
             Checks if two members are not equal.
-            Note that this works with :class:`User` instances too.
+            Note that this works with :class:`~guilded.User` instances too.
+
+        .. describe:: hash(x)
+
+            Returns the member's hash.
 
         .. describe:: str(x)
 
@@ -257,12 +257,6 @@ class Member(User):
 
     def __str__(self) -> str:
         return str(self._user)
-
-    def __eq__(self, other) -> bool:
-        try:
-            return other.id == self.id
-        except:
-            return False
 
     @property
     def server(self) -> Server:

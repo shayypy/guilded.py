@@ -62,6 +62,7 @@ from .embed import Embed
 from .enums import FileType, try_enum, MessageType
 from .errors import HTTPException
 from .file import Attachment
+from .mixins import Hashable
 from .utils import ISO8601, MISSING, valid_video_extensions
 
 if TYPE_CHECKING:
@@ -526,7 +527,7 @@ class HasContentMixin:
             self.attachments.append(attachment)
 
 
-class ChatMessage(HasContentMixin):
+class ChatMessage(Hashable, HasContentMixin):
     """A message in Guilded.
 
     There is an alias for this class called ``Message``.
@@ -540,6 +541,10 @@ class ChatMessage(HasContentMixin):
         .. describe:: x != y
 
             Checks if two messages are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the message's hash.
 
     Attributes
     -----------
@@ -621,9 +626,6 @@ class ChatMessage(HasContentMixin):
                 Embed.from_dict(embed) for embed in (data.get('embeds') or [])
             ]
             self._extract_attachments(self.content)
-
-    def __eq__(self, other) -> bool:
-        return isinstance(other, ChatMessage) and self.id == other.id
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} id={self.id!r} author={self.author!r} channel={self.channel!r}>'

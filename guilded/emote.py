@@ -56,6 +56,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from .asset import AssetMixin, Asset
 from .errors import InvalidArgument
+from .mixins import Hashable
 from .user import Member
 from .utils import ISO8601
 
@@ -69,7 +70,7 @@ __all__ = (
 )
 
 
-class Emote(AssetMixin):
+class Emote(Hashable, AssetMixin):
     """Represents a server or stock emote in Guilded.
 
     .. container:: operations
@@ -81,6 +82,10 @@ class Emote(AssetMixin):
         .. describe:: x != y
 
             Checks if two emotes are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the emote's hash.
 
         .. describe:: str(x)
 
@@ -132,9 +137,6 @@ class Emote(AssetMixin):
             asset: Asset = Asset._from_custom_reaction(state, url, animated=self._animated or 'ia=1' in url)
 
         self._underlying: Asset = asset
-
-    def __eq__(self, other):
-        return isinstance(other, Emote) and other.id == self.id
 
     def __str__(self):
         return self.name
