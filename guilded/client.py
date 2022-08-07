@@ -56,10 +56,11 @@ import asyncio
 import logging
 import sys
 import traceback
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Generator, List, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Generator, List, Optional, Type, Union
 
 from .errors import ClientException, HTTPException
 from .enums import *
+from .events import BaseEvent
 from .gateway import GuildedWebSocket, WebSocketClosure
 from .http import HTTPClient
 from .invite import Invite
@@ -144,6 +145,7 @@ class Client:
         self.ws: Optional[GuildedWebSocket] = None
         self.http: HTTPClient = HTTPClient(
             max_messages=self.max_messages,
+            experimental_event_style=options.pop('experimental_event_style', False),
         )
 
     async def __aenter__(self) -> Self:
@@ -442,11 +444,17 @@ class Client:
         log.debug('%s has successfully been registered as an event', coro.__name__)
         return coro
 
-    def dispatch(self, event: str, *args: Any, **kwargs: Any) -> None:
-        log.debug('Dispatching event %s', event)
-        method = 'on_' + event
+    def dispatch(self, event: Union[str, BaseEvent], *args: Any, **kwargs: Any) -> None:
+        if isinstance(event, BaseEvent):
+            event_name = event.__dispatch_event__
+            args = (event,)
+        else:
+            event_name = event
 
-        listeners = self._listeners.get(event)
+        log.debug('Dispatching event %s', event_name)
+        method = 'on_' + event_name
+
+        listeners = self._listeners.get(event_name)
         if listeners:
             removed = []
             for i, (future, condition) in enumerate(listeners):
@@ -470,7 +478,7 @@ class Client:
                         removed.append(i)
 
             if len(removed) == len(listeners):
-                self._listeners.pop(event)
+                self._listeners.pop(event_name)
             else:
                 for idx in reversed(removed):
                     del listeners[idx]

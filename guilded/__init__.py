@@ -14,6 +14,7 @@ from .embed import *
 from .emote import *
 from .enums import *
 from .errors import *
+from .events import *
 from .file import *
 from .flowbot import *
 from .group import *

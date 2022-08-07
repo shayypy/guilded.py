@@ -205,9 +205,10 @@ class Route:
 
 class HTTPClientBase:
     GIL_ID = 'Ann6LewA'
-    def __init__(self, *, max_messages: int = 1000):
+    def __init__(self, *, max_messages: int = 1000, experimental_event_style: bool = False):
         self.session: Optional[aiohttp.ClientSession] = None
         self._max_messages = max_messages
+        self._experimental_event_style = experimental_event_style
 
         self.ws: Optional[GuildedWebSocket] = None
         self.user: Optional[ClientUser] = None
@@ -411,8 +412,8 @@ class HTTPClientBase:
 
 
 class HTTPClient(HTTPClientBase):
-    def __init__(self, *, max_messages=1000):
-        super().__init__(max_messages=max_messages)
+    def __init__(self, *, max_messages=1000, experimental_event_style=False):
+        super().__init__(max_messages=max_messages, experimental_event_style=experimental_event_style)
 
         self.token: Optional[str] = None
 

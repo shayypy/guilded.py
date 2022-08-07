@@ -62,6 +62,7 @@ import types
 from typing import Any, Callable, Iterable, Mapping, List, Dict, Optional, Set, Union
 
 import guilded
+from guilded.events import BaseEvent, MessageEvent
 
 from . import errors
 from .core import Command, Group
@@ -192,8 +193,15 @@ class BotBase:
     def all_commands(self):
         return {**self._commands, **self._commands_by_alias}
 
-    def dispatch(self, event_name, *args, **kwargs):
-        super().dispatch(event_name, *args, **kwargs)
+    def dispatch(self, event: Union[str, BaseEvent], *args, **kwargs):
+        super().dispatch(event, *args, **kwargs)
+
+        if isinstance(event, BaseEvent):
+            event_name = event.__dispatch_event__
+            args = (event,)
+        else:
+            event_name = event
+
         ev = 'on_' + event_name
         for event in self.extra_events.get(ev, []):
             self._schedule_event(event, ev, *args, **kwargs)
@@ -205,7 +213,7 @@ class BotBase:
         -----------
         command: :class:`.Command`
             The command to register.
-        
+
         Raises
         -------
         CommandRegistrationError
@@ -407,7 +415,7 @@ class BotBase:
         else:
             return user.id == self.user.id
 
-    async def get_prefix(self, message: guilded.Message, /) -> Union[List[str], str]:
+    async def get_prefix(self, message: guilded.ChatMessage, /) -> Union[List[str], str]:
         """|coro|
 
         Retrieves the prefix the bot is listening to with the message as a context.
@@ -505,7 +513,7 @@ class BotBase:
             exc = errors.CommandNotFound(f'Command "{ctx.invoked_with}" is not found')
             self.dispatch('command_error', ctx, exc)
 
-    async def process_commands(self, message):
+    async def process_commands(self, message: guilded.ChatMessage):
         """|coro|
 
         This function processes the commands that have been registered to the
@@ -537,7 +545,7 @@ class BotBase:
         ctx = await self.get_context(message)
         await self.invoke(ctx)
 
-    async def on_message(self, message):
+    async def on_message(self, event: Union[guilded.ChatMessage, MessageEvent]):
         """|coro|
 
         The default handler for :func:`~.on_message` provided by the bot.
@@ -545,6 +553,7 @@ class BotBase:
         If you are overriding this, remember to call :meth:`.process_commands`
         or all commands will be ignored.
         """
+        message = event.message if isinstance(event, MessageEvent) else event
         await self.process_commands(message)
 
     # cogs

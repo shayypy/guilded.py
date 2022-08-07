@@ -50,6 +50,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 from __future__ import annotations
+import re
 
 import time
 import aiohttp
@@ -60,9 +61,11 @@ import logging
 import sys
 import threading
 import traceback
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 from .errors import GuildedException, HTTPException
+from .enums import ChannelType
+from . import events as ev
 from .channel import *
 from .reaction import RawReactionActionEvent, Reaction
 from .role import Role
@@ -73,7 +76,7 @@ from .webhook import Webhook
 if TYPE_CHECKING:
     from typing_extensions import Self
 
-    from .types.gateway import *
+    from .types import gateway as gw
 
     from .client import Client
 
@@ -197,7 +200,7 @@ class GuildedWebSocket:
 
     async def received_event(self, payload: str) -> int:
         self.client.dispatch('socket_raw_receive', payload)
-        data: EventSkeleton = json.loads(payload)
+        data: gw.EventSkeleton = json.loads(payload)
         log.debug('WebSocket has received %s', data)
 
         op = data['op']
@@ -208,7 +211,7 @@ class GuildedWebSocket:
             self._last_message_id = message_id
 
         if op == self.WELCOME:
-            d: WelcomeEvent
+            d: gw.WelcomeEvent
             self._heartbeater = Heartbeater(ws=self, interval=d['heartbeatIntervalMs'] / 1000)
             self._heartbeater.start()
             self._last_message_id = d['lastMessageId']
@@ -249,26 +252,33 @@ class GuildedWebSocket:
                 # don't want to fetch them every time and slow down bots.
                 self.client.http.add_to_server_cache(server)
 
-            event = self._parsers.get(t, d)
-            if event is not None:
+            coro = self._parsers.get(t)
+            if coro is not None:
                 # ignore unhandled events
-                try:
-                    await event
-                except GuildedException as e:
-                    self.client.dispatch('error', e)
-                    raise
-                except Exception as e:
-                    # wrap error if not already from the lib
-                    exc = GuildedException(e)
-                    self.client.dispatch('error', exc)
-                    raise exc from e
+
+                server_id = d.get('serverId')
+                if server_id and not self.client.http._get_server(server_id):
+                    # We have a server ID but we failed to obtain the server itself
+                    log.debug('Ignoring %s event with unknown server ID %s.', t, server_id)
+
+                else:
+                    try:
+                        await coro(d)
+                    except GuildedException as e:
+                        self.client.dispatch('error', e)
+                        raise
+                    except Exception as e:
+                        # wrap error if not already from the lib
+                        exc = GuildedException(e)
+                        self.client.dispatch('error', exc)
+                        raise exc from e
 
         if op == self.INVALID_CURSOR:
-            d: InvalidCursorEvent
+            d: gw.InvalidCursorEvent
             log.error('Invalid cursor: %s', d['message'])
 
         if op == self.INTERNAL_ERROR:
-            d: InternalErrorEvent
+            d: gw.InternalErrorEvent
             log.error('Internal error: %s', d['message'])
 
         return op
@@ -278,60 +288,72 @@ class WebSocketEventParsers:
     def __init__(self, client: Client):
         self.client = client
         self._state = client.http
+        self._exp_style = self._state._experimental_event_style
 
-    def get(
-        self,
-        event_name: str,
-        data: Dict[str, Any],
-    ):
-        coro = getattr(self, event_name, None)
+    def get(self, event_name: str):
+        # Pythonify event names, e.g. ChatMessageCreated -> chat_message_created
+        transformed = re.sub(
+            r'(?<!^)([A-Z])',
+            lambda m: f'_{m.group(1)}' if m else None,
+            event_name,
+        ).lower()
+
+        coro = getattr(self, f'parse_{transformed}', None)
         if not coro:
             return None
 
-        return coro(data)
+        return coro
 
-    async def ChatMessageCreated(self, data: ChatMessageCreatedEvent):
-        server_id = data['serverId']
+    async def _force_resolve_channel(
+        self,
+        server_id: Optional[str],
+        channel_id: str,
+        server_channel_type: ChannelType = ChannelType.chat,
+        *,
+        cache: bool = True,
+    ):
+        """Forcefully resolve or create a channel from the IDs provided."""
         server = self.client.get_server(server_id)
-        if server_id and not server:
-            log.debug('Ignoring ChatMessageCreated event with unknown server ID %s.', server_id)
-            return
-
-        message_data = data['message']
 
         if server_id is not None:
-            channel = self._state._get_server_channel_or_thread(server_id, message_data['channelId'])
+            channel = self._state._get_server_channel_or_thread(server_id, channel_id)
             if channel is None:
                 try:
-                    channel = await server.fetch_channel(message_data['channelId'])
+                    channel = await server.fetch_channel(channel_id)
                 except HTTPException:
                     channel = self._state.create_channel(
                         data={
-                            'id': message_data['channelId'],
-                            'type': 'chat',
+                            'id': channel_id,
+                            'type': server_channel_type.value,
                             'serverId': server_id,
                         },
                         server=server,
                     )
 
-            if channel is not None:
+            if channel is not None and cache is True:
                 self._state.add_to_server_channel_cache(channel)
 
         else:
-            channel = self._state._get_dm_channel(message_data['channelId'])
+            channel = self._state._get_dm_channel(channel_id)
             if channel is None:
                 try:
-                    channel = await self.client.fetch_channel(message_data['channelId'])
+                    channel = await self.client.fetch_channel(channel_id)
                 except HTTPException:
                     channel = self._state.create_channel(
                         data={
-                            'id': message_data['channelId'],
+                            'id': channel_id,
                             'type': 'dm',
                         },
                     )
 
-            if channel is not None:
+            if channel is not None and cache is True:
                 self._state.add_to_dm_channel_cache(channel)
+
+        return channel
+
+    async def parse_chat_message_created(self, data: gw.ChatMessageCreatedEvent):
+        message_data = data['message']
+        channel = await self._force_resolve_channel(data.get('serverId'), message_data['channelId'])
 
         async def user_fallback():
             # This function should really never be needed in the current API
@@ -348,6 +370,7 @@ class WebSocketEventParsers:
                 self._state.add_to_user_cache(user)
             return user
 
+        server = self.client.get_server(data.get('serverId'))
         author_id = message_data.get('createdBy')
         if author_id != self._state.GIL_ID:
             if server is not None:
@@ -362,303 +385,510 @@ class WebSocketEventParsers:
         else:
             author = None
 
-        message = self._state.create_message(data=data, channel=channel, author=author)
-        self._state.add_to_message_cache(message)
+        if self._exp_style:
+            event = ev.MessageEvent(self._state, data, channel=channel)
+            self._state.add_to_message_cache(event.message)
+            self.client.dispatch(event)
 
-        self.client.dispatch('message', message)
+        else:
+            message = self._state.create_message(data=data, channel=channel, author=author)
+            self._state.add_to_message_cache(message)
+            self.client.dispatch('message', message)
 
-    async def ChatMessageUpdated(self, data: ChatMessageUpdatedEvent):
-        self.client.dispatch('raw_message_edit', data)
+    async def parse_chat_message_updated(self, data: gw.ChatMessageUpdatedEvent):
         before = self._state._get_message(data['message']['id'])
-        if before is None:
-            return
 
-        after = self._state.create_message(data={'serverId': data['serverId'], **data['message']}, channel=before.channel)
-        self._state.add_to_message_cache(after)
-        self.client.dispatch('message_edit', before, after)
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data.get('serverId'), data['message']['channelId'])
+            event = ev.MessageUpdateEvent(self._state, data, before=before, channel=channel)
+            self._state.add_to_message_cache(event.after)
+            self.client.dispatch(event)
 
-    async def ChatMessageDeleted(self, data: ChatMessageDeletedEvent):
+        else:
+            self.client.dispatch('raw_message_edit', data)
+            if before is None:
+                return
+
+            after = self._state.create_message(data={'serverId': data['serverId'], **data['message']}, channel=before.channel)
+            self._state.add_to_message_cache(after)
+            self.client.dispatch('message_edit', before, after)
+
+    async def parse_chat_message_deleted(self, data: gw.ChatMessageDeletedEvent):
         message = self._state._get_message(data['message']['id'])
-        data['cached_message'] = message
-        self.client.dispatch('raw_message_delete', data)
-        if message is not None:
-            self._state._messages.pop(message.id, None)
-            message.deleted_at = ISO8601(data['message']['deletedAt'])
-            self.client.dispatch('message_delete', message)
 
-    async def TeamMemberJoined(self, data: TeamMemberJoinedEvent):
-        server = self.client.get_server(data['serverId'])
-        if server is None:
-            return
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data.get('serverId'), data['message']['channelId'])
+            event = ev.MessageDeleteEvent(self._state, data, message=message, channel=channel)
+            self._state._messages.pop(event.message_id, None)
+            self.client.dispatch(event)
 
-        member = self._state.create_member(data={
-            'serverId': server.id,
-            **data['member'],
-        })
-        server._members[member.id] = member
+        else:
+            data['cached_message'] = message
+            self.client.dispatch('raw_message_delete', data)
+            if message is not None:
+                self._state._messages.pop(message.id, None)
+                message.deleted_at = ISO8601(data['message']['deletedAt'])
+                self.client.dispatch('message_delete', message)
 
-        if member == self._state.user:
-            self.client.dispatch('server_join', server)
-            self.client.dispatch('guild_join', server)  # discord.py
+    async def parse_team_member_joined(self, data: gw.TeamMemberJoinedEvent):
+        if self._exp_style:
+            event = ev.MemberJoinEvent(self._state, data)
+            self._state.add_to_member_cache(event.member)
 
-        self.client.dispatch('member_join', member)
+            if event.member == self._state.user:
+                self.client.dispatch('server_join', event.server)
+            self.client.dispatch(event)
 
-    async def TeamMemberRemoved(self, data: TeamMemberRemovedEvent):
-        server = self.client.get_server(data['serverId'])
-        if server is None:
-            return
+        else:
+            server = self.client.get_server(data['serverId'])
+            member = self._state.create_member(data={
+                'serverId': server.id,
+                **data['member'],
+            })
+            server._members[member.id] = member
 
-        member = self._state._get_server_member(server.id, data['userId'])
-        if member:
-            self.client.dispatch('member_remove', member)
-            if data.get('isBan'):
-                self.client.dispatch('member_ban', member)
-            if data.get('isKick'):
-                self.client.dispatch('member_kick', member)
-            if not data.get('isKick') and not data.get('isBan'):
-                self.client.dispatch('member_leave', member)
+            if member == self._state.user:
+                self.client.dispatch('server_join', server)
+                self.client.dispatch('guild_join', server)  # discord.py
 
-            server._members.pop(data['userId'], None)
+            self.client.dispatch('member_join', member)
 
-    async def TeamMemberUpdated(self, data: TeamMemberUpdatedEvent):
-        member_id = data.get('userId') or data['userInfo'].get('id')
-        raw_after = self._state.create_member(data={
-            'user': {'id': member_id},
-            'serverId': data['serverId'],
-            **data['userInfo'],
-        })
-        self.client.dispatch('raw_member_update', raw_after)
+    async def parse_team_member_removed(self, data: gw.TeamMemberRemovedEvent):
+        if self._exp_style:
+            event = ev.MemberRemoveEvent(self._state, data)
+            self.client.dispatch(event)
+            self._state.remove_from_member_cache(event.server_id, event.user_id)
 
-        server = self.client.get_server(data['serverId'])
-        if server is None:
-            return
+        else:
+            server = self.client.get_server(data['serverId'])
+            member = self._state._get_server_member(server.id, data['userId'])
+            if member:
+                self.client.dispatch('member_remove', member)
+                if data.get('isBan'):
+                    self.client.dispatch('member_ban', member)
+                if data.get('isKick'):
+                    self.client.dispatch('member_kick', member)
+                if not data.get('isKick') and not data.get('isBan'):
+                    self.client.dispatch('member_leave', member)
 
-        member = server.get_member(member_id)
-        if member is None:
-            self._state.add_to_member_cache(raw_after)
-            return
+                server._members.pop(data['userId'], None)
 
-        before = Member._copy(member)
-        member._update(data['userInfo'])
+    async def parse_team_member_banned(self, data: gw.TeamMemberBanEvent):
+        if self._exp_style:
+            event = ev.BanCreateEvent(self._state, data)
+            self.client.dispatch(event)
 
-        self.client.dispatch('member_update', before, member)
+    async def parse_team_member_unbanned(self, data: gw.TeamMemberBanEvent):
+        if self._exp_style:
+            event = ev.BanDeleteEvent(self._state, data)
+            self.client.dispatch(event)
 
-    async def teamRolesUpdated(self, data: TeamRolesUpdatedEvent):
-        server = self.client.get_server(data['serverId'])
-        if server is None:
-            return
+    async def parse_team_member_updated(self, data: gw.TeamMemberUpdatedEvent):
+        if self._exp_style:
+            event = ev.MemberUpdateEvent(self._state, data)
+            self._state.add_to_member_cache(event.after)
+            self.client.dispatch(event)
 
-        # A member's roles were updated
-        for updated in data.get('memberRoleIds') or []:
-            for role_id in updated['roleIds']:
-                if not server.get_role(role_id):
-                    role = Role(state=self._state, data={'id': role_id, 'serverId': server.id})
-                    server._roles[role.id] = role
-
-            raw_after = self._state.create_member(data={'id': updated['userId'], 'roleIds': updated['roleIds'], 'serverId': server.id})
+        else:
+            member_id = data.get('userId') or data['userInfo'].get('id')
+            raw_after = self._state.create_member(data={
+                'user': {'id': member_id},
+                'serverId': data['serverId'],
+                **data['userInfo'],
+            })
             self.client.dispatch('raw_member_update', raw_after)
 
-            member = server.get_member(updated['userId'])
-            if not member:
+            server = self.client.get_server(data['serverId'])
+            if server is None:
+                return
+
+            member = server.get_member(member_id)
+            if member is None:
                 self._state.add_to_member_cache(raw_after)
-                continue
+                return
 
             before = Member._copy(member)
-            member._update_roles(updated['roleIds'])
-            self._state.add_to_member_cache(member)
+            member._update(data['userInfo'])
+
             self.client.dispatch('member_update', before, member)
 
-        # The server's roles were updated
-        if data.get('rolesById'):
-            # Guilded provides us with the entire role list so we reconstruct it
-            # with this data since it will undoubtably be the newest available
-            server._roles.clear()
+    async def parse_team_roles_updated(self, data: gw.TeamRolesUpdatedEvent):
+        if self._exp_style:
+            if data.get('memberRoleIds'):
+                event = ev.BulkMemberRolesUpdateEvent(self._state, data)
+                self.client.dispatch(event)
 
-            for role_id, updated in data['rolesById'].items():
-                if role_id.isdigit():
-                    # "baseRole" is included in rolesById, resulting in a
-                    # duplicate entry for the base role.
-                    role = Role(state=self._state, data=updated, server=server)
-                    server._roles[role.id] = role
+        else:
+            server = self.client.get_server(data['serverId'])
+            if server is None:
+                return
 
-    async def TeamWebhookCreated(self, data: TeamWebhookEvent):
-        webhook = Webhook.from_state(data['webhook'], self._state)
-        self.client.dispatch('webhook_create', webhook)
+            # A member's roles were updated
+            for updated in data.get('memberRoleIds') or []:
+                for role_id in updated['roleIds']:
+                    if not server.get_role(role_id):
+                        role = Role(state=self._state, data={'id': role_id, 'serverId': server.id})
+                        server._roles[role.id] = role
 
-    async def TeamWebhookUpdated(self, data: TeamWebhookEvent):
-        webhook = Webhook.from_state(data['webhook'], self._state)
-        # Webhooks are not cached so having a `webhook_update` with only `after` doesn't make sense.
-        # In the future this may change with the introduction of better caching control.
-        self.client.dispatch('raw_webhook_update', webhook)
+                raw_after = self._state.create_member(data={'id': updated['userId'], 'roleIds': updated['roleIds'], 'serverId': server.id})
+                self.client.dispatch('raw_member_update', raw_after)
 
-    async def TeamChannelCreated(self, data: TeamChannelEvent):
-        server = self.client.get_server(data['serverId'])
-        channel = self._state.create_channel(data=data['channel'], server=server)
-        self._state.add_to_server_channel_cache(channel)
-        self.client.dispatch('server_channel_create', channel)
+                member = server.get_member(updated['userId'])
+                if not member:
+                    self._state.add_to_member_cache(raw_after)
+                    continue
 
-    async def TeamChannelUpdated(self, data: TeamChannelEvent):
-        server = self.client.get_server(data['serverId'])
-        before = server.get_channel(data['channel']['id'])
-        if not before:
-            return
+                before = Member._copy(member)
+                member._update_roles(updated['roleIds'])
+                self._state.add_to_member_cache(member)
+                self.client.dispatch('member_update', before, member)
 
-        after = self._state.create_channel(data=data['channel'], server=server)
-        self._state.add_to_server_channel_cache(after)
-        self.client.dispatch('server_channel_update', before, after)
+            # The server's roles were updated
+            if data.get('rolesById'):
+                # Guilded provides us with the entire role list so we reconstruct it
+                # with this data since it will undoubtably be the newest available
+                server._roles.clear()
 
-    async def TeamChannelDeleted(self, data: TeamChannelEvent):
-        server = self.client.get_server(data['serverId'])
-        channel = self._state.create_channel(data=data['channel'], server=server)
-        channel.server._channels.pop(channel.id, None)
-        self.client.dispatch('server_channel_delete', channel)
+                for role_id, updated in data['rolesById'].items():
+                    if role_id.isdigit():
+                        # "baseRole" is included in rolesById, resulting in a
+                        # duplicate entry for the base role.
+                        role = Role(state=self._state, data=updated, server=server)
+                        server._roles[role.id] = role
 
-    async def ChannelMessageReactionCreated(self, data: ChannelMessageReactionEvent):
-        server = self.client.get_server(data['serverId'])
+    async def parse_team_webhook_created(self, data: gw.TeamWebhookEvent):
+        if self._exp_style:
+            event = ev.WebhookCreateEvent(self._state, data)
+            self.client.dispatch(event)
 
-        data['reaction']['type'] = 'ChannelMessageReactionCreated'
-        payload = RawReactionActionEvent(state=self._state, data=data['reaction'], server=server)
-        self.client.dispatch('raw_message_reaction_add', payload)
+        else:
+            webhook = Webhook.from_state(data['webhook'], self._state)
+            self.client.dispatch('webhook_create', webhook)
 
-        message = self._state._get_message(data['reaction']['messageId'])
-        if message:
-            reaction = Reaction(data=data['reaction'], parent=message)
-            self.client.dispatch('message_reaction_add', reaction)
+    async def parse_team_webhook_updated(self, data: gw.TeamWebhookEvent):
+        if self._exp_style:
+            event = ev.WebhookUpdateEvent(self._state, data)
+            self.client.dispatch(event)
 
-    async def ChannelMessageReactionDeleted(self, data: ChannelMessageReactionEvent):
-        server = self.client.get_server(data['serverId'])
+        else:
+            webhook = Webhook.from_state(data['webhook'], self._state)
+            # Webhooks are not cached so having a `webhook_update` with only `after` doesn't make sense.
+            # In the future this may change with the introduction of better caching control.
+            self.client.dispatch('raw_webhook_update', webhook)
 
-        data['reaction']['type'] = 'ChannelMessageReactionDeleted'
-        payload = RawReactionActionEvent(state=self._state, data=data['reaction'], server=server)
-        self.client.dispatch('raw_message_reaction_remove', payload)
+    async def parse_doc_created(self, data: gw.DocEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['doc']['channelId'], server_channel_type=ChannelType.docs)
+            event = ev.DocCreateEvent(self._state, data, channel=channel)
+            self.client.dispatch(event)
 
-        message = self._state._get_message(data['reaction']['messageId'])
-        if message:
-            reaction = Reaction(data=data['reaction'], parent=message)
-            self.client.dispatch('message_reaction_remove', reaction)
+    async def parse_doc_updated(self, data: gw.DocEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['doc']['channelId'], server_channel_type=ChannelType.docs)
+            event = ev.DocUpdateEvent(self._state, data, channel=channel)
+            self.client.dispatch(event)
 
-    async def CalendarEventCreated(self, data: CalendarEventEvent):
-        server = self.client.get_server(data['serverId'])
-        if not server:
-            return
+    async def parse_doc_deleted(self, data: gw.DocEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['doc']['channelId'], server_channel_type=ChannelType.docs)
+            event = ev.DocDeleteEvent(self._state, data, channel=channel)
+            self.client.dispatch(event)
 
-        try:
-            channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
-        except HTTPException:
-            return
+    async def parse_team_channel_created(self, data: gw.TeamChannelEvent):
+        if self._exp_style:
+            event = ev.ServerChannelCreateEvent(self._state, data)
+            self._state.add_to_server_channel_cache(event.channel)
+            self.client.dispatch(event)
 
-        event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
-        self.client.dispatch('calendar_event_create', event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            channel = self._state.create_channel(data=data['channel'], server=server)
+            self._state.add_to_server_channel_cache(channel)
+            self.client.dispatch('server_channel_create', channel)
 
-    async def CalendarEventUpdated(self, data: CalendarEventEvent):
-        server = self.client.get_server(data['serverId'])
-        if not server:
-            return
+    async def parse_team_channel_updated(self, data: gw.TeamChannelEvent):
+        if self._exp_style:
+            event = ev.ServerChannelUpdateEvent(self._state, data)
+            self._state.add_to_server_channel_cache(event.channel)
+            self.client.dispatch(event)
 
-        try:
-            channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
-        except HTTPException:
-            return
+        else:
+            server = self.client.get_server(data['serverId'])
+            before = server.get_channel(data['channel']['id'])
+            if not before:
+                return
 
-        event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
-        self.client.dispatch('raw_calendar_event_update', event)
+            after = self._state.create_channel(data=data['channel'], server=server)
+            self._state.add_to_server_channel_cache(after)
+            self.client.dispatch('server_channel_update', before, after)
 
-    async def CalendarEventDeleted(self, data: CalendarEventEvent):
-        server = self.client.get_server(data['serverId'])
-        if not server:
-            return
+    async def parse_team_channel_deleted(self, data: gw.TeamChannelEvent):
+        if self._exp_style:
+            event = ev.ServerChannelDeleteEvent(self._state, data)
+            self._state.remove_from_server_channel_cache(event.server_id, event.channel.id)
+            self.client.dispatch(event)
 
-        try:
-            channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
-        except HTTPException:
-            return
+        else:
+            server = self.client.get_server(data['serverId'])
+            channel = self._state.create_channel(data=data['channel'], server=server)
+            channel.server._channels.pop(channel.id, None)
+            self.client.dispatch('server_channel_delete', channel)
 
-        event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
-        self.client.dispatch('calendar_event_delete', event)
+    async def parse_channel_message_reaction_created(self, data: gw.ChannelMessageReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'])
+            event = ev.MessageReactionAddEvent(self._state, data, channel)
+            self.client.dispatch(event)
 
-    async def ForumTopicCreated(self, data: ForumTopicEvent):
-        server = self.client.get_server(data['serverId'])
-        if not server:
-            return
+        else:
+            server = self.client.get_server(data['serverId'])
+            data['reaction']['type'] = 'ChannelMessageReactionCreated'
+            payload = RawReactionActionEvent(state=self._state, data=data['reaction'], server=server)
+            self.client.dispatch('raw_message_reaction_add', payload)
 
-        try:
-            channel: ForumChannel = await server.getch_channel(data['forumTopic']['channelId'])
-        except HTTPException:
-            return
+            message = self._state._get_message(data['reaction']['messageId'])
+            if message:
+                reaction = Reaction(data=data['reaction'], parent=message)
+                self.client.dispatch('message_reaction_add', reaction)
 
-        topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
-        self.client.dispatch('forum_topic_create', topic)
+    async def parse_channel_message_reaction_deleted(self, data: gw.ChannelMessageReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'])
+            event = ev.MessageReactionRemoveEvent(self._state, data, channel)
+            self.client.dispatch(event)
 
-    async def ForumTopicUpdated(self, data: ForumTopicEvent):
-        server = self.client.get_server(data['serverId'])
-        if not server:
-            return
+        else:
+            server = self.client.get_server(data['serverId'])
+            data['reaction']['type'] = 'ChannelMessageReactionDeleted'
+            payload = RawReactionActionEvent(state=self._state, data=data['reaction'], server=server)
+            self.client.dispatch('raw_message_reaction_remove', payload)
 
-        try:
-            channel: ForumChannel = await server.getch_channel(data['forumTopic']['channelId'])
-        except HTTPException:
-            return
+            message = self._state._get_message(data['reaction']['messageId'])
+            if message:
+                reaction = Reaction(data=data['reaction'], parent=message)
+                self.client.dispatch('message_reaction_remove', reaction)
 
-        topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
-        self.client.dispatch('raw_forum_topic_update', topic)
+    async def parse_calendar_event_created(self, data: gw.CalendarEventEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['calendarEvent']['channelId'], ChannelType.calendar)
+            event = ev.CalendarEventCreateEvent(self._state, data, channel)
+            self.client.dispatch(event)
 
-    async def ForumTopicDeleted(self, data: ForumTopicEvent):
-        server = self.client.get_server(data['serverId'])
-        if not server:
-            return
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
 
-        try:
-            channel: ForumChannel = await server.getch_channel(data['forumTopic']['channelId'])
-        except HTTPException:
-            return
+            try:
+                channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
+            except HTTPException:
+                return
 
-        topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
-        self.client.dispatch('forum_topic_delete', topic)
+            event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
+            self.client.dispatch('calendar_event_create', event)
 
-    async def CalendarEventRsvpUpdated(self, data: CalendarEventRsvpEvent):
-        server = self.client.get_server(data['serverId'])
-        if not server:
-            return
+    async def parse_calendar_event_updated(self, data: gw.CalendarEventEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['calendarEvent']['channelId'], ChannelType.calendar)
+            event = ev.CalendarEventUpdateEvent(self._state, data, channel)
+            self.client.dispatch(event)
 
-        try:
-            channel: CalendarChannel = await server.getch_channel(data['calendarEventRsvp']['channelId'])
-            event = await channel.fetch_event(data['calendarEventRsvp']['calendarEventId'])
-        except HTTPException:
-            return
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
 
-        rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=event)
-        self.client.dispatch('raw_calendar_event_rsvp_update', rsvp)
+            try:
+                channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
+            except HTTPException:
+                return
 
-    async def CalendarEventRsvpManyUpdated(self, data: CalendarEventRsvpManyUpdatedEvent):
-        server = self.client.get_server(data['serverId'])
-        if not server:
-            return
+            event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
+            self.client.dispatch('raw_calendar_event_update', event)
 
-        try:
-            channel: CalendarChannel = await server.getch_channel(data['calendarEventRsvps'][0]['channelId'])
-            event = await channel.fetch_event(data['calendarEventRsvps'][0]['calendarEventId'])
-        except (HTTPException, IndexError):
-            return
+    async def parse_calendar_event_deleted(self, data: gw.CalendarEventEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['calendarEvent']['channelId'], ChannelType.calendar)
+            event = ev.CalendarEventDeleteEvent(self._state, data, channel)
+            self.client.dispatch(event)
 
-        rsvps = [
-            CalendarEventRSVP(data=rsvp_data, event=event)
-            for rsvp_data in data['calendarEventRsvps']
-        ]
-        self.client.dispatch('bulk_calendar_event_rsvp_create', rsvps)
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
 
-    async def CalendarEventRsvpDeleted(self, data: CalendarEventRsvpEvent):
-        server = self.client.get_server(data['serverId'])
-        if not server:
-            return
+            try:
+                channel: CalendarChannel = await server.getch_channel(data['calendarEvent']['channelId'])
+            except HTTPException:
+                return
 
-        try:
-            channel: CalendarChannel = await server.getch_channel(data['calendarEventRsvp']['channelId'])
-            event = await channel.fetch_event(data['calendarEventRsvp']['calendarEventId'])
-        except HTTPException:
-            return
+            event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
+            self.client.dispatch('calendar_event_delete', event)
 
-        rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=event)
-        self.client.dispatch('calendar_event_rsvp_delete', rsvp)
+    async def parse_forum_topic_created(self, data: gw.ForumTopicEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['forumTopic']['channelId'], ChannelType.forums)
+            event = ev.ForumTopicCreateEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
+
+            try:
+                channel: ForumChannel = await server.getch_channel(data['forumTopic']['channelId'])
+            except HTTPException:
+                return
+
+            topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
+            self.client.dispatch('forum_topic_create', topic)
+
+    async def parse_forum_topic_updated(self, data: gw.ForumTopicEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['forumTopic']['channelId'], ChannelType.forums)
+            event = ev.ForumTopicUpdateEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
+
+            try:
+                channel: ForumChannel = await server.getch_channel(data['forumTopic']['channelId'])
+            except HTTPException:
+                return
+
+            topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
+            self.client.dispatch('raw_forum_topic_update', topic)
+
+    async def parse_forum_topic_deleted(self, data: gw.ForumTopicEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['forumTopic']['channelId'], ChannelType.forums)
+            event = ev.ForumTopicDeleteEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
+
+            try:
+                channel: ForumChannel = await server.getch_channel(data['forumTopic']['channelId'])
+            except HTTPException:
+                return
+
+            topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
+            self.client.dispatch('forum_topic_delete', topic)
+
+    async def parse_list_item_created(self, data: gw.ListItemEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['listItem']['channelId'], ChannelType.list)
+            event = ev.ListItemCreateEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_list_item_updated(self, data: gw.ListItemEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['listItem']['channelId'], ChannelType.list)
+            event = ev.ListItemUpdateEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_list_item_deleted(self, data: gw.ListItemEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['listItem']['channelId'], ChannelType.list)
+            event = ev.ListItemDeleteEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_list_item_completed(self, data: gw.ListItemEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['listItem']['channelId'], ChannelType.list)
+            event = ev.ListItemCompleteEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_list_item_uncompleted(self, data: gw.ListItemEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['listItem']['channelId'], ChannelType.list)
+            event = ev.ListItemUncompleteEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_calendar_event_rsvp_updated(self, data: gw.CalendarEventRsvpEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['calendarEventRsvp']['channelId'], ChannelType.calendar)
+            try:
+                calendar_event = await channel.fetch_event(data['calendarEventRsvp']['calendarEventId'])
+            except HTTPException:
+                return
+
+            event = ev.CalendarEventRsvpUpdateEvent(self._state, data, calendar_event)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
+
+            try:
+                channel: CalendarChannel = await server.getch_channel(data['calendarEventRsvp']['channelId'])
+                event = await channel.fetch_event(data['calendarEventRsvp']['calendarEventId'])
+            except HTTPException:
+                return
+
+            rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=event)
+            self.client.dispatch('raw_calendar_event_rsvp_update', rsvp)
+
+    async def parse_calendar_event_rsvp_many_updated(self, data: gw.CalendarEventRsvpManyUpdatedEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['calendarEventRsvps'][0]['channelId'], ChannelType.calendar)
+            try:
+                calendar_event = await channel.fetch_event(data['calendarEventRsvps'][0]['calendarEventId'])
+            except HTTPException:
+                return
+
+            event = ev.BulkCalendarEventRsvpCreateEvent(self._state, data, calendar_event)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
+
+            try:
+                channel: CalendarChannel = await server.getch_channel(data['calendarEventRsvps'][0]['channelId'])
+                event = await channel.fetch_event(data['calendarEventRsvps'][0]['calendarEventId'])
+            except (HTTPException, IndexError):
+                return
+
+            rsvps = [
+                CalendarEventRSVP(data=rsvp_data, event=event)
+                for rsvp_data in data['calendarEventRsvps']
+            ]
+            self.client.dispatch('bulk_calendar_event_rsvp_create', rsvps)
+
+    async def parse_calendar_event_rsvp_deleted(self, data: gw.CalendarEventRsvpEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['calendarEventRsvp']['channelId'], ChannelType.calendar)
+            try:
+                calendar_event = await channel.fetch_event(data['calendarEventRsvp']['calendarEventId'])
+            except HTTPException:
+                return
+
+            event = ev.CalendarEventRsvpDeleteEvent(self._state, data, calendar_event)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
+
+            try:
+                channel: CalendarChannel = await server.getch_channel(data['calendarEventRsvp']['channelId'])
+                event = await channel.fetch_event(data['calendarEventRsvp']['calendarEventId'])
+            except HTTPException:
+                return
+
+            rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=event)
+            self.client.dispatch('calendar_event_rsvp_delete', rsvp)
 
 
 class Heartbeater(threading.Thread):
