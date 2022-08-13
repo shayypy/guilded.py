@@ -777,6 +777,9 @@ class HTTPClient(HTTPClientBase):
         }
         return self.request(Route('POST', f'/servers/{server_id}/roles/{role_id}/xp'), json=payload)
 
+    def get_member_social_link(self, server_id: str, user_id: str, social_link_type: str):
+        return self.request(Route('GET', f'/servers/{server_id}/members/{user_id}/social-links/{social_link_type}'))
+
     def ban_server_member(self, server_id: str, user_id: str, *, reason: str = None):
         payload = {}
         if reason is not None:

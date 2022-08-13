@@ -55,7 +55,7 @@ import datetime
 import inspect
 import itertools
 from operator import attrgetter
-from typing import Any, List, Optional, TYPE_CHECKING, Set, Union
+from typing import Any, List, Dict, Optional, TYPE_CHECKING, Set, Union
 
 import guilded.abc
 
@@ -396,7 +396,7 @@ class Member(User):
         HTTPException
             Failed to edit this member.
         """
-        
+
         if nick is not MISSING:
             await self.set_nickname(nick)
 
@@ -508,6 +508,33 @@ class Member(User):
 
         data = await self._state.get_member_roles(self.server.id, self.id)
         return data['roleIds']
+
+    async def fetch_social_link(self, social_link_type: str) -> Dict[str, Optional[str]]:
+        """|coro|
+
+        Fetch the social link of this member.
+
+        Parameters
+        -----------
+        social_link_type: :class:`str`
+            The type of social link to fetch. This can be either "twitch", "patreon", "roblox", "twitter", or "steam".
+
+        Returns
+        --------
+        :class:`dict`
+            The data of the social link.
+
+        Raises
+        -------
+        NotFound
+            The member does not have the social link.
+        HTTPException
+            Failed to retrieve the social link.
+            The social link must be one of the allowed types.
+        """
+
+        data = await self._state.get_member_social_link(self.server.id, self.id, social_link_type)
+        return data['socialLink']
 
     async def award_xp(self, amount: int, /) -> int:
         """|coro|
