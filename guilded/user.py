@@ -533,7 +533,7 @@ class Member(User):
             The social link must be one of the allowed types.
         """
 
-        data = await self._state.get_member_social_link(self.server.id, self.id, social_link_type)
+        data = await self._state.get_member_social_links(self.server.id, self.id, social_link_type)
         return data['socialLink']
 
     async def award_xp(self, amount: int, /) -> int:
