@@ -63,6 +63,7 @@ __all__ = (
     'FlowTriggerType',
     'ServerType',
     'UserType',
+    'SocialLinkType',
     'RSVPStatus',
 )
 
@@ -330,6 +331,27 @@ class ServerType(Enum):
 class UserType(Enum):
     user = 'user'
     bot = 'bot'
+
+
+class SocialLinkType(Enum):
+    twitch = 'twitch'
+    bnet = 'bnet'
+    psn = 'psn'
+    xbox = 'xbox'
+    steam = 'steam'
+    origin = 'origin'
+    youtube = 'youtube'
+    twitter = 'twitter'
+    facebook = 'facebook'
+    switch = 'switch'
+    patreon = 'patreon'
+    roblox = 'roblox'
+    epic = 'epic'
+
+    # Aliases
+    battlenet = 'bnet'
+    playstation = 'psn'
+    epicgames = 'epic'
 
 
 class RSVPStatus(Enum):
