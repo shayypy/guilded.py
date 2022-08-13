@@ -55,11 +55,12 @@ import datetime
 import inspect
 import itertools
 from operator import attrgetter
-from typing import Any, List, Dict, Optional, TYPE_CHECKING, Set, Union
+from typing import Any, List, Dict, Optional, TYPE_CHECKING, Set, Tuple, Union
 
 import guilded.abc
 
 from .asset import Asset
+from .enums import SocialLinkType, try_enum
 from .role import Role
 from .utils import MISSING, Object, copy_doc, ISO8601
 
@@ -69,6 +70,7 @@ if TYPE_CHECKING:
         ServerMember as ServerMemberPayload,
         ServerMemberBan as ServerMemberBanPayload,
     )
+    from .types.social_link import SocialLink as SocialLinkPayload
 
     from .server import Server
 
@@ -78,6 +80,7 @@ __all__ = (
     'ClientUser',
     'Member',
     'MemberBan',
+    'SocialLink',
     'User',
 )
 
@@ -509,32 +512,36 @@ class Member(User):
         data = await self._state.get_member_roles(self.server.id, self.id)
         return data['roleIds']
 
-    async def fetch_social_link(self, social_link_type: str) -> Dict[str, Optional[str]]:
+    async def fetch_social_link(self, social_link_type: SocialLinkType, /) -> SocialLink:
         """|coro|
 
-        Fetch the social link of this member.
+        Fetch one of this member's social links.
 
         Parameters
         -----------
-        social_link_type: :class:`str`
-            The type of social link to fetch. This can be either "twitch", "patreon", "roblox", "twitter", or "steam".
+        social_link_type: :class:`SocialLinkType`
+            The type of social link to get.
 
         Returns
         --------
-        :class:`dict`
-            The data of the social link.
+        :class:`SocialLink`
+            The member's social link on the external service.
 
         Raises
         -------
+        TypeError
+            A :class:`SocialLinkType` was not passed to ``social_link_type``.
         NotFound
-            The member does not have the social link.
+            The member does not have social link of the requested type.
         HTTPException
             Failed to retrieve the social link.
-            The social link must be one of the allowed types.
         """
 
-        data = await self._state.get_member_social_links(self.server.id, self.id, social_link_type)
-        return data['socialLink']
+        if not isinstance(social_link_type, SocialLinkType):
+            raise TypeError('social_link_type must be SocialLinkType, not %s' % social_link_type.__class__.__name__)
+
+        data = await self._state.get_member_social_links(self.server.id, self.id, social_link_type.value)
+        return SocialLink(self, data['socialLink'])
 
     async def award_xp(self, amount: int, /) -> int:
         """|coro|
@@ -635,6 +642,55 @@ class MemberBan:
         await self.server.unban(self.user)
 
 BanEntry = MemberBan  # discord.py
+
+
+class SocialLink:
+    """Represents a social link on a user's profile.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two social links are equal.
+
+        .. describe:: x != y
+
+            Checks if two social links are not equal.
+
+    Attributes
+    -----------
+    user: Union[:class:`Member`, :class:`~guilded.User`]
+        The social link's parent member or user.
+    type: :class:`SocialLinkType`
+        The type or platform that the social link is for.
+    handle: Optional[:class:`str`]
+        The member's handle on the external platform.
+    service_id: Optional[:class:`str`]
+        The member's ID on the external platform.
+    """
+
+    __slots__: Tuple[str, ...] = (
+        'user',
+        'type',
+        'handle',
+        'service_id',
+    )
+
+    def __init__(self, user: Union[Member, User], data: SocialLinkPayload) -> None:
+        self.user = user
+        self.type = try_enum(SocialLinkType, data['type'])
+        self.handle = data.get('handle')
+        self.service_id = data.get('serviceId')
+
+    def __eq__(self, other: object):
+        return (
+            isinstance(other, SocialLink)
+            and self.user == other.user
+            and self.type == other.type
+        )
+
+    def __repr__(self) -> str:
+        return f'<SocialLink type={self.type!r} handle={self.handle!r} service_id={self.service_id!r} user={self.user!r}>'
 
 
 class ClientUser(guilded.abc.User):
