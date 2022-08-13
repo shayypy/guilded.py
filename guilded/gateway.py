@@ -820,7 +820,7 @@ class WebSocketEventParsers:
             except HTTPException:
                 return
 
-            event = ev.CalendarEventRsvpUpdateEvent(self._state, data, calendar_event)
+            event = ev.RsvpUpdateEvent(self._state, data, calendar_event)
             self.client.dispatch(event)
 
         else:
@@ -845,7 +845,7 @@ class WebSocketEventParsers:
             except HTTPException:
                 return
 
-            event = ev.BulkCalendarEventRsvpCreateEvent(self._state, data, calendar_event)
+            event = ev.BulkRsvpCreateEvent(self._state, data, calendar_event)
             self.client.dispatch(event)
 
         else:
@@ -873,7 +873,7 @@ class WebSocketEventParsers:
             except HTTPException:
                 return
 
-            event = ev.CalendarEventRsvpDeleteEvent(self._state, data, calendar_event)
+            event = ev.RsvpDeleteEvent(self._state, data, calendar_event)
             self.client.dispatch(event)
 
         else:
