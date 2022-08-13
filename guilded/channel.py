@@ -770,6 +770,7 @@ class CalendarEventRSVP:
         'updated_by_id',
         'status',
         'created_at',
+        'updated_at',
     )
 
     def __init__(self, *, data: CalendarEventRsvpPayload, event: CalendarEvent):
@@ -784,6 +785,7 @@ class CalendarEventRSVP:
 
         self.status: RSVPStatus = try_enum(RSVPStatus, data.get('status'))
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
 
     def __repr__(self) -> str:
         return f'<CalendarEventRSVP user_id={self.user_id!r} status={self.status!r} event={self.event!r}>'
