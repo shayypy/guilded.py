@@ -188,7 +188,7 @@ async def json_or_text(response: aiohttp.ClientResponse) -> Union[Dict[str, Any]
 class Route:
     BASE = 'https://www.guilded.gg/api/v1'
     USER_BASE = 'https://www.guilded.gg/api'
-    WEBSOCKET_BASE = 'wss://api.guilded.gg/v1/websocket'
+    WEBSOCKET_BASE = 'wss://www.guilded.gg/websocket/v1'
     MEDIA_BASE = 'https://media.guilded.gg'
     CDN_BASE = 'https://s3-us-west-2.amazonaws.com/www.guilded.gg'
     NO_BASE = ''
