@@ -626,6 +626,12 @@ class HTTPClient(HTTPClientBase):
     def delete_forum_topic(self, channel_id: str, topic_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}'))
 
+    def pin_forum_topic(self, channel_id: str, topic_id: int):
+        return self.request(Route('PUT', f'/channels/{channel_id}/topics/{topic_id}/pin'))
+
+    def unpin_forum_topic(self, channel_id: str, topic_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}/pin'))
+
     def create_list_item(self, channel_id: str, *, message: str, note_content: Optional[str] = None):
         payload = {
             'message': message,

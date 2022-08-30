@@ -782,6 +782,18 @@ class WebSocketEventParsers:
             topic = ForumTopic(state=self._state, data=data['forumTopic'], channel=channel)
             self.client.dispatch('forum_topic_delete', topic)
 
+    async def parse_forum_topic_pinned(self, data: gw.ForumTopicEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['forumTopic']['channelId'], ChannelType.forums)
+            event = ev.ForumTopicPinEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_forum_topic_unpinned(self, data: gw.ForumTopicEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['forumTopic']['channelId'], ChannelType.forums)
+            event = ev.ForumTopicUnpinEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
     async def parse_list_item_created(self, data: gw.ListItemEvent):
         if self._exp_style:
             channel = await self._force_resolve_channel(data['serverId'], data['listItem']['channelId'], ChannelType.list)

@@ -1325,6 +1325,8 @@ class ForumTopic(Hashable, HasContentMixin):
         When the topic was last updated.
     bumped_at: Optional[:class:`datetime.datetime`]
         When the topic was last bumped.
+    pinned: :class:`bool`
+        Whether the topic is pinned.
     """
 
     __slots__: Tuple[str, ...] = (
@@ -1340,6 +1342,7 @@ class ForumTopic(Hashable, HasContentMixin):
         'created_at',
         'updated_at',
         'bumped_at',
+        'pinned',
     )
 
     def __init__(self, *, state, data: ForumTopicPayload, channel: ForumChannel):
@@ -1360,6 +1363,8 @@ class ForumTopic(Hashable, HasContentMixin):
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
         self.bumped_at: Optional[datetime.datetime] = ISO8601(data.get('bumpedAt'))
+
+        self.pinned: bool = data.get('isPinned', False)
 
     def __str__(self) -> str:
         return self.title
@@ -1468,8 +1473,53 @@ class ForumTopic(Hashable, HasContentMixin):
         """|coro|
 
         Delete this topic.
+
+        Raises
+        -------
+        NotFound
+            This topic does not exist.
+        Forbidden
+            You do not have permission to delete this topic.
+        HTTPException
+            Failed to delete this topic.
         """
         await self._state.delete_forum_topic(self.channel.id, self.id)
+
+    async def pin(self) -> None:
+        """|coro|
+
+        Pin (sticky) this topic.
+
+        Raises
+        -------
+        NotFound
+            This topic does not exist.
+        Forbidden
+            You do not have permission to pin this topic.
+        HTTPException
+            Failed to pin this topic.
+        """
+        await self._state.pin_forum_topic(self.channel.id, self.id)
+
+    sticky = pin
+
+    async def unpin(self) -> None:
+        """|coro|
+
+        Unpin (unsticky) this topic.
+
+        Raises
+        -------
+        NotFound
+            This topic does not exist.
+        Forbidden
+            You do not have permission to unpin this topic.
+        HTTPException
+            Failed to unpin this topic.
+        """
+        await self._state.unpin_forum_topic(self.channel.id, self.id)
+
+    unsticky = unpin
 
 
 class ForumChannel(guilded.abc.ServerChannel):

@@ -88,6 +88,8 @@ __all__ = (
     'ForumTopicCreateEvent',
     'ForumTopicUpdateEvent',
     'ForumTopicDeleteEvent',
+    'ForumTopicPinEvent',
+    'ForumTopicUnpinEvent',
     'ListItemCreateEvent',
     'ListItemUpdateEvent',
     'ListItemDeleteEvent',
@@ -969,6 +971,44 @@ class ForumTopicDeleteEvent(_ForumTopicEvent):
 
     __gateway_event__ = 'ForumTopicDeleted'
     __dispatch_event__ = 'forum_topic_delete'
+
+
+class ForumTopicPinEvent(_ForumTopicEvent):
+    """Represents a :gdocs:`ForumTopicPinned <websockets/ForumTopicPinned>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the forum topic is in.
+    server: :class:`Server`
+        The server that the forum topic is in.
+    channel: :class:`ForumChannel`
+        The channel that the forum topic is in.
+    topic: :class:`ForumTopic`
+        The forum topic that was pinned.
+    """
+
+    __gateway_event__ = 'ForumTopicPinned'
+    __dispatch_event__ = 'forum_topic_pin'
+
+
+class ForumTopicUnpinEvent(_ForumTopicEvent):
+    """Represents a :gdocs:`ForumTopicUnpinned <websockets/ForumTopicUnpinned>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the forum topic is in.
+    server: :class:`Server`
+        The server that the forum topic is in.
+    channel: :class:`ForumChannel`
+        The channel that the forum topic is in.
+    topic: :class:`ForumTopic`
+        The forum topic that was unpinned.
+    """
+
+    __gateway_event__ = 'ForumTopicUnpinned'
+    __dispatch_event__ = 'forum_topic_unpin'
 
 
 class _ListItemEvent(ServerEvent):

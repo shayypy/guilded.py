@@ -39,6 +39,7 @@ class ForumTopicSummary(TypedDict):
     createdByWebhookId: NotRequired[str]
     updatedAt: NotRequired[str]
     bumpedAt: NotRequired[str]
+    isPinned: NotRequired[bool]
 
 
 class ForumTopic(ForumTopicSummary):
