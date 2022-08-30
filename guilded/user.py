@@ -363,6 +363,7 @@ class Member(User):
         *,
         nick: Optional[str] = MISSING,
         roles: List[Role] = MISSING,
+        xp: int = MISSING,
         **kwargs,
     ) -> None:
         """|coro|
@@ -378,6 +379,8 @@ class Member(User):
         +-----------------+--------------------------------------+
         | roles           | :attr:`Permissions.manage_roles`     |
         +-----------------+--------------------------------------+
+        | xp              | :attr:`Permissions.manage_server_xp` |
+        +-----------------+--------------------------------------+
 
         All parameters are optional.
 
@@ -388,6 +391,8 @@ class Member(User):
         roles: List[:class:`.Role`]
             The member's new list of roles. This *replaces* the roles.
             Providing this parameter causes your client to make multiple API requests.
+        xp: :class:`int`
+            The member's new total XP.
 
         Raises
         -------
@@ -416,6 +421,9 @@ class Member(User):
             for role_id in current_role_ids:
                 if role_id not in new_role_ids:
                     await self.remove_role(Object(role_id))
+
+        if xp is not MISSING:
+            await self.set_xp(xp)
 
     async def ban(self, **kwargs) -> MemberBan:
         """|coro|
@@ -551,6 +559,7 @@ class Member(User):
         .. note::
 
             This method *modifies* the current value, it does not replace it.
+            To set total XP, use :meth:`~Member.set_xp`.
 
         Parameters
         -----------
@@ -564,6 +573,31 @@ class Member(User):
         """
 
         data = await self._state.award_member_xp(self.server.id, self.id, amount)
+        self.xp = data['total']
+        return self.xp
+
+    async def set_xp(self, total: int, /) -> int:
+        """|coro|
+
+        Set this member's total XP.
+
+        .. note::
+
+            This method *replaces* the current value.
+            To add or subtract XP, use :meth:`~Member.award_xp`.
+
+        Parameters
+        -----------
+        total: :class:`int`
+            The total amount of XP this member should have.
+
+        Returns
+        --------
+        :class:`int`
+            The total amount of XP this member has after the operation.
+        """
+
+        data = await self._state.set_member_xp(self.server.id, self.id, total)
         self.xp = data['total']
         return self.xp
 

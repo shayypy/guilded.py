@@ -771,6 +771,12 @@ class HTTPClient(HTTPClientBase):
         }
         return self.request(Route('POST', f'/servers/{server_id}/members/{user_id}/xp'), json=payload)
 
+    def set_member_xp(self, server_id: str, user_id: str, total: int):
+        payload = {
+            'total': total,
+        }
+        return self.request(Route('PUT', f'/servers/{server_id}/members/{user_id}/xp'), json=payload)
+
     def award_role_xp(self, server_id: str, role_id: int, amount: int):
         payload = {
             'amount': amount,
