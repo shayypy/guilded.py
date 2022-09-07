@@ -397,7 +397,11 @@ class User(Hashable, metaclass=abc.ABCMeta):
         avatar = None
         _avatar_url = data.get('avatar') or data.get('profilePicture') or data.get('profilePictureLg') or data.get('profilePictureSm') or data.get('profilePictureBlur')
         if _avatar_url:
-            avatar = Asset._from_user_avatar(self._state, _avatar_url)
+            if 'WebhookThumbnail' in _avatar_url:
+                # Custom webhook avatars. Default webhook avatars use UserAvatar.
+                avatar = Asset._from_webhook_thumbnail(self._state, _avatar_url)
+            else:
+                avatar = Asset._from_user_avatar(self._state, _avatar_url)
         self.avatar: Optional[Asset] = avatar
 
         banner = None

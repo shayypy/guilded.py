@@ -358,6 +358,18 @@ class Asset(AssetMixin):
         )
 
     @classmethod
+    def _from_webhook_thumbnail(cls, state, image_url: str):
+        animated = 'ia=1' in image_url
+        image_hash = strip_cdn_url(image_url)
+        return cls(
+            state,
+            url=f'{cls.BASE}/WebhookThumbnail/{image_hash}-Full.webp',
+            key=image_hash,
+            animated=animated,
+            maybe_animated=True,
+        )
+
+    @classmethod
     def _from_media_thumbnail(cls, state, url: str):
         image_hash = strip_cdn_url(url)
         return cls(

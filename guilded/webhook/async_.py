@@ -819,6 +819,8 @@ class Webhook(BaseWebhook):
         self,
         content: str = MISSING,
         *,
+        username: str = MISSING,
+        avatar_url: Any = MISSING,
         embed: Embed = MISSING,
         embeds: Sequence[Embed] = MISSING,
         file: File = MISSING,
@@ -847,6 +849,13 @@ class Webhook(BaseWebhook):
         content: :class:`str`
             The :attr:`~WebhookMessage.content` of the message to send,
             or the :attr:`~ListItem.message` of the list item to create.
+        username: :class:`str`
+            A custom username to use with this message instead of the
+            webhook's own username.
+        avatar_url: :class:`str`
+            A custom avatar URL to use with this message instead of the
+            webhook's own avatar.
+            This is explicitly cast to ``str`` if it is not already.
         file: :class:`File`
             The file to upload. This cannot be mixed with ``files`` parameter.
         files: List[:class:`File`]
@@ -888,6 +897,8 @@ class Webhook(BaseWebhook):
 
         params = handle_message_parameters(
             content=content,
+            username=username,
+            avatar_url=avatar_url,
             file=file,
             files=files,
             embed=embed,

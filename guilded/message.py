@@ -608,6 +608,8 @@ class ChatMessage(Hashable, HasContentMixin):
         self.replied_to_ids: List[str] = data.get('replyMessageIds') or data.get('repliesToIds') or []
         self.author_id: str = data.get('createdBy')
         self.webhook_id: Optional[str] = data.get('createdByWebhookId') or data.get('webhookId')
+        self._webhook_username: Optional[str] = None
+        self._webhook_avatar_url: Optional[str] = None
 
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt') or data.get('editedAt'))
@@ -618,6 +620,10 @@ class ChatMessage(Hashable, HasContentMixin):
         if isinstance(data.get('content'), dict):
             # Webhook execution responses
             self.content: str = self._get_full_content(data['content'])
+            profile: Optional[Dict[str, str]] = data['content'].get('document', {}).get('data', {}).get('profile')
+            if profile:
+                self._webhook_username = profile.get('name')
+                self._webhook_avatar_url = profile.get('profilePicture')
 
         else:
             self.content: str = data.get('content') or ''
@@ -668,9 +674,14 @@ class ChatMessage(Hashable, HasContentMixin):
                 'id': self.author_id,
                 'type': 'bot',
             }
+            # FIll in webhook defaults if available & then profile overrides if available
             if self._webhook:
                 data['name'] = self._webhook.name
                 data['profilePicture'] = self._webhook.avatar.url if self._webhook.avatar else None
+            if self._webhook_username:
+                data['name'] = self._webhook_username
+            if self._webhook_avatar_url:
+                data['profilePicture'] = self._webhook_avatar_url
 
             user = self._state.create_user(data=data)
 

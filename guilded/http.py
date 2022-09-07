@@ -113,6 +113,8 @@ class MultipartParameters(NamedTuple):
 def handle_message_parameters(
     content: Optional[str] = MISSING,
     *,
+    username: str = MISSING,
+    avatar_url: Any = MISSING,
     file: File = MISSING,
     files: Sequence[File] = MISSING,
     embed: Optional[Embed] = MISSING,
@@ -155,6 +157,12 @@ def handle_message_parameters(
 
     if private is not None:
         payload['isPrivate'] = private
+
+    if username:
+        payload['username'] = username
+
+    if avatar_url:
+        payload['avatar_url'] = str(avatar_url)
 
     multipart = []
     if files:
