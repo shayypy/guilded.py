@@ -1099,6 +1099,28 @@ class Server(Hashable):
         webhook = Webhook.from_state(data['webhook'], self._state)
         return webhook
 
+    async def fetch_webhook(self, webhook_id: str, /) -> Webhook:
+        """|coro|
+
+        Fetch a webhook in this server.
+
+        Returns
+        --------
+        :class:`.Webhook`
+            The webhook by its ID.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permission to get webhooks in this channel.
+        """
+
+        from .webhook import Webhook
+
+        data = await self._state.get_server_webhook(self.id, webhook_id)
+        webhook = Webhook.from_state(data, self._state)
+        return webhook
+
     async def webhooks(self, *, channel: Optional[Union[ChatChannel, ListChannel]] = None) -> List[Webhook]:
         """|coro|
 
@@ -1122,7 +1144,7 @@ class Server(Hashable):
         Raises
         -------
         Forbidden
-            You do not have permission to get the webhooks.
+            You do not have permission to get webhooks in this channel.
         """
 
         if channel is not None:
