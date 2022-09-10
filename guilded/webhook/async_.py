@@ -852,10 +852,14 @@ class Webhook(BaseWebhook):
         username: :class:`str`
             A custom username to use with this message instead of the
             webhook's own username.
+
+            .. versionadded:: 1.4
         avatar_url: :class:`str`
             A custom avatar URL to use with this message instead of the
             webhook's own avatar.
             This is explicitly cast to ``str`` if it is not already.
+
+            .. versionadded:: 1.4
         file: :class:`File`
             The file to upload. This cannot be mixed with ``files`` parameter.
         files: List[:class:`File`]

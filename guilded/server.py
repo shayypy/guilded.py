@@ -1104,6 +1104,8 @@ class Server(Hashable):
 
         Fetch a webhook in this server.
 
+        .. versionadded:: 1.4
+
         Returns
         --------
         :class:`.Webhook`

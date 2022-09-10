@@ -394,6 +394,8 @@ class Member(User):
         xp: :class:`int`
             The member's new total XP.
 
+            .. versionadded:: 1.3
+
         Raises
         -------
         NotFound
@@ -530,6 +532,8 @@ class Member(User):
         social_link_type: :class:`SocialLinkType`
             The type of social link to get.
 
+        .. versionadded:: 1.3
+
         Returns
         --------
         :class:`SocialLink`
@@ -585,6 +589,8 @@ class Member(User):
 
             This method *replaces* the current value.
             To add or subtract XP, use :meth:`~Member.award_xp`.
+
+        .. versionadded:: 1.3
 
         Parameters
         -----------
