@@ -1011,6 +1011,44 @@ class ForumTopicUnpinEvent(_ForumTopicEvent):
     __dispatch_event__ = 'forum_topic_unpin'
 
 
+class ForumTopicLockEvent(_ForumTopicEvent):
+    """Represents a :gdocs:`ForumTopicLocked <websockets/ForumTopicLocked>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the forum topic is in.
+    server: :class:`Server`
+        The server that the forum topic is in.
+    channel: :class:`ForumChannel`
+        The channel that the forum topic is in.
+    topic: :class:`ForumTopic`
+        The forum topic that was locked.
+    """
+
+    __gateway_event__ = 'ForumTopicLocked'
+    __dispatch_event__ = 'forum_topic_lock'
+
+
+class ForumTopicUnlockEvent(_ForumTopicEvent):
+    """Represents a :gdocs:`ForumTopicUnlocked <websockets/ForumTopicUnlocked>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the forum topic is in.
+    server: :class:`Server`
+        The server that the forum topic is in.
+    channel: :class:`ForumChannel`
+        The channel that the forum topic is in.
+    topic: :class:`ForumTopic`
+        The forum topic that was unlocked.
+    """
+
+    __gateway_event__ = 'ForumTopicUnlocked'
+    __dispatch_event__ = 'forum_topic_unlock'
+
+
 class _ListItemEvent(ServerEvent):
     __slots__: Tuple[str, ...] = (
         'channel',

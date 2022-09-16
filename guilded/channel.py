@@ -1327,6 +1327,8 @@ class ForumTopic(Hashable, HasContentMixin):
         When the topic was last bumped.
     pinned: :class:`bool`
         Whether the topic is pinned.
+    locked: :class:`bool`
+        Whether the topic is locked.
     """
 
     __slots__: Tuple[str, ...] = (
@@ -1343,6 +1345,7 @@ class ForumTopic(Hashable, HasContentMixin):
         'updated_at',
         'bumped_at',
         'pinned',
+        'locked',
     )
 
     def __init__(self, *, state, data: ForumTopicPayload, channel: ForumChannel):
@@ -1365,6 +1368,7 @@ class ForumTopic(Hashable, HasContentMixin):
         self.bumped_at: Optional[datetime.datetime] = ISO8601(data.get('bumpedAt'))
 
         self.pinned: bool = data.get('isPinned', False)
+        self.locked: bool = data.get('isLocked', False)
 
     def __str__(self) -> str:
         return self.title
@@ -1490,6 +1494,8 @@ class ForumTopic(Hashable, HasContentMixin):
 
         Pin (sticky) this topic.
 
+        .. versionadded:: 1.4
+
         Raises
         -------
         NotFound
@@ -1508,6 +1514,8 @@ class ForumTopic(Hashable, HasContentMixin):
 
         Unpin (unsticky) this topic.
 
+        .. versionadded:: 1.4
+
         Raises
         -------
         NotFound
@@ -1520,6 +1528,42 @@ class ForumTopic(Hashable, HasContentMixin):
         await self._state.unpin_forum_topic(self.channel.id, self.id)
 
     unsticky = unpin
+
+    async def lock(self) -> None:
+        """|coro|
+
+        Lock this topic.
+
+        .. versionadded:: 1.4
+
+        Raises
+        -------
+        NotFound
+            This topic does not exist.
+        Forbidden
+            You do not have permission to lock this topic.
+        HTTPException
+            Failed to lock this topic.
+        """
+        await self._state.lock_forum_topic(self.channel.id, self.id)
+
+    async def unlock(self) -> None:
+        """|coro|
+
+        Unlock this topic.
+
+        .. versionadded:: 1.4
+
+        Raises
+        -------
+        NotFound
+            This topic does not exist.
+        Forbidden
+            You do not have permission to unlock this topic.
+        HTTPException
+            Failed to unlock this topic.
+        """
+        await self._state.unlock_forum_topic(self.channel.id, self.id)
 
 
 class ForumChannel(guilded.abc.ServerChannel):

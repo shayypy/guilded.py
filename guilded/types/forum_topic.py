@@ -40,6 +40,7 @@ class ForumTopicSummary(TypedDict):
     updatedAt: NotRequired[str]
     bumpedAt: NotRequired[str]
     isPinned: NotRequired[bool]
+    isLocked: NotRequired[bool]
 
 
 class ForumTopic(ForumTopicSummary):
