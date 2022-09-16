@@ -64,7 +64,7 @@ from .group import Group
 from .message import HasContentMixin
 from .mixins import Hashable
 from .user import Member
-from .utils import MISSING, ISO8601, Object
+from .utils import GUILDED_EPOCH_DATETIME, MISSING, ISO8601, Object
 from .status import Game
 
 if TYPE_CHECKING:
@@ -3512,6 +3512,126 @@ class SchedulingChannel(guilded.abc.ServerChannel):
     #        availability = Availability(data=availability_data, channel=self, state=self._state)
     #        if availability.id == data['id']:
     #            return availability
+
+
+class PartialMessageable(guilded.abc.Messageable, Hashable):
+    """Represents a partial messageable to aid with working messageable channels when
+    only a channel ID is present.
+
+    The only way to construct this class is through :meth:`Client.get_partial_messageable`.
+
+    Note that this class is trimmed down and has no rich attributes.
+
+    .. versionadded:: 1.4
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two partial messageables are equal.
+
+        .. describe:: x != y
+
+            Checks if two partial messageables are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the partial messageable's hash.
+
+    Attributes
+    -----------
+    id: :class:`str`
+        The channel ID associated with this partial messageable.
+    server_id: Optional[:class:`str`]
+        The server ID associated with this partial messageable.
+    type: Optional[:class:`ChannelType`]
+        The channel type associated with this partial messageable, if given.
+    """
+
+    def __init__(
+        self,
+        state,
+        id: str,
+        server_id: Optional[str] = None,
+        group_id: Optional[str] = None,
+        type: Optional[ChannelType] = None,
+    ):
+        self._state = state
+        self.id: str = id
+        self._channel_id: str = id
+        self.server_id: Optional[str] = server_id
+        self.group_id: Optional[str] = group_id
+        self.type: Optional[ChannelType] = type
+
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__} id={self.id} type={self.type!r}>'
+
+    async def _get_channel(self) -> PartialMessageable:
+        return self
+
+    @property
+    def server(self) -> Optional[Server]:
+        """Optional[:class:`Server`]: The server this partial messageable is in."""
+        return self._state._get_server(self.server_id)
+
+    @property
+    def guild(self) -> Server:
+        """Optional[:class:`.Server`]: |dpyattr|
+
+        This is an alias of :attr:`.server`.
+
+        The server this partial messageable is in.
+        """
+        return self.server
+
+    @property
+    def group(self) -> Group:
+        """Optional[:class:`~guilded.Group`]: The group that this partial messageable is in."""
+        if self.server:
+            return self.server.get_group(self.group_id)
+
+    @property
+    def share_url(self) -> str:
+        """:class:`str`: Returns a URL that allows the client to jump to the channel."""
+        if self.server_id is None:
+            return f'https://www.guilded.gg/chat/{self.id}'
+
+        # Using "_" for groups will render weirdly in the client, but the channel contents do appear
+        return f'https://www.guilded.gg/teams/{self.server_id}/groups/{self.group_id or "_"}/channels/{self.id}/chat'
+
+    jump_url = share_url
+
+    @property
+    def created_at(self) -> datetime.datetime:
+        """:class:`datetime.datetime`: Returns the channel's creation time in UTC.
+
+        This function exists for compatibility with other channel types.
+        Since partial messageables cannot determine their creation date from
+        only their UUID, this will always return 1/1/2016.
+        """
+
+        return GUILDED_EPOCH_DATETIME
+
+    # def permissions_for(self, obj: Any = None, /) -> Permissions:
+    #     """Handles permission resolution for a :class:`User`.
+
+    #     This function exists for compatibility with other channel types.
+    #     Since partial messageables cannot reasonably have the concept of
+    #     permissions, this will always return :meth:`Permissions.none`.
+
+    #     Parameters
+    #     -----------
+    #     obj: :class:`User`
+    #         The user to check permissions for. This parameter is ignored
+    #         but kept for compatibility with other ``permissions_for`` methods.
+
+    #     Returns
+    #     --------
+    #     :class:`Permissions`
+    #         The resolved permissions.
+    #     """
+
+    #     return Permissions.none()
 
 
 class AnnouncementReply(guilded.abc.Reply):

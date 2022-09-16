@@ -73,7 +73,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from .abc import ServerChannel
-    from .channel import DMChannel
+    from .channel import DMChannel, PartialMessageable
     from .emote import Emote
     from .message import ChatMessage
     from .user import Member
@@ -489,6 +489,65 @@ class Client:
             pass
         else:
             self._schedule_event(coro, method, *args, **kwargs)
+
+    def get_partial_messageable(
+        self,
+        id: str,
+        *,
+        server_id: str = None,
+        group_id: str = None,
+        type: ChannelType = None,
+        guild_id: str = None,
+    ) -> PartialMessageable:
+        """Returns a partial messageable with the given channel ID.
+
+        This is useful if you have a channel ID but don't want to do an API
+        call to send messages to it.
+
+        .. versionadded:: 1.4
+
+        Parameters
+        -----------
+        id: :class:`str`
+            The channel ID to create a partial messageable for.
+        server_id: Optional[:class:`str`]
+            The server ID that the channel is in.
+            This is not required to send messages, but it is necessary for the
+            :attr:`~PartialMessageable.jump_url` and :attr:`~PartialMessageable.server`
+            properties to work properly.
+        group_id: Optional[:class:`str`]
+            The group ID that the channel is in.
+            This is not required to send messages, but when combined with ``server_id``, it helps
+            the :attr:`~PartialMessageable.jump_url` property to render properly in the client,
+            and it allows the :attr:`~PartialMessageable.group` property to work properly.
+        type: Optional[:class:`ChannelType`]
+            The underlying channel type for the partial messageable.
+            This does not have to be a messageable type, but Guilded will reject
+            the request if you attempt to send to a non-messageable channel.
+
+        Returns
+        --------
+        :class:`PartialMessageable`
+            The partial messageable that was created.
+
+        Raises
+        -------
+        ValueError
+            Cannot provide both ``server_id`` and ``guild_id``
+        """
+
+        if server_id and guild_id:
+            raise ValueError('Cannot provide both server_id and guild_id')
+
+        from .channel import PartialMessageable
+
+        return PartialMessageable(
+            state=self.http,
+            id=id,
+            server_id=server_id or guild_id,
+            group_id=group_id,
+            type=type,
+        )
 
     def get_message(self, message_id: str, /) -> Optional[ChatMessage]:
         """Optional[:class:`.ChatMessage`]: Get a message from your :attr:`.cached_messages`. 

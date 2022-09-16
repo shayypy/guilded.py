@@ -528,6 +528,8 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
 
         return f'https://guilded.gg/{server_portion}/groups/{self.group_id}/channels/{self.id}/{type_}'
 
+    jump_url = share_url
+
     @property
     def mention(self) -> str:
         return f'<#{self.id}>'
