@@ -1056,7 +1056,7 @@ class Group(Command):
         return decorator
 
 
-def group(name: str = None, cls=Group, **attrs):
+def group(name: str = None, cls=Group, **kwargs):
     """A decorator that transforms a function into a :class:`.Group`.
 
     This is similar to the :func:`.command` decorator but the ``cls``
@@ -1065,7 +1065,8 @@ def group(name: str = None, cls=Group, **attrs):
     def deco(coro):
         if isinstance(coro, Group):
             raise TypeError('Function is already a group.')
-        return cls(coro, **attrs)
+        kwargs['name'] = kwargs.get('name', name)
+        return cls(coro, **kwargs)
 
     return deco
 
