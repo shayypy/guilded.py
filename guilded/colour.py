@@ -241,9 +241,12 @@ class Colour:
     @classmethod
     def random(cls, *, seed=None):
         """A factory method that returns a :class:`Colour` with a random hue.
+
         .. note::
+
             The random algorithm works by choosing a colour with a random hue but
             with maxed out saturation and value.
+
         Parameters
         ------------
         seed: Optional[Union[:class:`int`, :class:`str`, :class:`float`, :class:`bytes`, :class:`bytearray`]]
