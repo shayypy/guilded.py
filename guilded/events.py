@@ -90,6 +90,8 @@ __all__ = (
     'ForumTopicDeleteEvent',
     'ForumTopicPinEvent',
     'ForumTopicUnpinEvent',
+    'ForumTopicLockEvent',
+    'ForumTopicUnlockEvent',
     'ListItemCreateEvent',
     'ListItemUpdateEvent',
     'ListItemDeleteEvent',
@@ -111,7 +113,9 @@ class BaseEvent:
         The Guilded event name that the event corresponds to.
     __dispatch_event__: :class:`str`
         The internal Pythonic event name to dispatch the event with.
-        This is often just a snake_case version of :attr:`.__gateway_event__`.
+        This is often, but not always, just a snake_case version of
+        :attr:`.__gateway_event__` in present tense rather than past
+        (e.g. ``resource_create`` vs. ``ResourceCreated``).
     """
 
     __gateway_event__: str
