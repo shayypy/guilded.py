@@ -59,7 +59,7 @@ import traceback
 import importlib.util
 import importlib.machinery
 import types
-from typing import Any, Callable, Iterable, Mapping, List, Dict, Optional, Set, Union
+from typing import Any, Callable, Iterable, Mapping, List, Dict, Optional, Set, Type, Union
 
 import guilded
 from guilded.events import BaseEvent, MessageEvent
@@ -293,21 +293,33 @@ class BotBase:
 
         return obj
 
-    def command(self, **kwargs):
+    def command(
+        self,
+        name: str = None,
+        cls: Type = Command,
+        **kwargs: Any,
+    ):
         def decorator(coro):
             if isinstance(coro, Command):
                 raise TypeError('Function is already a command.')
-            command = Command(coro, **kwargs)
+            kwargs['name'] = kwargs.get('name', name)
+            command = cls(coro, **kwargs)
             self.add_command(command)
             return command
 
         return decorator
 
-    def group(self, **kwargs):
+    def group(
+        self,
+        name: str = None,
+        cls: Type = Group,
+        **kwargs: Any,
+    ):
         def decorator(coro):
             if isinstance(coro, Group):
                 raise TypeError('Function is already a group.')
-            command = Group(coro, **kwargs)
+            kwargs['name'] = kwargs.get('name', name)
+            command = cls(coro, **kwargs)
             self.add_command(command)
             return command
 
@@ -945,8 +957,6 @@ class Bot(BotBase, guilded.Client):
     loop: :class:`asyncio.AbstractEventLoop`
         The event loop that the client uses for HTTP requests and websocket
         operations.
-    user: :class:`.ClientUser`
-        The currently logged-in user.
     ws: Optional[:class:`GuildedWebsocket`]
         The websocket gateway the client is currently connected to. Could be
         ``None``.
