@@ -2,7 +2,7 @@ Welcome to guilded.py, a discord.py-esque asynchronous Python wrapper for Guilde
 
 ## Documentation
 
-In the works. Fortunately, if you've used discord.py before, you'll already have a head start.
+Documentation is available on [Read the Docs](https://guildedpy.readthedocs.io).
 
 ## Basic Example
 
