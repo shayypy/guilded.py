@@ -11,6 +11,15 @@ with open('guilded/__init__.py') as initpy:
 if not version:
     raise RuntimeError('Version is not set.')
 
+extras_require = {
+    'docs': [
+        'sphinx==4.4.0',
+        'sphinxcontrib_trio==1.1.2',
+        'sphinxcontrib-websupport',
+        'typing-extensions>=4.3,<5',
+    ],
+}
+
 setuptools.setup(
     name='guilded.py',
     version=version,
