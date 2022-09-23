@@ -1,0 +1,411 @@
+/* vars */
+
+:root {
+    --bg: #373943;
+    --dark-accent-1: #292B32;
+    --dark-accent-2: #1E2025;
+    --dark-accent-3: #131315;
+    --dark-accent-4: #191B1F;
+    --body-text-color: #cecece;
+    --white: #FFF;
+    --gilded: #F5C400;
+    --gray: #36363D;
+    --black: #111820;
+    --font: 'Gotham Narrow', Arial, sans-serif;
+    --mono-font: 'Courier', monospace;
+}
+
+
+/* fonts */
+
+@font-face {
+    font-family: 'Gotham Narrow';
+    src: url('https://www.guilded.gg/fonts/gotham-narrow-book.woff2') format('woff2'), url('https://www.guilded.gg/fonts/gotham-narrow-book.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Gotham Narrow';
+    src: url('https://www.guilded.gg/fonts/gotham-narrow-book-italic.woff2') format('woff2'), url('https://www.guilded.gg/fonts/gotham-narrow-book-italic.woff') format('woff');
+    font-weight: normal;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Gotham Narrow';
+    src: url('https://www.guilded.gg/fonts/gotham-narrow-bold.woff2') format('woff2'), url('https://www.guilded.gg/fonts/gotham-narrow-bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Gotham Narrow';
+    src: url('https://www.guilded.gg/fonts/gotham-narrow-bold-italic.woff2') format('woff2'), url('https://www.guilded.gg/fonts/gotham-narrow-bold-italic.woff') format('woff');
+    font-weight: bold;
+    font-style: italic;
+    font-display: swap;
+}
+
+html {
+    scrollbar-color: #191b1f transparent;
+    scrollbar-width: thin
+}
+
+body,
+div.body,
+input,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+a,
+p.admonition-title {
+    font-family: var(--font) !important;
+    color: var(--white) !important;
+}
+
+body,
+div.body {
+    background-color: var(--bg)
+}
+
+h1 {
+    font-weight: bold !important
+}
+
+h6 {
+    font-size: 16px
+}
+
+div.body h1 {
+    font-size: 180%;
+}
+
+
+/* links */
+
+a,
+a.reference {
+    text-decoration: none !important;
+    cursor: pointer;
+    color: #fef0b9 !important;
+    transition: 90ms ease-out;
+}
+
+a:hover,
+a.reference:hover {
+    color: #ececee !important;
+    transition: 90ms ease-out;
+}
+
+a.headerlink {
+    background: #4f515d;
+    color: #b3b3bb !important;
+    margin-left: 8px;
+    border-radius: 4px
+}
+
+a.headerlink:hover {
+    background: #61636e;
+    color: #fafafb !important
+}
+
+a.reference {
+    border-bottom: 1px dotted var(--gilded);
+}
+
+a.reference:hover {
+    border-bottom: 1px dotted white;
+}
+
+
+/* inputs (searchbar) */
+
+input[type="text"],
+input[type="submit"] {
+    background-color: var(--dark-accent-4);
+    border: none;
+    border-radius: 15px;
+    padding: 10px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+div.sphinxsidebar input {
+    border: none
+}
+
+div.sphinxsidebar input[type="text"] {
+    margin-right: 5px !important;
+    width: 75% !important
+}
+
+
+/* sidebar */
+
+.sphinxsidebarwrapper {
+    margin-top: 0 !important;
+    position: fixed;
+    width: 175px;
+    overflow-y: auto;
+    max-height: calc(100% - 100px);
+    scrollbar-width: thin;
+}
+
+div.sphinxsidebarwrapper h1.logo {
+    display: none
+}
+
+.sphinxsidebarwrapper h3 {
+    font-size: 19px !important;
+    font-weight: bold !important;
+    line-height: initial
+}
+
+.sphinxsidebarwrapper ul {
+    color: var(--white) !important;
+}
+
+.sphinxsidebarwrapper ul>li a {
+    color: var(--white) !important;
+}
+
+
+/* codeblocks */
+
+code {
+    font-family: var(--mono-font);
+    color: #dedede !important;
+    background-color: var(--dark-accent-1) !important;
+    padding: 1px;
+    border-radius: 3px;
+}
+
+pre {
+    background-color: var(--dark-accent-1) !important;
+    color: #dedede !important;
+    padding: 9px !important;
+}
+
+
+/* the red color here is a little bit modified because the original is kind of jarring. */
+
+.highlight-default>.highlight * {
+    color: #dedede;
+}
+
+.highlight-python3 .kn,
+.highlight-python3 .k,
+.highlight-python3 .p,
+.highlight-python3 .o,
+.highlight-python3 .nb,
+.highlight-python3 .ow {
+    color: #d43e7c;
+    font-weight: normal
+}
+
+.highlight-python3 .nn,
+.highlight-python3 .n,
+.highlight-python3 .bp,
+.highlight-python3 .nd {
+    color: white
+}
+
+.highlight-python3 .mi,
+.highlight-python3 .mf,
+.highlight-python3 .kc {
+    color: #ae81ff;
+    font-weight: normal
+}
+
+.highlight-python3 .s1,
+.highlight-python3 .s2,
+.highlight-python3 .sd {
+    color: #e6db74
+}
+
+.highlight-python3 .nf,
+.highlight-python3 .fm {
+    color: #a6e22e
+}
+
+.highlight-python3 .c1 {
+    color: #75715e;
+    font-style: normal
+}
+
+.highlight-python3 .nc {
+    color: #66d9ef
+}
+
+.highlighted {
+    background-color: #867a27 !important
+}
+
+.highlight .hll {
+    background-color: #ffe08354
+}
+
+.code-block-caption {
+    background-color: #191b1f;
+    font-size: 13px !important;
+    line-height: 1.38;
+    color: rgba(163, 163, 172, 0.75);
+    padding: 12px 12px 28px !important;
+    height: 0px;
+}
+
+
+/* strikethrough */
+
+.strike {
+    text-decoration: line-through
+}
+
+
+/* admonitions (notes, warnings, ...) */
+
+.admonition-title {
+    font-size: 20px !important;
+    font-weight: bold !important;
+    margin: 0 0 5px 0;
+}
+
+div.admonition > :last-child {
+    margin-top: 5px;
+}
+
+div.admonition,
+div.sphinxsidebarwrapper,
+.operations {
+    padding: 15px;
+    box-shadow: 6px 13px 16px -20px #000;
+    background-color: #32343D;
+    border-radius: 8px;
+    border: 1px solid rgba(163, 163, 172, 0.2);
+}
+
+.operations {
+    padding-top: 15px;
+    box-shadow: none;
+}
+
+.operations:before {
+    content: 'Supported Operations';
+}
+
+div.note {
+    border-left: var(--gilded) 8px solid !important
+}
+
+div.note>.admonition-title {
+    color: var(--gilded) !important
+}
+
+div.warning {
+    border-left: #DF5353 8px solid !important
+}
+
+div.warning>.admonition-title {
+    color: #DF5353 !important
+}
+
+div.danger {
+    border-left: #FF0000 8px solid !important
+}
+
+div.danger>.admonition-title {
+    color: #FF0000 !important
+}
+
+
+/* docs params and attrs */
+
+tt.xref,
+code.xref,
+a tt {
+    border-bottom: none !important
+}
+
+code.xref,
+a code {
+    background-color: transparent !important;
+    color: #fef0b9 !important
+}
+
+code.xref:hover,
+a code:hover {
+    color: white !important
+}
+
+a.reference.external {
+    border-bottom: none !important
+}
+
+dl.field-list {
+    display: block;
+}
+
+dl.field-list>dt {
+    margin-bottom: 10px;
+    margin-top: 20px;
+    padding-left: none;
+}
+
+dl.field-list>dt:after {
+    content: none;
+}
+
+.sig {
+    background-color: var(--dark-accent-1);
+    margin-top: 15px;
+    margin-bottom: 15px;
+    padding-left: 10px;
+}
+
+dt:target,
+.highlight {
+    background-color: rgba(248, 214, 76, 0.4);
+    /* This is the background color of highlighted messages (mentions), but more opaque */
+    border-left: #f8d64c 3px solid;
+}
+
+div[class*="highlight-"]>div.highlight {
+    border-left: initial
+}
+
+dd.field-odd>ul.simple>li {
+    margin-top: 12px;
+    margin-bottom: 12px
+}
+
+em.property>span.pre {
+    font-size: 0.9em;
+}
+
+
+/* blockquotes */
+
+section>blockquote {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 18px;
+    border-left: 2px solid #f5c400;
+    border-radius: 4px;
+    margin-left: 0;
+    margin-right: 0;
+    margin-bottom: 0;
+    font-size: 16px;
+    line-height: 19px;
+    color: #ececee;
+    font-weight: normal;
+}
+
+section>blockquote p {
+    margin: 0
+}
