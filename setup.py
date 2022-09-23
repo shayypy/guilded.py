@@ -50,4 +50,5 @@ setuptools.setup(
     ],
     python_requires='>=3.8.0',
     install_requires=['aiohttp'],
+    extras_require=extras_require,
 )
