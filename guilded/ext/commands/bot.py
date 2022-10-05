@@ -513,7 +513,13 @@ class BotBase:
             self.dispatch('command', ctx)
             try:
                 if await self.can_run(ctx, call_once=True):
+                    if ctx.command._before_invoke:
+                        await ctx.command._before_invoke(ctx)
+
                     await ctx.command.invoke(ctx)
+
+                    if ctx.command._after_invoke:
+                        await ctx.command._after_invoke(ctx)
                 else:
                     raise errors.CheckFailure('The global check once functions failed.')
             except errors.CommandError as exc:
