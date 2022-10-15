@@ -1265,6 +1265,12 @@ ServerChannel
 .. autoclass:: guilded.abc.ServerChannel()
     :members:
 
+Reply
+~~~~~~~~~~~~~~
+
+.. autoclass:: guilded.abc.Reply()
+    :members:
+
 .. _guilded_api_models:
 
 Guilded Models
@@ -1388,6 +1394,13 @@ ForumTopic
 ~~~~~~~~~~~
 
 .. autoclass:: ForumTopic()
+    :members:
+    :inherited-members:
+
+ForumTopicReply
+~~~~~~~~~~~~~~~~
+
+.. autoclass:: ForumTopicReply()
     :members:
     :inherited-members:
 

@@ -42,3 +42,10 @@ class ChannelMessageReaction(TypedDict):
     messageId: str
     createdBy: str
     emote: Emote
+
+
+class ForumTopicReaction(TypedDict):
+    channelId: str
+    forumTopicId: int
+    createdBy: str
+    emote: Emote

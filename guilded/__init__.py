@@ -20,6 +20,7 @@ from .flowbot import *
 from .group import *
 from .invite import *
 from .message import *
+from .reply import *
 from .role import *
 from .permissions import *
 from .presence import *

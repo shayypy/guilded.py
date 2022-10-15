@@ -63,6 +63,7 @@ from .enums import ChannelType, FileType, RSVPStatus, try_enum
 from .group import Group
 from .message import HasContentMixin
 from .mixins import Hashable
+from .reply import ForumTopicReply
 from .user import Member
 from .utils import GUILDED_EPOCH_DATETIME, MISSING, ISO8601, Object
 from .status import Game
@@ -88,7 +89,6 @@ if TYPE_CHECKING:
 __all__ = (
     'Announcement',
     'AnnouncementChannel',
-    'AnnouncementReply',
     'Availability',
     'CalendarChannel',
     'CalendarEvent',
@@ -97,13 +97,10 @@ __all__ = (
     'DMChannel',
     'Doc',
     'DocsChannel',
-    'DocReply',
     'ForumChannel',
-    'ForumReply',
     'ForumTopic',
     'Media',
     'MediaChannel',
-    'MediaReply',
     'ListChannel',
     'ListItem',
     'ListItemNote',
@@ -1417,7 +1414,7 @@ class ForumTopic(Hashable, HasContentMixin):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.add_forum_topic_reaction_emote(self.channel.id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -1430,7 +1427,7 @@ class ForumTopic(Hashable, HasContentMixin):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.remove_forum_topic_reaction_emote(self.channel.id, self.id, emote_id)
 
     async def edit(
         self,
@@ -1564,6 +1561,23 @@ class ForumTopic(Hashable, HasContentMixin):
             Failed to unlock this topic.
         """
         await self._state.unlock_forum_topic(self.channel.id, self.id)
+
+    async def fetch_replies(self) -> List[ForumTopicReply]:
+        """|coro|
+
+        Get all replies to this topic.
+
+        Returns
+        --------
+        List[:class:`ForumTopicReply`]
+            The replies under the topic.
+        """
+
+        data = await self._state.get_forum_topic_comments(self.channel_id, self.id)
+        return [
+            ForumTopicReply(state=self._state, data=reply_data, parent=self)
+            for reply_data in data['forumTopicComments']
+        ]
 
 
 class ForumChannel(guilded.abc.ServerChannel):
@@ -1944,10 +1958,6 @@ class Announcement(Hashable, HasContentMixin):
         self.tags: str = data.get('tags')
         self._replies = {}
 
-        for reply_data in data.get('replies', []):
-            reply = AnnouncementReply(data=reply_data, parent=self, state=self._state)
-            self._replies[reply.id] = reply
-
         self.public: bool = data.get('isPublic', False)
         self.pinned: bool = data.get('isPinned', False)
         self.slug: Optional[str] = data.get('slug')
@@ -2001,14 +2011,6 @@ class Announcement(Hashable, HasContentMixin):
     @property
     def share_url(self) -> str:
         return f'{self.channel.share_url}/{self.id}'
-
-    @property
-    def replies(self) -> List[AnnouncementReply]:
-        return list(self._replies.values())
-
-    def get_reply(self, id) -> Optional[AnnouncementReply]:
-        """Optional[:class:`.AnnouncementReply`]: Get a reply by its ID."""
-        return self._replies.get(id)
 
     async def sticky(self) -> None:
         """|coro|
@@ -2091,62 +2093,6 @@ class Announcement(Hashable, HasContentMixin):
         """
         emote_id: int = getattr(emote, 'id', emote)
         await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
-
-    async def fetch_replies(self) -> None:
-        """|coro|
-
-        Fetch the replies to this announcement.
-
-        Returns
-        --------
-        List[:class:`.AnnouncementReply`]
-        """
-        replies = []
-        data = await self._state.get_content_replies(self.channel.type.value, self.id)
-        for reply_data in data:
-            reply = AnnouncementReply(data=reply_data, parent=self, state=self._state)
-            replies.append(reply)
-
-        return replies
-
-    async def fetch_reply(self, id: int) -> AnnouncementReply:
-        """|coro|
-
-        Fetch a reply to this announcement.
-
-        Parameters
-        -----------
-        id: :class:`int`
-            The ID of the reply.
-
-        Returns
-        --------
-        :class:`.AnnouncementReply`
-        """
-        data = await self._state.get_content_reply('announcements', self.channel.id, self.id, id)
-        reply = AnnouncementReply(data=data['metadata']['reply'], parent=self, state=self._state)
-        return reply
-
-    async def reply(self, *content, **kwargs) -> AnnouncementReply:
-        """|coro|
-
-        Reply to this announcement.
-
-        Parameters
-        -----------
-        content: Any
-            The content to create the reply with.
-        reply_to: Optional[:class:`.AnnouncementReply`]
-            An existing reply to reply to.
-
-        Returns
-        --------
-        :class:`.AnnouncementReply`
-            The created reply.
-        """
-        data = await self._state.create_content_reply(self.channel.type.value, self.server.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
-        reply = AnnouncementReply(data=data['reply'], parent=self, state=self._state)
-        return reply
 
 
 class AnnouncementChannel(guilded.abc.ServerChannel):
@@ -2473,10 +2419,6 @@ class Media(Hashable, HasContentMixin):
     #    data = await self._state.create_content_reply(self.channel.content_type, self.server.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
     #    reply = MediaReply(data=data['reply'], parent=self, state=self._state)
     #    return reply
-
-    def get_reply(self, id: int):
-        """Optional[:class:`.MediaReply`]: Get a reply by its ID."""
-        return self._replies.get(id)
 
     #async def fetch_replies(self) -> List[MediaReply]:
     #    """|coro|
@@ -3632,23 +3574,3 @@ class PartialMessageable(guilded.abc.Messageable, Hashable):
     #     """
 
     #     return Permissions.none()
-
-
-class AnnouncementReply(guilded.abc.Reply):
-    """Represents a reply to an :class:`Announcement`."""
-    pass
-
-
-class DocReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`Doc`."""
-    pass
-
-
-class ForumReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`ForumTopic`."""
-    pass
-
-
-class MediaReply(guilded.abc.Reply):
-    """Represents a reply to a :class:`Media`."""
-    pass

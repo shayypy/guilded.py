@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import TypedDict
+from typing import Optional, TypedDict
 from typing_extensions import NotRequired
 
 from .channel import Mentions
@@ -46,3 +46,12 @@ class ForumTopicSummary(TypedDict):
 class ForumTopic(ForumTopicSummary):
     content: str
     mentions: NotRequired[Mentions]
+
+
+class ForumTopicComment(TypedDict):
+    id: int
+    content: str
+    createdAt: str
+    updatedAt: NotRequired[Optional[str]]
+    forumTopicId: int
+    createdBy: str

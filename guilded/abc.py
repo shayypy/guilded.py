@@ -54,7 +54,7 @@ from __future__ import annotations
 import abc
 import datetime
 import re
-from typing import TYPE_CHECKING, List, Optional, Sequence
+from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
 from .activity import Activity
 from .asset import Asset
@@ -68,7 +68,9 @@ from .utils import ISO8601, MISSING
 if TYPE_CHECKING:
     from .types.user import User as UserPayload
     from .types.channel import ServerChannel as ServerChannelPayload
+    from .types.forum_topic import ForumTopicComment
 
+    from .channel import ForumTopic
     from .embed import Embed
     from .emote import Emote
     from .group import Group
@@ -636,14 +638,12 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
 GuildChannel = ServerChannel  # discord.py
 
 
-class Reply(HasContentMixin, metaclass=abc.ABCMeta):
+class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
     """An ABC for replies to posts.
 
     The following implement this ABC:
 
-        * :class:`.AnnouncementReply`
-        * :class:`.DocReply`
-        * :class:`.ForumReply`
+        * :class:`.ForumTopicReply`
 
     .. container:: operations
 
@@ -655,45 +655,58 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
 
             Checks if two replies are not equal.
 
+        .. describe:: hash(x)
+
+            Returns the reply's hash.
+
     Attributes
     -----------
     id: :class:`int`
-        The reply's ID.
+        The reply's ID. For non-forum replies,
+        this is an incremental ID starting at ``1`` under each parent.
     content: :class:`str`
         The reply's content.
-    parent: Union[:class:`.Announcement`, :class:`.Doc`, :class:`.ForumTopic`, :class:`.Media`]
+    parent: :class:`.ForumTopic`
         The content that the reply is a child of.
+    parent_id: Union[:class:`int`, :class:`str`]
+        The ID of the reply's parent.
     created_at: :class:`datetime.datetime`
         When the reply was created.
     updated_at: Optional[:class:`datetime.datetime`]
         When the reply was last updated.
-    deleted_by: Optional[:class:`.Member`]
-        Who deleted this reply. This will only be present through a delete
-        event, e.g. :func:`on_forum_reply_delete`.
     """
-    def __init__(self, *, state, data, parent):
+
+    __slots__ = (
+        'id',
+        'content',
+        'author_id',
+        'created_at',
+        'updated_at',
+        'parent',
+        'parent_id',
+        'replied_to_id',
+        'replied_to_author_id',
+        '_state',
+    )
+
+    def __init__(self, *, state, data: ForumTopicComment, parent: ForumTopic):
         super().__init__()
         self._state = state
         self.parent = parent
+        self.parent_id: Union[int, str] = data.get('forumTopicId')
 
-        self.id: int = int(data['id'])
-        self.content: str = self._get_full_content(data['message'])
+        self.id = int(data['id'])
+        self.content: str = data['content']
 
         self.author_id: str = data.get('createdBy')
-        self.created_by_bot_id: Optional[str] = data.get('createdByBotId')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.updated_by_id: Optional[str] = data.get('updatedBy')
-        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
-        self.deleted_by: Optional[User] = None
+        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
 
         self.replied_to_id: Optional[int] = None
         self.replied_to_author_id: Optional[str] = None
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} id={self.id!r} author={self.author!r} parent={self.parent!r}>'
-
-    def __eq__(self, other) -> bool:
-        return isinstance(other, Reply) and other.id == self.id and other.parent == self.parent
 
     @property
     def _content_type(self) -> str:
@@ -704,18 +717,6 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         """Optional[:class:`.Member`]: The :class:`.Member` that created the
         reply, if they are cached."""
         return self.server.get_member(self.author_id)
-
-    @property
-    def updated_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The :class:`.Member` that last updated
-        the reply, if they exist and are cached."""
-        return self.server.get_member(self.updated_by_id)
-
-    @property
-    def replied_to(self) -> Optional[Member]:
-        if self.replied_to_id:
-            return self.parent.get_reply(self.replied_to_id)
-        return None
 
     @property
     def channel(self) -> ServerChannel:
@@ -737,14 +738,12 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
         self = cls.__new__(cls)
 
         self.parent = reply.parent
+        self.parent_id = reply.parent_id
         self.id = reply.id
         self.content = reply.content
         self.author_id = reply.author_id
-        self.created_by_bot_id = reply.created_by_bot_id
         self.created_at = reply.created_at
-        self.updated_by_id = reply.updated_by_id
         self.updated_at = reply.updated_at
-        self.deleted_by = reply.deleted_by
         self.replied_to_id = reply.replied_to_id
         self.replied_to_author_id = reply.replied_to_author_id
 
@@ -765,56 +764,3 @@ class Reply(HasContentMixin, metaclass=abc.ABCMeta):
             self.updated_by_id = data['updatedBy']
         except KeyError:
             pass
-
-    async def add_reaction(self, emote: Emote, /) -> None:
-        """|coro|
-
-        Add a reaction to this reply.
-
-        Parameters
-        -----------
-        emote: :class:`.Emote`
-            The emote to add.
-        """
-        await self._state.add_content_reaction(self._content_type, self.id, emote.id, reply=True)
-
-    async def remove_self_reaction(self, emote: Emote, /) -> None:
-        """|coro|
-
-        Remove your reaction from this reply.
-
-        Parameters
-        -----------
-        emote: :class:`.Emote`
-            The emote to remove.
-        """
-        await self._state.remove_self_content_reaction(self._content_type, self.id, emote.id, reply=True)
-
-    async def delete(self) -> None:
-        """|coro|
-
-        Delete this reply.
-        """
-        await self._state.delete_content_reply(self._content_type, self.server.id, self.parent.id, self.id)
-
-    async def reply(self, *content, **kwargs) -> Reply:
-        """|coro|
-
-        Reply to this reply.
-
-        This method is identical to the reply method of its parent.
-        """
-        kwargs['reply_to'] = self
-        return await self.parent.reply(*content, **kwargs)
-
-    async def edit(self, *content) -> None:
-        """|coro|
-
-        Edit this reply.
-
-        Parameters
-        -----------
-        \*content: Any
-            The content of the reply.
-        """
-        await self._state.update_content_reply(self._content_type, self.parent.id, self.id, content=content)

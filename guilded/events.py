@@ -92,6 +92,8 @@ __all__ = (
     'ForumTopicUnpinEvent',
     'ForumTopicLockEvent',
     'ForumTopicUnlockEvent',
+    'ForumTopicReactionAddEvent',
+    'ForumTopicReactionRemoveEvent',
     'ListItemCreateEvent',
     'ListItemUpdateEvent',
     'ListItemDeleteEvent',
@@ -1051,6 +1053,92 @@ class ForumTopicUnlockEvent(_ForumTopicEvent):
 
     __gateway_event__ = 'ForumTopicUnlocked'
     __dispatch_event__ = 'forum_topic_unlock'
+
+
+class _ForumTopicReactionEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'channel_id',
+        'topic_id',
+        'user_id',
+        'emote',
+        'channel',
+        'member',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.ForumTopicReactionEvent,
+        /,
+        channel: ForumChannel,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel_id = data['reaction']['channelId']
+        self.topic_id = data['reaction']['forumTopicId']
+        self.user_id = data['reaction']['createdBy']
+        self.emote = Emote(state=state, data=data['reaction']['emote'])
+
+        self.channel = channel
+        self.member = self.server.get_member(self.user_id)
+
+
+class ForumTopicReactionAddEvent(_ForumTopicReactionEvent):
+    """Represents a :gdocs:`ForumTopicReactionCreated <websockets/ForumTopicReactionCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.5
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reaction is in.
+    server: :class:`Server`
+        The server that the reaction is in.
+    channel: :class:`ForumChannel`
+        The channel that the reaction is in.
+    member: Optional[:class:`Member`]
+        The member that added the reaction, if they are cached.
+    channel_id: :class:`str`
+        The ID of the channel that the reaction is in.
+    topic_id: :class:`int`
+        The ID of the forum topic that the reaction is on.
+    user_id: :class:`str`
+        The ID of the user that added the reaction.
+    emote: :class:`Emote`
+        The emote that the reaction shows.
+    """
+
+    __gateway_event__ = 'ForumTopicReactionCreated'
+    __dispatch_event__ = 'forum_topic_reaction_add'
+
+
+class ForumTopicReactionRemoveEvent(_ForumTopicReactionEvent):
+    """Represents a :gdocs:`ForumTopicReactionDeleted <websockets/ForumTopicReactionDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.5
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reaction is in.
+    server: :class:`Server`
+        The server that the reaction is in.
+    channel: :class:`ForumChannel`
+        The channel that the reaction is in.
+    member: Optional[:class:`Member`]
+        The member that added the reaction, if they are cached.
+    channel_id: :class:`str`
+        The ID of the channel that the reaction is in.
+    topic_id: :class:`int`
+        The ID of the forum topic that the reaction is on.
+    user_id: :class:`str`
+        The ID of the user that added the reaction.
+    emote: :class:`Emote`
+        The emote that the reaction shows.
+    """
+
+    __gateway_event__ = 'ForumTopicReactionDeleted'
+    __dispatch_event__ = 'forum_topic_reaction_remove'
 
 
 class _ListItemEvent(ServerEvent):

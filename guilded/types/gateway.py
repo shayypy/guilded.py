@@ -32,7 +32,7 @@ from .doc import Doc
 from .forum_topic import ForumTopic
 from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
-from .reaction import ChannelMessageReaction
+from .reaction import ChannelMessageReaction, ForumTopicReaction
 from .user import ServerMember, ServerMemberBan, User
 from .webhook import Webhook
 
@@ -124,6 +124,10 @@ class CalendarEventEvent(_ServerEvent):
 
 class ForumTopicEvent(_ServerEvent):
     forumTopic: ForumTopic
+
+
+class ForumTopicReactionEvent(_ServerEvent):
+    reaction: ForumTopicReaction
 
 
 class CalendarEventRsvpEvent(_ServerEvent):
