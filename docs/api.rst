@@ -309,6 +309,25 @@ Forums
     :param event: The event containing the payload.
     :type event: :class:`ForumTopicUnlockEvent`
 
+
+.. function:: on_forum_topic_reaction_add(event)
+
+    |nesonly|
+
+    A reaction was added to a forum topic.
+
+    :param event: The event containing the payload.
+    :type event: :class:`ForumTopicReactionAddEvent`
+
+.. function:: on_forum_topic_reaction_remove(event)
+
+    |nesonly|
+
+    A reaction was removed from a forum topic.
+
+    :param event: The event containing the payload.
+    :type event: :class:`ForumTopicReactionRemoveEvent`
+
 Gateway
 ~~~~~~~~
 
@@ -749,6 +768,14 @@ these event wrappers closely mirrors the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: ForumTopicUnlockEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: ForumTopicReactionAddEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: ForumTopicReactionRemoveEvent()
     :members:
     :inherited-members:
 
