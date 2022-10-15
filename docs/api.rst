@@ -506,10 +506,19 @@ Members
 
     |nesonly|
 
-    A member's roles were updated
+    A member's roles were updated.
 
     :param event: The event containing the payload.
     :type event: :class:`BulkMemberRolesUpdateEvent`
+
+.. function:: on_bulk_member_xp_add(event)
+
+    |nesonly|
+
+    One or more members were awarded XP.
+
+    :param event: The event containing the payload.
+    :type event: :class:`BulkMemberXpAddEvent`
 
 Messages
 ~~~~~~~~~
@@ -684,6 +693,10 @@ these event wrappers closely mirrors the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: BulkMemberRolesUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: BulkMemberXpAddEvent()
     :members:
     :inherited-members:
 

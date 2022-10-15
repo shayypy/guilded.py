@@ -71,6 +71,7 @@ __all__ = (
     'BanDeleteEvent',
     'MemberUpdateEvent',
     'BulkMemberRolesUpdateEvent',
+    'BulkMemberXpAddEvent',
     'ServerChannelCreateEvent',
     'ServerChannelUpdateEvent',
     'ServerChannelDeleteEvent',
@@ -521,6 +522,48 @@ class BulkMemberRolesUpdateEvent(ServerEvent):
                 after_member = before_member
                 after_member._update_roles(update['roleIds'])
                 self.after.append(after_member)
+
+
+class BulkMemberXpAddEvent(ServerEvent):
+    """Represents a :gdocs:`TeamXpAdded <websockets/TeamXpAdded>` event for dispatching to event handlers.
+
+    This event is usually the result of flowbot actions like those provided in :ghelp:`XP Bot <5449718490903>`.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the members are in.
+    server: :class:`Server`
+        The server that the members are in.
+    user_ids: List[:class:`str`]
+        The IDs of the members that gained XP.
+    amount: :class:`int`
+        The amount of XP that was added to each member.
+    members: List[:class:`Member`]
+        The updated members with their XP modified.
+        If a member was not found in cache, this list will contain fewer items than :attr:`.user_ids`.
+    """
+
+    __gateway_event__ = 'TeamXpAdded'
+    __dispatch_event__ = 'bulk_member_xp_add'
+    __slots__: Tuple[str, ...] = (
+        'user_ids',
+        'amount',
+        'members',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.TeamXpAddedEvent,
+        /,
+        members: List[Member],
+    ) -> None:
+        super().__init__(state, data)
+
+        self.user_ids = data['userIds']
+        self.amount = data['amount']
+        self.members = members
 
 
 class _ServerChannelEvent(ServerEvent):

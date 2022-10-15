@@ -219,6 +219,8 @@ class Member(User):
         When the member joined their server.
     nick: Optional[:class:`str`]
         The member's nickname, if any.
+    xp: Optional[:class:`int`]
+        The member's XP. If this is ``None``, do not assume ``0``.
     """
 
     __slots__ = (
@@ -254,6 +256,7 @@ class Member(User):
         self._owner: Optional[bool] = data.get('isOwner')
         self.nick: Optional[str] = data.get('nickname')
         self.joined_at: datetime.datetime = ISO8601(data.get('joinedAt'))
+        self.xp: Optional[int] = data.get('xp')
 
     def __repr__(self) -> str:
         return f'<Member id={self._user.id!r} name={self._user.name!r} type={self._user._user_type!r} server={self.server!r}>'
@@ -286,10 +289,7 @@ class Member(User):
 
     @property
     def bot(self) -> bool:
-        """:class:`bool`: Whether the member is a bot or webhook. For user/bot
-        accounts, this attribute depends on :attr:`Server.bot_role`, so it may
-        be unreliable as Guilded does not explicitly provide which role is the
-        bot role."""
+        """:class:`bool`: Whether the member is a bot or webhook."""
         return self._user.bot or (
             self.server is not None
             and self.server.bot_role is not None
@@ -322,6 +322,9 @@ class Member(User):
 
     def _update_roles(self, role_ids: List[int]):
         self._role_ids = {int(role_id) for role_id in role_ids}
+
+    def _update_xp(self, xp: int):
+        self.xp = xp
 
     def is_owner(self) -> bool:
         """:class:`bool`: Whether this member is the owner of their server.
@@ -558,7 +561,7 @@ class Member(User):
     async def award_xp(self, amount: int, /) -> int:
         """|coro|
 
-        Award XP to this member. Could be a negative value to remove XP.
+        Award XP to this member.
 
         .. note::
 
@@ -569,6 +572,7 @@ class Member(User):
         -----------
         amount: :class:`int`
             The amount of XP to award.
+            Could be a negative value to remove XP.
 
         Returns
         --------

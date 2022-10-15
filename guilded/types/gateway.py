@@ -106,6 +106,11 @@ class TeamRolesUpdatedEvent(_ServerEvent):
     memberRoleIds: NotRequired[List[MemberRoleUpdate]]
 
 
+class TeamXpAddedEvent(_ServerEvent):
+    userIds: List[str]
+    amount: int
+
+
 class TeamChannelEvent(_ServerEvent):
     channel: ServerChannel
 

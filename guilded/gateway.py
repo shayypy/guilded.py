@@ -556,6 +556,25 @@ class WebSocketEventParsers:
                         role = Role(state=self._state, data=updated, server=server)
                         server._roles[role.id] = role
 
+    async def parse_team_xp_added(self, data: gw.TeamXpAddedEvent):
+        server = self.client.get_server(data['serverId'])
+        if server is None:
+            return
+
+        after_members = []
+        for user_id in data['userIds']:
+            member = server.get_member(user_id)
+            if not member:
+                continue
+
+            if member.xp is not None:
+                member._update_xp(member.xp + data['amount'])
+                after_members.append(member)
+
+        if self._exp_style:
+            event = ev.BulkMemberXpAddEvent(self._state, data, members=after_members)
+            self.client.dispatch(event)
+
     async def parse_team_webhook_created(self, data: gw.TeamWebhookEvent):
         if self._exp_style:
             event = ev.WebhookCreateEvent(self._state, data)
