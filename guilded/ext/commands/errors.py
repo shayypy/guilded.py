@@ -57,6 +57,8 @@ from guilded.errors import ClientException, GuildedException
 if TYPE_CHECKING:
     from inspect import Parameter
 
+    from .cooldowns import BucketType, Cooldown
+
 
 __all__ = (
     'CommandError',
@@ -518,10 +520,13 @@ class CommandOnCooldown(CommandError):
         the :func:`.cooldown` decorator.
     retry_after: :class:`float`
         The amount of seconds to wait before you can retry again.
+    type: :class:`.BucketType`
+        The type associated with the cooldown.
     """
-    def __init__(self, cooldown, retry_after):
+    def __init__(self, cooldown: Cooldown, retry_after: float, type: BucketType):
         self.cooldown = cooldown
         self.retry_after = retry_after
+        self.type = type
         super().__init__(f'You are on cooldown. Try again in {retry_after:.2f}s')
 
 class MaxConcurrencyReached(CommandError):
@@ -536,8 +541,7 @@ class MaxConcurrencyReached(CommandError):
     per: :class:`.BucketType`
         The bucket type passed to the :func:`.max_concurrency` decorator.
     """
-
-    def __init__(self, number, per):
+    def __init__(self, number: int, per: BucketType):
         self.number = number
         self.per = per
         name = per.name

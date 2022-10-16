@@ -53,6 +53,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import datetime
 import functools
 import inspect
 import typing
@@ -63,11 +64,39 @@ import guilded
 from .cog import Cog
 from .context import Context
 from .converters import Greedy, get_converter, run_converters
+from .cooldowns import BucketType, Cooldown, CooldownMapping, DynamicCooldownMapping, MaxConcurrency
 from .errors import *
 from ._types import Check, CoroFunc, _BaseCommand
 
 if TYPE_CHECKING:
     from typing_extensions import Self
+
+
+__all__ = (
+    'Command',
+    'Group',
+    'command',
+    'group',
+    # 'has_role',
+    # 'has_permissions',
+    # 'has_any_role',
+    'check',
+    'check_any',
+    'before_invoke',
+    'after_invoke',
+    # 'bot_has_role',
+    # 'bot_has_permissions',
+    # 'bot_has_any_role',
+    'cooldown',
+    'dynamic_cooldown',
+    'max_concurrency',
+    'dm_only',
+    'server_only',
+    'guild_only',
+    'is_owner',
+    # 'has_server_permissions',
+    # 'bot_has_server_permissions',
+)
 
 
 T = TypeVar('T')
@@ -87,11 +116,11 @@ def hooked_wrapped_callback(command, ctx, coro):
         except Exception as exc:
             ctx.command_failed = True
             raise CommandInvokeError(exc) from exc
-        # finally:
-        #    if command._max_concurrency is not None:
-        #        await command._max_concurrency.release(ctx)
+        finally:
+            if command._max_concurrency is not None:
+                await command._max_concurrency.release(ctx)
 
-        #    await command.call_after_hooks(ctx)
+            await command.call_after_hooks(ctx)
         return ret
 
     return wrapped
@@ -198,6 +227,28 @@ class Command(_BaseCommand):
             checks = kwargs.get('checks', [])
 
         self.checks = checks
+
+        try:
+            cooldown = coro.__commands_cooldown__
+        except AttributeError:
+            cooldown = kwargs.get('cooldown')
+
+        if cooldown is None:
+            buckets = CooldownMapping(cooldown, BucketType.default)
+        elif isinstance(cooldown, CooldownMapping):
+            buckets: CooldownMapping[Context[Any]] = cooldown
+        else:
+            raise TypeError("Cooldown must be an instance of CooldownMapping or None.")
+        self._buckets: CooldownMapping[Context[Any]] = buckets
+
+        try:
+            max_concurrency = coro.__commands_max_concurrency__
+        except AttributeError:
+            max_concurrency = kwargs.get('max_concurrency')
+
+        self._max_concurrency: Optional[MaxConcurrency] = max_concurrency
+
+        self.cooldown_after_parsing: bool = kwargs.get('cooldown_after_parsing', False)
 
         with contextlib.suppress(AttributeError):
             before_invoke = coro.__before_invoke__
@@ -387,6 +438,15 @@ class Command(_BaseCommand):
 
         return result
 
+    @property
+    def cooldown(self) -> Optional[Cooldown]:
+        """Optional[:class:`.Cooldown`]: The cooldown of a command when invoked
+        or ``None`` if the command doesn't have a registered cooldown.
+
+        .. versionadded:: 1.5
+        """
+        return self._buckets._cooldown
+
     def __str__(self):
         return self.name
 
@@ -394,6 +454,12 @@ class Command(_BaseCommand):
         """|coro|
 
         Calls the internal callback that the command holds.
+
+        .. note::
+
+            This bypasses all mechanisms -- including checks, converters,
+            invoke hooks, cooldowns, etc. You must take care to pass
+            the proper arguments and types to this function.
         """
         if self.cog is not None:
             # manually pass the cog class to the coro instead of calling it as a method
@@ -550,14 +616,13 @@ class Command(_BaseCommand):
 
     def _ensure_assignment_on_copy(self, other):
         other._before_invoke = self._before_invoke
-        # other._after_invoke = self._after_invoke
-        # if self.checks != other.checks:
-        #     other.checks = self.checks.copy()
-        # if self._buckets.valid and not other._buckets.valid:
-        #     other._buckets = self._buckets.copy()
-        # if self._max_concurrency != other._max_concurrency:
-        #     # _max_concurrency won't be None at this point
-        #     other._max_concurrency = self._max_concurrency.copy()
+        other._after_invoke = self._after_invoke
+        if self.checks != other.checks:
+            other.checks = self.checks.copy()
+        if self._buckets.valid and not other._buckets.valid:
+            other._buckets = self._buckets.copy()
+        if self._max_concurrency and self._max_concurrency != other._max_concurrency:
+            other._max_concurrency = self._max_concurrency.copy()
 
         try:
             other.on_error = self.on_error
@@ -597,28 +662,153 @@ class Command(_BaseCommand):
         injected = hooked_wrapped_callback(self, ctx, self.callback)
         await injected(*ctx.args, **ctx.kwargs)
 
-    async def prepare(self, ctx):
+    async def call_before_hooks(self, ctx: Context, /) -> None:
+        # now that we're done preparing we can call the pre-command hooks
+        # first, call the command local hook:
+        cog = self.cog
+        if self._before_invoke is not None:
+            # should be cog if @commands.before_invoke is used
+            instance = getattr(self._before_invoke, '__self__', cog)
+            # __self__ only exists for methods, not functions
+            # however, if @command.before_invoke is used, it will be a function
+            if instance:
+                await self._before_invoke(instance, ctx)  # type: ignore
+            else:
+                await self._before_invoke(ctx)  # type: ignore
+
+        # call the cog local hook if applicable:
+        if cog is not None:
+            hook = Cog._get_overridden_method(cog.cog_before_invoke)
+            if hook is not None:
+                await hook(ctx)
+
+        # call the bot global hook if necessary
+        hook = ctx.bot._before_invoke
+        if hook is not None:
+            await hook(ctx)
+
+    async def call_after_hooks(self, ctx: Context, /) -> None:
+        cog = self.cog
+        if self._after_invoke is not None:
+            instance = getattr(self._after_invoke, '__self__', cog)
+            if instance:
+                await self._after_invoke(instance, ctx)  # type: ignore
+            else:
+                await self._after_invoke(ctx)  # type: ignore
+
+        # call the cog local hook if applicable:
+        if cog is not None:
+            hook = Cog._get_overridden_method(cog.cog_after_invoke)
+            if hook is not None:
+                await hook(ctx)
+
+        hook = ctx.bot._after_invoke
+        if hook is not None:
+            await hook(ctx)
+
+    def _prepare_cooldowns(self, ctx: Context) -> None:
+        if self._buckets.valid:
+            dt = ctx.message.updated_at or ctx.message.created_at
+            current = dt.replace(tzinfo=datetime.timezone.utc).timestamp()
+            bucket = self._buckets.get_bucket(ctx, current)
+            if bucket is not None:
+                retry_after = bucket.update_rate_limit(current)
+                if retry_after:
+                    raise CommandOnCooldown(bucket, retry_after, self._buckets.type)  # type: ignore
+
+    async def prepare(self, ctx: Context):
         ctx.command = self
 
         if not await self.can_run(ctx):
            raise CheckFailure(f'The check functions for command {self.qualified_name} failed.')
 
-        # if self._max_concurrency is not None:
-        #    await self._max_concurrency.acquire(ctx)
+        if self._max_concurrency is not None:
+            await self._max_concurrency.acquire(ctx)
 
         try:
             if self.cooldown_after_parsing:
                 await self._parse_arguments(ctx)
-                # self._prepare_cooldowns(ctx)
+                self._prepare_cooldowns(ctx)
             else:
-                # self._prepare_cooldowns(ctx)
+                self._prepare_cooldowns(ctx)
                 await self._parse_arguments(ctx)
 
-            # await self.call_before_hooks(ctx)
+            await self.call_before_hooks(ctx)
         except:
-            # if self._max_concurrency is not None:
-            #    await self._max_concurrency.release(ctx)
+            if self._max_concurrency is not None:
+                await self._max_concurrency.release(ctx)
             raise
+
+    def is_on_cooldown(self, ctx: Context, /) -> bool:
+        """Checks whether the command is currently on cooldown.
+
+        .. versionadded:: 1.5
+
+        Parameters
+        -----------
+        ctx: :class:`.Context`
+            The invocation context to use when checking the command's cooldown status.
+
+        Returns
+        --------
+        :class:`bool`
+            A boolean indicating if the command is on cooldown.
+        """
+
+        if not self._buckets.valid:
+            return False
+
+        bucket = self._buckets.get_bucket(ctx)
+        if bucket is None:
+            return False
+
+        dt = ctx.message.updated_at or ctx.message.created_at
+        current = dt.replace(tzinfo=datetime.timezone.utc).timestamp()
+        return bucket.get_tokens(current) == 0
+
+    def reset_cooldown(self, ctx: Context, /) -> None:
+        """Resets the cooldown on this command.
+
+        .. versionadded:: 1.5
+
+        Parameters
+        -----------
+        ctx: :class:`.Context`
+            The invocation context to reset the cooldown under.
+        """
+
+        if self._buckets.valid:
+            bucket = self._buckets.get_bucket(ctx)
+            if bucket is not None:
+                bucket.reset()
+
+    def get_cooldown_retry_after(self, ctx: Context, /) -> float:
+        """Retrieves the amount of seconds before this command can be tried again.
+
+        .. versionadded:: 1.5
+
+        Parameters
+        -----------
+        ctx: :class:`.Context`
+            The invocation context to retrieve the cooldown from.
+
+        Returns
+        --------
+        :class:`float`
+            The amount of time left on this command's cooldown in seconds.
+            If this is ``0.0`` then the command isn't on cooldown.
+        """
+
+        if self._buckets.valid:
+            bucket = self._buckets.get_bucket(ctx)
+            if bucket is None:
+                return 0.0
+
+            dt = ctx.message.updated_at or ctx.message.created_at
+            current = dt.replace(tzinfo=datetime.timezone.utc).timestamp()
+            return bucket.get_retry_after(current)
+
+        return 0.0
 
     def before_invoke(self, coro):
         """A decorator that registers a coroutine as a pre-invoke hook.
@@ -1037,7 +1227,7 @@ class Group(Command):
         **kwargs,
     ):
         """A shortcut decorator that invokes :func:`.group` and adds it to
-        the internal command list via :meth:`~.GroupMixin.add_command`.
+        the internal command list via :meth:`.add_command`.
 
         Returns
         --------
@@ -1159,6 +1349,75 @@ def check(predicate: Check) -> Callable[[T], T]:
     return decorator  # type: ignore
 
 
+def check_any(*checks: Check[Context]) -> Check[Context]:
+    r"""A :func:`check` that is added that checks if any of the checks passed
+    will pass, i.e. using logical OR.
+
+    If all checks fail then :exc:`.CheckAnyFailure` is raised to signal the failure.
+    It inherits from :exc:`.CheckFailure`.
+
+    .. note::
+
+        The ``predicate`` attribute for this function **is** a coroutine.
+
+    .. versionadded:: 1.5
+
+    Parameters
+    ------------
+    \*checks: Callable[[:class:`Context`], :class:`bool`]
+        An argument list of checks that have been decorated with
+        the :func:`check` decorator.
+
+    Raises
+    -------
+    TypeError
+        A check passed has not been decorated with the :func:`check`
+        decorator.
+
+    Examples
+    ---------
+    Creating a basic check to see if it's the bot owner or
+    the server owner:
+
+    .. code-block:: python3
+
+        def is_server_owner():
+            def predicate(ctx):
+                return ctx.server is not None and ctx.author.is_owner()
+            return commands.check(predicate)
+
+        @bot.command()
+        @commands.check_any(commands.is_owner(), is_server_owner())
+        async def only_for_owners(ctx):
+            await ctx.send('Hello mister owner!')
+    """
+
+    unwrapped = []
+    for wrapped in checks:
+        try:
+            pred = wrapped.predicate
+        except AttributeError:
+            raise TypeError(f'{wrapped!r} must be wrapped by commands.check decorator') from None
+        else:
+            unwrapped.append(pred)
+
+    async def predicate(ctx: Context) -> bool:
+        errors = []
+        for func in unwrapped:
+            try:
+                value = await func(ctx)
+            except CheckFailure as e:
+                errors.append(e)
+            else:
+                if value:
+                    return True
+
+        # if we're here, all checks failed
+        raise CheckAnyFailure(unwrapped, errors)
+
+    return check(predicate)  # type: ignore
+
+
 def dm_only():
     """A :func:`.check` that indicates this command must only be used in a
     DM context. Only private messages are allowed when
@@ -1270,4 +1529,126 @@ def after_invoke(coro) -> Callable[[T], T]:
         else:
             func.__after_invoke__ = coro
         return func
+    return decorator  # type: ignore
+
+
+def cooldown(
+    rate: int,
+    per: float,
+    type: Union[BucketType, Callable[[Context[Any]], Any]] = BucketType.default,
+) -> Callable[[T], T]:
+    """A decorator that adds a cooldown to a :class:`.Command`
+
+    A cooldown allows a command to only be used a specific amount
+    of times in a specific time frame. These cooldowns can be based
+    either on a per-guild, per-channel, per-user, per-role, per-group, or global basis.
+    Denoted by the third argument of ``type`` which must be of enum
+    type :class:`.BucketType`.
+
+    If a cooldown is triggered, then :exc:`.CommandOnCooldown` is triggered in
+    :func:`.on_command_error` and the local error handler.
+
+    A command can only have a single cooldown.
+
+    Parameters
+    ------------
+    rate: :class:`int`
+        The number of times a command can be used before triggering a cooldown.
+    per: :class:`float`
+        The amount of seconds to wait for a cooldown when it's been triggered.
+    type: Union[:class:`.BucketType`, Callable[[:class:`.Context`], Any]]
+        The type of cooldown to have. If callable, should return a key for the mapping.
+    """
+
+    def decorator(func: Union[Command, CoroFunc]) -> Union[Command, CoroFunc]:
+        if isinstance(func, Command):
+            func._buckets = CooldownMapping(Cooldown(rate, per), type)
+        else:
+            func.__commands_cooldown__ = CooldownMapping(Cooldown(rate, per), type)
+        return func
+
+    return decorator  # type: ignore
+
+
+def dynamic_cooldown(
+    cooldown: Callable[[Context[Any]], Optional[Cooldown]],
+    type: Union[BucketType, Callable[[Context[Any]], Any]],
+) -> Callable[[T], T]:
+    """A decorator that adds a dynamic cooldown to a :class:`.Command`
+
+    This differs from :func:`.cooldown` in that it takes a function that
+    accepts a single parameter of type :class:`.Context` and must
+    return a :class:`.Cooldown` or ``None``.
+    If ``None`` is returned then that cooldown is effectively bypassed.
+
+    A cooldown allows a command to only be used a specific amount
+    of times in a specific time frame. These cooldowns can be based
+    either on a per-guild, per-channel, per-user, per-role or global basis.
+    Denoted by the third argument of ``type`` which must be of enum
+    type :class:`.BucketType`.
+
+    If a cooldown is triggered, then :exc:`.CommandOnCooldown` is triggered in
+    :func:`.on_command_error` and the local error handler.
+
+    A command can only have a single cooldown.
+
+    .. versionadded:: 1.5
+
+    Parameters
+    ------------
+    cooldown: Callable[[:class:`.Context`], Optional[:class:`.Cooldown`]]
+        A function that takes a message and returns a cooldown that will
+        apply to this invocation or ``None`` if the cooldown should be bypassed.
+    type: :class:`.BucketType`
+        The type of cooldown to have.
+    """
+
+    if not callable(cooldown):
+        raise TypeError("A callable must be provided")
+
+    if type is BucketType.default:
+        raise ValueError('BucketType.default cannot be used in dynamic cooldowns')
+
+    def decorator(func: Union[Command, CoroFunc]) -> Union[Command, CoroFunc]:
+        if isinstance(func, Command):
+            func._buckets = DynamicCooldownMapping(cooldown, type)
+        else:
+            func.__commands_cooldown__ = DynamicCooldownMapping(cooldown, type)
+        return func
+
+    return decorator  # type: ignore
+
+
+def max_concurrency(number: int, per: BucketType = BucketType.default, *, wait: bool = False) -> Callable[[T], T]:
+    """A decorator that adds a maximum concurrency to a :class:`.Command` or its subclasses.
+
+    This enables you to only allow a certain number of command invocations at the same time,
+    for example if a command takes too long or if only one user can use it at a time. This
+    differs from a cooldown in that there is no set waiting period or token bucket -- only
+    a set number of people can run the command.
+
+    .. versionadded:: 1.5
+
+    Parameters
+    -------------
+    number: :class:`int`
+        The maximum number of invocations of this command that can be running at the same time.
+    per: :class:`.BucketType`
+        The bucket that this concurrency is based on, e.g. ``BucketType.server`` would allow
+        it to be used up to ``number`` times per server.
+    wait: :class:`bool`
+        Whether the command should wait for the queue to be over. If this is set to ``False``
+        then instead of waiting until the command can run again, the command raises
+        :exc:`.MaxConcurrencyReached` to its error handler. If this is set to ``True``
+        then the command waits until it can be executed.
+    """
+
+    def decorator(func: Union[Command, CoroFunc]) -> Union[Command, CoroFunc]:
+        value = MaxConcurrency(number, per=per, wait=wait)
+        if isinstance(func, Command):
+            func._max_concurrency = value
+        else:
+            func.__commands_max_concurrency__ = value
+        return func
+
     return decorator  # type: ignore
