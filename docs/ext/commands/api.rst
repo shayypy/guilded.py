@@ -141,6 +141,15 @@ Checks
 .. autofunction:: guilded.ext.commands.is_nsfw(,)
     :decorator:
 
+.. autofunction:: guilded.ext.commands.cooldown(,)
+    :decorator:
+
+.. autofunction:: guilded.ext.commands.dynamic_cooldown(,)
+    :decorator:
+
+.. autofunction:: guilded.ext.commands.max_concurrency(,)
+    :decorator:
+
 .. _ext_commands_api_context:
 
 Context
