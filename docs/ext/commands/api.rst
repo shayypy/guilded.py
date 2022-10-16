@@ -138,6 +138,9 @@ Checks
 .. autofunction:: guilded.ext.commands.is_owner(,)
     :decorator:
 
+.. autofunction:: guilded.ext.commands.is_nsfw(,)
+    :decorator:
+
 .. _ext_commands_api_context:
 
 Context
@@ -303,6 +306,9 @@ Exceptions
 .. autoexception:: guilded.ext.commands.BotMissingAnyRole
     :members:
 
+.. autoexception:: guilded.ext.commands.NSFWChannelRequired
+    :members:
+
 .. autoexception:: guilded.ext.commands.MissingPermissions
     :members:
 
@@ -379,6 +385,7 @@ Hierarchy
                 * :exc:`BotMissingRole`
                 * :exc:`MissingAnyRole`
                 * :exc:`BotMissingAnyRole`
+                * :exc:`NSFWChannelRequired`
                 * :exc:`MissingPermissions`
                 * :exc:`BotMissingPermissions`
 

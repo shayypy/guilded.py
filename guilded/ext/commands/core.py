@@ -94,6 +94,7 @@ __all__ = (
     'server_only',
     'guild_only',
     'is_owner',
+    'is_nsfw',
     # 'has_server_permissions',
     # 'bot_has_server_permissions',
 )
@@ -1468,6 +1469,23 @@ def is_owner():
         if not await ctx.bot.is_owner(ctx.author):
             raise NotOwner('You do not own this bot.')
         return True
+
+    return check(predicate)
+
+
+def is_nsfw():
+    """|dpyattr|
+
+    A :func:`.check` that checks if the channel is a NSFW channel.
+
+    In a server context, this always raises :exc:`.NSFWChannelRequired`, which
+    is derived from :exc:`.CheckFailure`.
+    """
+
+    def predicate(ctx: Context) -> bool:
+        if ctx.server is None:
+            return True
+        raise NSFWChannelRequired(ctx.channel)
 
     return check(predicate)
 

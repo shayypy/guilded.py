@@ -57,6 +57,7 @@ from guilded.errors import ClientException, GuildedException
 if TYPE_CHECKING:
     from inspect import Parameter
 
+    from ...abc import ServerChannel
     from .cooldowns import BucketType, Cooldown
 
 
@@ -98,6 +99,7 @@ __all__ = (
     'BotMissingRole',
     'MissingAnyRole',
     'BotMissingAnyRole',
+    'NSFWChannelRequired',
     'MissingPermissions',
     'BotMissingPermissions',
     'ConversionError',
@@ -632,6 +634,22 @@ class BotMissingAnyRole(CheckFailure):
 
         message = f"Bot is missing at least one of the required roles: {fmt}"
         super().__init__(message)
+
+class NSFWChannelRequired(CheckFailure):
+    """Exception raised when a channel does not have the required NSFW setting.
+
+    This inherits from :exc:`CheckFailure`.
+
+    .. versionadded:: 1.5
+
+    Attributes
+    -----------
+    channel: :class:`.abc.ServerChannel`
+        The channel that does not have NSFW enabled.
+    """
+    def __init__(self, channel: ServerChannel) -> None:
+        self.channel = channel
+        super().__init__(f"Channel '{channel}' must be NSFW before this command can be executed.")
 
 class MissingPermissions(CheckFailure):
     """Exception raised when the command invoker lacks permissions to run a
