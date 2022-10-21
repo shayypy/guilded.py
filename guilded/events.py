@@ -42,6 +42,7 @@ from .channel import (
 )
 from .emote import Emote
 from .message import ChatMessage
+from .reply import ForumTopicReply
 from .user import Member, MemberBan
 from .utils import ISO8601
 from .webhook.async_ import Webhook
@@ -95,6 +96,9 @@ __all__ = (
     'ForumTopicUnlockEvent',
     'ForumTopicReactionAddEvent',
     'ForumTopicReactionRemoveEvent',
+    'ForumTopicReplyCreateEvent',
+    'ForumTopicReplyUpdateEvent',
+    'ForumTopicReplyDeleteEvent',
     'ListItemCreateEvent',
     'ListItemUpdateEvent',
     'ListItemDeleteEvent',
@@ -1186,6 +1190,96 @@ class ForumTopicReactionRemoveEvent(_ForumTopicReactionEvent):
 
     __gateway_event__ = 'ForumTopicReactionDeleted'
     __dispatch_event__ = 'forum_topic_reaction_remove'
+
+
+class _ForumTopicCommentEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'channel',
+        'topic',
+        'reply',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.ForumTopicCommentEvent,
+        /,
+        topic: ForumTopic,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel = topic.channel
+        self.topic = topic
+        self.reply = ForumTopicReply(state=state, data=data['forumTopicComment'], parent=topic)
+
+
+class ForumTopicReplyCreateEvent(_ForumTopicCommentEvent):
+    """Represents a :gdocs:`ForumTopicCommentCreated <websockets/ForumTopicCommentCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.5
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply is in.
+    server: :class:`Server`
+        The server that the reply is in.
+    channel: :class:`ForumChannel`
+        The channel that the reply is in.
+    topic: :class:`ForumTopic`
+        The topic that the reply is under.
+    reply: :class:`ForumTopicReply`
+        The reply that was created.
+    """
+
+    __gateway_event__ = 'ForumTopicCommentCreated'
+    __dispatch_event__ = 'forum_topic_reply_create'
+
+
+class ForumTopicReplyUpdateEvent(_ForumTopicCommentEvent):
+    """Represents a :gdocs:`ForumTopicCommentUpdated <websockets/ForumTopicCommentUpdated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.5
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply is in.
+    server: :class:`Server`
+        The server that the reply is in.
+    channel: :class:`ForumChannel`
+        The channel that the reply is in.
+    topic: :class:`ForumTopic`
+        The topic that the reply is under.
+    reply: :class:`ForumTopicReply`
+        The reply that was updated.
+    """
+
+    __gateway_event__ = 'ForumTopicCommentUpdated'
+    __dispatch_event__ = 'forum_topic_reply_update'
+
+
+class ForumTopicReplyDeleteEvent(_ForumTopicCommentEvent):
+    """Represents a :gdocs:`ForumTopicCommentDeleted <websockets/ForumTopicCommentDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.5
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply was in.
+    server: :class:`Server`
+        The server that the reply was in.
+    channel: :class:`ForumChannel`
+        The channel that the reply was in.
+    topic: :class:`ForumTopic`
+        The topic that the reply was under.
+    reply: :class:`ForumTopicReply`
+        The reply that was deleted.
+    """
+
+    __gateway_event__ = 'ForumTopicCommentDeleted'
+    __dispatch_event__ = 'forum_topic_reply_delete'
 
 
 class _ListItemEvent(ServerEvent):

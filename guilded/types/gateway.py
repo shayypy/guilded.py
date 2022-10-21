@@ -29,7 +29,7 @@ from typing_extensions import NotRequired
 from .calendar_event import CalendarEvent, CalendarEventRsvp
 from .channel import ServerChannel
 from .doc import Doc
-from .forum_topic import ForumTopic
+from .forum_topic import ForumTopic, ForumTopicComment
 from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
 from .reaction import ChannelMessageReaction, ForumTopicReaction
@@ -133,6 +133,10 @@ class ForumTopicEvent(_ServerEvent):
 
 class ForumTopicReactionEvent(_ServerEvent):
     reaction: ForumTopicReaction
+
+
+class ForumTopicCommentEvent(_ServerEvent):
+    forumTopicComment: ForumTopicComment
 
 
 class CalendarEventRsvpEvent(_ServerEvent):
