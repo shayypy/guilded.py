@@ -1562,15 +1562,81 @@ class ForumTopic(Hashable, HasContentMixin):
         """
         await self._state.unlock_forum_topic(self.channel.id, self.id)
 
+    async def reply(self, content: str) -> ForumTopicReply:
+        """|coro|
+
+        Reply to this topic.
+
+        .. versionadded:: 1.5
+
+        Parameters
+        -----------
+        content: :class:`str`
+            The content of the reply.
+
+        Returns
+        --------
+        :class:`ForumTopicReply`
+            The created reply.
+
+        Raises
+        -------
+        NotFound
+            This topic does not exist.
+        Forbidden
+            You do not have permission to reply to this topic.
+        HTTPException
+            Failed to reply to this topic.
+        """
+
+        data = await self._state.create_forum_topic_comment(self.channel_id, self.id, content=content)
+        return ForumTopicReply(state=self._state, data=data['forumTopicComment'], parent=self)
+
+    async def fetch_reply(self, reply_id: int, /) -> ForumTopicReply:
+        """|coro|
+
+        Fetch a reply to this topic.
+
+        .. versionadded:: 1.5
+
+        Returns
+        --------
+        :class:`ForumTopicReply`
+            The reply from the ID.
+
+        Raises
+        -------
+        NotFound
+            This reply or topic does not exist.
+        Forbidden
+            You do not have permission to read this topic's replies.
+        HTTPException
+            Failed to fetch the reply.
+        """
+
+        data = await self._state.get_forum_topic_comment(self.channel_id, self.id, reply_id)
+        return ForumTopicReply(state=self._state, data=data['forumTopicComment'], parent=self)
+
     async def fetch_replies(self) -> List[ForumTopicReply]:
         """|coro|
 
-        Get all replies to this topic.
+        Fetch all replies to this topic.
+
+        .. versionadded:: 1.5
 
         Returns
         --------
         List[:class:`ForumTopicReply`]
             The replies under the topic.
+
+        Raises
+        -------
+        NotFound
+            This topic does not exist.
+        Forbidden
+            You do not have permission to read this topic's replies.
+        HTTPException
+            Failed to fetch the replies to this topic.
         """
 
         data = await self._state.get_forum_topic_comments(self.channel_id, self.id)

@@ -101,3 +101,56 @@ class ForumTopicReply(Reply):
     if TYPE_CHECKING:
         parent: ForumTopic
         parent_id: int
+
+    async def edit(
+        self,
+        *,
+        content: str,
+    ) -> ForumTopicReply:
+        """|coro|
+
+        Edit this reply.
+
+        Parameters
+        -----------
+        content: :class:`str`
+            The content of the reply.
+
+        Returns
+        --------
+        :class:`ForumTopicReply`
+            The updated reply.
+
+        Raises
+        -------
+        NotFound
+            This reply does not exist.
+        Forbidden
+            You do not have permission to update this reply.
+        HTTPException
+            Failed to update this reply.
+        """
+
+        payload = {
+            'content': content,
+        }
+
+        data = await self._state.update_forum_topic_comment(self.parent.channel_id, self.parent_id, self.id, payload=payload)
+        return ForumTopicReply(state=self._state, data=data['forumTopicComment'], parent=self.parent)
+
+    async def delete(self) -> None:
+        """|coro|
+
+        Delete this reply.
+
+        Raises
+        -------
+        NotFound
+            This reply does not exist.
+        Forbidden
+            You do not have permission to delete this reply.
+        HTTPException
+            Failed to delete this reply.
+        """
+
+        await self._state.delete_forum_topic_comment(self.parent.channel_id, self.parent_id, self.id)

@@ -646,8 +646,23 @@ class HTTPClient(HTTPClientBase):
     def unlock_forum_topic(self, channel_id: str, topic_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}/lock'))
 
+    def create_forum_topic_comment(self, channel_id: str, topic_id: int, *, content: str):
+        payload = {
+            'content': content,
+        }
+        return self.request(Route('POST', f'/channels/{channel_id}/topics/{topic_id}/comments'), json=payload)
+
+    def get_forum_topic_comment(self, channel_id: str, topic_id: int, comment_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/topics/{topic_id}/comments/{comment_id}'))
+
     def get_forum_topic_comments(self, channel_id: str, topic_id: int):
         return self.request(Route('GET', f'/channels/{channel_id}/topics/{topic_id}/comments'))
+
+    def update_forum_topic_comment(self, channel_id: str, topic_id: int, comment_id: int, *, payload: Dict[str, Any]):
+        return self.request(Route('PATCH', f'/channels/{channel_id}/topics/{topic_id}/comments/{comment_id}'), json=payload)
+
+    def delete_forum_topic_comment(self, channel_id: str, topic_id: int, comment_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}/comments/{comment_id}'))
 
     def add_forum_topic_reaction_emote(self, channel_id: str, topic_id: int, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/topics/{topic_id}/emotes/{emote_id}'))
