@@ -870,6 +870,7 @@ class _CalendarEventRsvpEvent(ServerEvent):
         super().__init__(state, data)
 
         self.event = event
+        self.channel = event.channel
         self.rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=event)
 
 
@@ -882,7 +883,7 @@ class RsvpUpdateEvent(_CalendarEventRsvpEvent):
         The ID of the server that the RSVP is in.
     server: :class:`Server`
         The server that the RSVP is in.
-    channel: :class:`ForumChannel`
+    channel: :class:`CalendarChannel`
         The channel that the RSVP is in.
     rsvp: :class:`CalendarEventRsvp`
         The RSVP that was created or updated.
@@ -901,7 +902,7 @@ class RsvpDeleteEvent(_CalendarEventRsvpEvent):
         The ID of the server that the RSVP was in.
     server: :class:`Server`
         The server that the RSVP was in.
-    channel: :class:`ForumChannel`
+    channel: :class:`CalendarChannel`
         The channel that the RSVP was in.
     rsvp: :class:`CalendarEventRsvp`
         The RSVP that was deleted.
@@ -920,7 +921,7 @@ class BulkRsvpCreateEvent(ServerEvent):
         The ID of the server that the RSVPs are in.
     server: :class:`Server`
         The server that the RSVPs are in.
-    channel: :class:`ForumChannel`
+    channel: :class:`CalendarChannel`
         The channel that the RSVPs are in.
     rsvps: List[:class:`CalendarEventRsvp`]
         The RSVPs that were created.
@@ -943,6 +944,7 @@ class BulkRsvpCreateEvent(ServerEvent):
         super().__init__(state, data)
 
         self.event = event
+        self.channel = event.channel
         self.rsvps = [CalendarEventRSVP(data=rsvp_data, event=event) for rsvp_data in data['calendarEventRsvps']]
 
 
