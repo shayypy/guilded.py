@@ -857,6 +857,7 @@ class CalendarEventDeleteEvent(_CalendarEventEvent):
 class _CalendarEventRsvpEvent(ServerEvent):
     __slots__: Tuple[str, ...] = (
         'event',
+        'channel',
         'rsvp',
     )
 
@@ -931,6 +932,7 @@ class BulkRsvpCreateEvent(ServerEvent):
     __dispatch_event__ = 'bulk_rsvp_create'
     __slots__: Tuple[str, ...] = (
         'event',
+        'channel',
         'rsvps',
     )
 
