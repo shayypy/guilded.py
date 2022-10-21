@@ -695,7 +695,7 @@ class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
         self.parent = parent
         self.parent_id: Union[int, str] = data.get('forumTopicId')
 
-        self.id = int(data['id'])
+        self.id: int = int(data['id'])
         self.content: str = data['content']
 
         self.author_id: str = data.get('createdBy')
