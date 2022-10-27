@@ -51,6 +51,21 @@ This is denoted below with notes linking back to this section.
 
     Event functions must be a |coroutine_link|_.
 
+Bots
+~~~~~
+
+.. function:: on_bot_add(server, member)
+
+    The client user was added to a server.
+
+    |nestype| :class:`BotAddEvent`
+
+    :param server: The server that the bot was added to.
+    :type server: :class:`.Server`
+
+    :param member: The member that added the bot to the server. This may be ``None``, but it is unlikely in most cases.
+    :type member: Optional[:class:`.Member`]
+
 Calendar Events
 ~~~~~~~~~~~~~~~~
 
@@ -597,24 +612,6 @@ Messages
     :param reaction: The reaction that was removed.
     :type reaction: :class:`Reaction`
 
-Servers
-~~~~~~~~
-
-.. note::
-
-    Due to a Guilded limitation, no event is dispatched when the client is removed from a server.
-
-.. function:: on_server_join(server)
-
-    The client joined a server.
-
-    This is a sort of "supplemental" event in that it does not correspond 1:1 to a gateway message.
-    Instead, this event is dispatched when the target of :func:`on_member_join` is the client user.
-    This event is always dispatched before that event.
-
-    :param server: The server that was joined.
-    :type server: :class:`.Server`
-
 Webhooks
 ~~~~~~~~~
 
@@ -669,6 +666,10 @@ these event wrappers closely mirrors the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: MessageDeleteEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: BotAddEvent()
     :members:
     :inherited-members:
 

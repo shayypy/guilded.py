@@ -449,13 +449,17 @@ class WebSocketEventParsers:
                 message.deleted_at = ISO8601(data['message']['deletedAt'])
                 self.client.dispatch('message_delete', message)
 
+    async def parse_bot_team_membership_created(self, data: gw.BotTeamMembershipCreatedEvent):
+        event = ev.BotAddEvent(self._state, data)
+        if self._exp_style:
+            self.client.dispatch(event)
+        else:
+            self.client.dispatch('bot_add', event.server, event.member)
+
     async def parse_team_member_joined(self, data: gw.TeamMemberJoinedEvent):
         if self._exp_style:
             event = ev.MemberJoinEvent(self._state, data)
             self._state.add_to_member_cache(event.member)
-
-            if event.member == self._state.user:
-                self.client.dispatch('server_join', event.server)
             self.client.dispatch(event)
 
         else:
@@ -465,11 +469,6 @@ class WebSocketEventParsers:
                 **data['member'],
             })
             server._members[member.id] = member
-
-            if member == self._state.user:
-                self.client.dispatch('server_join', server)
-                self.client.dispatch('guild_join', server)  # discord.py
-
             self.client.dispatch('member_join', member)
 
     async def parse_team_member_removed(self, data: gw.TeamMemberRemovedEvent):

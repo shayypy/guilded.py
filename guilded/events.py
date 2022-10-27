@@ -66,6 +66,7 @@ __all__ = (
     'MessageEvent',
     'MessageUpdateEvent',
     'MessageDeleteEvent',
+    'BotAddEvent',
     'MemberJoinEvent',
     'MemberRemoveEvent',
     'BanCreateEvent',
@@ -280,6 +281,42 @@ class MessageDeleteEvent(BaseEvent):
         self.channel_id = message_data['channelId']
         self.deleted_at: datetime.datetime = ISO8601(message_data['deletedAt'])
         self.private = message_data.get('isPrivate') or False
+
+
+class BotAddEvent(ServerEvent):
+    """Represents a :gdocs:`BotTeamMembershipCreated <websockets/BotTeamMembershipCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.5
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the bot was added to.
+    server: :class:`Server`
+        The server that the bot was added to.
+    member_id: :class:`str`
+        The ID of the member that added the bot to the server.
+    member: Optional[:class:`Member`]
+        The member that added the bot to the server.
+    """
+
+    __gateway_event__ = 'BotTeamMembershipCreated'
+    __dispatch_event__ = 'bot_add'
+    __slots__: Tuple[str, ...] = (
+        'member_id',
+        'member',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.BotTeamMembershipCreatedEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.member_id = data['createdBy']
+        self.member = self.server.get_member(data['createdBy'])
 
 
 class MemberJoinEvent(ServerEvent):

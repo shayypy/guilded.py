@@ -26,6 +26,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, TypedDict
 from typing_extensions import NotRequired
 
+from guilded.types.server import Server
+
 from .calendar_event import CalendarEvent, CalendarEventRsvp
 from .channel import ServerChannel
 from .doc import Doc
@@ -72,6 +74,11 @@ class ChatMessageUpdatedEvent(_ServerEvent):
 
 class ChatMessageDeletedEvent(_ServerEvent):
     message: DeletedChatMessage
+
+
+class BotTeamMembershipCreatedEvent(TypedDict):
+    server: Server
+    createdBy: str
 
 
 class TeamMemberJoinedEvent(_ServerEvent):
