@@ -68,6 +68,8 @@ from .user import Member, MemberBan
 from .utils import ISO8601, Object, get, find
 
 if TYPE_CHECKING:
+    from .types.server import Server as ServerPayload
+
     from .emote import Emote
     from .flowbot import FlowBot
     from .webhook import Webhook
@@ -136,11 +138,6 @@ class Server(Hashable):
         For a complete URL, see :attr:`.vanity_url`\.
     verified: :class:`bool`
         Whether the server is verified.
-    timezone: Optional[:class:`datetime.tzinfo`]
-        The server's timezone.
-        If you are using Python 3.9 or greater, this is an instance of `ZoneInfo <https://docs.python.org/3/library/zoneinfo.html>`_.
-        Otherwise, if `pytz <https://pypi.org/project/pytz>`_ is available in the working environment, an instance from pytz.
-        If neither apply or the server does not have a timezone set, this will be ``None``.
     """
 
     def __init__(self, *, state, data):
@@ -171,18 +168,7 @@ class Server(Hashable):
         self.about: str = data.get('about') or ''
         self.default_channel_id: Optional[str] = data.get('defaultChannelId')
         self.verified: bool = data.get('isVerified') or False
-
-        self.timezone: Optional[ZoneInfo]
         self.raw_timezone: Optional[str] = data.get('timezone')
-        if self.raw_timezone and ZoneInfo:
-            try:
-                # 'America/Los Angeles (PST/PDT)' -> 'America/Los_Angeles'
-                self.timezone = ZoneInfo(re.sub(r'( \(.+)', '', self.raw_timezone).replace(' ', '_'))
-            except:
-                # This might happen on outdated tzdata versions
-                self.timezone = None
-        else:
-            self.timezone = None
 
         for member in data.get('members') or []:
             member['serverId'] = self.id
@@ -217,6 +203,42 @@ class Server(Hashable):
     def __repr__(self) -> str:
         return f'<Server id={self.id!r} name={self.name!r}>'
 
+    def _update(self, data: ServerPayload, /) -> None:
+        self.name = data['name']
+        self.owner_id = data.get('ownerId', self.owner_id)
+        self.avatar = Asset._from_team_avatar(data['avatar']) if data.get('avatar') else None
+        self.banner = Asset._from_team_banner(data['banner']) if data.get('banner') else None
+
+        try:
+            self.raw_timezone = data['timezone']
+        except KeyError:
+            pass
+
+        try:
+            self.type = try_enum(ServerType, data['type'])
+        except KeyError:
+            pass
+
+        try:
+            self.slug = data['url']
+        except KeyError:
+            pass
+
+        try:
+            self.about = data['about']
+        except KeyError:
+            pass
+
+        try:
+            self.verified = data['isVerified']
+        except KeyError:
+            pass
+
+        try:
+            self.default_channel_id = data['defaultChannelId']
+        except KeyError:
+            pass
+
     @property
     def description(self) -> str:
         """:class:`str`: |dpyattr|
@@ -231,6 +253,23 @@ class Server(Hashable):
     def vanity_url(self) -> Optional[str]:
         """Optional[:class:`str`]: The server's vanity URL, if available."""
         return f'https://guilded.gg/{self.slug}' if self.slug is not None else None
+
+    @property
+    def timezone(self) -> Optional[ZoneInfo]:
+        """Optional[:class:`datetime.tzinfo`]: The server's timezone.
+
+        If you are using Python 3.9 or greater, this is an instance of `ZoneInfo <https://docs.python.org/3/library/zoneinfo.html>`_.
+        Otherwise, if `pytz <https://pypi.org/project/pytz>`_ is available in the working environment, an instance from pytz.
+        If neither apply or the server does not have a timezone set, this will be ``None``.
+        """
+
+        if self.raw_timezone and ZoneInfo:
+            try:
+                # 'America/Los Angeles (PST/PDT)' -> 'America/Los_Angeles'
+                return ZoneInfo(re.sub(r'( \(.+)', '', self.raw_timezone).replace(' ', '_'))
+            except:
+                # This might happen on outdated tzdata versions
+                pass
 
     @property
     def member_count(self) -> int:

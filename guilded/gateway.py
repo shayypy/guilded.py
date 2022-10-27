@@ -219,7 +219,8 @@ class GuildedWebSocket:
             self.client.http.my_id = self.client.http.user.id
 
         if op == self.MISSABLE:
-            d['serverId'] = d.get('serverId')
+            server = None
+            should_fill = False
             try:
                 should_fill = self.client.get_server(d['serverId']) is None
                 server = await self.client.getch_server(d['serverId'])
@@ -240,8 +241,26 @@ class GuildedWebSocket:
                         'id': d['serverId'],
                     }
                 )
+            except KeyError:
+                if d.get('server'):
+                    # Some payloads provide a server object instead of an ID
+
+                    from .server import Server
+
+                    if self.client.get_server(d['server']['id']):
+                        # Reduce unnecessary call if we already have some cache
+                        server = self.client.get_server(d['server']['id'])
+                        server._update(d['server'])
+                    else:
+                        server = Server(
+                            state=self.client.http,
+                            data=d['server'],
+                        )
+                        should_fill = True
+                    d['server'] = server
+                    d['serverId'] = server.id
             except:
-                server = None
+                pass
 
             if server:
                 if should_fill:
