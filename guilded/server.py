@@ -206,8 +206,8 @@ class Server(Hashable):
     def _update(self, data: ServerPayload, /) -> None:
         self.name = data['name']
         self.owner_id = data.get('ownerId', self.owner_id)
-        self.avatar = Asset._from_team_avatar(data['avatar']) if data.get('avatar') else None
-        self.banner = Asset._from_team_banner(data['banner']) if data.get('banner') else None
+        self.avatar = Asset._from_team_avatar(self._state, data['avatar']) if data.get('avatar') else None
+        self.banner = Asset._from_team_banner(self._state, data['banner']) if data.get('banner') else None
 
         try:
             self.raw_timezone = data['timezone']
