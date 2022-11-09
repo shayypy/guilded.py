@@ -449,14 +449,14 @@ class WebSocketEventParsers:
                 message.deleted_at = ISO8601(data['message']['deletedAt'])
                 self.client.dispatch('message_delete', message)
 
-    async def parse_bot_team_membership_created(self, data: gw.BotTeamMembershipCreatedEvent):
+    async def parse_bot_server_membership_created(self, data: gw.BotServerMembershipCreatedEvent):
         event = ev.BotAddEvent(self._state, data)
         if self._exp_style:
             self.client.dispatch(event)
         else:
             self.client.dispatch('bot_add', event.server, event.member)
 
-    async def parse_team_member_joined(self, data: gw.TeamMemberJoinedEvent):
+    async def parse_server_member_joined(self, data: gw.ServerMemberJoinedEvent):
         if self._exp_style:
             event = ev.MemberJoinEvent(self._state, data)
             self._state.add_to_member_cache(event.member)
@@ -471,7 +471,7 @@ class WebSocketEventParsers:
             server._members[member.id] = member
             self.client.dispatch('member_join', member)
 
-    async def parse_team_member_removed(self, data: gw.TeamMemberRemovedEvent):
+    async def parse_server_member_removed(self, data: gw.ServerMemberRemovedEvent):
         if self._exp_style:
             event = ev.MemberRemoveEvent(self._state, data)
             self.client.dispatch(event)
@@ -491,17 +491,17 @@ class WebSocketEventParsers:
 
                 server._members.pop(data['userId'], None)
 
-    async def parse_team_member_banned(self, data: gw.TeamMemberBanEvent):
+    async def parse_server_member_banned(self, data: gw.ServerMemberBanEvent):
         if self._exp_style:
             event = ev.BanCreateEvent(self._state, data)
             self.client.dispatch(event)
 
-    async def parse_team_member_unbanned(self, data: gw.TeamMemberBanEvent):
+    async def parse_server_member_unbanned(self, data: gw.ServerMemberBanEvent):
         if self._exp_style:
             event = ev.BanDeleteEvent(self._state, data)
             self.client.dispatch(event)
 
-    async def parse_team_member_updated(self, data: gw.TeamMemberUpdatedEvent):
+    async def parse_server_member_updated(self, data: gw.ServerMemberUpdatedEvent):
         if self._exp_style:
             event = ev.MemberUpdateEvent(self._state, data)
             self._state.add_to_member_cache(event.after)
@@ -530,7 +530,7 @@ class WebSocketEventParsers:
 
             self.client.dispatch('member_update', before, member)
 
-    async def parse_team_roles_updated(self, data: gw.TeamRolesUpdatedEvent):
+    async def parse_server_roles_updated(self, data: gw.ServerRolesUpdatedEvent):
         if self._exp_style:
             if data.get('memberRoleIds'):
                 event = ev.BulkMemberRolesUpdateEvent(self._state, data)
@@ -574,7 +574,7 @@ class WebSocketEventParsers:
                         role = Role(state=self._state, data=updated, server=server)
                         server._roles[role.id] = role
 
-    async def parse_team_xp_added(self, data: gw.TeamXpAddedEvent):
+    async def parse_server_xp_added(self, data: gw.ServerXpAddedEvent):
         server = self.client.get_server(data['serverId'])
         if server is None:
             return
@@ -593,7 +593,7 @@ class WebSocketEventParsers:
             event = ev.BulkMemberXpAddEvent(self._state, data, members=after_members)
             self.client.dispatch(event)
 
-    async def parse_team_webhook_created(self, data: gw.TeamWebhookEvent):
+    async def parse_server_webhook_created(self, data: gw.ServerWebhookEvent):
         if self._exp_style:
             event = ev.WebhookCreateEvent(self._state, data)
             self.client.dispatch(event)
@@ -602,7 +602,7 @@ class WebSocketEventParsers:
             webhook = Webhook.from_state(data['webhook'], self._state)
             self.client.dispatch('webhook_create', webhook)
 
-    async def parse_team_webhook_updated(self, data: gw.TeamWebhookEvent):
+    async def parse_server_webhook_updated(self, data: gw.ServerWebhookEvent):
         if self._exp_style:
             event = ev.WebhookUpdateEvent(self._state, data)
             self.client.dispatch(event)
@@ -631,7 +631,7 @@ class WebSocketEventParsers:
             event = ev.DocDeleteEvent(self._state, data, channel=channel)
             self.client.dispatch(event)
 
-    async def parse_team_channel_created(self, data: gw.TeamChannelEvent):
+    async def parse_server_channel_created(self, data: gw.ServerChannelEvent):
         if self._exp_style:
             event = ev.ServerChannelCreateEvent(self._state, data)
             self._state.add_to_server_channel_cache(event.channel)
@@ -643,7 +643,7 @@ class WebSocketEventParsers:
             self._state.add_to_server_channel_cache(channel)
             self.client.dispatch('server_channel_create', channel)
 
-    async def parse_team_channel_updated(self, data: gw.TeamChannelEvent):
+    async def parse_server_channel_updated(self, data: gw.ServerChannelEvent):
         if self._exp_style:
             event = ev.ServerChannelUpdateEvent(self._state, data)
             self._state.add_to_server_channel_cache(event.channel)
@@ -659,7 +659,7 @@ class WebSocketEventParsers:
             self._state.add_to_server_channel_cache(after)
             self.client.dispatch('server_channel_update', before, after)
 
-    async def parse_team_channel_deleted(self, data: gw.TeamChannelEvent):
+    async def parse_server_channel_deleted(self, data: gw.ServerChannelEvent):
         if self._exp_style:
             event = ev.ServerChannelDeleteEvent(self._state, data)
             self._state.remove_from_server_channel_cache(event.server_id, event.channel.id)

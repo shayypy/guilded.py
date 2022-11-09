@@ -284,7 +284,7 @@ class MessageDeleteEvent(BaseEvent):
 
 
 class BotAddEvent(ServerEvent):
-    """Represents a :gdocs:`BotTeamMembershipCreated <websockets/BotTeamMembershipCreated>` event for dispatching to event handlers.
+    """Represents a :gdocs:`BotServerMembershipCreated <websockets/BotServerMembershipCreated>` event for dispatching to event handlers.
 
     .. versionadded:: 1.5
 
@@ -300,7 +300,7 @@ class BotAddEvent(ServerEvent):
         The member that added the bot to the server.
     """
 
-    __gateway_event__ = 'BotTeamMembershipCreated'
+    __gateway_event__ = 'BotServerMembershipCreated'
     __dispatch_event__ = 'bot_add'
     __slots__: Tuple[str, ...] = (
         'member_id',
@@ -310,7 +310,7 @@ class BotAddEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.BotTeamMembershipCreatedEvent,
+        data: gw.BotServerMembershipCreatedEvent,
         /,
     ) -> None:
         super().__init__(state, data)
@@ -320,7 +320,7 @@ class BotAddEvent(ServerEvent):
 
 
 class MemberJoinEvent(ServerEvent):
-    """Represents a :gdocs:`TeamMemberJoined <websockets/TeamMemberJoined>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerMemberJoined <websockets/ServerMemberJoined>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -332,7 +332,7 @@ class MemberJoinEvent(ServerEvent):
         The member that joined.
     """
 
-    __gateway_event__ = 'TeamMemberJoined'
+    __gateway_event__ = 'ServerMemberJoined'
     __dispatch_event__ = 'member_join'
     __slots__: Tuple[str, ...] = (
         'member',
@@ -341,7 +341,7 @@ class MemberJoinEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.TeamMemberJoinedEvent,
+        data: gw.ServerMemberJoinedEvent,
         /,
     ) -> None:
         super().__init__(state, data)
@@ -350,7 +350,7 @@ class MemberJoinEvent(ServerEvent):
 
 
 class MemberRemoveEvent(ServerEvent):
-    """Represents a :gdocs:`TeamMemberRemoved <websockets/TeamMemberRemoved>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerMemberRemoved <websockets/ServerMemberRemoved>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -368,7 +368,7 @@ class MemberRemoveEvent(ServerEvent):
         Whether this removal was the result of a ban.
     """
 
-    __gateway_event__ = 'TeamMemberRemoved'
+    __gateway_event__ = 'ServerMemberRemoved'
     __dispatch_event__ = 'member_remove'
     __slots__: Tuple[str, ...] = (
         'member',
@@ -380,7 +380,7 @@ class MemberRemoveEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.TeamMemberRemovedEvent,
+        data: gw.ServerMemberRemovedEvent,
         /,
     ) -> None:
         super().__init__(state, data)
@@ -401,7 +401,7 @@ class _BanEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.TeamMemberBanEvent,
+        data: gw.ServerMemberBanEvent,
         /,
     ) -> None:
         super().__init__(state, data)
@@ -411,7 +411,7 @@ class _BanEvent(ServerEvent):
 
 
 class BanCreateEvent(_BanEvent):
-    """Represents a :gdocs:`TeamMemberBanned <websockets/TeamMemberBanned>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerMemberBanned <websockets/ServerMemberBanned>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -425,12 +425,12 @@ class BanCreateEvent(_BanEvent):
         The member that was banned, from cache, if available.
     """
 
-    __gateway_event__ = 'TeamMemberBanned'
+    __gateway_event__ = 'ServerMemberBanned'
     __dispatch_event__ = 'ban_create'
 
 
 class BanDeleteEvent(_BanEvent):
-    """Represents a :gdocs:`TeamMemberUnbanned <websockets/TeamMemberUnbanned>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerMemberUnbanned <websockets/ServerMemberUnbanned>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -444,12 +444,12 @@ class BanDeleteEvent(_BanEvent):
         The member that was unbanned, from cache, if available.
     """
 
-    __gateway_event__ = 'TeamMemberUnbanned'
+    __gateway_event__ = 'ServerMemberUnbanned'
     __dispatch_event__ = 'ban_delete'
 
 
 class MemberUpdateEvent(ServerEvent):
-    """Represents a :gdocs:`TeamMemberUpdated <websockets/TeamMemberUpdated>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerMemberUpdated <websockets/ServerMemberUpdated>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -469,7 +469,7 @@ class MemberUpdateEvent(ServerEvent):
         but you do not care about what the previous value was.
     """
 
-    __gateway_event__ = 'TeamMemberUpdated'
+    __gateway_event__ = 'ServerMemberUpdated'
     __dispatch_event__ = 'member_update'
     __slots__: Tuple[str, ...] = (
         'before',
@@ -480,7 +480,7 @@ class MemberUpdateEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.TeamMemberUpdatedEvent,
+        data: gw.ServerMemberUpdatedEvent,
         /,
     ) -> None:
         super().__init__(state, data)
@@ -509,7 +509,7 @@ class MemberUpdateEvent(ServerEvent):
 
 
 class BulkMemberRolesUpdateEvent(ServerEvent):
-    """Represents a :gdocs:`teamRolesUpdated <websockets/teamRolesUpdated>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerRolesUpdated <websockets/ServerRolesUpdated>` event for dispatching to event handlers.
 
     This particular class only handles updates to role membership, not server roles.
 
@@ -526,7 +526,7 @@ class BulkMemberRolesUpdateEvent(ServerEvent):
         The members after their roles were updated.
     """
 
-    __gateway_event__ = 'teamRolesUpdated'
+    __gateway_event__ = 'ServerRolesUpdated'
     __dispatch_event__ = 'bulk_member_roles_update'
     __slots__: Tuple[str, ...] = (
         'before',
@@ -536,7 +536,7 @@ class BulkMemberRolesUpdateEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.TeamRolesUpdatedEvent,
+        data: gw.ServerRolesUpdatedEvent,
         /,
     ) -> None:
         super().__init__(state, data)
@@ -566,7 +566,7 @@ class BulkMemberRolesUpdateEvent(ServerEvent):
 
 
 class BulkMemberXpAddEvent(ServerEvent):
-    """Represents a :gdocs:`TeamXpAdded <websockets/TeamXpAdded>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerXpAdded <websockets/ServerXpAdded>` event for dispatching to event handlers.
 
     This event is usually the result of flowbot actions like those provided in :ghelp:`XP Bot <5449718490903>`.
 
@@ -585,7 +585,7 @@ class BulkMemberXpAddEvent(ServerEvent):
         If a member was not found in cache, this list will contain fewer items than :attr:`.user_ids`.
     """
 
-    __gateway_event__ = 'TeamXpAdded'
+    __gateway_event__ = 'ServerXpAdded'
     __dispatch_event__ = 'bulk_member_xp_add'
     __slots__: Tuple[str, ...] = (
         'user_ids',
@@ -596,7 +596,7 @@ class BulkMemberXpAddEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.TeamXpAddedEvent,
+        data: gw.ServerXpAddedEvent,
         /,
         members: List[Member],
     ) -> None:
@@ -615,7 +615,7 @@ class _ServerChannelEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.TeamChannelEvent,
+        data: gw.ServerChannelEvent,
         /,
     ) -> None:
         super().__init__(state, data)
@@ -624,7 +624,7 @@ class _ServerChannelEvent(ServerEvent):
 
 
 class ServerChannelCreateEvent(_ServerChannelEvent):
-    """Represents a :gdocs:`TeamChannelCreated <websockets/TeamChannelCreated>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerChannelCreated <websockets/ServerChannelCreated>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -636,12 +636,12 @@ class ServerChannelCreateEvent(_ServerChannelEvent):
         The channel that was created.
     """
 
-    __gateway_event__ = 'TeamChannelCreated'
+    __gateway_event__ = 'ServerChannelCreated'
     __dispatch_event__ = 'server_channel_create'
 
 
 class ServerChannelUpdateEvent(ServerEvent):
-    """Represents a :gdocs:`TeamChannelUpdated <websockets/TeamChannelUpdated>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerChannelUpdated <websockets/ServerChannelUpdated>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -655,7 +655,7 @@ class ServerChannelUpdateEvent(ServerEvent):
         The channel after modification.
     """
 
-    __gateway_event__ = 'TeamChannelUpdated'
+    __gateway_event__ = 'ServerChannelUpdated'
     __dispatch_event__ = 'server_channel_update'
     __slots__: Tuple[str, ...] = (
         'before',
@@ -665,7 +665,7 @@ class ServerChannelUpdateEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.TeamChannelEvent,
+        data: gw.ServerChannelEvent,
         /,
     ) -> None:
         super().__init__(state, data)
@@ -675,7 +675,7 @@ class ServerChannelUpdateEvent(ServerEvent):
 
 
 class ServerChannelDeleteEvent(_ServerChannelEvent):
-    """Represents a :gdocs:`TeamChannelDeleted <websockets/TeamChannelDeleted>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerChannelDeleted <websockets/ServerChannelDeleted>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -687,7 +687,7 @@ class ServerChannelDeleteEvent(_ServerChannelEvent):
         The channel that was deleted.
     """
 
-    __gateway_event__ = 'TeamChannelDeleted'
+    __gateway_event__ = 'ServerChannelDeleted'
     __dispatch_event__ = 'server_channel_delete'
 
 
@@ -699,7 +699,7 @@ class _WebhookEvent(ServerEvent):
     def __init__(
         self,
         state,
-        data: gw.TeamWebhookEvent,
+        data: gw.ServerWebhookEvent,
         /,
     ) -> None:
         super().__init__(state, data)
@@ -708,7 +708,7 @@ class _WebhookEvent(ServerEvent):
 
 
 class WebhookCreateEvent(_WebhookEvent):
-    """Represents a :gdocs:`TeamWebhookCreated <websockets/TeamWebhookCreated>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerWebhookCreated <websockets/ServerWebhookCreated>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -720,12 +720,12 @@ class WebhookCreateEvent(_WebhookEvent):
         The webhook that was created.
     """
 
-    __gateway_event__ = 'TeamWebhookCreated'
+    __gateway_event__ = 'ServerWebhookCreated'
     __dispatch_event__ = 'webhook_create'
 
 
 class WebhookUpdateEvent(_WebhookEvent):
-    """Represents a :gdocs:`TeamWebhookUpdated <websockets/TeamWebhookUpdated>` event for dispatching to event handlers.
+    """Represents a :gdocs:`ServerWebhookUpdated <websockets/ServerWebhookUpdated>` event for dispatching to event handlers.
 
     Attributes
     -----------
@@ -739,7 +739,7 @@ class WebhookUpdateEvent(_WebhookEvent):
         the webhook was deleted.
     """
 
-    __gateway_event__ = 'TeamWebhookUpdated'
+    __gateway_event__ = 'ServerWebhookUpdated'
     __dispatch_event__ = 'webhook_update'
 
 

@@ -76,22 +76,22 @@ class ChatMessageDeletedEvent(_ServerEvent):
     message: DeletedChatMessage
 
 
-class BotTeamMembershipCreatedEvent(TypedDict):
+class BotServerMembershipCreatedEvent(TypedDict):
     server: Server
     createdBy: str
 
 
-class TeamMemberJoinedEvent(_ServerEvent):
+class ServerMemberJoinedEvent(_ServerEvent):
     member: ServerMember
 
 
-class TeamMemberRemovedEvent(_ServerEvent):
+class ServerMemberRemovedEvent(_ServerEvent):
     userId: str
     isKick: NotRequired[bool]
     isBan: NotRequired[bool]
 
 
-class TeamMemberBanEvent(_ServerEvent):
+class ServerMemberBanEvent(_ServerEvent):
     serverMemberBan: ServerMemberBan
 
 
@@ -100,7 +100,7 @@ class UserInfo(TypedDict):
     nickname: NotRequired[Optional[str]]
 
 
-class TeamMemberUpdatedEvent(_ServerEvent):
+class ServerMemberUpdatedEvent(_ServerEvent):
     userInfo: UserInfo
 
 
@@ -109,20 +109,20 @@ class MemberRoleUpdate(TypedDict):
     roleIds: List[int]
 
 
-class TeamRolesUpdatedEvent(_ServerEvent):
+class ServerRolesUpdatedEvent(_ServerEvent):
     memberRoleIds: NotRequired[List[MemberRoleUpdate]]
 
 
-class TeamXpAddedEvent(_ServerEvent):
+class ServerXpAddedEvent(_ServerEvent):
     userIds: List[str]
     amount: int
 
 
-class TeamChannelEvent(_ServerEvent):
+class ServerChannelEvent(_ServerEvent):
     channel: ServerChannel
 
 
-class TeamWebhookEvent(_ServerEvent):
+class ServerWebhookEvent(_ServerEvent):
     webhook: Webhook
 
 
