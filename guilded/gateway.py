@@ -151,8 +151,16 @@ class GuildedWebSocket:
         msg = await self.socket.receive()
 
         if msg.type is aiohttp.WSMsgType.TEXT:
-            op = await self.received_event(msg.data)
-            return op
+            try:
+                op = await self.received_event(msg.data)
+            except GuildedException as e:
+                self.client.dispatch('error', e)
+            except Exception as e:
+                # wrap error if not already from the lib
+                exc = GuildedException(e)
+                self.client.dispatch('error', exc)
+            else:
+                return op
 
         elif msg.type is aiohttp.WSMsgType.PONG:
             if self._heartbeater:
@@ -281,16 +289,7 @@ class GuildedWebSocket:
                     log.debug('Ignoring %s event with unknown server ID %s.', t, server_id)
 
                 else:
-                    try:
-                        await coro(d)
-                    except GuildedException as e:
-                        self.client.dispatch('error', e)
-                        raise
-                    except Exception as e:
-                        # wrap error if not already from the lib
-                        exc = GuildedException(e)
-                        self.client.dispatch('error', exc)
-                        raise exc from e
+                    await coro(d)
 
         if op == self.INVALID_CURSOR:
             d: gw.InvalidCursorEvent
