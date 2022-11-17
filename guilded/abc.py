@@ -684,6 +684,7 @@ class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
         'updated_at',
         'parent',
         'parent_id',
+        'channel_id',
         'replied_to_id',
         'replied_to_author_id',
         '_state',
@@ -694,6 +695,7 @@ class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
         self._state = state
         self.parent = parent
         self.parent_id: Union[int, str] = data.get('forumTopicId')
+        self.channel_id: str = data.get('channelId')
 
         self.id: int = int(data['id'])
         self.content: str = data['content']

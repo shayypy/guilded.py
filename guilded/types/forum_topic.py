@@ -54,4 +54,5 @@ class ForumTopicComment(TypedDict):
     createdAt: str
     updatedAt: NotRequired[Optional[str]]
     forumTopicId: int
+    channelId: str
     createdBy: str

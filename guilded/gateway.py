@@ -855,6 +855,39 @@ class WebSocketEventParsers:
             event = ev.ForumTopicReactionRemoveEvent(self._state, data, channel)
             self.client.dispatch(event)
 
+    async def parse_forum_topic_comment_created(self, data: gw.ForumTopicCommentEvent):
+        if self._exp_style:
+            channel: ForumChannel = await self._force_resolve_channel(data['serverId'], data['forumTopicComment']['channelId'], ChannelType.forums)
+            try:
+                topic = await channel.fetch_topic(data['forumTopicComment']['forumTopicId'])
+            except HTTPException:
+                return
+
+            event = ev.ForumTopicReplyCreateEvent(self._state, data, topic)
+            self.client.dispatch(event)
+
+    async def parse_forum_topic_comment_updated(self, data: gw.ForumTopicCommentEvent):
+        if self._exp_style:
+            channel: ForumChannel = await self._force_resolve_channel(data['serverId'], data['forumTopicComment']['channelId'], ChannelType.forums)
+            try:
+                topic = await channel.fetch_topic(data['forumTopicComment']['forumTopicId'])
+            except HTTPException:
+                return
+
+            event = ev.ForumTopicReplyUpdateEvent(self._state, data, topic)
+            self.client.dispatch(event)
+
+    async def parse_forum_topic_comment_deleted(self, data: gw.ForumTopicCommentEvent):
+        if self._exp_style:
+            channel: ForumChannel = await self._force_resolve_channel(data['serverId'], data['forumTopicComment']['channelId'], ChannelType.forums)
+            try:
+                topic = await channel.fetch_topic(data['forumTopicComment']['forumTopicId'])
+            except HTTPException:
+                return
+
+            event = ev.ForumTopicReplyDeleteEvent(self._state, data, topic)
+            self.client.dispatch(event)
+
     async def parse_list_item_created(self, data: gw.ListItemEvent):
         if self._exp_style:
             channel = await self._force_resolve_channel(data['serverId'], data['listItem']['channelId'], ChannelType.list)
