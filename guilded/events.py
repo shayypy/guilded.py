@@ -1290,7 +1290,7 @@ class _ForumTopicCommentEvent(ServerEvent):
 class ForumTopicReplyCreateEvent(_ForumTopicCommentEvent):
     """Represents a :gdocs:`ForumTopicCommentCreated <websockets/ForumTopicCommentCreated>` event for dispatching to event handlers.
 
-    .. versionadded:: 1.5
+    .. versionadded:: 1.6
 
     Attributes
     -----------
@@ -1313,7 +1313,7 @@ class ForumTopicReplyCreateEvent(_ForumTopicCommentEvent):
 class ForumTopicReplyUpdateEvent(_ForumTopicCommentEvent):
     """Represents a :gdocs:`ForumTopicCommentUpdated <websockets/ForumTopicCommentUpdated>` event for dispatching to event handlers.
 
-    .. versionadded:: 1.5
+    .. versionadded:: 1.6
 
     Attributes
     -----------
@@ -1336,7 +1336,7 @@ class ForumTopicReplyUpdateEvent(_ForumTopicCommentEvent):
 class ForumTopicReplyDeleteEvent(_ForumTopicCommentEvent):
     """Represents a :gdocs:`ForumTopicCommentDeleted <websockets/ForumTopicCommentDeleted>` event for dispatching to event handlers.
 
-    .. versionadded:: 1.5
+    .. versionadded:: 1.6
 
     Attributes
     -----------

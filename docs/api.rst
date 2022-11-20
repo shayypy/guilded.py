@@ -355,6 +355,33 @@ Forums
     :param event: The event containing the payload.
     :type event: :class:`ForumTopicReactionRemoveEvent`
 
+.. function:: on_forum_topic_reply_create(event)
+
+    |nesonly|
+
+    A reply was created under a forum topic.
+
+    :param event: The event containing the payload.
+    :type event: :class:`ForumTopicReplyCreateEvent`
+
+.. function:: on_forum_topic_reply_update(event)
+
+    |nesonly|
+
+    A forum topic reply was updated.
+
+    :param event: The event containing the payload.
+    :type event: :class:`ForumTopicReplyUpdateEvent`
+
+.. function:: on_forum_topic_reply_delete(event)
+
+    |nesonly|
+
+    A forum topic reply was deleted.
+
+    :param event: The event containing the payload.
+    :type event: :class:`ForumTopicReplyDeleteEvent`
+
 Gateway
 ~~~~~~~~
 
@@ -806,6 +833,18 @@ these event wrappers closely mirrors the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: ForumTopicReactionRemoveEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: ForumTopicReplyCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: ForumTopicReplyUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: ForumTopicReplyDeleteEvent()
     :members:
     :inherited-members:
 
