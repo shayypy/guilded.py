@@ -105,6 +105,7 @@ class Permissions:
         self.bots_value: int = values.get('bots', 0)
         self.xp_value: int = values.get('xp', 0)
         self.streams_value: int = values.get('streams', 0)
+        self.socket_events_value: int = values.get('socketevents', 0)
 
     def __eq__(self, other) -> bool:
         return isinstance(other, Permissions) and (
@@ -126,6 +127,7 @@ class Permissions:
             and self.bots_value == other.bots_value
             and self.xp_value == other.xp_value
             and self.streams_value == other.streams_value
+            and self.socket_events_value == other.socket_events_value
         )
 
     def __repr__(self) -> str:
@@ -148,7 +150,8 @@ class Permissions:
             f'scheduling={self.scheduling_value} '
             f'bots={self.bots_value} '
             f'xp={self.xp_value} '
-            f'streams={self.streams_value}>'
+            f'streams={self.streams_value} '
+            f'socket_events={self.socket_events_value}>'
         )
 
     @classmethod
@@ -173,7 +176,8 @@ class Permissions:
             scheduling=11,
             bots=1,
             xp=1,
-            streams=51
+            streams=51,
+            socket_events=16,
         )
 
     @classmethod
@@ -289,6 +293,12 @@ class Permissions:
         """A factory method that creates a :class:`Permissions` with all
         "Stream" permissions set to ``True``."""
         return cls(streams=51)
+
+    @classmethod
+    def socket_events(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Socket Events" permissions set to ``True``."""
+        return cls(socket_events=16)
 
     @property
     def administrator(self) -> bool:
@@ -860,6 +870,12 @@ class Permissions:
         """:class:`bool`: Returns ``True`` if a user can send messages in
         stream channels."""
         return (self.streams_value & 32) == 32
+
+    @property
+    def receive_all_events(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a bot can receive all server
+        socket events instead of only those that match its prefix."""
+        return (self.socket_events_value & 16) == 16
 
     def update_values(self, **values):
         r"""Bulk updates this permission object with raw integer values."""
