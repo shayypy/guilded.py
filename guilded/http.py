@@ -296,6 +296,9 @@ class HTTPClientBase:
     def add_to_server_cache(self, server):
         self._servers[server.id] = server
 
+    def remove_from_server_cache(self, server_id: str):
+        self._servers.pop(server_id, None)
+
     def add_to_member_cache(self, member):
         server = member.server or self._get_server(member.server_id)
         if server:

@@ -81,6 +81,11 @@ class BotServerMembershipCreatedEvent(TypedDict):
     createdBy: str
 
 
+class BotServerMembershipDeletedEvent(TypedDict):
+    server: Server
+    deletedBy: str
+
+
 class ServerMemberJoinedEvent(_ServerEvent):
     member: ServerMember
 

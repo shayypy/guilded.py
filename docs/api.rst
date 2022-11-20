@@ -66,6 +66,18 @@ Bots
     :param member: The member that added the bot to the server. This may be ``None``, but it is unlikely in most cases.
     :type member: Optional[:class:`.Member`]
 
+.. function:: on_bot_remove(server, member)
+
+    The client user was removed from a server.
+
+    |nestype| :class:`BotRemoveEvent`
+
+    :param server: The server that the bot was removed from.
+    :type server: :class:`.Server`
+
+    :param member: The member that removed the bot from the server. This may be ``None``, especially when the server was not previously cached.
+    :type member: Optional[:class:`.Member`]
+
 Calendar Events
 ~~~~~~~~~~~~~~~~
 
@@ -670,6 +682,10 @@ these event wrappers closely mirrors the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: BotAddEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: BotRemoveEvent()
     :members:
     :inherited-members:
 

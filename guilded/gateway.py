@@ -270,7 +270,9 @@ class GuildedWebSocket:
             except:
                 pass
 
-            if server:
+            # Edge case for being provided a server
+            # despite no longer being a member of it
+            if server and t != 'BotServerMembershipDeleted':
                 if should_fill:
                     await server.fill_members()
 
@@ -454,6 +456,15 @@ class WebSocketEventParsers:
             self.client.dispatch(event)
         else:
             self.client.dispatch('bot_add', event.server, event.member)
+
+    async def parse_bot_server_membership_deleted(self, data: gw.BotServerMembershipDeletedEvent):
+        event = ev.BotRemoveEvent(self._state, data)
+        if self._exp_style:
+            self.client.dispatch(event)
+        else:
+            self.client.dispatch('bot_remove', event.server, event.member)
+
+        self._state.remove_from_server_cache(event.server.id)
 
     async def parse_server_member_joined(self, data: gw.ServerMemberJoinedEvent):
         if self._exp_style:
