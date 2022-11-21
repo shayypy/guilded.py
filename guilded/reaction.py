@@ -57,6 +57,10 @@ class Reaction:
         The content that the reaction is on.
     emote: :class:`.Emote`
         The emote that the reaction shows.
+    user: Optional[Union[:class:`.Member`, :class:`~guilded.User`]]
+        If in the context of a reaction event, this is the user who added or
+        removed the reaction.
+        For most cases, :meth:`.users` should be used instead.
     """
 
     __slots__ = (
@@ -67,6 +71,7 @@ class Reaction:
         'channel_id',
         'message_id',
         '_user_id',
+        'user',
         'emote',
     )
 
@@ -78,6 +83,12 @@ class Reaction:
         self.channel_id = data.get('channelId')
         self.message_id = data.get('messageId')
         self._user_id = data.get('createdBy')
+        user = None
+        if parent.server and self._user_id:
+            user = parent.server.get_member(self._user_id)
+        if not user and self._user_id:
+            user = self._state._get_user(self._user_id)
+        self.user: Optional[Union[Member, User]] = user
 
         self.emote = Emote(state=self._state, data=data['emote'])
 
