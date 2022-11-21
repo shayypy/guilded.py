@@ -345,11 +345,11 @@ class Client:
                     channel = message.channel
                     await channel.send('Send me that \N{THUMBS UP SIGN} reaction, mate')
 
-                    def check(reaction, user):
-                        return user == message.author and reaction.emote.id == 90001164  # https://gist.github.com/shayypy/8e492ad2d8801bfd38415986f68a547e
+                    def check(reaction):
+                        return reaction.user == message.author and reaction.emote.id == 90001164  # https://gist.github.com/shayypy/8e492ad2d8801bfd38415986f68a547e
 
                     try:
-                        reaction, user = await client.wait_for('message_reaction_add', timeout=60.0, check=check)
+                        reaction = await client.wait_for('message_reaction_add', timeout=60.0, check=check)
                     except asyncio.TimeoutError:
                         await channel.send('\N{THUMBS DOWN SIGN}')
                     else:
