@@ -826,8 +826,8 @@ class ChatMessage(Hashable, HasContentMixin):
 
         Parameters
         -----------
-        :class:`.Emote`
-            The emote to react with.
+        emote: :class:`.Emote`
+            The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
         await self._state.add_reaction_emote(self.channel_id, self.id, emote_id)
@@ -839,7 +839,7 @@ class ChatMessage(Hashable, HasContentMixin):
 
         Parameters
         -----------
-        :class:`.Emote`
+        emote: :class:`.Emote`
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
