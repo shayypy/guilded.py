@@ -1,29 +1,39 @@
 .. currentmodule:: guilded
 
-How to Create Client Accounts
-==============================
+How to Create a Bot Account
+============================
 
-At present, the bot API uses the flowbot interface as a way to manage bots. This will change in the future.
+1. Navigate to the "Manage bots" page in your server and press "Create a bot".
 
-1. Navigate to the bots page in your whitelisted server and press "Create a bot".
+    .. image:: /images/creating/manage_bots.png
 
-    .. image:: /images/creating/bot-create_a_bot.png
+    .. image:: /images/creating/create_a_bot.png
 
-2. Give your bot a name and click "Save changes" at the bottom-left of the interface. Don't worry about flows, you don't need to add any.
+2. Give your bot a name and click "Create".
 
-    .. image:: /images/creating/bot-name_save.png
+    .. image:: /images/creating/name_create.png
 
-3. Open the bot's context menu by clicking on the three dots, then select "Manage auth tokens".
+3. Navigate to the "API" tab.
 
-    .. image:: /images/creating/bot-manage_auth_tokens.png
+    .. warning::
 
-4. Click the "Generate token" button and copy the newly generated token.
+        You must set a prefix (in the "General" section) if you want to be able to receive command
+        messages without requiring the "Receive all socket events" permission.
+
+        If your bot uses multiple prefixes or processes messages that are not commands, keep in
+        mind that users must keep this permission enabled for your bot.
+        Otherwise, just set your prefix and you will receive all messages that match it, regardless
+        of if you have the permission.
+
+4. Scroll down to "Tokens" and press "Generate token". Copy the newly generated token.
 
     - Guilded will never show you this token again. You may create multiple auth tokens and delete them individually in the event that one of them gets leaked.
-    - You can see when a token was last used in this auth tokens menu in case you are suspicious that it has been leaked.
+    - You can see when a token was last used in this section in case you suspect that it has been leaked.
       This timestamp ("Last used") exposes when an API request was last made with it, or when it was last used to connect to the gateway.
 
-    .. image:: /images/creating/bot-generate_token.png
+    .. image:: /images/creating/manage_tokens.png
+
+    .. image:: /images/creating/generate_token.png
 
     .. danger::
 
@@ -40,17 +50,13 @@ You can now use this auth token (or any others you create) to authenticate with 
 Publishing Your Bot
 --------------------
 
-Once your bot is ready to release into the wild, you can publish it by pressing "Publish" in the bot's context menu.
+Once your bot is ready to release into the wild, you can publish it by enabling the "Publish bot" toggle in the bot's API tab.
 
-.. image:: /images/publishing/publish_bot.png
-
-.. warning::
-
-    Currently, you cannot unpublish or delete a bot once it has been published.
+.. image:: /images/publishing/publish.png
 
 This will create a link that anyone can use to invite your bot to their server.
-It has permissions built-in; the bot's permissions as dictated by its highest
-role in the internal server will be the default permissions that users see when
-they invite your bot.
+It has permissions built-in, which can be customized in the "Bot Permissions" drop-down.
+When users invite your bot, a role will be created with the permissions you configured.
 
-.. image:: /images/publishing/published.png
+To unpublish your bot, toggle the "Publish bot" switch once more and input the confirmation phrase
+("Unpublish <bot name>"), then save your changes.
