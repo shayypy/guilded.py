@@ -49,3 +49,7 @@ class ForumTopicReaction(TypedDict):
     forumTopicId: int
     createdBy: str
     emote: Emote
+
+
+class ForumTopicCommentReaction(ForumTopicReaction):
+    forumTopicCommentId: int

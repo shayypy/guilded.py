@@ -673,6 +673,12 @@ class HTTPClient(HTTPClientBase):
     def remove_forum_topic_reaction_emote(self, channel_id: str, topic_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}/emotes/{emote_id}'))
 
+    def add_forum_topic_comment_reaction_emote(self, channel_id: str, topic_id: int, comment_id: int, emote_id: int):
+        return self.request(Route('PUT', f'/channels/{channel_id}/topics/{topic_id}/comments/{comment_id}/emotes/{emote_id}'))
+
+    def remove_forum_topic_comment_reaction_emote(self, channel_id: str, topic_id: int, comment_id: int, emote_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}/comments/{comment_id}/emotes/{emote_id}'))
+
     def create_list_item(self, channel_id: str, *, message: str, note_content: Optional[str] = None):
         payload = {
             'message': message,
