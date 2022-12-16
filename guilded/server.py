@@ -65,7 +65,7 @@ from .group import Group
 from .mixins import Hashable
 from .role import Role
 from .user import Member, MemberBan
-from .utils import ISO8601, Object, get, find
+from .utils import ISO8601, get, find
 
 if TYPE_CHECKING:
     from .types.server import Server as ServerPayload
