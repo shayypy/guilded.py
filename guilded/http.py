@@ -388,6 +388,9 @@ class HTTPClientBase:
     def get_user(self, user_id: str):
         return self.request(Route('GET', f'/users/{user_id}', override_base=Route.USER_BASE))
 
+    def get_my_user(self):
+        return self.request(Route('GET', '/users/@me'))
+
     # /content
 
     def get_metadata(self, route: str):
