@@ -451,7 +451,7 @@ class Server(Hashable):
 
         Leave the server.
         """
-        await self.kick(Object(self._state.my_id))
+        await self._state.kick_member(self.id, '@me')
 
     async def _create_channel(
         self,

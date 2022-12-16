@@ -391,12 +391,14 @@ class Object(Hashable):
             raise TypeError(f'id must be type str or int, not {id.__class__.__name__}')
 
         if isinstance(id, str):
-            # Could be a UUID (https://guildedapi.com/reference/#snowflakes-uuids) or generic ID (https://guildedapi.com/reference/#generic-object-ids)
-            try:
-                UUID(id)
-            except ValueError:
-                if not _GENERIC_ID_REGEX.match(id):
-                    raise ValueError(f'not a valid ID: {id!r}')
+            # https://guildedapi.com/reference/#ids
+            # Could be "@me" (the current user, valid for most endpoints), a UUID, or a generic ID
+            if id != '@me':
+                try:
+                    UUID(id)
+                except ValueError:
+                    if not _GENERIC_ID_REGEX.match(id):
+                        raise ValueError(f'not a valid ID: {id!r}')
 
         # Else, could be a role or emoji ID, or even a Discord snowflake in
         # the case of syncing.
