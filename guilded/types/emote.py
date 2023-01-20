@@ -31,3 +31,4 @@ class Emote(TypedDict):
     id: int
     name: str
     url: str
+    serverId: NotRequired[str]
