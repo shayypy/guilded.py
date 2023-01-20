@@ -772,6 +772,18 @@ class WebSocketEventParsers:
             event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=channel)
             self.client.dispatch('calendar_event_delete', event)
 
+    async def parse_calendar_event_reaction_created(self, data: gw.CalendarEventReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.calendar)
+            event = ev.CalendarEventReactionAddEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_calendar_event_reaction_deleted(self, data: gw.CalendarEventReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.calendar)
+            event = ev.CalendarEventReactionRemoveEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
     async def parse_forum_topic_created(self, data: gw.ForumTopicEvent):
         if self._exp_style:
             channel = await self._force_resolve_channel(data['serverId'], data['forumTopic']['channelId'], ChannelType.forums)

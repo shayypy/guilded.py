@@ -29,26 +29,22 @@ from typing_extensions import NotRequired
 from .emote import Emote
 
 
-class ContentReaction(TypedDict):
-    id: int
-    serverId: NotRequired[str]
-    createdAt: str
-    createdBy: str
-    createdByWebhookId: NotRequired[str]
-
-
-class ChannelMessageReaction(TypedDict):
+class _ContentReaction(TypedDict):
     channelId: str
+    createdBy: str
+    emote: Emote
+
+
+class ChannelMessageReaction(_ContentReaction):
     messageId: str
-    createdBy: str
-    emote: Emote
 
 
-class ForumTopicReaction(TypedDict):
-    channelId: str
+class CalendarEventReaction(_ContentReaction):
+    calendarEventId: int
+
+
+class ForumTopicReaction(_ContentReaction):
     forumTopicId: int
-    createdBy: str
-    emote: Emote
 
 
 class ForumTopicCommentReaction(ForumTopicReaction):

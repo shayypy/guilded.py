@@ -34,7 +34,7 @@ from .doc import Doc
 from .forum_topic import ForumTopic, ForumTopicComment
 from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
-from .reaction import ChannelMessageReaction, ForumTopicCommentReaction, ForumTopicReaction
+from .reaction import ChannelMessageReaction, CalendarEventReaction, ForumTopicCommentReaction, ForumTopicReaction
 from .user import ServerMember, ServerMemberBan, User
 from .webhook import Webhook
 
@@ -137,6 +137,10 @@ class DocEvent(_ServerEvent):
 
 class CalendarEventEvent(_ServerEvent):
     calendarEvent: CalendarEvent
+
+
+class CalendarEventReactionEvent(_ServerEvent):
+    reaction: CalendarEventReaction
 
 
 class ForumTopicEvent(_ServerEvent):

@@ -724,6 +724,32 @@ class CalendarEvent(Hashable, HasContentMixin):
 
         return rsvps
 
+    async def add_reaction(self, emote: Emote, /) -> None:
+        """|coro|
+
+        Add a reaction to this event.
+
+        Parameters
+        -----------
+        emote: :class:`.Emote`
+            The emote to add.
+        """
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.add_calendar_event_reaction_emote(self.channel_id, self.id, emote_id)
+
+    async def remove_self_reaction(self, emote: Emote, /) -> None:
+        """|coro|
+
+        Remove one of your reactions from this event.
+
+        Parameters
+        -----------
+        emote: :class:`.Emote`
+            The emote to remove.
+        """
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.remove_calendar_event_reaction_emote(self.channel_id, self.id, emote_id)
+
 
 class CalendarEventRSVP:
     """Represents an RSVP to a :class:`CalendarEvent`.
