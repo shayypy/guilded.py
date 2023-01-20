@@ -99,6 +99,8 @@ class Emote(Hashable, AssetMixin):
         The emote's name.
     stock: :class:`bool`
         Whether the emote is a stock emote (Unicode or by Guilded).
+    server_id: Optional[:class:`str`]
+        The ID of the server that the emote is from, if any.
     """
 
     def __init__(self, *, state, data: EmotePayload, **extra):
