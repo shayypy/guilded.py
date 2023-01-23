@@ -26,6 +26,7 @@ from __future__ import annotations
 from typing import Literal, TypedDict
 from typing_extensions import NotRequired
 
+from .comment import ContentComment
 from .channel import Mentions
 
 
@@ -63,3 +64,7 @@ class CalendarEventRsvp(TypedDict):
     createdAt: str
     updatedBy: NotRequired[str]
     updatedAt: NotRequired[str]
+
+
+class CalendarEventComment(ContentComment):
+    calendarEventId: int

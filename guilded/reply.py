@@ -55,13 +55,117 @@ from typing import TYPE_CHECKING
 from .abc import Reply
 
 if TYPE_CHECKING:
-    from .channel import ForumTopic
+    from .types.calendar_event import CalendarEventComment
+    from .types.forum_topic import ForumTopicComment
+
+    from .channel import CalendarEvent, ForumTopic
     from .emote import Emote
 
 
 __all__ = (
+    'CalendarEventReply',
     'ForumTopicReply',
 )
+
+
+class CalendarEventReply(Reply):
+    """Represents a reply to a :class:`CalendarEvent`.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two replies are equal.
+
+        .. describe:: x != y
+
+            Checks if two replies are not equal.
+
+        .. describe:: hash(x)
+
+            Returns the reply's hash.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    id: :class:`int`
+        The reply's ID.
+    content: :class:`str`
+        The reply's content.
+    parent: :class:`.CalendarEvent`
+        The event that the reply is a child of.
+    parent_id: :class:`int`
+        The ID of the parent event.
+    created_at: :class:`datetime.datetime`
+        When the reply was created.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the reply was last updated.
+    """
+
+    __slots__ = (
+        'parent',
+        'parent_id',
+    )
+
+    def __init__(self, *, state, data: CalendarEventComment, parent: CalendarEvent):
+        self.parent: CalendarEvent = parent
+        self.parent_id: int = data.get('calendarEventId')
+
+        super().__init__(state=state, data=data)
+
+    async def edit(
+        self,
+        *,
+        content: str,
+    ) -> CalendarEventReply:
+        """|coro|
+
+        Edit this reply.
+
+        Parameters
+        -----------
+        content: :class:`str`
+            The content of the reply.
+
+        Returns
+        --------
+        :class:`CalendarEventReply`
+            The updated reply.
+
+        Raises
+        -------
+        NotFound
+            This reply does not exist.
+        Forbidden
+            You do not have permission to update this reply.
+        HTTPException
+            Failed to update this reply.
+        """
+
+        payload = {
+            'content': content,
+        }
+
+        data = await self._state.update_calendar_event_comment(self.parent.channel_id, self.parent_id, self.id, payload=payload)
+        return CalendarEventReply(state=self._state, data=data['calendarEventComment'], parent=self.parent)
+
+    async def delete(self) -> None:
+        """|coro|
+
+        Delete this reply.
+
+        Raises
+        -------
+        NotFound
+            This reply does not exist.
+        Forbidden
+            You do not have permission to delete this reply.
+        HTTPException
+            Failed to delete this reply.
+        """
+
+        await self._state.delete_calendar_event_comment(self.parent.channel_id, self.parent_id, self.id)
 
 
 class ForumTopicReply(Reply):
@@ -99,9 +203,16 @@ class ForumTopicReply(Reply):
         When the reply was last updated.
     """
 
-    if TYPE_CHECKING:
-        parent: ForumTopic
-        parent_id: int
+    __slots__ = (
+        'parent',
+        'parent_id',
+    )
+
+    def __init__(self, *, state, data: ForumTopicComment, parent: ForumTopic):
+        self.parent: ForumTopic = parent
+        self.parent_id: int = data.get('forumTopicId')
+
+        super().__init__(state=state, data=data)
 
     async def edit(
         self,

@@ -68,11 +68,9 @@ from .utils import ISO8601, MISSING
 if TYPE_CHECKING:
     from .types.user import User as UserPayload
     from .types.channel import ServerChannel as ServerChannelPayload
-    from .types.forum_topic import ForumTopicComment
+    from .types.comment import ContentComment
 
-    from .channel import ForumTopic
     from .embed import Embed
-    from .emote import Emote
     from .group import Group
     from .server import Server
     from .user import Member
@@ -662,14 +660,9 @@ class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
     Attributes
     -----------
     id: :class:`int`
-        The reply's ID. For non-forum replies,
-        this is an incremental ID starting at ``1`` under each parent.
+        The reply's ID.
     content: :class:`str`
         The reply's content.
-    parent: :class:`.ForumTopic`
-        The content that the reply is a child of.
-    parent_id: Union[:class:`int`, :class:`str`]
-        The ID of the reply's parent.
     created_at: :class:`datetime.datetime`
         When the reply was created.
     updated_at: Optional[:class:`datetime.datetime`]
@@ -682,19 +675,15 @@ class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
         'author_id',
         'created_at',
         'updated_at',
-        'parent',
-        'parent_id',
         'channel_id',
         'replied_to_id',
         'replied_to_author_id',
         '_state',
     )
 
-    def __init__(self, *, state, data: ForumTopicComment, parent: ForumTopic):
+    def __init__(self, *, state, data: ContentComment):
         super().__init__()
         self._state = state
-        self.parent = parent
-        self.parent_id: Union[int, str] = data.get('forumTopicId')
         self.channel_id: str = data.get('channelId')
 
         self.id: int = int(data['id'])
@@ -708,7 +697,7 @@ class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
         self.replied_to_author_id: Optional[str] = None
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__} id={self.id!r} author={self.author!r} parent={self.parent!r}>'
+        return f'<{self.__class__.__name__} id={self.id!r} author={self.author!r}>'
 
     @property
     def _content_type(self) -> str:
@@ -751,18 +740,13 @@ class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
 
         return self
 
-    def _update(self, data) -> None:
+    def _update(self, data: ContentComment) -> None:
         try:
-            self.content = self._get_full_content(data['message'])
+            self.content = data['content']
         except KeyError:
             pass
 
         try:
-            self.updated_at = ISO8601(data['editedAt'])
-        except KeyError:
-            pass
-
-        try:
-            self.updated_by_id = data['updatedBy']
+            self.updated_at = ISO8601(data['updatedAt'])
         except KeyError:
             pass

@@ -23,9 +23,10 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import Optional, TypedDict
+from typing import TypedDict
 from typing_extensions import NotRequired
 
+from .comment import ContentComment
 from .channel import Mentions
 
 
@@ -48,11 +49,6 @@ class ForumTopic(ForumTopicSummary):
     mentions: NotRequired[Mentions]
 
 
-class ForumTopicComment(TypedDict):
-    id: int
-    content: str
-    createdAt: str
-    updatedAt: NotRequired[Optional[str]]
+class ForumTopicComment(ContentComment):
     forumTopicId: int
-    channelId: str
-    createdBy: str
+    mentions: NotRequired[Mentions]
