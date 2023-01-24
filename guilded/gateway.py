@@ -784,6 +784,39 @@ class WebSocketEventParsers:
             event = ev.CalendarEventReactionRemoveEvent(self._state, data, channel)
             self.client.dispatch(event)
 
+    async def parse_calendar_event_comment_created(self, data: gw.CalendarEventCommentEvent):
+        if self._exp_style:
+            channel: CalendarChannel = await self._force_resolve_channel(data['serverId'], data['calendarEventComment']['channelId'], ChannelType.calendar)
+            try:
+                calendar_event = await channel.fetch_event(data['calendarEventComment']['calendarEventId'])
+            except HTTPException:
+                return
+
+            event = ev.CalendarEventReplyCreateEvent(self._state, data, calendar_event)
+            self.client.dispatch(event)
+
+    async def parse_calendar_event_comment_updated(self, data: gw.CalendarEventCommentEvent):
+        if self._exp_style:
+            channel: CalendarChannel = await self._force_resolve_channel(data['serverId'], data['calendarEventComment']['channelId'], ChannelType.calendar)
+            try:
+                calendar_event = await channel.fetch_event(data['calendarEventComment']['calendarEventId'])
+            except HTTPException:
+                return
+
+            event = ev.CalendarEventReplyUpdateEvent(self._state, data, calendar_event)
+            self.client.dispatch(event)
+
+    async def parse_calendar_event_comment_deleted(self, data: gw.CalendarEventCommentEvent):
+        if self._exp_style:
+            channel: CalendarChannel = await self._force_resolve_channel(data['serverId'], data['calendarEventComment']['channelId'], ChannelType.calendar)
+            try:
+                calendar_event = await channel.fetch_event(data['calendarEventComment']['calendarEventId'])
+            except HTTPException:
+                return
+
+            event = ev.CalendarEventReplyDeleteEvent(self._state, data, calendar_event)
+            self.client.dispatch(event)
+
     async def parse_forum_topic_created(self, data: gw.ForumTopicEvent):
         if self._exp_style:
             channel = await self._force_resolve_channel(data['serverId'], data['forumTopic']['channelId'], ChannelType.forums)

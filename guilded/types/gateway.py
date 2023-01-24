@@ -28,7 +28,7 @@ from typing_extensions import NotRequired
 
 from guilded.types.server import Server
 
-from .calendar_event import CalendarEvent, CalendarEventRsvp
+from .calendar_event import CalendarEvent, CalendarEventComment, CalendarEventRsvp
 from .channel import ServerChannel
 from .doc import Doc
 from .forum_topic import ForumTopic, ForumTopicComment
@@ -141,6 +141,10 @@ class CalendarEventEvent(_ServerEvent):
 
 class CalendarEventReactionEvent(_ServerEvent):
     reaction: CalendarEventReaction
+
+
+class CalendarEventCommentEvent(_ServerEvent):
+    calendarEventComment: CalendarEventComment
 
 
 class ForumTopicEvent(_ServerEvent):

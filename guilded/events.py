@@ -42,7 +42,7 @@ from .channel import (
 )
 from .emote import Emote
 from .message import ChatMessage
-from .reply import ForumTopicReply
+from .reply import CalendarEventReply, ForumTopicReply
 from .user import Member, MemberBan
 from .utils import ISO8601
 from .webhook.async_ import Webhook
@@ -88,6 +88,9 @@ __all__ = (
     'CalendarEventDeleteEvent',
     'CalendarEventReactionAddEvent',
     'CalendarEventReactionRemoveEvent',
+    'CalendarEventReplyCreateEvent',
+    'CalendarEventReplyUpdateEvent',
+    'CalendarEventReplyDeleteEvent',
     'RsvpUpdateEvent',
     'RsvpDeleteEvent',
     'BulkRsvpCreateEvent',
@@ -1020,6 +1023,96 @@ class CalendarEventReactionRemoveEvent(_CalendarEventReactionEvent):
 
     __gateway_event__ = 'CalendarEventReactionDeleted'
     __dispatch_event__ = 'calendar_event_reaction_remove'
+
+
+class _CalendarEventCommentEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'channel',
+        'calendar_event',
+        'reply',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.CalendarEventCommentEvent,
+        /,
+        event: CalendarEvent,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel = event.channel
+        self.calendar_event = event
+        self.reply = CalendarEventReply(state=state, data=data['calendarEventComment'], parent=event)
+
+
+class CalendarEventReplyCreateEvent(_CalendarEventCommentEvent):
+    """Represents a :gdocs:`CalendarEventCommentCreated <websockets/CalendarEventCommentCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply is in.
+    server: :class:`Server`
+        The server that the reply is in.
+    channel: :class:`CalendarChannel`
+        The channel that the reply is in.
+    calendar_event: :class:`CalendarEvent`
+        The event that the reply is under.
+    reply: :class:`CalendarEventReply`
+        The reply that was created.
+    """
+
+    __gateway_event__ = 'CalendarEventCommentCreated'
+    __dispatch_event__ = 'calendar_event_reply_create'
+
+
+class CalendarEventReplyUpdateEvent(_CalendarEventCommentEvent):
+    """Represents a :gdocs:`CalendarEventCommentUpdated <websockets/CalendarEventCommentUpdated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply is in.
+    server: :class:`Server`
+        The server that the reply is in.
+    channel: :class:`CalendarChannel`
+        The channel that the reply is in.
+    calendar_event: :class:`CalendarEvent`
+        The event that the reply is under.
+    reply: :class:`CalendarEventReply`
+        The reply that was updated.
+    """
+
+    __gateway_event__ = 'CalendarEventCommentUpdated'
+    __dispatch_event__ = 'calendar_event_reply_update'
+
+
+class CalendarEventReplyDeleteEvent(_CalendarEventCommentEvent):
+    """Represents a :gdocs:`CalendarEventCommentDeleted <websockets/CalendarEventCommentDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply was in.
+    server: :class:`Server`
+        The server that the reply was in.
+    channel: :class:`CalendarChannel`
+        The channel that the reply was in.
+    calendar_event: :class:`CalendarEvent`
+        The event that the reply was under.
+    reply: :class:`CalendarEventReply`
+        The reply that was deleted.
+    """
+
+    __gateway_event__ = 'CalendarEventCommentDeleted'
+    __dispatch_event__ = 'calendar_event_reply_delete'
 
 
 class _CalendarEventRsvpEvent(ServerEvent):
