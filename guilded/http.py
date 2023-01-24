@@ -772,6 +772,24 @@ class HTTPClient(HTTPClientBase):
     def remove_calendar_event_reaction_emote(self, channel_id: str, event_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/events/{event_id}/emotes/{emote_id}'))
 
+    def create_calendar_event_comment(self, channel_id: str, event_id: int, *, content: str):
+        payload = {
+            'content': content,
+        }
+        return self.request(Route('POST', f'/channels/{channel_id}/events/{event_id}/comments'), json=payload)
+
+    def get_calendar_event_comment(self, channel_id: str, event_id: int, comment_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/events/{event_id}/comments/{comment_id}'))
+
+    def get_calendar_event_comments(self, channel_id: str, event_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/events/{event_id}/comments'))
+
+    def update_calendar_event_comment(self, channel_id: str, event_id: int, comment_id: int, *, payload: Dict[str, Any]):
+        return self.request(Route('PATCH', f'/channels/{channel_id}/events/{event_id}/comments/{comment_id}'), json=payload)
+
+    def delete_calendar_event_comment(self, channel_id: str, event_id: int, comment_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/events/{event_id}/comments/{comment_id}'))
+
     def get_calendar_event_rsvp(self, channel_id: str, event_id: int, user_id: str):
         return self.request(Route('GET', f'/channels/{channel_id}/events/{event_id}/rsvps/{user_id}'))
 

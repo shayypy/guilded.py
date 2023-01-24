@@ -63,7 +63,7 @@ from .enums import ChannelType, FileType, RSVPStatus, try_enum
 from .group import Group
 from .message import HasContentMixin
 from .mixins import Hashable
-from .reply import ForumTopicReply
+from .reply import CalendarEventReply, ForumTopicReply
 from .user import Member
 from .utils import GUILDED_EPOCH_DATETIME, MISSING, ISO8601, Object
 from .status import Game
@@ -749,6 +749,89 @@ class CalendarEvent(Hashable, HasContentMixin):
         """
         emote_id: int = getattr(emote, 'id', emote)
         await self._state.remove_calendar_event_reaction_emote(self.channel_id, self.id, emote_id)
+
+    async def reply(self, content: str) -> CalendarEventReply:
+        """|coro|
+
+        Reply to this event.
+
+        .. versionadded:: 1.7
+
+        Parameters
+        -----------
+        content: :class:`str`
+            The content of the reply.
+
+        Returns
+        --------
+        :class:`CalendarEventReply`
+            The created reply.
+
+        Raises
+        -------
+        NotFound
+            This event does not exist.
+        Forbidden
+            You do not have permission to reply to this event.
+        HTTPException
+            Failed to reply to this event.
+        """
+
+        data = await self._state.create_calendar_event_comment(self.channel_id, self.id, content=content)
+        return CalendarEventReply(state=self._state, data=data['calendarEventComment'], parent=self)
+
+    async def fetch_reply(self, reply_id: int, /) -> CalendarEventReply:
+        """|coro|
+
+        Fetch a reply to this event.
+
+        .. versionadded:: 1.7
+
+        Returns
+        --------
+        :class:`CalendarEventReply`
+            The reply from the ID.
+
+        Raises
+        -------
+        NotFound
+            This reply or topic does not exist.
+        Forbidden
+            You do not have permission to read this event's replies.
+        HTTPException
+            Failed to fetch the reply.
+        """
+
+        data = await self._state.get_calendar_event_comment(self.channel_id, self.id, reply_id)
+        return CalendarEventReply(state=self._state, data=data['calendarEventComment'], parent=self)
+
+    async def fetch_replies(self) -> List[CalendarEventReply]:
+        """|coro|
+
+        Fetch all replies to this event.
+
+        .. versionadded:: 1.7
+
+        Returns
+        --------
+        List[:class:`CalendarEventReply`]
+            The replies under the event.
+
+        Raises
+        -------
+        NotFound
+            This event does not exist.
+        Forbidden
+            You do not have permission to read this event's replies.
+        HTTPException
+            Failed to fetch the replies to this event.
+        """
+
+        data = await self._state.get_calendar_event_comments(self.channel_id, self.id)
+        return [
+            CalendarEventReply(state=self._state, data=reply_data, parent=self)
+            for reply_data in data['calendarEventComments']
+        ]
 
 
 class CalendarEventRSVP:
