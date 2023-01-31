@@ -752,7 +752,7 @@ Event Wrappers
 
 With the :ref:`event style experiment <event-experiment>` enabled, many event
 handlers will receive one of the following subclasses. The basic structure of
-these event wrappers closely mirrors the payloads provided by the Guilded API.
+these event wrappers closely mirror the payloads provided by the Guilded API.
 
 .. versionadded:: 1.3
 
