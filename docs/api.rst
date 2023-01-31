@@ -153,6 +153,24 @@ Calendar Events
     :param event: The event containing the payload.
     :type event: :class:`CalendarEventReplyDeleteEvent`
 
+.. function:: on_calendar_event_reply_reaction_add(event)
+
+    |nesonly|
+
+    A reaction was added to a reply under a calendar event.
+
+    :param event: The event containing the payload.
+    :type event: :class:`CalendarEventReplyReactionAddEvent`
+
+.. function:: on_calendar_event_reply_reaction_remove(event)
+
+    |nesonly|
+
+    A reaction was removed from a reply under a calendar event.
+
+    :param event: The event containing the payload.
+    :type event: :class:`CalendarEventReplyReactionRemoveEvent`
+
 .. function:: on_rsvp_update(event)
 
     |nesonly|
@@ -868,6 +886,14 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: CalendarEventReplyDeleteEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: CalendarEventReplyReactionAddEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: CalendarEventReplyReactionRemoveEvent()
     :members:
     :inherited-members:
 

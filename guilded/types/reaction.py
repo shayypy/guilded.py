@@ -43,6 +43,10 @@ class CalendarEventReaction(_ContentReaction):
     calendarEventId: int
 
 
+class CalendarEventCommentReaction(CalendarEventReaction):
+    calendarEventCommentId: int
+
+
 class ForumTopicReaction(_ContentReaction):
     forumTopicId: int
 

@@ -1115,6 +1115,98 @@ class CalendarEventReplyDeleteEvent(_CalendarEventCommentEvent):
     __dispatch_event__ = 'calendar_event_reply_delete'
 
 
+class _CalendarEventReplyReactionEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'channel_id',
+        'event_id',
+        'reply_id',
+        'user_id',
+        'emote',
+        'channel',
+        'member',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.CalendarEventCommentReactionEvent,
+        /,
+        channel: CalendarChannel,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel_id = data['reaction']['channelId']
+        self.event_id = data['reaction']['calendarEventId']
+        self.reply_id = data['reaction']['calendarEventCommentId']
+        self.user_id = data['reaction']['createdBy']
+        self.emote = Emote(state=state, data=data['reaction']['emote'])
+
+        self.channel = channel
+        self.member = self.server.get_member(self.user_id)
+
+
+class CalendarEventReplyReactionAddEvent(_CalendarEventReplyReactionEvent):
+    """Represents a :gdocs:`CalendarEventCommentReactionCreated <websockets/CalendarEventCommentReactionCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reaction is in.
+    server: :class:`Server`
+        The server that the reaction is in.
+    channel: :class:`ForumChannel`
+        The channel that the reaction is in.
+    member: Optional[:class:`Member`]
+        The member that added the reaction, if they are cached.
+    channel_id: :class:`str`
+        The ID of the channel that the reaction is in.
+    event_id: :class:`int`
+        The ID of the calendar event that the reply is under.
+    reply_id: :class:`int`
+        The ID of the reply that the reaction is on.
+    user_id: :class:`str`
+        The ID of the user that added the reaction.
+    emote: :class:`Emote`
+        The emote that the reaction shows.
+    """
+
+    __gateway_event__ = 'CalendarEventCommentReactionCreated'
+    __dispatch_event__ = 'calendar_event_reply_reaction_add'
+
+
+class CalendarEventReplyReactionRemoveEvent(_CalendarEventReplyReactionEvent):
+    """Represents a :gdocs:`CalendarEventCommentReactionDeleted <websockets/CalendarEventCommentReactionDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reaction is in.
+    server: :class:`Server`
+        The server that the reaction is in.
+    channel: :class:`ForumChannel`
+        The channel that the reaction is in.
+    member: Optional[:class:`Member`]
+        The member that added the reaction, if they are cached.
+    channel_id: :class:`str`
+        The ID of the channel that the reaction is in.
+    event_id: :class:`int`
+        The ID of the calendar event that the reply is under.
+    reply_id: :class:`int`
+        The ID of the reply that the reaction is on.
+    user_id: :class:`str`
+        The ID of the user that added the reaction.
+    emote: :class:`Emote`
+        The emote that the reaction shows.
+    """
+
+    __gateway_event__ = 'CalendarEventCommentReactionDeleted'
+    __dispatch_event__ = 'calendar_event_reply_reaction_remove'
+
+
 class _CalendarEventRsvpEvent(ServerEvent):
     __slots__: Tuple[str, ...] = (
         'event',
