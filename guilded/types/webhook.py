@@ -71,6 +71,7 @@ class _UserWebhook(TypedDict, total=False):
 
 
 class _Webhook(TypedDict, total=False):
+    avatar: NotRequired[str]
     serverId: str
 
 
