@@ -32,7 +32,7 @@ from .channel import Mentions
 
 class CalendarEventCancellation(TypedDict):
     description: NotRequired[str]
-    createdBy: NotRequired[str]
+    createdBy: str
 
 
 class CalendarEvent(TypedDict):

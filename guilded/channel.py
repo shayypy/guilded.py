@@ -495,7 +495,7 @@ class CalendarEvent(Hashable, HasContentMixin):
 
     @property
     def cancelled_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The member that cancelled the event, if any.
+        """Optional[:class:`.Member`]: The member that cancelled the event, if applicable.
 
         There is an alias for this attribute called :attr:`.canceled_by`.
         """
@@ -503,7 +503,7 @@ class CalendarEvent(Hashable, HasContentMixin):
 
     @property
     def canceled_by(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The member that canceled the event, if any.
+        """Optional[:class:`.Member`]: The member that canceled the event, if applicable.
 
         There is an alias for this attribute called :attr:`.cancelled_by`.
         """
