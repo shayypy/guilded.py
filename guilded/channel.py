@@ -729,6 +729,8 @@ class CalendarEvent(Hashable, HasContentMixin):
 
         Add a reaction to this event.
 
+        .. versionadded:: 1.7
+
         Parameters
         -----------
         emote: :class:`.Emote`
@@ -741,6 +743,8 @@ class CalendarEvent(Hashable, HasContentMixin):
         """|coro|
 
         Remove one of your reactions from this event.
+
+        .. versionadded:: 1.7
 
         Parameters
         -----------
