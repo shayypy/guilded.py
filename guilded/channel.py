@@ -373,6 +373,14 @@ class CalendarEvent(Hashable, HasContentMixin):
         users while creating the event.
     private: :class:`bool`
         Whether the event is private.
+    repeats: :class:`bool`
+        Whether the event is set to repeat.
+
+        .. versionadded:: 1.7
+    rsvp_limit: Optional[:class:`int`]
+        The number of RSVPs to allow before waitlisting RSVPs.
+
+        .. versionadded:: 1.7
     duration: Optional[:class:`datetime.timedelta`]
         The duration of the event. Minimum 60 seconds.
     cancellation_description: Optional[:class:`str`]
@@ -396,6 +404,8 @@ class CalendarEvent(Hashable, HasContentMixin):
         'starts_at',
         'created_at',
         'private',
+        'repeats',
+        'rsvp_limit',
         '_colour',
         'duration',
         'cancellation_description',
@@ -422,6 +432,8 @@ class CalendarEvent(Hashable, HasContentMixin):
         self.starts_at: datetime.datetime = ISO8601(data.get('startsAt'))
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.private = data.get('isPrivate') or False
+        self.repeats = data.get('repeats') or False
+        self.rsvp_limit = data.get('rsvpLimit')
         self._colour = data.get('color')
 
         self.duration: Optional[datetime.timedelta]
