@@ -1506,6 +1506,20 @@ API from being stringly typed in case the strings change in the future.
 
         The event will repeat every Saturday.
 
+.. class:: DeleteSeriesType
+
+    Controls deletion behavior of calendar events in a series.
+
+    .. versionadded:: 1.7
+
+    .. attribute:: all
+
+        All events in the series will be deleted.
+
+    .. attribute:: forward
+
+        Only the event and future items in its series will be deleted.
+
 
 Utility Functions
 ------------------

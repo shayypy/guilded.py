@@ -68,6 +68,7 @@ __all__ = (
     'RepeatInterval',
     'CustomRepeatInterval',
     'Weekday',
+    'DeleteSeriesType',
 )
 
 
@@ -390,6 +391,11 @@ class Weekday(Enum):
     thursday = 'thursday'
     friday = 'friday'
     saturday = 'saturday'
+
+
+class DeleteSeriesType(Enum):
+    all = 'all'
+    forward = 'fromEventForward'
 
 
 T = TypeVar('T')

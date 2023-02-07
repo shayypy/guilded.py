@@ -59,7 +59,7 @@ import guilded.abc
 
 from .asset import Asset
 from .colour import Colour
-from .enums import ChannelType, CustomRepeatInterval, FileType, RSVPStatus, RepeatInterval, Weekday, try_enum
+from .enums import ChannelType, CustomRepeatInterval, DeleteSeriesType, FileType, RSVPStatus, RepeatInterval, Weekday, try_enum
 from .group import Group
 from .message import HasContentMixin
 from .mixins import Hashable
@@ -553,6 +553,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         rsvp_limit: Optional[int] = MISSING,
         private: bool = MISSING,
         repeat: Optional[Union[RepeatInterval, RepeatInfo]] = MISSING,
+        edit_series: bool = MISSING,
     ) -> CalendarEvent:
         """|coro|
 
@@ -585,6 +586,11 @@ class CalendarEvent(Hashable, HasContentMixin):
         repeat: Optional[Union[:class:`RepeatInterval`, :class:`RepeatInfo`]]
             A basic interval for repeating the event or a :class:`RepeatInfo`
             for more detailed repeat options.
+
+            .. versionadded:: 1.7
+        edit_series: :class:`bool`
+            Whether to also edit all future events in the series, if
+            applicable.
 
             .. versionadded:: 1.7
 
@@ -651,14 +657,27 @@ class CalendarEvent(Hashable, HasContentMixin):
             else:
                 payload['repeatInfo'] = None
 
+        if edit_series is not MISSING:
+            payload['editSeries'] = edit_series
+
         data = await self._state.update_calendar_event(self.channel.id, self.id, payload=payload)
         event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=self.channel)
         return event
 
-    async def delete(self) -> None:
+    async def delete(self, *, series: Optional[DeleteSeriesType] = None) -> None:
         """|coro|
 
         Delete this event.
+
+        Parameters
+        -----------
+        series: Optional[:class:`DeleteSeriesType`]
+            If the event is part of a series (i.e. :attr:`.repeats` is
+            ``True``), sets whether to delete all events in the series or only
+            this one and its subsequent events.
+            If ``None`` or not provided, only this event will be deleted.
+
+            .. versionadded:: 1.7
 
         Raises
         -------
@@ -669,7 +688,12 @@ class CalendarEvent(Hashable, HasContentMixin):
         HTTPException
             Failed to delete the event.
         """
-        await self._state.delete_calendar_event(self.channel.id, self.id)
+
+        await self._state.delete_calendar_event(
+            self.channel.id,
+            self.id,
+            delete_series=series.value if series else None,
+        )
 
     async def create_rsvp(
         self,
