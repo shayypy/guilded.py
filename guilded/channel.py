@@ -349,7 +349,7 @@ class CalendarEvent(Hashable, HasContentMixin):
 
             Checks if an event starts after or at the same time as another event.
 
-    .. versionadded:: 1.2.0
+    .. versionadded:: 1.2
 
     Attributes
     -----------
@@ -863,7 +863,7 @@ class CalendarEventRSVP:
 
             Checks if two RSVPs are not equal.
 
-    .. versionadded:: 1.2.0
+    .. versionadded:: 1.2
 
     Attributes
     -----------
