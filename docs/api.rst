@@ -1413,6 +1413,100 @@ API from being stringly typed in case the strings change in the future.
 
         The server's type is "Other".
 
+.. class:: RepeatInterval
+
+    A basic repeat interval setting for calendar events.
+
+    .. versionadded:: 1.7
+
+    .. attribute:: once
+
+        The event will repeat once.
+
+    .. attribute:: daily
+
+        The event will repeat every day.
+
+    .. attribute:: weekly
+
+        The event will repeat every week.
+
+    .. attribute:: monthly
+
+        The event will repeat every month.
+
+    .. attribute:: custom
+
+        A custom repeat interval. When constructing a :class:`RepeatInfo`,
+        use :class:`CustomRepeatInterval` instead of this enum value.
+
+.. class:: CustomRepeatInterval
+
+    A custom repeat interval setting for calendar events. These intervals
+    allow for more advanced repeat info.
+
+    .. versionadded:: 1.7
+
+    .. attribute:: daily
+
+        The event will repeat every day.
+
+    .. attribute:: weekly
+
+        The event will repeat every week.
+
+    .. attribute:: monthly
+
+        The event will repeat every month.
+
+    .. attribute:: yearly
+
+        The event will repeat every year.
+
+        There is an alias for this attribute called :attr:`.annually`.
+
+    .. attribute:: annually
+
+        The event will repeat every year.
+
+        There is an alias for this attribute called :attr:`.yearly`.
+
+.. class:: Weekday
+
+    A day of the week for :class:`RepeatInfo` with the
+    :attr:`CustomRepeatInterval.weekly` interval.
+
+    .. versionadded:: 1.7
+
+    .. attribute:: sunday
+
+        The event will repeat every Sunday.
+
+    .. attribute:: monday
+
+        The event will repeat every Monday.
+
+    .. attribute:: tuesday
+
+        The event will repeat every Tuesday.
+
+    .. attribute:: wednesday
+
+        The event will repeat every Wednesday.
+
+    .. attribute:: thursday
+
+        The event will repeat every Thursday.
+
+    .. attribute:: friday
+
+        The event will repeat every Friday.
+
+    .. attribute:: saturday
+
+        The event will repeat every Saturday.
+
+
 Utility Functions
 ------------------
 
@@ -1769,6 +1863,12 @@ RawReactionActionEvent
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: RawReactionActionEvent()
+    :members:
+
+RepeatInfo
+~~~~~~~~~~~
+
+.. autoclass:: RepeatInfo()
     :members:
 
 Exceptions

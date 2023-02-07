@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import Literal, TypedDict
+from typing import List, Literal, TypedDict
 from typing_extensions import NotRequired
 
 from .comment import ContentComment
@@ -69,3 +69,17 @@ class CalendarEventRsvp(TypedDict):
 
 class CalendarEventComment(ContentComment):
     calendarEventId: int
+
+
+class RepeatInfoEvery(TypedDict):
+    count: int
+    interval: Literal['day', 'week', 'month', 'year']
+
+
+class RepeatInfo(TypedDict):
+    type: Literal['once', 'everyDay', 'everyWeek', 'everyMonth', 'custom']
+    every: NotRequired[RepeatInfoEvery]
+    endsAfterOccurrences: NotRequired[int]
+    endDate: NotRequired[str]
+    # Weekdays for type == custom and every.interval == week
+    on: List[Literal['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']]

@@ -59,7 +59,7 @@ import guilded.abc
 
 from .asset import Asset
 from .colour import Colour
-from .enums import ChannelType, FileType, RSVPStatus, try_enum
+from .enums import ChannelType, CustomRepeatInterval, FileType, RSVPStatus, RepeatInterval, Weekday, try_enum
 from .group import Group
 from .message import HasContentMixin
 from .mixins import Hashable
@@ -72,6 +72,7 @@ if TYPE_CHECKING:
     from .types.calendar_event import (
         CalendarEvent as CalendarEventPayload,
         CalendarEventRsvp as CalendarEventRsvpPayload,
+        RepeatInfo as RepeatInfoPayload,
     )
     from .types.doc import Doc as DocPayload
     from .types.list_item import (
@@ -104,6 +105,7 @@ __all__ = (
     'ListChannel',
     'ListItem',
     'ListItemNote',
+    'RepeatInfo',
     'SchedulingChannel',
     'TextChannel',
     'Thread',
@@ -130,6 +132,7 @@ class CalendarChannel(guilded.abc.ServerChannel):
         color: Optional[Union[Colour, int]] = MISSING,
         rsvp_limit: Optional[int] = MISSING,
         private: bool = MISSING,
+        repeat: Optional[Union[RepeatInterval, RepeatInfo]] = MISSING,
     ) -> CalendarEvent:
         """|coro|
 
@@ -157,6 +160,11 @@ class CalendarChannel(guilded.abc.ServerChannel):
             The number of RSVPs to allow before waitlisting.
         private: Optional[:class:`bool`]
             Whether the event should be private.
+        repeat: Optional[Union[:class:`RepeatInterval`, :class:`RepeatInfo`]]
+            A basic interval for repeating the event or a :class:`RepeatInfo`
+            for more detailed repeat options.
+
+            .. versionadded:: 1.7
 
         Returns
         --------
@@ -209,6 +217,12 @@ class CalendarChannel(guilded.abc.ServerChannel):
 
         if rsvp_limit is not MISSING:
             payload['rsvpLimit'] = rsvp_limit
+
+        if repeat is not MISSING:
+            if isinstance(repeat, RepeatInterval):
+                payload['repeatInfo'] = RepeatInfo(repeat).to_dict()
+            elif isinstance(repeat, RepeatInfo):
+                payload['repeatInfo'] = repeat.to_dict()
 
         data = await self._state.create_calendar_event(self.id, payload=payload)
         event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=self)
@@ -538,6 +552,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         duration: Optional[Union[datetime.timedelta, int]] = MISSING,
         rsvp_limit: Optional[int] = MISSING,
         private: bool = MISSING,
+        repeat: Optional[Union[RepeatInterval, RepeatInfo]] = MISSING,
     ) -> CalendarEvent:
         """|coro|
 
@@ -567,6 +582,11 @@ class CalendarEvent(Hashable, HasContentMixin):
             The number of RSVPs to allow before waitlisting.
         private: :class:`bool`
             Whether the event should be private.
+        repeat: Optional[Union[:class:`RepeatInterval`, :class:`RepeatInfo`]]
+            A basic interval for repeating the event or a :class:`RepeatInfo`
+            for more detailed repeat options.
+
+            .. versionadded:: 1.7
 
         Returns
         --------
@@ -622,6 +642,14 @@ class CalendarEvent(Hashable, HasContentMixin):
 
         if rsvp_limit is not MISSING:
             payload['rsvpLimit'] = rsvp_limit
+
+        if repeat is not MISSING:
+            if isinstance(repeat, RepeatInterval):
+                payload['repeatInfo'] = RepeatInfo(repeat).to_dict()
+            elif isinstance(repeat, RepeatInfo):
+                payload['repeatInfo'] = repeat.to_dict()
+            else:
+                payload['repeatInfo'] = None
 
         data = await self._state.update_calendar_event(self.channel.id, self.id, payload=payload)
         event = CalendarEvent(state=self._state, data=data['calendarEvent'], channel=self.channel)
@@ -848,6 +876,100 @@ class CalendarEvent(Hashable, HasContentMixin):
             CalendarEventReply(state=self._state, data=reply_data, parent=self)
             for reply_data in data['calendarEventComments']
         ]
+
+
+class RepeatInfo:
+    """Represents simplified repeat info for a calendar event.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    type: Union[:class:`RepeatInterval`, :class:`CustomRepeatInterval`]
+        The type of interval for the repeating event.
+        Custom intervals are able to specify additional details.
+        Otherwise, the event will repeat for 180 days.
+    interval_count: Optional[:class:`int`]
+        How often the event should repeat between the interval.
+        E.g., A value of ``1`` with a ``type`` of :attr:`CustomRepeatInterval.daily` would be once per day,
+        and a value of ``2`` with a ``type`` of :attr:`CustomRepeatInterval.daily` would be once per two days.
+        Defaults to ``1`` if applicable and not specified.
+    end_after_count: Optional[:class:`int`]
+        The maximum number of repeats for the event.
+        If used with :attr:`.end_at`, the earliest end date of the two is used.
+    end_at: Optional[:class:`datetime.datetime`]
+        The timestamp at which the event should stop repeating.
+        If used with :attr:`.end_after_count`, the earliest end date of the two is used.
+    weekdays: Optional[List[:class:`Weekday`]]
+        The days of the week that the event should repeat on.
+        Only applicable for type :attr:`CustomRepeatInterval.weekly`.
+    """
+
+    __slots__: Tuple[str, ...] = (
+        'type',
+        'interval_count',
+        'end_after_count',
+        'end_at',
+        'weekdays',
+    )
+
+    def __init__(
+        self,
+        type: Union[RepeatInterval, CustomRepeatInterval],
+        *,
+        interval_count: Optional[int] = None,
+        end_after_count: Optional[int] = None,
+        end_at: Optional[datetime.datetime] = None,
+        weekdays: Optional[List[Weekday]] = None,
+    ):
+        self.type: Union[RepeatInterval, CustomRepeatInterval] = type
+        self.interval_count: Optional[int] = interval_count
+        if isinstance(self.type, CustomRepeatInterval) and self.interval_count is None:
+            # Default to once per interval for custom repeats if not specified
+            self.interval_count = 1
+
+        self.end_after_count: Optional[int] = end_after_count
+        self.end_at: Optional[datetime.datetime] = end_at
+        self.weekdays: Optional[List[Weekday]] = weekdays
+
+    @classmethod
+    def from_dict(cls, data: RepeatInfoPayload):
+        custom = data['type'] == 'custom'
+        return cls(
+            try_enum(
+                CustomRepeatInterval if custom else RepeatInterval,
+                data['every']['interval'] if custom else data['type']
+            ),
+            interval_count=data.get('every', {}).get('count'),
+            end_after_count=data.get('endsAfterOccurrences'),
+            end_at=ISO8601(data.get('endDate')),
+            weekdays=[try_enum(Weekday, weekday) for weekday in data['on']] if data.get('on') else None,
+        )
+
+    def to_dict(self) -> RepeatInfoPayload:
+        type: RepeatInterval = RepeatInterval.custom if isinstance(self.type, CustomRepeatInterval) else self.type
+        custom_type: Optional[CustomRepeatInterval] = self.type if isinstance(self.type, CustomRepeatInterval) else None
+
+        data = {
+            'type': type.value,
+        }
+
+        if custom_type and self.interval_count is not None:
+            data['every'] = {
+                'interval': custom_type.value,
+                'count': self.interval_count,
+            }
+
+        if self.end_after_count is not None:
+            data['endsAfterOccurrences'] = self.end_after_count
+
+        if self.end_at is not None:
+            data['endDate'] = self.end_at.isoformat()
+
+        if self.weekdays:
+            data['on'] = [weekday.value for weekday in self.weekdays]
+
+        return data
 
 
 class CalendarEventRSVP:

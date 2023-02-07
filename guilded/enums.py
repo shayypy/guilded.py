@@ -65,6 +65,9 @@ __all__ = (
     'UserType',
     'SocialLinkType',
     'RSVPStatus',
+    'RepeatInterval',
+    'CustomRepeatInterval',
+    'Weekday',
 )
 
 
@@ -361,6 +364,32 @@ class RSVPStatus(Enum):
     invited = 'invited'
     waitlisted = 'waitlisted'
     not_responded = 'not responded'
+
+
+class RepeatInterval(Enum):
+    once = 'once'
+    daily = 'everyDay'
+    weekly = 'everyWeek'
+    monthly = 'everyMonth'
+    custom = 'custom'
+
+
+class CustomRepeatInterval(Enum):
+    daily = 'day'
+    weekly = 'week'
+    monthly = 'month'
+    annually = 'year'
+    yearly = 'year'
+
+
+class Weekday(Enum):
+    sunday = 'sunday'
+    monday = 'monday'
+    tuesday = 'tuesday'
+    wednesday = 'wednesday'
+    thursday = 'thursday'
+    friday = 'friday'
+    saturday = 'saturday'
 
 
 T = TypeVar('T')
