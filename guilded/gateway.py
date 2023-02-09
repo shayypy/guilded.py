@@ -641,6 +641,39 @@ class WebSocketEventParsers:
             event = ev.DocDeleteEvent(self._state, data, channel=channel)
             self.client.dispatch(event)
 
+    async def parse_doc_comment_created(self, data: gw.DocCommentEvent):
+        if self._exp_style:
+            channel: DocsChannel = await self._force_resolve_channel(data['serverId'], data['docComment']['channelId'], ChannelType.doc)
+            try:
+                doc = await channel.fetch_doc(data['docComment']['docId'])
+            except HTTPException:
+                return
+
+            event = ev.DocReplyCreateEvent(self._state, data, doc)
+            self.client.dispatch(event)
+
+    async def parse_doc_comment_updated(self, data: gw.DocCommentEvent):
+        if self._exp_style:
+            channel: DocsChannel = await self._force_resolve_channel(data['serverId'], data['docComment']['channelId'], ChannelType.doc)
+            try:
+                doc = await channel.fetch_doc(data['docComment']['docId'])
+            except HTTPException:
+                return
+
+            event = ev.DocReplyUpdateEvent(self._state, data, doc)
+            self.client.dispatch(event)
+
+    async def parse_doc_comment_deleted(self, data: gw.DocCommentEvent):
+        if self._exp_style:
+            channel: DocsChannel = await self._force_resolve_channel(data['serverId'], data['docComment']['channelId'], ChannelType.doc)
+            try:
+                doc = await channel.fetch_doc(data['docComment']['docId'])
+            except HTTPException:
+                return
+
+            event = ev.DocReplyDeleteEvent(self._state, data, doc)
+            self.client.dispatch(event)
+
     async def parse_server_channel_created(self, data: gw.ServerChannelEvent):
         if self._exp_style:
             event = ev.ServerChannelCreateEvent(self._state, data)

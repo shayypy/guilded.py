@@ -26,15 +26,14 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, TypedDict
 from typing_extensions import NotRequired
 
-from guilded.types.server import Server
-
 from .calendar_event import CalendarEvent, CalendarEventComment, CalendarEventRsvp
 from .channel import ServerChannel
-from .doc import Doc
+from .doc import Doc, DocComment
 from .forum_topic import ForumTopic, ForumTopicComment
 from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
 from .reaction import CalendarEventCommentReaction, ChannelMessageReaction, CalendarEventReaction, ForumTopicCommentReaction, ForumTopicReaction
+from .server import Server
 from .user import ServerMember, ServerMemberBan, User
 from .webhook import Webhook
 
@@ -133,6 +132,10 @@ class ServerWebhookEvent(_ServerEvent):
 
 class DocEvent(_ServerEvent):
     doc: Doc
+
+
+class DocCommentEvent(_ServerEvent):
+    docComment: DocComment
 
 
 class CalendarEventEvent(_ServerEvent):

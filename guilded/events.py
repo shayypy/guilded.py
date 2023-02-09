@@ -42,7 +42,7 @@ from .channel import (
 )
 from .emote import Emote
 from .message import ChatMessage
-from .reply import CalendarEventReply, ForumTopicReply
+from .reply import CalendarEventReply, DocReply, ForumTopicReply
 from .user import Member, MemberBan
 from .utils import ISO8601
 from .webhook.async_ import Webhook
@@ -83,6 +83,9 @@ __all__ = (
     'DocCreateEvent',
     'DocUpdateEvent',
     'DocDeleteEvent',
+    'DocReplyCreateEvent',
+    'DocReplyUpdateEvent',
+    'DocReplyDeleteEvent',
     'CalendarEventCreateEvent',
     'CalendarEventUpdateEvent',
     'CalendarEventDeleteEvent',
@@ -861,6 +864,96 @@ class DocDeleteEvent(_DocEvent):
 
     __gateway_event__ = 'DocDeleted'
     __dispatch_event__ = 'doc_delete'
+
+
+class _DocCommentEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'channel',
+        'doc',
+        'reply',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.DocCommentEvent,
+        /,
+        doc: Doc,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel = doc.channel
+        self.doc = doc
+        self.reply = DocReply(state=state, data=data['docComment'], parent=doc)
+
+
+class DocReplyCreateEvent(_DocCommentEvent):
+    """Represents a :gdocs:`DocCommentCreated <websockets/DocCommentCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply is in.
+    server: :class:`Server`
+        The server that the reply is in.
+    channel: :class:`DocsChannel`
+        The channel that the reply is in.
+    doc: :class:`Doc`
+        The doc that the reply is under.
+    reply: :class:`DocReply`
+        The reply that was created.
+    """
+
+    __gateway_event__ = 'DocCommentCreated'
+    __dispatch_event__ = 'doc_reply_create'
+
+
+class DocReplyUpdateEvent(_DocCommentEvent):
+    """Represents a :gdocs:`DocCommentUpdated <websockets/DocCommentUpdated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply is in.
+    server: :class:`Server`
+        The server that the reply is in.
+    channel: :class:`DocsChannel`
+        The channel that the reply is in.
+    doc: :class:`Doc`
+        The doc that the reply is under.
+    reply: :class:`DocReply`
+        The reply that was updated.
+    """
+
+    __gateway_event__ = 'DocCommentUpdated'
+    __dispatch_event__ = 'doc_reply_update'
+
+
+class DocReplyDeleteEvent(_DocCommentEvent):
+    """Represents a :gdocs:`DocCommentDeleted <websockets/DocCommentDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.7
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply was in.
+    server: :class:`Server`
+        The server that the reply was in.
+    channel: :class:`DocsChannel`
+        The channel that the reply was in.
+    doc: :class:`Doc`
+        The doc that the reply was under.
+    reply: :class:`DocReply`
+        The reply that was deleted.
+    """
+
+    __gateway_event__ = 'DocCommentDeleted'
+    __dispatch_event__ = 'doc_reply_delete'
 
 
 class _CalendarEventEvent(ServerEvent):
