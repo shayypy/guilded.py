@@ -105,6 +105,7 @@ __all__ = (
     'ListChannel',
     'ListItem',
     'ListItemNote',
+    'PartialMessageable',
     'RepeatInfo',
     'SchedulingChannel',
     'TextChannel',

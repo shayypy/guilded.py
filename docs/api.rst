@@ -1651,6 +1651,13 @@ CalendarEvent
     :members:
     :inherited-members:
 
+CalendarEventReply
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: CalendarEventReply()
+    :members:
+    :inherited-members:
+
 CalendarEventRSVP
 ~~~~~~~~~~~~~~~~~~
 
@@ -1676,6 +1683,13 @@ ChatMessage
 ~~~~~~~~~~~~
 
 .. autoclass:: ChatMessage()
+    :members:
+    :inherited-members:
+
+Doc
+~~~~
+
+.. autoclass:: Doc()
     :members:
     :inherited-members:
 
@@ -1789,6 +1803,13 @@ Mentions
 
 .. autoclass:: Mentions()
     :members:
+
+PartialMessageable
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: PartialMessageable()
+    :members:
+    :inherited-members:
 
 Reaction
 ~~~~~~~~~
