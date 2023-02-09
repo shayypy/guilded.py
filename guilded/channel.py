@@ -1322,32 +1322,6 @@ class Doc(Hashable, HasContentMixin):
         """Optional[:class:`.Member`]: The :class:`.Member` that last updated the doc."""
         return self.server.get_member(self.updated_by_id)
 
-    async def add_reaction(self, emote: Emote, /) -> None:
-        """|coro|
-
-        Add a reaction to this doc.
-
-        Parameters
-        -----------
-        emote: :class:`.Emote`
-            The emote to add.
-        """
-        emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_reaction_emote(self.channel.id, self.id, emote_id)
-
-    async def remove_self_reaction(self, emote: Emote, /) -> None:
-        """|coro|
-
-        Remove one of your reactions from this doc.
-
-        Parameters
-        -----------
-        emote: :class:`.Emote`
-            The emote to remove.
-        """
-        emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
-
     async def delete(self) -> None:
         """|coro|
 
