@@ -672,6 +672,7 @@ class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
     __slots__ = (
         'id',
         'content',
+        '_mentions',
         'author_id',
         'created_at',
         'updated_at',
@@ -688,6 +689,8 @@ class Reply(Hashable, HasContentMixin, metaclass=abc.ABCMeta):
 
         self.id: int = int(data['id'])
         self.content: str = data['content']
+        self._mentions = self._create_mentions(data.get('mentions'))
+        self._extract_attachments(self.content)
 
         self.author_id: str = data.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
