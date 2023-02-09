@@ -63,7 +63,7 @@ from .enums import ChannelType, CustomRepeatInterval, DeleteSeriesType, FileType
 from .group import Group
 from .message import HasContentMixin
 from .mixins import Hashable
-from .reply import CalendarEventReply, ForumTopicReply
+from .reply import CalendarEventReply, DocReply, ForumTopicReply
 from .user import Member
 from .utils import GUILDED_EPOCH_DATETIME, MISSING, ISO8601, Object
 from .status import Game
@@ -1312,11 +1312,6 @@ class Doc(Hashable, HasContentMixin):
         """Optional[:class:`.Group`]: The group that the doc is in."""
         return self.channel.group
 
-    #@property
-    #def replies(self) -> List[DocReply]:
-    #    """List[:class:`.DocReply`]: The list of cached replies to this doc."""
-    #    return list(self._replies.values())
-
     @property
     def author(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The :class:`.Member` that created the doc."""
@@ -1392,77 +1387,88 @@ class Doc(Hashable, HasContentMixin):
         doc = Doc(data=data, channel=self.channel, state=self._state)
         return doc
 
-    #async def reply(self, content: str) -> DocReply:
-    #    """|coro|
+    async def reply(self, content: str) -> DocReply:
+        """|coro|
 
-    #    Reply to this doc.
+        Reply to this doc.
 
-    #    Parameters
-    #    -----------
-    #    \*content: Any
-    #        The content to create the reply with.
-    #    reply_to: Optional[:class:`.DocReply`]
-    #        An existing reply to reply to.
+        .. versionadded:: 1.7
 
-    #    Returns
-    #    --------
-    #    :class:`.DocReply`
-    #        The created reply.
-    #    """
-    #    data = await self._state.create_content_reply('doc', self.server.id, self.id, content=content, reply_to=kwargs.get('reply_to'))
-    #    reply = DocReply(data=data['reply'], parent=self, state=self._state)
-    #    return reply
+        Parameters
+        -----------
+        content: :class:`str`
+            The content of the reply.
 
-    #def get_reply(self, id: int) -> Optional[DocReply]:
-    #    """Optional[:class:`.DocReply`]: Get a reply by its ID."""
-    #    return self._replies.get(id)
+        Returns
+        --------
+        :class:`DocReply`
+            The created reply.
 
-    #async def fetch_replies(self) -> List[DocReply]:
-    #    """|coro|
+        Raises
+        -------
+        NotFound
+            This doc does not exist.
+        Forbidden
+            You do not have permission to reply to this doc.
+        HTTPException
+            Failed to reply to this doc.
+        """
 
-    #    Fetch the replies to this doc.
+        data = await self._state.create_doc_comment(self.channel_id, self.id, content=content)
+        return DocReply(state=self._state, data=data['docComment'], parent=self)
 
-    #    Returns
-    #    --------
-    #    List[:class:`.DocReply`]
-    #    """
-    #    replies = []
-    #    data = await self._state.get_content_replies('doc', self.id)
-    #    for reply_data in data:
-    #        reply = DocReply(data=reply_data, parent=self, state=self._state)
-    #        replies.append(reply)
+    async def fetch_reply(self, reply_id: int, /) -> DocReply:
+        """|coro|
 
-    #    return replies
+        Fetch a reply to this doc.
 
-    #async def fetch_reply(self, id: int) -> DocReply:
-    #    """|coro|
+        .. versionadded:: 1.7
 
-    #    Fetch a reply to this doc.
+        Returns
+        --------
+        :class:`DocReply`
+            The reply from the ID.
 
-    #    Parameters
-    #    -----------
-    #    id: :class:`int`
-    #        The ID of the reply.
+        Raises
+        -------
+        NotFound
+            This reply or topic does not exist.
+        Forbidden
+            You do not have permission to read this doc's replies.
+        HTTPException
+            Failed to fetch the reply.
+        """
 
-    #    Returns
-    #    --------
-    #    :class:`.DocReply`
-    #    """
-    #    data = await self._state.get_content_reply('docs', self.channel.id, self.id, id)
-    #    reply = DocReply(data=data['metadata']['reply'], parent=self, state=self._state)
-    #    return reply
+        data = await self._state.get_doc_comment(self.channel_id, self.id, reply_id)
+        return DocReply(state=self._state, data=data['docComment'], parent=self)
 
-    #async def move(self, to) -> None:
-    #    """|coro|
+    async def fetch_replies(self) -> List[DocReply]:
+        """|coro|
 
-    #    Move this doc to another :class:`.DocsChannel`.
+        Fetch all replies to this doc.
 
-    #    Parameters
-    #    -----------
-    #    to: :class:`.DocsChannel`
-    #        The channel to move this doc to.
-    #    """
-    #    await self._state.move_doc(self.channel.id, self.id, to.id)
+        .. versionadded:: 1.7
+
+        Returns
+        --------
+        List[:class:`DocReply`]
+            The replies under the doc.
+
+        Raises
+        -------
+        NotFound
+            This doc does not exist.
+        Forbidden
+            You do not have permission to read this doc's replies.
+        HTTPException
+            Failed to fetch the replies to this doc.
+        """
+
+        data = await self._state.get_doc_comments(self.channel_id, self.id)
+        return [
+            DocReply(state=self._state, data=reply_data, parent=self)
+            for reply_data in data['docComments']
+        ]
 
 
 class DocsChannel(guilded.abc.ServerChannel):

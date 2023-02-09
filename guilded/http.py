@@ -737,6 +737,24 @@ class HTTPClient(HTTPClientBase):
     def delete_doc(self, channel_id: str, doc_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}'))
 
+    def create_doc_comment(self, channel_id: str, doc_id: int, *, content: str):
+        payload = {
+            'content': content,
+        }
+        return self.request(Route('POST', f'/channels/{channel_id}/docs/{doc_id}/comments'), json=payload)
+
+    def get_doc_comment(self, channel_id: str, doc_id: int, comment_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}'))
+
+    def get_doc_comments(self, channel_id: str, doc_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/docs/{doc_id}/comments'))
+
+    def update_doc_comment(self, channel_id: str, doc_id: int, comment_id: int, *, payload: Dict[str, Any]):
+        return self.request(Route('PATCH', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}'), json=payload)
+
+    def delete_doc_comment(self, channel_id: str, doc_id: int, comment_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}'))
+
     def add_reaction_emote(self, channel_id: str, content_id: Union[str, int], emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/content/{content_id}/emotes/{emote_id}'))
 

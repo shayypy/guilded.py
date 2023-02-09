@@ -27,6 +27,7 @@ from typing import TypedDict
 from typing_extensions import NotRequired
 
 from .channel import Mentions
+from .comment import ContentComment
 
 
 class Doc(TypedDict):
@@ -40,3 +41,8 @@ class Doc(TypedDict):
     createdBy: str
     updatedAt: NotRequired[str]
     updatedBy: NotRequired[str]
+
+
+class DocComment(ContentComment):
+    docId: int
+    mentions: NotRequired[Mentions]

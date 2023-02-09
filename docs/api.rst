@@ -1693,6 +1693,13 @@ Doc
     :members:
     :inherited-members:
 
+DocReply
+~~~~~~~~~
+
+.. autoclass:: DocReply()
+    :members:
+    :inherited-members:
+
 DocsChannel
 ~~~~~~~~~~~~
 
