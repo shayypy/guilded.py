@@ -324,6 +324,33 @@ Docs
     :param event: The event containing the payload.
     :type event: :class:`DocDeleteEvent`
 
+.. function:: on_doc_reply_create(event)
+
+    |nesonly|
+
+    A reply was created under a doc.
+
+    :param event: The event containing the payload.
+    :type event: :class:`DocReplyCreateEvent`
+
+.. function:: on_doc_reply_update(event)
+
+    |nesonly|
+
+    A doc reply was updated.
+
+    :param event: The event containing the payload.
+    :type event: :class:`DocReplyUpdateEvent`
+
+.. function:: on_doc_reply_delete(event)
+
+    |nesonly|
+
+    A doc reply was deleted.
+
+    :param event: The event containing the payload.
+    :type event: :class:`DocReplyDeleteEvent`
+
 Forums
 ~~~~~~~
 
@@ -854,6 +881,18 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: DocDeleteEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: DocReplyCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: DocReplyUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: DocReplyDeleteEvent()
     :members:
     :inherited-members:
 
