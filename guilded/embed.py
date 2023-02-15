@@ -85,7 +85,7 @@ class EmbedProxy:
 
 
 class Embed:
-    """Represents a Discord embed.
+    """Represents a Guilded chat embed.
 
     .. container:: operations
 
