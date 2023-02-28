@@ -705,26 +705,34 @@ class SocialLink:
     -----------
     user: Union[:class:`Member`, :class:`~guilded.User`]
         The social link's parent member or user.
+    user_id: :class:`str`
+        The ID of the social link's parent user.
     type: :class:`SocialLinkType`
         The type or platform that the social link is for.
     handle: Optional[:class:`str`]
         The member's handle on the external platform.
     service_id: Optional[:class:`str`]
         The member's ID on the external platform.
+    created_at: :class:`datetime.datetime`
+        When the social link was created.
     """
 
     __slots__: Tuple[str, ...] = (
         'user',
+        'user_id',
         'type',
         'handle',
         'service_id',
+        'created_at',
     )
 
     def __init__(self, user: Union[Member, User], data: SocialLinkPayload) -> None:
         self.user = user
+        self.user_id = data.get('userId')
         self.type = try_enum(SocialLinkType, data['type'])
         self.handle = data.get('handle')
         self.service_id = data.get('serviceId')
+        self.created_at = ISO8601(data.get('createdAt'))
 
     def __eq__(self, other: object):
         return (
