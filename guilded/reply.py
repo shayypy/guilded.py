@@ -404,6 +404,23 @@ class ForumTopicReply(Reply):
         data = await self._state.update_forum_topic_comment(self.parent.channel_id, self.parent_id, self.id, payload=payload)
         return ForumTopicReply(state=self._state, data=data['forumTopicComment'], parent=self.parent)
 
+    async def delete(self) -> None:
+        """|coro|
+
+        Delete this reply.
+
+        Raises
+        -------
+        NotFound
+            This reply does not exist.
+        Forbidden
+            You do not have permission to delete this reply.
+        HTTPException
+            Failed to delete this reply.
+        """
+
+        await self._state.delete_forum_topic_comment(self.parent.channel_id, self.parent_id, self.id)
+
     async def add_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
@@ -433,20 +450,3 @@ class ForumTopicReply(Reply):
         """
         emote_id: int = getattr(emote, 'id', emote)
         await self._state.remove_forum_topic_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
-
-    async def delete(self) -> None:
-        """|coro|
-
-        Delete this reply.
-
-        Raises
-        -------
-        NotFound
-            This reply does not exist.
-        Forbidden
-            You do not have permission to delete this reply.
-        HTTPException
-            Failed to delete this reply.
-        """
-
-        await self._state.delete_forum_topic_comment(self.parent.channel_id, self.parent_id, self.id)
