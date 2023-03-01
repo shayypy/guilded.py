@@ -755,6 +755,12 @@ class HTTPClient(HTTPClientBase):
     def delete_doc_comment(self, channel_id: str, doc_id: int, comment_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}'))
 
+    def add_doc_comment_reaction_emote(self, channel_id: str, doc_id: int, comment_id: int, emote_id: int):
+        return self.request(Route('PUT', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}/emotes/{emote_id}'))
+
+    def remove_doc_comment_reaction_emote(self, channel_id: str, doc_id: int, comment_id: int, emote_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}/emotes/{emote_id}'))
+
     def add_reaction_emote(self, channel_id: str, content_id: Union[str, int], emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/content/{content_id}/emotes/{emote_id}'))
 

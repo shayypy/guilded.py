@@ -295,6 +295,32 @@ class DocReply(Reply):
 
         await self._state.delete_doc_comment(self.parent.channel_id, self.parent_id, self.id)
 
+    async def add_reaction(self, emote: Emote, /) -> None:
+        """|coro|
+
+        Add a reaction to this reply.
+
+        Parameters
+        -----------
+        emote: :class:`.Emote`
+            The emote to add.
+        """
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.add_doc_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+
+    async def remove_self_reaction(self, emote: Emote, /) -> None:
+        """|coro|
+
+        Remove one of your reactions from this reply.
+
+        Parameters
+        -----------
+        emote: :class:`.Emote`
+            The emote to remove.
+        """
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.remove_doc_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+
 
 class ForumTopicReply(Reply):
     """Represents a reply to a :class:`ForumTopic`.
