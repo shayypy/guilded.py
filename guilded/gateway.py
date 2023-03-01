@@ -674,6 +674,30 @@ class WebSocketEventParsers:
             event = ev.DocReplyDeleteEvent(self._state, data, doc)
             self.client.dispatch(event)
 
+    async def parse_doc_reaction_created(self, data: gw.DocReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.docs)
+            event = ev.DocReactionAddEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_doc_reaction_deleted(self, data: gw.DocReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.docs)
+            event = ev.DocReactionRemoveEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_doc_comment_reaction_created(self, data: gw.DocCommentReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.docs)
+            event = ev.DocReplyReactionAddEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_doc_comment_reaction_deleted(self, data: gw.DocCommentReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.docs)
+            event = ev.DocReplyReactionRemoveEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
     async def parse_server_channel_created(self, data: gw.ServerChannelEvent):
         if self._exp_style:
             event = ev.ServerChannelCreateEvent(self._state, data)
