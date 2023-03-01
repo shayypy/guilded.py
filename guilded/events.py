@@ -1431,7 +1431,7 @@ class CalendarEventReplyReactionAddEvent(_CalendarEventReplyReactionEvent):
         The ID of the server that the reaction is in.
     server: :class:`Server`
         The server that the reaction is in.
-    channel: :class:`ForumChannel`
+    channel: :class:`CalendarChannel`
         The channel that the reaction is in.
     member: Optional[:class:`Member`]
         The member that added the reaction, if they are cached.
@@ -1462,7 +1462,7 @@ class CalendarEventReplyReactionRemoveEvent(_CalendarEventReplyReactionEvent):
         The ID of the server that the reaction is in.
     server: :class:`Server`
         The server that the reaction is in.
-    channel: :class:`ForumChannel`
+    channel: :class:`CalendarChannel`
         The channel that the reaction is in.
     member: Optional[:class:`Member`]
         The member that added the reaction, if they are cached.
