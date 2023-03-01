@@ -324,6 +324,24 @@ Docs
     :param event: The event containing the payload.
     :type event: :class:`DocDeleteEvent`
 
+.. function:: on_doc_reaction_add(event)
+
+    |nesonly|
+
+    A reaction was added to a doc.
+
+    :param event: The event containing the payload.
+    :type event: :class:`DocReactionAddEvent`
+
+.. function:: on_doc_reaction_remove(event)
+
+    |nesonly|
+
+    A reaction was removed from a doc.
+
+    :param event: The event containing the payload.
+    :type event: :class:`DocReactionRemoveEvent`
+
 .. function:: on_doc_reply_create(event)
 
     |nesonly|
@@ -350,6 +368,24 @@ Docs
 
     :param event: The event containing the payload.
     :type event: :class:`DocReplyDeleteEvent`
+
+.. function:: on_doc_reply_reaction_add(event)
+
+    |nesonly|
+
+    A reaction was added to a reply under a doc.
+
+    :param event: The event containing the payload.
+    :type event: :class:`DocReplyReactionAddEvent`
+
+.. function:: on_doc_reply_reaction_remove(event)
+
+    |nesonly|
+
+    A reaction was removed from a reply under a doc.
+
+    :param event: The event containing the payload.
+    :type event: :class:`DocReplyReactionRemoveEvent`
 
 Forums
 ~~~~~~~
@@ -884,6 +920,14 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :members:
     :inherited-members:
 
+.. autoclass:: DocReactionAddEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: DocReactionRemoveEvent()
+    :members:
+    :inherited-members:
+
 .. autoclass:: DocReplyCreateEvent()
     :members:
     :inherited-members:
@@ -893,6 +937,14 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: DocReplyDeleteEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: DocReplyReactionAddEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: DocReplyReactionRemoveEvent()
     :members:
     :inherited-members:
 
