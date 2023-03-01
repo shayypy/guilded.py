@@ -47,6 +47,14 @@ class CalendarEventCommentReaction(CalendarEventReaction):
     calendarEventCommentId: int
 
 
+class DocReaction(_ContentReaction):
+    docId: int
+
+
+class DocCommentReaction(DocReaction):
+    docCommentId: int
+
+
 class ForumTopicReaction(_ContentReaction):
     forumTopicId: int
 
