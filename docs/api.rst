@@ -685,7 +685,7 @@ Members
 
     |nesonly|
 
-    A member created a social link.
+    A member created a social link on their profile.
 
     :param event: The event containing the payload.
     :type event: :class:`MemberSocialLinkCreateEvent`
@@ -694,7 +694,7 @@ Members
 
     |nesonly|
 
-    A member updated one of their social links.
+    A member updated one of their profile social links.
 
     :param event: The event containing the payload.
     :type event: :class:`MemberSocialLinkUpdateEvent`
@@ -703,7 +703,7 @@ Members
 
     |nesonly|
 
-    A member deleted one of their social links.
+    A member deleted one of their profile social links.
 
     :param event: The event containing the payload.
     :type event: :class:`MemberSocialLinkDeleteEvent`
