@@ -34,6 +34,7 @@ from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
 from .reaction import CalendarEventCommentReaction, ChannelMessageReaction, CalendarEventReaction, DocCommentReaction, DocReaction, ForumTopicCommentReaction, ForumTopicReaction
 from .server import Server
+from .social_link import SocialLink
 from .user import ServerMember, ServerMemberBan, User
 from .webhook import Webhook
 
@@ -111,6 +112,10 @@ class ServerMemberUpdatedEvent(_ServerEvent):
 class MemberRoleUpdate(TypedDict):
     userId: str
     roleIds: List[int]
+
+
+class ServerMemberSocialLinkEvent(_ServerEvent):
+    socialLink: SocialLink
 
 
 class ServerRolesUpdatedEvent(_ServerEvent):

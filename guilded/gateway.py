@@ -584,6 +584,21 @@ class WebSocketEventParsers:
                         role = Role(state=self._state, data=updated, server=server)
                         server._roles[role.id] = role
 
+    async def parse_server_member_social_link_created(self, data: gw.ServerMemberSocialLinkEvent):
+        if self._exp_style:
+            event = ev.MemberSocialLinkCreateEvent(self._state, data)
+            self.client.dispatch(event)
+
+    async def parse_server_member_social_link_updated(self, data: gw.ServerMemberSocialLinkEvent):
+        if self._exp_style:
+            event = ev.MemberSocialLinkUpdateEvent(self._state, data)
+            self.client.dispatch(event)
+
+    async def parse_server_member_social_link_deleted(self, data: gw.ServerMemberSocialLinkEvent):
+        if self._exp_style:
+            event = ev.MemberSocialLinkDeleteEvent(self._state, data)
+            self.client.dispatch(event)
+
     async def parse_server_xp_added(self, data: gw.ServerXpAddedEvent):
         server = self.client.get_server(data['serverId'])
         if server is None:

@@ -43,7 +43,7 @@ from .channel import (
 from .emote import Emote
 from .message import ChatMessage
 from .reply import CalendarEventReply, DocReply, ForumTopicReply
-from .user import Member, MemberBan
+from .user import Member, MemberBan, SocialLink
 from .utils import ISO8601
 from .webhook.async_ import Webhook
 
@@ -58,6 +58,7 @@ if TYPE_CHECKING:
         ListChannel,
     )
     from .server import Server
+    from .user import User
 
 
 __all__ = (
@@ -74,6 +75,9 @@ __all__ = (
     'BanDeleteEvent',
     'MemberUpdateEvent',
     'BulkMemberRolesUpdateEvent',
+    'MemberSocialLinkCreateEvent',
+    'MemberSocialLinkUpdateEvent',
+    'MemberSocialLinkDeleteEvent',
     'BulkMemberXpAddEvent',
     'ServerChannelCreateEvent',
     'ServerChannelUpdateEvent',
@@ -614,6 +618,89 @@ class BulkMemberRolesUpdateEvent(ServerEvent):
                 after_member = before_member
                 after_member._update_roles(update['roleIds'])
                 self.after.append(after_member)
+
+
+class _MemberSocialLinkEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'social_link',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.ServerMemberSocialLinkEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+
+        user_id = data['socialLink']['userId']
+        user: Union[Member, User] = (
+            self.server.get_member(user_id)
+            or state._get_user(user_id)
+            # This usually shouldn't happen
+            or Member(
+                state=state,
+                data={
+                    'serverId': self.server_id,
+                    'user': {
+                        'id': user_id,
+                    },
+                },
+                server=self.server
+            )
+        )
+        self.social_link = SocialLink(user, data['socialLink'])
+
+
+class MemberSocialLinkCreateEvent(_MemberSocialLinkEvent):
+    """Represents a :gdocs:`ServerMemberSocialLinkCreated <websockets/ServerMemberSocialLinkCreated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the member is in.
+    server: :class:`Server`
+        The server that the member is in.
+    social_link: :class:`SocialLink`
+        The social link that was created.
+    """
+
+    __gateway_event__ = 'ServerMemberSocialLinkCreated'
+    __dispatch_event__ = 'member_social_link_create'
+
+
+class MemberSocialLinkUpdateEvent(_MemberSocialLinkEvent):
+    """Represents a :gdocs:`ServerMemberSocialLinkUpdated <websockets/ServerMemberSocialLinkUpdated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the member is in.
+    server: :class:`Server`
+        The server that the member is in.
+    social_link: :class:`SocialLink`
+        The social link after modification.
+    """
+
+    __gateway_event__ = 'ServerMemberSocialLinkUpdated'
+    __dispatch_event__ = 'member_social_link_update'
+
+
+class MemberSocialLinkDeleteEvent(_MemberSocialLinkEvent):
+    """Represents a :gdocs:`ServerMemberSocialLinkDeleted <websockets/ServerMemberSocialLinkDeleted>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the member is in.
+    server: :class:`Server`
+        The server that the member is in.
+    social_link: :class:`SocialLink`
+        The social link that was deleted.
+    """
+
+    __gateway_event__ = 'ServerMemberSocialLinkDeleted'
+    __dispatch_event__ = 'member_social_link_delete'
 
 
 class BulkMemberXpAddEvent(ServerEvent):
