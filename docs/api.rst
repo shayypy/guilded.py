@@ -681,6 +681,33 @@ Members
     :param after: The member that was updated.
     :type after: :class:`.Member`
 
+.. function:: on_member_social_link_create(event)
+
+    |nesonly|
+
+    A member created a social link.
+
+    :param event: The event containing the payload.
+    :type event: :class:`MemberSocialLinkCreateEvent`
+
+.. function:: on_member_social_link_update(event)
+
+    |nesonly|
+
+    A member updated one of their social links.
+
+    :param event: The event containing the payload.
+    :type event: :class:`MemberSocialLinkUpdateEvent`
+
+.. function:: on_member_social_link_delete(event)
+
+    |nesonly|
+
+    A member deleted one of their social links.
+
+    :param event: The event containing the payload.
+    :type event: :class:`MemberSocialLinkDeleteEvent`
+
 .. function:: on_ban_create(event)
 
     |nesonly|
@@ -881,6 +908,18 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: BulkMemberRolesUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: MemberSocialLinkCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: MemberSocialLinkUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: MemberSocialLinkDeleteEvent()
     :members:
     :inherited-members:
 
