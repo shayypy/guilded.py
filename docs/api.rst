@@ -582,7 +582,7 @@ List Items
     A list item was deleted.
 
     :param event: The event containing the payload.
-    :type event: :class:`ListItem`
+    :type event: :class:`ListItemDeleteEvent`
 
 .. function:: on_list_item_complete(event)
 
