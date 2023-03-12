@@ -132,6 +132,7 @@ class CalendarChannel(guilded.abc.ServerChannel):
         url: Optional[str] = MISSING,
         colour: Optional[Union[Colour, int]] = MISSING,
         color: Optional[Union[Colour, int]] = MISSING,
+        all_day: bool = MISSING,
         rsvp_limit: Optional[int] = MISSING,
         private: bool = MISSING,
         roles: Optional[List[Role]] = MISSING,
@@ -159,6 +160,10 @@ class CalendarChannel(guilded.abc.ServerChannel):
         colour: Optional[Union[:class:`.Colour`, :class:`int`]]
             The colour of the event when viewing in the channel.
             This parameter is also aliased to ``color``.
+        all_day: Optional[:class:`bool`]
+            Whether the event should last all day.
+
+            .. versionadded:: 1.8
         rsvp_limit: Optional[:class:`int`]
             The number of RSVPs to allow before waitlisting.
 
@@ -223,6 +228,9 @@ class CalendarChannel(guilded.abc.ServerChannel):
 
         if private is not MISSING:
             payload['isPrivate'] = private
+
+        if all_day is not MISSING:
+            payload['isAllDay'] = all_day
 
         if rsvp_limit is not MISSING:
             payload['rsvpLimit'] = rsvp_limit
@@ -412,6 +420,9 @@ class CalendarEvent(Hashable, HasContentMixin):
         If the event is not restricted, this list is empty.
 
         .. versionadded:: 1.8
+    all_day: :class:`bool`
+        Whether the event lasts all day.
+
         .. versionadded:: 1.8
     rsvp_limit: Optional[:class:`int`]
         The number of RSVPs to allow before waitlisting RSVPs.
@@ -443,6 +454,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         'repeats',
         'series_id',
         'role_ids',
+        'all_day',
         'rsvp_limit',
         '_colour',
         'duration',
@@ -472,6 +484,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         self.private = data.get('isPrivate') or False
         self.repeats = data.get('repeats') or False
         self.role_ids = data.get('roleIds') or []
+        self.all_day = data.get('isAllDay') or False
         self.rsvp_limit = data.get('rsvpLimit')
         self._colour = data.get('color')
 
@@ -584,6 +597,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         colour: Optional[Union[Colour, int]] = MISSING,
         color: Optional[Union[Colour, int]] = MISSING,
         duration: Optional[Union[datetime.timedelta, int]] = MISSING,
+        all_day: bool = MISSING,
         rsvp_limit: Optional[int] = MISSING,
         private: bool = MISSING,
         roles: Optional[List[Role]] = MISSING,
@@ -614,6 +628,10 @@ class CalendarEvent(Hashable, HasContentMixin):
         duration: Union[:class:`datetime.timedelta`, :class:`int`]
             The duration of the event.
             If this is an :class:`int`, the value must be in minutes.
+        all_day: Optional[:class:`bool`]
+            Whether the event should last all day.
+
+            .. versionadded:: 1.8
         rsvp_limit: Optional[:class:`int`]
             The number of RSVPs to allow before waitlisting.
 
@@ -686,6 +704,9 @@ class CalendarEvent(Hashable, HasContentMixin):
 
         if private is not MISSING:
             payload['isPrivate'] = private
+
+        if all_day is not MISSING:
+            payload['isAllDay'] = all_day
 
         if rsvp_limit is not MISSING:
             payload['rsvpLimit'] = rsvp_limit
