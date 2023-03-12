@@ -82,6 +82,7 @@ if TYPE_CHECKING:
     from .types.forum_topic import ForumTopic as ForumTopicPayload
 
     from .emote import Emote
+    from .role import Role
     from .server import Server
     from .user import User
     from .webhook import Webhook
@@ -133,6 +134,7 @@ class CalendarChannel(guilded.abc.ServerChannel):
         color: Optional[Union[Colour, int]] = MISSING,
         rsvp_limit: Optional[int] = MISSING,
         private: bool = MISSING,
+        roles: Optional[List[Role]] = MISSING,
         repeat: Optional[Union[RepeatInterval, RepeatInfo]] = MISSING,
     ) -> CalendarEvent:
         """|coro|
@@ -163,6 +165,10 @@ class CalendarChannel(guilded.abc.ServerChannel):
             .. versionadded:: 1.7
         private: Optional[:class:`bool`]
             Whether the event should be private.
+        roles: Optional[List[:class:`Role`]]
+            The roles to restrict the event to.
+
+            .. versionadded:: 1.8
         repeat: Optional[Union[:class:`RepeatInterval`, :class:`RepeatInfo`]]
             A basic interval for repeating the event or a :class:`RepeatInfo`
             for more detailed repeat options.
@@ -220,6 +226,9 @@ class CalendarChannel(guilded.abc.ServerChannel):
 
         if rsvp_limit is not MISSING:
             payload['rsvpLimit'] = rsvp_limit
+
+        if roles is not MISSING and roles is not None:
+            payload['roleIds'] = [role.id for role in roles]
 
         if repeat is not MISSING:
             if isinstance(repeat, RepeatInterval):
@@ -398,6 +407,11 @@ class CalendarEvent(Hashable, HasContentMixin):
         The ID of the event series, if applicable.
 
         .. versionadded:: 1.8
+    role_ids: List[:class:`int`]
+        The role IDs that the event is restricted to.
+        If the event is not restricted, this list is empty.
+
+        .. versionadded:: 1.8
         .. versionadded:: 1.8
     rsvp_limit: Optional[:class:`int`]
         The number of RSVPs to allow before waitlisting RSVPs.
@@ -428,6 +442,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         'private',
         'repeats',
         'series_id',
+        'role_ids',
         'rsvp_limit',
         '_colour',
         'duration',
@@ -456,6 +471,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.private = data.get('isPrivate') or False
         self.repeats = data.get('repeats') or False
+        self.role_ids = data.get('roleIds') or []
         self.rsvp_limit = data.get('rsvpLimit')
         self._colour = data.get('color')
 
@@ -548,6 +564,15 @@ class CalendarEvent(Hashable, HasContentMixin):
     def share_url(self) -> str:
         return f'{self.channel.share_url}/{self.id}'
 
+    @property
+    def roles(self) -> List[Role]:
+        """List[:class:`Role`]: The roles that the event is restricted to.
+        If the event is not restricted, this list is empty.
+
+        .. versionadded:: 1.8
+        """
+        return [self.server.get_role(role_id) for role_id in self.role_ids]
+
     async def edit(
         self,
         *,
@@ -561,6 +586,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         duration: Optional[Union[datetime.timedelta, int]] = MISSING,
         rsvp_limit: Optional[int] = MISSING,
         private: bool = MISSING,
+        roles: Optional[List[Role]] = MISSING,
         repeat: Optional[Union[RepeatInterval, RepeatInfo]] = MISSING,
         edit_series: bool = MISSING,
     ) -> CalendarEvent:
@@ -594,6 +620,10 @@ class CalendarEvent(Hashable, HasContentMixin):
             .. versionadded:: 1.7
         private: :class:`bool`
             Whether the event should be private.
+        roles: Optional[List[:class:`Role`]]
+            The roles to restrict the event to.
+
+            .. versionadded:: 1.8
         repeat: Optional[Union[:class:`RepeatInterval`, :class:`RepeatInfo`]]
             A basic interval for repeating the event or a :class:`RepeatInfo`
             for more detailed repeat options.
@@ -659,6 +689,9 @@ class CalendarEvent(Hashable, HasContentMixin):
 
         if rsvp_limit is not MISSING:
             payload['rsvpLimit'] = rsvp_limit
+
+        if roles is not MISSING:
+            payload['roleIds'] = [role.id for role in (roles or [])]
 
         if repeat is not MISSING:
             if isinstance(repeat, RepeatInterval):

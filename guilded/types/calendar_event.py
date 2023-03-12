@@ -46,6 +46,8 @@ class CalendarEvent(TypedDict):
     color: NotRequired[int]
     repeats: NotRequired[bool]
     seriesId: NotRequired[str]
+    roleIds: NotRequired[List[int]]
+    isAllDay: NotRequired[bool]
     rsvpLimit: NotRequired[int]
     startsAt: str
     duration: NotRequired[int]
