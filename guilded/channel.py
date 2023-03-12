@@ -820,18 +820,47 @@ class CalendarEvent(Hashable, HasContentMixin):
             Failed to create an RSVP.
         """
 
-        payload = {
-            'status': status.value,
-        }
-
         data = await self._state.put_calendar_event_rsvp(
             self.channel_id,
             self.id,
             user.id,
-            payload=payload,
+            status=status.value,
         )
         rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=self)
         return rsvp
+
+    async def upsert_rsvps(
+        self,
+        *users: guilded.abc.User,
+        status: RSVPStatus,
+    ) -> None:
+        """|coro|
+
+        Upsert (conditionally create or edit) RSVPs for multiple users.
+
+        .. versionadded:: 1.8
+
+        Parameters
+        -----------
+        \*users: :class:`~.abc.User`
+            The users to upsert RSVPs for.
+        status: :class:`.RSVPStatus`
+            The status of the RSVPs.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to upsert RSVPs for other users.
+        HTTPException
+            Failed to upsert RSVPs.
+        """
+
+        await self._state.upsert_calendar_event_rsvps(
+            self.channel_id,
+            self.id,
+            [user.id for user in users],
+            status=status.value,
+        )
 
     async def fetch_rsvp(self, user: guilded.abc.User, /) -> CalendarEventRSVP:
         """|coro|
