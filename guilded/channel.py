@@ -134,6 +134,7 @@ class CalendarChannel(guilded.abc.ServerChannel):
         color: Optional[Union[Colour, int]] = MISSING,
         all_day: bool = MISSING,
         rsvp_limit: Optional[int] = MISSING,
+        autofill_waitlist: bool = MISSING,
         private: bool = MISSING,
         roles: Optional[List[Role]] = MISSING,
         repeat: Optional[Union[RepeatInterval, RepeatInfo]] = MISSING,
@@ -168,6 +169,11 @@ class CalendarChannel(guilded.abc.ServerChannel):
             The number of RSVPs to allow before waitlisting.
 
             .. versionadded:: 1.7
+        autofill_waitlist: Optional[:class:`bool`]
+            When ``rsvp_limit`` is set, whether users from the waitlist should
+            be added as space becomes available in the event.
+
+            .. versionadded:: 1.8
         private: Optional[:class:`bool`]
             Whether the event should be private.
         roles: Optional[List[:class:`Role`]]
@@ -234,6 +240,9 @@ class CalendarChannel(guilded.abc.ServerChannel):
 
         if rsvp_limit is not MISSING:
             payload['rsvpLimit'] = rsvp_limit
+
+        if autofill_waitlist is not MISSING:
+            payload['autofillWaitlist'] = autofill_waitlist
 
         if roles is not MISSING and roles is not None:
             payload['roleIds'] = [role.id for role in roles]
@@ -428,6 +437,11 @@ class CalendarEvent(Hashable, HasContentMixin):
         The number of RSVPs to allow before waitlisting RSVPs.
 
         .. versionadded:: 1.7
+    autofill_waitlist: Optional[:class:`bool`]
+        When ``rsvp_limit`` is set, whether users from the waitlist should
+        be added as space becomes available in the event.
+
+        .. versionadded:: 1.8
     duration: Optional[:class:`datetime.timedelta`]
         The duration of the event. Minimum 60 seconds.
     cancellation_description: Optional[:class:`str`]
@@ -456,6 +470,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         'role_ids',
         'all_day',
         'rsvp_limit',
+        'autofill_waitlist',
         '_colour',
         'duration',
         'cancellation_description',
@@ -483,9 +498,11 @@ class CalendarEvent(Hashable, HasContentMixin):
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.private = data.get('isPrivate') or False
         self.repeats = data.get('repeats') or False
+        self.series_id = data.get('seriesId')
         self.role_ids = data.get('roleIds') or []
         self.all_day = data.get('isAllDay') or False
         self.rsvp_limit = data.get('rsvpLimit')
+        self.autofill_waitlist = data.get('autofillWaitlist') or False
         self._colour = data.get('color')
 
         self.duration: Optional[datetime.timedelta]
@@ -599,6 +616,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         duration: Optional[Union[datetime.timedelta, int]] = MISSING,
         all_day: bool = MISSING,
         rsvp_limit: Optional[int] = MISSING,
+        autofill_waitlist: bool = MISSING,
         private: bool = MISSING,
         roles: Optional[List[Role]] = MISSING,
         repeat: Optional[Union[RepeatInterval, RepeatInfo]] = MISSING,
@@ -636,6 +654,11 @@ class CalendarEvent(Hashable, HasContentMixin):
             The number of RSVPs to allow before waitlisting.
 
             .. versionadded:: 1.7
+        autofill_waitlist: Optional[:class:`bool`]
+            When ``rsvp_limit`` is set, whether users from the waitlist should
+            be added as space becomes available in the event.
+
+            .. versionadded:: 1.8
         private: :class:`bool`
             Whether the event should be private.
         roles: Optional[List[:class:`Role`]]
@@ -710,6 +733,9 @@ class CalendarEvent(Hashable, HasContentMixin):
 
         if rsvp_limit is not MISSING:
             payload['rsvpLimit'] = rsvp_limit
+
+        if autofill_waitlist is not MISSING:
+            payload['autofillWaitlist'] = autofill_waitlist
 
         if roles is not MISSING:
             payload['roleIds'] = [role.id for role in (roles or [])]

@@ -49,6 +49,7 @@ class CalendarEvent(TypedDict):
     roleIds: NotRequired[List[int]]
     isAllDay: NotRequired[bool]
     rsvpLimit: NotRequired[int]
+    autofillWaitlist: NotRequired[bool]
     startsAt: str
     duration: NotRequired[int]
     isPrivate: NotRequired[bool]
