@@ -60,7 +60,7 @@ class CalendarEventRsvp(TypedDict):
     channelId: NotRequired[str]
     serverId: str
     userId: str
-    status: Literal['going', 'maybe', 'declined', 'invited', 'waitlisted']
+    status: Literal['going', 'maybe', 'declined', 'invited', 'waitlisted', 'not responded']
     createdBy: str
     createdAt: str
     updatedBy: NotRequired[str]
