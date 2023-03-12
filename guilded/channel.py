@@ -159,6 +159,8 @@ class CalendarChannel(guilded.abc.ServerChannel):
             This parameter is also aliased to ``color``.
         rsvp_limit: Optional[:class:`int`]
             The number of RSVPs to allow before waitlisting.
+
+            .. versionadded:: 1.7
         private: Optional[:class:`bool`]
             Whether the event should be private.
         repeat: Optional[Union[:class:`RepeatInterval`, :class:`RepeatInfo`]]
@@ -582,6 +584,8 @@ class CalendarEvent(Hashable, HasContentMixin):
             If this is an :class:`int`, the value must be in minutes.
         rsvp_limit: Optional[:class:`int`]
             The number of RSVPs to allow before waitlisting.
+
+            .. versionadded:: 1.7
         private: :class:`bool`
             Whether the event should be private.
         repeat: Optional[Union[:class:`RepeatInterval`, :class:`RepeatInfo`]]
