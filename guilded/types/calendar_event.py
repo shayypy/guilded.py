@@ -45,6 +45,7 @@ class CalendarEvent(TypedDict):
     url: NotRequired[str]
     color: NotRequired[int]
     repeats: NotRequired[bool]
+    seriesId: NotRequired[str]
     rsvpLimit: NotRequired[int]
     startsAt: str
     duration: NotRequired[int]

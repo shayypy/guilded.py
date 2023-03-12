@@ -394,6 +394,11 @@ class CalendarEvent(Hashable, HasContentMixin):
         Whether the event is set to repeat.
 
         .. versionadded:: 1.7
+    series_id: Optional[:class:`str`]
+        The ID of the event series, if applicable.
+
+        .. versionadded:: 1.8
+        .. versionadded:: 1.8
     rsvp_limit: Optional[:class:`int`]
         The number of RSVPs to allow before waitlisting RSVPs.
 
@@ -422,6 +427,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         'created_at',
         'private',
         'repeats',
+        'series_id',
         'rsvp_limit',
         '_colour',
         'duration',
