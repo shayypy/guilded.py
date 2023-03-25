@@ -3166,17 +3166,12 @@ class ListItem(Hashable, HasContentMixin):
         When the item was created.
     message: :class:`str`
         The main message of the item.
-    position: :class:`int`
-        Where the item is in its :attr:`.channel`. A value of ``0`` is
-        at the bottom of the list visually.
     note: :class:`.ListItemNote`
         The item's note.
     updated_at: Optional[:class:`datetime.datetime`]
         When the item was last updated.
     completed_at: Optional[:class:`datetime.datetime`]
         When the item was marked as completed.
-    deleted_at: Optional[:class:`datetime.datetime`]
-        When the item was deleted.
     parent_id: Optional[:class:`str`]
         The ID of the item's parent, if the item is nested.
     webhook_id: Optional[:class:`str`]
