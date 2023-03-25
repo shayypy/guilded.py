@@ -700,7 +700,7 @@ class HTTPClient(HTTPClientBase):
         return self.request(Route('GET', f'/channels/{channel_id}/items'))
 
     def update_list_item(self, channel_id: str, item_id: str, *, payload: Dict[str, Any]):
-        return self.request(Route('PUT', f'/channels/{channel_id}/items/{item_id}'), json=payload)
+        return self.request(Route('PATCH', f'/channels/{channel_id}/items/{item_id}'), json=payload)
 
     def delete_list_item(self, channel_id: str, item_id: str):
         return self.request(Route('DELETE', f'/channels/{channel_id}/items/{item_id}'))

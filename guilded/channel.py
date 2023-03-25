@@ -3126,9 +3126,7 @@ class ListItemNote(HasContentMixin):
             The newly edited note.
         """
 
-        payload = {
-            'message': self.parent.message,
-        }
+        payload = {}
         if content is not MISSING and content is not None:
             payload['note'] = {
                 'content': content,
@@ -3373,8 +3371,6 @@ class ListItem(Hashable, HasContentMixin):
         payload = {}
         if content is not MISSING:
             payload['message'] = content
-        else:
-            payload['message'] = self.message
 
         if note_content is not MISSING and note_content is not None:
             payload['note'] = {
