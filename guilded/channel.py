@@ -123,10 +123,10 @@ class CalendarChannel(guilded.abc.ServerChannel):
 
     async def create_event(
         self,
-        *,
         name: str,
+        *,
         starts_at: Optional[datetime.datetime],
-        duration: Optional[Union[datetime.timedelta, int]],
+        duration: Optional[Union[datetime.timedelta, int]] = MISSING,
         description: Optional[str] = MISSING,
         location: Optional[str] = MISSING,
         url: Optional[str] = MISSING,
@@ -150,7 +150,7 @@ class CalendarChannel(guilded.abc.ServerChannel):
             The name of the event.
         starts_at: :class:`datetime.datetime`
             When the event starts.
-        duration: Union[:class:`datetime.timedelta`, :class:`int`]
+        duration: Optional[Union[:class:`datetime.timedelta`, :class:`int`]]
             The duration of the event.
             If this is an :class:`int`, the value must be in minutes.
         description: Optional[:class:`str`]
