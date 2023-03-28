@@ -55,7 +55,7 @@ import datetime
 import inspect
 import itertools
 from operator import attrgetter
-from typing import Any, List, Dict, Optional, TYPE_CHECKING, Set, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, TypeVar, Union
 
 import guilded.abc
 
@@ -83,6 +83,8 @@ __all__ = (
     'SocialLink',
     'User',
 )
+
+T = TypeVar('T', bound=type)
 
 
 class User(guilded.abc.User, guilded.abc.Messageable):
@@ -147,7 +149,7 @@ class User(guilded.abc.User, guilded.abc.Messageable):
             self.banner: Optional[Asset] = None
 
 
-def flatten_user(cls: Any):
+def flatten_user(cls: T) -> T:
     for attr, value in itertools.chain(guilded.abc.User.__dict__.items(), User.__dict__.items()):
         # ignore private/special methods
         if attr.startswith('_'):
