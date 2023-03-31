@@ -554,10 +554,32 @@ class HTTPClient(HTTPClientBase):
     def create_server_channel(
         self,
         server_id: str,
+        content_type: str,
         *,
-        payload: Dict[str, Any],
+        name: str,
+        topic: Optional[str] = None,
+        public: Optional[bool] = None,
+        category_id: Optional[int] = None,
+        group_id: Optional[str] = None,
     ):
-        payload['serverId'] = server_id
+        payload = {
+            'serverId': server_id,
+            'type': content_type,
+            'name': name,
+        }
+
+        if topic is not None:
+            payload['topic'] = topic
+
+        if public is not None:
+            payload['isPublic'] = public
+
+        if category_id is not None:
+            payload['categoryId'] = category_id
+
+        if group_id is not None:
+            payload['groupId'] = group_id
+
         return self.request(Route('POST', f'/channels'), json=payload)
 
     def update_channel(
