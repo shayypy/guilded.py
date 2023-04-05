@@ -101,8 +101,7 @@ class Embed:
     :attr:`Embed.Empty`.
 
     URL parameters (both as text and for images) accept any string, even those
-    that are not a valid URI. If an ``attachment://`` URI is passed to an image
-    parameter then it will be handled for you.
+    that are not a valid URI.
 
     For ease of use, all parameters that expect a :class:`str` are implicitly
     casted to :class:`str` for you.
