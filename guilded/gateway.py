@@ -276,9 +276,6 @@ class GuildedWebSocket:
                 if should_fill:
                     await server.fill_members()
 
-                # For now we add 'new' servers to cache as there is no other
-                # way to passively receive all of the client's servers, and we
-                # don't want to fetch them every time and slow down bots.
                 self.client.http.add_to_server_cache(server)
 
             coro = self._parsers.get(t)
