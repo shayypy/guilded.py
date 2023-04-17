@@ -230,8 +230,8 @@ class GuildedWebSocket:
             server = None
             should_fill = False
             try:
-                should_fill = self.client.get_server(d['serverId']) is None
                 server = await self.client.getch_server(d['serverId'])
+                should_fill = len(server.members) == 0
             except HTTPException as exc:
                 # This shouldn't happen
                 log.warn(
