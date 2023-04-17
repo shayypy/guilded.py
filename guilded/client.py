@@ -736,27 +736,16 @@ class Client:
         await self._async_setup_hook()
         await self.setup_hook()
 
-        # Cache our internal server
-        if self.internal_server_id:
-            try:
-                server = await self.fetch_server(self.internal_server_id)
-            except HTTPException as exc:
-                # This shouldn't happen
-                log.warn(
-                    'Internal server (ID: %s) could not be fetched (%s: %s). Constructing a partial server instance instead.',
-                    self.internal_server_id,
-                    exc.status,
-                    exc.message,
-                )
-                server = Server(
-                    state=self.http,
-                    data={
-                        'id': self.internal_server_id,
-                    }
-                )
-
-            await server.fill_members()
+        # The gateway does not send the client's servers upon connecting
+        servers = await self.fetch_servers()
+        for server in servers:
             self.http.add_to_server_cache(server)
+
+        if self.internal_server_id and not self.get_server(self.internal_server_id):
+            log.warn(
+                'Internal server (ID: %s) was not found in the list of client servers.',
+                self.internal_server_id,
+            )
 
         await self.connect(token, reconnect=reconnect)
 
