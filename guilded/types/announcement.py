@@ -26,46 +26,21 @@ from __future__ import annotations
 from typing import TypedDict
 from typing_extensions import NotRequired
 
-from .emote import Emote
+from .channel import Mentions
+from .comment import ContentComment
 
 
-class _ContentReaction(TypedDict):
+class Announcement(TypedDict):
+    id: str
+    serverId: str
     channelId: str
+    title: str
+    content: str
+    mentions: NotRequired[Mentions]
+    createdAt: str
     createdBy: str
-    emote: Emote
 
 
-class AnnouncementReaction(_ContentReaction):
+class AnnouncementComment(ContentComment):
     announcementId: str
-
-
-class AnnouncementCommentReaction(AnnouncementReaction):
-    announcementCommentId: int
-
-
-class ChannelMessageReaction(_ContentReaction):
-    messageId: str
-
-
-class CalendarEventReaction(_ContentReaction):
-    calendarEventId: int
-
-
-class CalendarEventCommentReaction(CalendarEventReaction):
-    calendarEventCommentId: int
-
-
-class DocReaction(_ContentReaction):
-    docId: int
-
-
-class DocCommentReaction(DocReaction):
-    docCommentId: int
-
-
-class ForumTopicReaction(_ContentReaction):
-    forumTopicId: int
-
-
-class ForumTopicCommentReaction(ForumTopicReaction):
-    forumTopicCommentId: int
+    mentions: NotRequired[Mentions]

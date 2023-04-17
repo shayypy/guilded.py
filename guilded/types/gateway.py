@@ -26,13 +26,14 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, TypedDict
 from typing_extensions import NotRequired
 
+from .announcement import Announcement, AnnouncementComment
 from .calendar_event import CalendarEvent, CalendarEventComment, CalendarEventRsvp
 from .channel import ServerChannel
 from .doc import Doc, DocComment
 from .forum_topic import ForumTopic, ForumTopicComment
 from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
-from .reaction import CalendarEventCommentReaction, ChannelMessageReaction, CalendarEventReaction, DocCommentReaction, DocReaction, ForumTopicCommentReaction, ForumTopicReaction
+from .reaction import AnnouncementCommentReaction, AnnouncementReaction, CalendarEventCommentReaction, ChannelMessageReaction, CalendarEventReaction, DocCommentReaction, DocReaction, ForumTopicCommentReaction, ForumTopicReaction
 from .server import Server
 from .social_link import SocialLink
 from .user import ServerMember, ServerMemberBan, User
@@ -133,6 +134,22 @@ class ServerChannelEvent(_ServerEvent):
 
 class ServerWebhookEvent(_ServerEvent):
     webhook: Webhook
+
+
+class AnnouncementEvent(_ServerEvent):
+    announcement: Announcement
+
+
+class AnnouncementReactionEvent(_ServerEvent):
+    reaction: AnnouncementReaction
+
+
+class AnnouncementCommentEvent(_ServerEvent):
+    announcementComment: AnnouncementComment
+
+
+class AnnouncementCommentReactionEvent(_ServerEvent):
+    reaction: AnnouncementCommentReaction
 
 
 class DocEvent(_ServerEvent):
