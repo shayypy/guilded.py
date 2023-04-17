@@ -736,6 +736,62 @@ class HTTPClient(HTTPClientBase):
     def uncomplete_list_item(self, channel_id: str, item_id: str):
         return self.request(Route('DELETE', f'/channels/{channel_id}/items/{item_id}/complete'))
 
+    def create_announcement(self, channel_id: str, *, title: str, content: str):
+        payload = {
+            'title': title,
+            'content': content,
+        }
+
+        return self.request(Route('POST', f'/channels/{channel_id}/announcements'), json=payload)
+
+    def get_announcements(self, channel_id: str, *, limit: int = None, before: datetime.datetime = None):
+        params = {}
+        if limit is not None:
+            params['limit'] = limit
+        if before is not None:
+            params['before'] = self.valid_ISO8601(before)
+
+        return self.request(Route('GET', f'/channels/{channel_id}/announcements'), params=params)
+
+    def get_announcement(self, channel_id: str, announcement_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/announcements/{announcement_id}'))
+
+    def update_announcement(self, channel_id: str, announcement_id: str, *, payload: Dict[str, Any]):
+        return self.request(Route('PUT', f'/channels/{channel_id}/announcements/{announcement_id}'), json=payload)
+
+    def delete_announcement(self, channel_id: str, announcement_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}'))
+
+    def add_announcement_reaction_emote(self, channel_id: str, announcement_id: str, emote_id: int):
+        return self.request(Route('PUT', f'/channels/{channel_id}/announcements/{announcement_id}/emotes/{emote_id}'))
+
+    def remove_announcement_reaction_emote(self, channel_id: str, announcement_id: str, emote_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}/emotes/{emote_id}'))
+
+    def create_announcement_comment(self, channel_id: str, announcement_id: str, *, content: str):
+        payload = {
+            'content': content,
+        }
+        return self.request(Route('POST', f'/channels/{channel_id}/announcements/{announcement_id}/comments'), json=payload)
+
+    def get_announcement_comment(self, channel_id: str, announcement_id: str, comment_id: int):
+        return self.request(Route('GET', f'/channels/{channel_id}/announcements/{announcement_id}/comments/{comment_id}'))
+
+    def get_announcement_comments(self, channel_id: str, announcement_id: str):
+        return self.request(Route('GET', f'/channels/{channel_id}/announcements/{announcement_id}/comments'))
+
+    def update_announcement_comment(self, channel_id: str, announcement_id: str, comment_id: int, *, payload: Dict[str, Any]):
+        return self.request(Route('PATCH', f'/channels/{channel_id}/announcements/{announcement_id}/comments/{comment_id}'), json=payload)
+
+    def delete_announcement_comment(self, channel_id: str, announcement_id: str, comment_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}/comments/{comment_id}'))
+
+    def add_announcement_comment_reaction_emote(self, channel_id: str, announcement_id: str, comment_id: int, emote_id: int):
+        return self.request(Route('PUT', f'/channels/{channel_id}/announcements/{announcement_id}/comments/{comment_id}/emotes/{emote_id}'))
+
+    def remove_announcement_comment_reaction_emote(self, channel_id: str, announcement_id: str, comment_id: int, emote_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}/comments/{comment_id}/emotes/{emote_id}'))
+
     def create_doc(self, channel_id: str, *, title: str, content: str):
         payload = {
             'title': title,
