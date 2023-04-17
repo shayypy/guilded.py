@@ -656,6 +656,20 @@ class Client:
         """
         return self.get_server(server_id) or await self.fetch_server(server_id)
 
+    async def fetch_servers(self) -> List[Server]:
+        """|coro|
+
+        Fetch your list of servers from the API.
+
+        Returns
+        --------
+        List[:class:`.Servers`]
+            The servers you are a member of.
+        """
+
+        data = await self.http.get_my_servers()
+        return [Server(state=self.http, data=server_data) for server_data in data['servers']]
+
     async def fetch_channel(self, channel_id: str) -> ServerChannel:
         """|coro|
 

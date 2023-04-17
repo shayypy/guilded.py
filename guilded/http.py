@@ -391,6 +391,9 @@ class HTTPClientBase:
     def get_my_user(self):
         return self.request(Route('GET', '/users/@me'))
 
+    def get_my_servers(self):
+        return self.request(Route('GET', '/users/@me/servers'))
+
     # /content
 
     def get_metadata(self, route: str):
