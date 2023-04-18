@@ -63,12 +63,13 @@ from .enums import ChannelType, CustomRepeatInterval, DeleteSeriesType, FileType
 from .group import Group
 from .message import HasContentMixin
 from .mixins import Hashable
-from .reply import CalendarEventReply, DocReply, ForumTopicReply
+from .reply import AnnouncementReply, CalendarEventReply, DocReply, ForumTopicReply
 from .user import Member
 from .utils import GUILDED_EPOCH_DATETIME, MISSING, ISO8601, Object
 from .status import Game
 
 if TYPE_CHECKING:
+    from .types.announcement import Announcement as AnnouncementPayload
     from .types.calendar_event import (
         CalendarEvent as CalendarEventPayload,
         CalendarEventRsvp as CalendarEventRsvpPayload,
@@ -2394,6 +2395,8 @@ class DMChannel(Hashable, guilded.abc.Messageable):
 class Announcement(Hashable, HasContentMixin):
     """Represents an announcement in an :class:`.AnnouncementChannel`.
 
+    .. versionadded:: 1.8
+
     .. container:: operations
 
         .. describe:: x == y
@@ -2422,36 +2425,38 @@ class Announcement(Hashable, HasContentMixin):
         The announcement's text content.
     channel: :class:`.AnnouncementChannel`
         The channel that the announcement is in.
-    public: :class:`bool`
-        Whether the announcement is public.
-    pinned: :class:`bool`
-        Whether the announcement is pinned.
     created_at: :class:`datetime.datetime`
         When the announcement was created.
-    updated_at: Optional[:class:`datetime.datetime`]
-        When the announcement was last updated.
-    slug: Optional[:class:`str`]
-        The announcement's blog URL slug.
     """
 
-    def __init__(self, *, state, data, channel: AnnouncementChannel):
+    __slots__: Tuple[str, ...] = (
+        '_state',
+        'channel',
+        'channel_id',
+        'server_id',
+        'id',
+        'title',
+        'content',
+        '_mentions',
+        'author_id',
+        'created_at',
+    )
+
+    def __init__(self, *, state, data: AnnouncementPayload, channel: AnnouncementChannel):
         super().__init__()
         self._state = state
         self.channel = channel
-        self.tags: str = data.get('tags')
-        self._replies = {}
+        self.channel_id = data['channelId']
+        self.server_id = data.get('serverId')
 
-        self.public: bool = data.get('isPublic', False)
-        self.pinned: bool = data.get('isPinned', False)
-        self.slug: Optional[str] = data.get('slug')
+        self.author_id = data.get('createdBy')
+        self.created_at = ISO8601(data.get('createdAt'))
 
-        self.author_id: str = data.get('createdBy')
-        self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
-        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('editedAt'))
-
-        self.id: str = data['id']
-        self.title: str = data['title']
-        self.content: str = self._get_full_content(data['content'])
+        self.id = data['id']
+        self.title = data['title']
+        self.content = data['content']
+        self._mentions = self._create_mentions(data.get('mentions'))
+        self._extract_attachments(self.content)
 
     def __repr__(self) -> str:
         return f'<Announcement id={self.id!r} title={self.title!r} channel={self.channel!r}>'
@@ -2485,45 +2490,8 @@ class Announcement(Hashable, HasContentMixin):
         return self.server.get_member(self.author_id)
 
     @property
-    def blog_url(self) -> Optional[str]:
-        """Optional[:class:`str`]: The blog URL of the announcement."""
-        if self.channel.blog_url and self.slug:
-            return f'{self.channel.blog_url}/{self.slug}'
-        return None
-
-    @property
     def share_url(self) -> str:
         return f'{self.channel.share_url}/{self.id}'
-
-    async def sticky(self) -> None:
-        """|coro|
-
-        Sticky (pin) this announcement.
-        """
-        await self._state.toggle_announcement_pin(self.channel.id, self.id, pinned=True)
-        self.pinned = True
-
-    async def unsticky(self) -> None:
-        """|coro|
-
-        Unsticky (unpin) this announcement.
-        """
-        await self._state.toggle_announcement_pin(self.channel.id, self.id, pinned=False)
-        self.pinned = False
-
-    async def pin(self) -> None:
-        """|coro|
-
-        Pin (sticky) this announcement. This is an alias of :meth:`.sticky`.
-        """
-        await self.sticky()
-
-    async def unpin(self) -> None:
-        """|coro|
-
-        Unpin (unsticky) this announcement. This is an alias of :meth:`.unsticky`.
-        """
-        await self.unsticky()
 
     async def delete(self) -> None:
         """|coro|
@@ -2532,25 +2500,36 @@ class Announcement(Hashable, HasContentMixin):
         """
         await self._state.delete_announcement(self.channel.id, self.id)
 
-    async def edit(self, *content, **kwargs) -> None:
+    async def edit(self, *, title: str = MISSING, content: str = MISSING) -> Announcement:
         """|coro|
 
         Edit this announcement.
 
+        All parameters are optional.
+
         Parameters
         -----------
-        \*content: Any
-            The content of the announcement.
         title: :class:`str`
             The title of the announcement.
+        content: :class:`str`
+            The content of the announcement.
+
+        Returns
+        --------
+        :class:`.Announcement`
+            The newly edited announcement.
         """
 
-        payload = {
-            'title': kwargs.pop('title', self.title),
-            'content': content,
-        }
+        payload = {}
 
-        await self._state.update_announcement(self.channel.id, self.id, payload=payload)
+        if title is not MISSING:
+            payload['title'] = title
+
+        if content is not MISSING:
+            payload['content'] = content
+
+        data = await self._state.update_announcement(self.channel.id, self.id, payload=payload)
+        return Announcement(state=self._state, data=data['announcement'], channel=self.channel)
 
     async def add_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -2562,7 +2541,8 @@ class Announcement(Hashable, HasContentMixin):
         emote: :class:`.Emote`
             The emote to add.
         """
-        await self._state.add_content_reaction(self.channel.type.value, self.id, emote.id)
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.add_announcement_reaction_emote(self.channel.id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -2575,7 +2555,84 @@ class Announcement(Hashable, HasContentMixin):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.remove_announcement_reaction_emote(self.channel.id, self.id, emote_id)
+
+    async def reply(self, content: str) -> AnnouncementReply:
+        """|coro|
+
+        Reply to this announcement.
+
+        Parameters
+        -----------
+        content: :class:`str`
+            The content of the reply.
+
+        Returns
+        --------
+        :class:`AnnouncementReply`
+            The created reply.
+
+        Raises
+        -------
+        NotFound
+            This topic does not exist.
+        Forbidden
+            You do not have permission to reply to this topic.
+        HTTPException
+            Failed to reply to this topic.
+        """
+
+        data = await self._state.create_announcement_comment(self.channel_id, self.id, content=content)
+        return AnnouncementReply(state=self._state, data=data['announcementComment'], parent=self)
+
+    async def fetch_reply(self, reply_id: int, /) -> AnnouncementReply:
+        """|coro|
+
+        Fetch a reply to this announcement.
+
+        Returns
+        --------
+        :class:`AnnouncementReply`
+            The reply from the ID.
+
+        Raises
+        -------
+        NotFound
+            This reply or announcement does not exist.
+        Forbidden
+            You do not have permission to read this announcement's replies.
+        HTTPException
+            Failed to fetch the reply.
+        """
+
+        data = await self._state.get_announcement_comment(self.channel_id, self.id, reply_id)
+        return AnnouncementReply(state=self._state, data=data['announcementComment'], parent=self)
+
+    async def fetch_replies(self) -> List[AnnouncementReply]:
+        """|coro|
+
+        Fetch all replies to this announcement.
+
+        Returns
+        --------
+        List[:class:`AnnouncementReply`]
+            The replies under the announcement.
+
+        Raises
+        -------
+        NotFound
+            This announcement does not exist.
+        Forbidden
+            You do not have permission to read this announcement's replies.
+        HTTPException
+            Failed to fetch the replies to this announcement.
+        """
+
+        data = await self._state.get_announcement_comments(self.channel_id, self.id)
+        return [
+            AnnouncementReply(state=self._state, data=reply_data, parent=self)
+            for reply_data in data['announcementComments']
+        ]
 
 
 class AnnouncementChannel(guilded.abc.ServerChannel):
@@ -2584,7 +2641,6 @@ class AnnouncementChannel(guilded.abc.ServerChannel):
         super().__init__(**fields)
 
         self.type = ChannelType.announcements
-        self._announcements = {}
 
     @property
     def blog_url(self) -> Optional[str]:
@@ -2609,115 +2665,70 @@ class AnnouncementChannel(guilded.abc.ServerChannel):
         server_portion = self.server.slug if self.server.slug is not None else f'teams/{self.server.id}'
         return f'https://guilded.gg/{server_portion}/blog/{channel_slug}'
 
-    @property
-    def announcements(self) -> List[Announcement]:
-        """List[:class:`.Announcement`]: The list of announcements in this channel."""
-        return list(self._announcements.values())
+    async def fetch_announcement(self, announcement_id: str, /) -> Announcement:
+        """|coro|
 
-    def get_announcement(self, id) -> Optional[Announcement]:
-        """Optional[:class:`.Announcement`]: Get an announcement from this channel."""
-        return self._announcements.get(id)
+        Fetch an announcement in this channel.
 
-    #async def getch_announcement(self, id: str) -> Announcement:
-    #    return self.get_announcement(id) or await self.fetch_announcement(id)
+        Returns
+        --------
+        :class:`.Announcement`
+            The announcement from the ID.
+        """
 
-    #async def fetch_announcement(self, id: str) -> Announcement:
-    #    """|coro|
+        data = await self._state.get_announcement(self.id, announcement_id)
+        announcement = Announcement(data=data['announcement'], channel=self, state=self._state)
+        return announcement
 
-    #    Fetch an announcement in this channel.
+    async def fetch_announcements(self, *, limit: int = None, before: datetime.datetime = None) -> List[Announcement]:
+        """|coro|
 
-    #    Parameters
-    #    -----------
-    #    id: :class:`str`
-    #        The announcement's ID.
+        Fetch multiple announcements in this channel.
 
-    #    Returns
-    #    --------
-    #    :class:`.Announcement`
-    #    """
-    #    data = await self._state.get_announcement(self.id, id)
-    #    announcement = Announcement(data=data['announcement'], channel=self, state=self._state)
-    #    return announcement
+        All parameters are optional.
 
-    #async def fetch_announcements(self, *, limit: int = 50, before: datetime.datetime = None) -> List[Announcement]:
-    #    """|coro|
+        Parameters
+        -----------
+        limit: :class:`int`
+            The maximum number of announcements to return. Defaults to 25.
+        before: :class:`datetime.datetime`
+            The latest date that an announcement can be from. Defaults to the
+            current time.
 
-    #    Fetch multiple announcements in this channel.
+        Returns
+        --------
+        List[:class:`.Announcement`]
+            The announcements in the channel.
+        """
 
-    #    All parameters are optional.
+        data = await self._state.get_announcements(self.id, limit=limit, before=before)
+        return [Announcement(data=announcement_data, channel=self, state=self._state) for announcement_data in data['announcements']]
 
-    #    Parameters
-    #    -----------
-    #    limit: :class:`int`
-    #        The maximum number of announcements to return. Defaults to 50.
-    #    before: :class:`datetime.datetime`
-    #        The latest date that an announcement can be from. Defaults to the
-    #        current time.
+    async def create_announcement(self, *, title: str, content: str) -> Announcement:
+        """|coro|
 
-    #    Returns
-    #    --------
-    #    List[:class:`.Announcement`]
-    #    """
+        Create an announcement in this channel.
 
-    #    before = before or datetime.datetime.now(datetime.timezone.utc)
-    #    data = await self._state.get_announcements(self.id, limit=limit, before=before)
-    #    announcements = []
-    #    for announcement_data in data['announcements']:
-    #        announcements.append(Announcement(data=announcement_data, channel=self, state=self._state))
+        Parameters
+        -----------
+        title: :class:`str`
+            The title of the announcement.
+        content: :class:`str`
+            The content of the announcement.
 
-    #    return announcements
+        Returns
+        --------
+        :class:`.Announcement`
+            The created announcement.
+        """
 
-    #async def fetch_pinned_announcements(self) -> List[Announcement]:
-    #    """|coro|
-
-    #    Fetch all pinned announcements in this channel.
-
-    #    Returns
-    #    --------
-    #    List[:class:`.Announcement`]
-    #    """
-    #    data = await self._state.get_pinned_announcements(self.id)
-    #    announcements = []
-    #    for announcement_data in data['announcements']:
-    #        announcements.append(Announcement(data=announcement_data, channel=self, state=self._state))
-
-    #    return announcements
-
-    #async def create_announcement(self, *content, **kwargs) -> Announcement:
-    #    """|coro|
-
-    #    Create an announcement in this channel.
-
-    #    Parameters
-    #    -----------
-    #    content: Any
-    #        The content of the announcement.
-    #    title: :class:`str`
-    #        The title of the announcement.
-    #    game: Optional[:class:`.Game`]
-    #        The game to be associated with this announcement.
-    #    send_notifications: Optional[:class:`bool`]
-    #        Whether to send notifications to all members ("Notify all
-    #        members" in the client). Defaults to ``True`` if not specified.
-
-    #    Returns
-    #    --------
-    #    :class:`.Announcement`
-    #        The created announcement.
-    #    """
-    #    title = kwargs.pop('title')
-    #    game = kwargs.pop('game', None)
-    #    dont_send_notifications = not kwargs.pop('send_notifications', True)
-
-    #    data = await self._state.create_announcement(
-    #        self.id,
-    #        title=title,
-    #        content=content,
-    #        game_id=(game.id if game else None),
-    #        dont_send_notifications=dont_send_notifications
-    #    )
-    #    announcement = Announcement(data=data['announcement'], channel=self, game=game, state=self._state)
-    #    return announcement
+        data = await self._state.create_announcement(
+            self.id,
+            title=title,
+            content=content,
+        )
+        announcement = Announcement(data=data['announcement'], channel=self, state=self._state)
+        return announcement
 
 
 class Media(Hashable, HasContentMixin):
