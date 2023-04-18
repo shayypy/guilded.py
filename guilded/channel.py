@@ -1005,7 +1005,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         Raises
         -------
         NotFound
-            This reply or topic does not exist.
+            This reply or event does not exist.
         Forbidden
             You do not have permission to read this event's replies.
         HTTPException
@@ -1573,7 +1573,7 @@ class Doc(Hashable, HasContentMixin):
         Raises
         -------
         NotFound
-            This reply or topic does not exist.
+            This reply or doc does not exist.
         Forbidden
             You do not have permission to read this doc's replies.
         HTTPException
