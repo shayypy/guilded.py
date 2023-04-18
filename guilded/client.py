@@ -661,6 +661,8 @@ class Client:
 
         Fetch your list of servers from the API.
 
+        .. versionadded:: 1.8
+
         Returns
         --------
         List[:class:`.Servers`]
