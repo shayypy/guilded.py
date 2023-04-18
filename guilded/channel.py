@@ -2395,8 +2395,6 @@ class DMChannel(Hashable, guilded.abc.Messageable):
 class Announcement(Hashable, HasContentMixin):
     """Represents an announcement in an :class:`.AnnouncementChannel`.
 
-    .. versionadded:: 1.8
-
     .. container:: operations
 
         .. describe:: x == y
@@ -2414,6 +2412,8 @@ class Announcement(Hashable, HasContentMixin):
         .. describe:: str(x)
 
             Returns the title of the announcement.
+
+    .. versionadded:: 1.8
 
     Attributes
     -----------
