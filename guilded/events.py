@@ -913,7 +913,7 @@ class _AnnouncementEvent(ServerEvent):
 
 
 class AnnouncementCreateEvent(_AnnouncementEvent):
-    """Represents a :gdocs:`AnnouncementCreated <websockets/AnnouncementCreated>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementCreated <websockets/AnnouncementCreated>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
@@ -934,7 +934,7 @@ class AnnouncementCreateEvent(_AnnouncementEvent):
 
 
 class AnnouncementUpdateEvent(_AnnouncementEvent):
-    """Represents a :gdocs:`AnnouncementUpdated <websockets/AnnouncementUpdated>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementUpdated <websockets/AnnouncementUpdated>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
@@ -955,7 +955,7 @@ class AnnouncementUpdateEvent(_AnnouncementEvent):
 
 
 class AnnouncementDeleteEvent(_AnnouncementEvent):
-    """Represents a :gdocs:`AnnouncementDeleted <websockets/AnnouncementDeleted>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementDeleted <websockets/AnnouncementDeleted>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
@@ -1004,7 +1004,7 @@ class _AnnouncementReactionEvent(ServerEvent):
 
 
 class AnnouncementReactionAddEvent(_AnnouncementReactionEvent):
-    """Represents a :gdocs:`AnnouncementReactionCreated <websockets/AnnouncementReactionCreated>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementReactionCreated <websockets/AnnouncementReactionCreated>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
@@ -1033,7 +1033,7 @@ class AnnouncementReactionAddEvent(_AnnouncementReactionEvent):
 
 
 class AnnouncementReactionRemoveEvent(_AnnouncementReactionEvent):
-    """Represents a :gdocs:`AnnouncementReactionDeleted <websockets/AnnouncementReactionDeleted>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementReactionDeleted <websockets/AnnouncementReactionDeleted>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
@@ -1083,7 +1083,7 @@ class _AnnouncementCommentEvent(ServerEvent):
 
 
 class AnnouncementReplyCreateEvent(_AnnouncementCommentEvent):
-    """Represents a :gdocs:`AnnouncementCommentCreated <websockets/AnnouncementCommentCreated>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementCommentCreated <websockets/AnnouncementCommentCreated>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
@@ -1106,7 +1106,7 @@ class AnnouncementReplyCreateEvent(_AnnouncementCommentEvent):
 
 
 class AnnouncementReplyUpdateEvent(_AnnouncementCommentEvent):
-    """Represents a :gdocs:`AnnouncementCommentUpdated <websockets/AnnouncementCommentUpdated>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementCommentUpdated <websockets/AnnouncementCommentUpdated>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
@@ -1129,7 +1129,7 @@ class AnnouncementReplyUpdateEvent(_AnnouncementCommentEvent):
 
 
 class AnnouncementReplyDeleteEvent(_AnnouncementCommentEvent):
-    """Represents a :gdocs:`AnnouncementCommentDeleted <websockets/AnnouncementCommentDeleted>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementCommentDeleted <websockets/AnnouncementCommentDeleted>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
@@ -1182,7 +1182,7 @@ class _AnnouncementReplyReactionEvent(ServerEvent):
 
 
 class AnnouncementReplyReactionAddEvent(_AnnouncementReplyReactionEvent):
-    """Represents a :gdocs:`AnnouncementCommentReactionCreated <websockets/AnnouncementCommentReactionCreated>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementCommentReactionCreated <websockets/AnnouncementCommentReactionCreated>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
@@ -1213,7 +1213,7 @@ class AnnouncementReplyReactionAddEvent(_AnnouncementReplyReactionEvent):
 
 
 class AnnouncementReplyReactionRemoveEvent(_AnnouncementReplyReactionEvent):
-    """Represents a :gdocs:`AnnouncementCommentReactionDeleted <websockets/AnnouncementCommentReactionDeleted>` event for dispatching to event handlers.
+    """Represents an :gdocs:`AnnouncementCommentReactionDeleted <websockets/AnnouncementCommentReactionDeleted>` event for dispatching to event handlers.
 
     .. versionadded:: 1.8
 
