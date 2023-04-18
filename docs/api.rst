@@ -1875,10 +1875,24 @@ Guilded and are not meant to be created by the user of the library.
     function or attributes of model classes that you receive from the events
     specified in the Event Reference.
 
+Announcement
+~~~~~~~~~~~~~
+
+.. autoclass:: Announcement()
+    :members:
+    :inherited-members:
+
 AnnouncementChannel
 ~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: AnnouncementChannel()
+    :members:
+    :inherited-members:
+
+AnnouncementReply
+~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: AnnouncementReply()
     :members:
     :inherited-members:
 
