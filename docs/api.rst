@@ -51,6 +51,99 @@ This is denoted below with notes linking back to this section.
 
     Event functions must be a |coroutine_link|_.
 
+Announcements
+~~~~~~~~~~~~~~
+
+.. function:: on_announcement_create(event)
+
+    |nesonly|
+
+    A announcement was created in an announcement channel.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementCreateEvent`
+
+.. function:: on_announcement_update(event)
+
+    |nesonly|
+
+    A announcement was updated in an announcement channel.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementUpdateEvent`
+
+.. function:: on_announcement_delete(event)
+
+    |nesonly|
+
+    A announcement was deleted in an announcement channel.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementDeleteEvent`
+
+.. function:: on_announcement_reaction_add(event)
+
+    |nesonly|
+
+    A reaction was added to an announcement.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementReactionAddEvent`
+
+.. function:: on_announcement_reaction_remove(event)
+
+    |nesonly|
+
+    A reaction was removed from an announcement.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementReactionRemoveEvent`
+
+.. function:: on_announcement_reply_create(event)
+
+    |nesonly|
+
+    A reply was created under an announcement.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementReplyCreateEvent`
+
+.. function:: on_announcement_reply_update(event)
+
+    |nesonly|
+
+    A announcement reply was updated.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementReplyUpdateEvent`
+
+.. function:: on_announcement_reply_delete(event)
+
+    |nesonly|
+
+    A announcement reply was deleted.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementReplyDeleteEvent`
+
+.. function:: on_announcement_reply_reaction_add(event)
+
+    |nesonly|
+
+    A reaction was added to a reply under an announcement.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementReplyReactionAddEvent`
+
+.. function:: on_announcement_reply_reaction_remove(event)
+
+    |nesonly|
+
+    A reaction was removed from a reply under an announcement.
+
+    :param event: The event containing the payload.
+    :type event: :class:`AnnouncementReplyReactionRemoveEvent`
+
 Bots
 ~~~~~
 
@@ -947,6 +1040,46 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :members:
     :inherited-members:
 
+.. autoclass:: AnnouncementCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: AnnouncementUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: AnnouncementDeleteEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: AnnouncementReactionAddEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: AnnouncementReactionRemoveEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: AnnouncementReplyCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: AnnouncementReplyUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: AnnouncementReplyDeleteEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: AnnouncementReplyReactionAddEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: AnnouncementReplyReactionRemoveEvent()
+    :members:
+    :inherited-members:
+
 .. autoclass:: DocCreateEvent()
     :members:
     :inherited-members:
@@ -1222,7 +1355,7 @@ API from being stringly typed in case the strings change in the future.
 
     .. attribute:: announcements
 
-        the channel is an announcements channel.
+        the channel is an announcement channel.
 
     .. attribute:: calendar
 
@@ -1246,7 +1379,7 @@ API from being stringly typed in case the strings change in the future.
 
     .. attribute:: news
 
-        the channel is an announcements channel.
+        the channel is an announcement channel.
         this is an alias of :attr:`.announcements`.
 
     .. attribute:: list
