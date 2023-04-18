@@ -635,6 +635,81 @@ class WebSocketEventParsers:
             # In the future this may change with the introduction of better caching control.
             self.client.dispatch('raw_webhook_update', webhook)
 
+    async def parse_announcement_created(self, data: gw.AnnouncementEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['announcement']['channelId'], server_channel_type=ChannelType.announcements)
+            event = ev.AnnouncementCreateEvent(self._state, data, channel=channel)
+            self.client.dispatch(event)
+
+    async def parse_announcement_updated(self, data: gw.AnnouncementEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['announcement']['channelId'], server_channel_type=ChannelType.announcements)
+            event = ev.AnnouncementUpdateEvent(self._state, data, channel=channel)
+            self.client.dispatch(event)
+
+    async def parse_announcement_deleted(self, data: gw.AnnouncementEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['announcement']['channelId'], server_channel_type=ChannelType.announcements)
+            event = ev.AnnouncementDeleteEvent(self._state, data, channel=channel)
+            self.client.dispatch(event)
+
+    async def parse_announcement_comment_created(self, data: gw.AnnouncementCommentEvent):
+        if self._exp_style:
+            channel: AnnouncementChannel = await self._force_resolve_channel(data['serverId'], data['announcementComment']['channelId'], ChannelType.announcement)
+            try:
+                announcement = await channel.fetch_announcement(data['announcementComment']['announcementId'])
+            except HTTPException:
+                return
+
+            event = ev.AnnouncementReplyCreateEvent(self._state, data, announcement)
+            self.client.dispatch(event)
+
+    async def parse_announcement_comment_updated(self, data: gw.AnnouncementCommentEvent):
+        if self._exp_style:
+            channel: AnnouncementChannel = await self._force_resolve_channel(data['serverId'], data['announcementComment']['channelId'], ChannelType.announcement)
+            try:
+                announcement = await channel.fetch_announcement(data['announcementComment']['announcementId'])
+            except HTTPException:
+                return
+
+            event = ev.AnnouncementReplyUpdateEvent(self._state, data, announcement)
+            self.client.dispatch(event)
+
+    async def parse_announcement_comment_deleted(self, data: gw.AnnouncementCommentEvent):
+        if self._exp_style:
+            channel: AnnouncementChannel = await self._force_resolve_channel(data['serverId'], data['announcementComment']['channelId'], ChannelType.announcement)
+            try:
+                announcement = await channel.fetch_announcement(data['announcementComment']['announcementId'])
+            except HTTPException:
+                return
+
+            event = ev.AnnouncementReplyDeleteEvent(self._state, data, announcement)
+            self.client.dispatch(event)
+
+    async def parse_announcement_reaction_created(self, data: gw.AnnouncementReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.announcements)
+            event = ev.AnnouncementReactionAddEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_announcement_reaction_deleted(self, data: gw.AnnouncementReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.announcements)
+            event = ev.AnnouncementReactionRemoveEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_announcement_comment_reaction_created(self, data: gw.AnnouncementCommentReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.announcements)
+            event = ev.AnnouncementReplyReactionAddEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
+    async def parse_announcement_comment_reaction_deleted(self, data: gw.AnnouncementCommentReactionEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.announcements)
+            event = ev.AnnouncementReplyReactionRemoveEvent(self._state, data, channel)
+            self.client.dispatch(event)
+
     async def parse_doc_created(self, data: gw.DocEvent):
         if self._exp_style:
             channel = await self._force_resolve_channel(data['serverId'], data['doc']['channelId'], server_channel_type=ChannelType.docs)

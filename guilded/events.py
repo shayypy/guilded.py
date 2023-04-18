@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 import datetime
 
 from .channel import (
+    Announcement,
+    AnnouncementChannel,
     CalendarChannel,
     CalendarEvent,
     CalendarEventRSVP,
@@ -42,7 +44,7 @@ from .channel import (
 )
 from .emote import Emote
 from .message import ChatMessage
-from .reply import CalendarEventReply, DocReply, ForumTopicReply
+from .reply import AnnouncementReply, CalendarEventReply, DocReply, ForumTopicReply
 from .user import Member, MemberBan, SocialLink
 from .utils import ISO8601
 from .webhook.async_ import Webhook
@@ -84,6 +86,16 @@ __all__ = (
     'ServerChannelDeleteEvent',
     'WebhookCreateEvent',
     'WebhookUpdateEvent',
+    'AnnouncementCreateEvent',
+    'AnnouncementUpdateEvent',
+    'AnnouncementDeleteEvent',
+    'AnnouncementReactionAddEvent',
+    'AnnouncementReactionRemoveEvent',
+    'AnnouncementReplyCreateEvent',
+    'AnnouncementReplyUpdateEvent',
+    'AnnouncementReplyDeleteEvent',
+    'AnnouncementReplyReactionAddEvent',
+    'AnnouncementReplyReactionRemoveEvent',
     'DocCreateEvent',
     'DocUpdateEvent',
     'DocDeleteEvent',
@@ -879,6 +891,356 @@ class WebhookUpdateEvent(_WebhookEvent):
 
     __gateway_event__ = 'ServerWebhookUpdated'
     __dispatch_event__ = 'webhook_update'
+
+
+class _AnnouncementEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'channel',
+        'announcement',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.AnnouncementEvent,
+        /,
+        channel: AnnouncementChannel,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel = channel
+        self.announcement = Announcement(state=state, data=data['announcement'], channel=channel)
+
+
+class AnnouncementCreateEvent(_AnnouncementEvent):
+    """Represents a :gdocs:`AnnouncementCreated <websockets/AnnouncementCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the announcement is in.
+    server: :class:`Server`
+        The server that the announcement is in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the announcement is in.
+    announcement: :class:`Announcement`
+        The announcement that was created.
+    """
+
+    __gateway_event__ = 'AnnouncementCreated'
+    __dispatch_event__ = 'announcement_create'
+
+
+class AnnouncementUpdateEvent(_AnnouncementEvent):
+    """Represents a :gdocs:`AnnouncementUpdated <websockets/AnnouncementUpdated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the announcement is in.
+    server: :class:`Server`
+        The server that the announcement is in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the announcement is in.
+    announcement: :class:`Announcement`
+        The announcement after modification.
+    """
+
+    __gateway_event__ = 'AnnouncementUpdated'
+    __dispatch_event__ = 'announcement_update'
+
+
+class AnnouncementDeleteEvent(_AnnouncementEvent):
+    """Represents a :gdocs:`AnnouncementDeleted <websockets/AnnouncementDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the announcement was in.
+    server: :class:`Server`
+        The server that the announcement was in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the announcement was in.
+    announcement: :class:`Announcement`
+        The announcement that was deleted.
+    """
+
+    __gateway_event__ = 'AnnouncementDeleted'
+    __dispatch_event__ = 'announcement_delete'
+
+
+class _AnnouncementReactionEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'channel_id',
+        'announcement_id',
+        'user_id',
+        'emote',
+        'channel',
+        'member',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.AnnouncementReactionEvent,
+        /,
+        channel: AnnouncementChannel,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel_id = data['reaction']['channelId']
+        self.announcement_id = data['reaction']['announcementId']
+        self.user_id = data['reaction']['createdBy']
+        self.emote = Emote(state=state, data=data['reaction']['emote'])
+
+        self.channel = channel
+        self.member = self.server.get_member(self.user_id)
+
+
+class AnnouncementReactionAddEvent(_AnnouncementReactionEvent):
+    """Represents a :gdocs:`AnnouncementReactionCreated <websockets/AnnouncementReactionCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reaction is in.
+    server: :class:`Server`
+        The server that the reaction is in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the reaction is in.
+    member: Optional[:class:`Member`]
+        The member that added the reaction, if they are cached.
+    channel_id: :class:`str`
+        The ID of the channel that the reaction is in.
+    announcement_id: :class:`int`
+        The ID of the announcement that the reaction is on.
+    user_id: :class:`str`
+        The ID of the user that added the reaction.
+    emote: :class:`Emote`
+        The emote that the reaction shows.
+    """
+
+    __gateway_event__ = 'AnnouncementReactionCreated'
+    __dispatch_event__ = 'announcement_reaction_add'
+
+
+class AnnouncementReactionRemoveEvent(_AnnouncementReactionEvent):
+    """Represents a :gdocs:`AnnouncementReactionDeleted <websockets/AnnouncementReactionDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reaction is in.
+    server: :class:`Server`
+        The server that the reaction is in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the reaction is in.
+    member: Optional[:class:`Member`]
+        The member that added the reaction, if they are cached.
+    channel_id: :class:`str`
+        The ID of the channel that the reaction is in.
+    announcement_id: :class:`int`
+        The ID of the announcement that the reaction is on.
+    user_id: :class:`str`
+        The ID of the user that added the reaction.
+    emote: :class:`Emote`
+        The emote that the reaction shows.
+    """
+
+    __gateway_event__ = 'AnnouncementReactionDeleted'
+    __dispatch_event__ = 'announcement_reaction_remove'
+
+
+class _AnnouncementCommentEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'channel',
+        'announcement',
+        'reply',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.AnnouncementCommentEvent,
+        /,
+        announcement: Announcement,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel = announcement.channel
+        self.announcement = announcement
+        self.reply = AnnouncementReply(state=state, data=data['announcementComment'], parent=announcement)
+
+
+class AnnouncementReplyCreateEvent(_AnnouncementCommentEvent):
+    """Represents a :gdocs:`AnnouncementCommentCreated <websockets/AnnouncementCommentCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply is in.
+    server: :class:`Server`
+        The server that the reply is in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the reply is in.
+    announcement: :class:`Announcement`
+        The announcement that the reply is under.
+    reply: :class:`AnnouncementReply`
+        The reply that was created.
+    """
+
+    __gateway_event__ = 'AnnouncementCommentCreated'
+    __dispatch_event__ = 'announcement_reply_create'
+
+
+class AnnouncementReplyUpdateEvent(_AnnouncementCommentEvent):
+    """Represents a :gdocs:`AnnouncementCommentUpdated <websockets/AnnouncementCommentUpdated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply is in.
+    server: :class:`Server`
+        The server that the reply is in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the reply is in.
+    announcement: :class:`Announcement`
+        The announcement that the reply is under.
+    reply: :class:`AnnouncementReply`
+        The reply that was updated.
+    """
+
+    __gateway_event__ = 'AnnouncementCommentUpdated'
+    __dispatch_event__ = 'announcement_reply_update'
+
+
+class AnnouncementReplyDeleteEvent(_AnnouncementCommentEvent):
+    """Represents a :gdocs:`AnnouncementCommentDeleted <websockets/AnnouncementCommentDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reply was in.
+    server: :class:`Server`
+        The server that the reply was in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the reply was in.
+    announcement: :class:`Announcement`
+        The announcement that the reply was under.
+    reply: :class:`AnnouncementReply`
+        The reply that was deleted.
+    """
+
+    __gateway_event__ = 'AnnouncementCommentDeleted'
+    __dispatch_event__ = 'announcement_reply_delete'
+
+
+class _AnnouncementReplyReactionEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'channel_id',
+        'announcement_id',
+        'reply_id',
+        'user_id',
+        'emote',
+        'channel',
+        'member',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.AnnouncementCommentReactionEvent,
+        /,
+        channel: AnnouncementChannel,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel_id = data['reaction']['channelId']
+        self.announcement_id = data['reaction']['announcementId']
+        self.reply_id = data['reaction']['announcementCommentId']
+        self.user_id = data['reaction']['createdBy']
+        self.emote = Emote(state=state, data=data['reaction']['emote'])
+
+        self.channel = channel
+        self.member = self.server.get_member(self.user_id)
+
+
+class AnnouncementReplyReactionAddEvent(_AnnouncementReplyReactionEvent):
+    """Represents a :gdocs:`AnnouncementCommentReactionCreated <websockets/AnnouncementCommentReactionCreated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reaction is in.
+    server: :class:`Server`
+        The server that the reaction is in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the reaction is in.
+    member: Optional[:class:`Member`]
+        The member that added the reaction, if they are cached.
+    channel_id: :class:`str`
+        The ID of the channel that the reaction is in.
+    announcement_id: :class:`int`
+        The ID of the calendar event that the reply is under.
+    reply_id: :class:`int`
+        The ID of the reply that the reaction is on.
+    user_id: :class:`str`
+        The ID of the user that added the reaction.
+    emote: :class:`Emote`
+        The emote that the reaction shows.
+    """
+
+    __gateway_event__ = 'AnnouncementCommentReactionCreated'
+    __dispatch_event__ = 'announcement_reply_reaction_add'
+
+
+class AnnouncementReplyReactionRemoveEvent(_AnnouncementReplyReactionEvent):
+    """Represents a :gdocs:`AnnouncementCommentReactionDeleted <websockets/AnnouncementCommentReactionDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.8
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reaction is in.
+    server: :class:`Server`
+        The server that the reaction is in.
+    channel: :class:`AnnouncementChannel`
+        The channel that the reaction is in.
+    member: Optional[:class:`Member`]
+        The member that added the reaction, if they are cached.
+    channel_id: :class:`str`
+        The ID of the channel that the reaction is in.
+    announcement_id: :class:`int`
+        The ID of the calendar event that the reply is under.
+    reply_id: :class:`int`
+        The ID of the reply that the reaction is on.
+    user_id: :class:`str`
+        The ID of the user that added the reaction.
+    emote: :class:`Emote`
+        The emote that the reaction shows.
+    """
+
+    __gateway_event__ = 'AnnouncementCommentReactionDeleted'
+    __dispatch_event__ = 'announcement_reply_reaction_remove'
 
 
 class _DocEvent(ServerEvent):
