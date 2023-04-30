@@ -2867,32 +2867,6 @@ class Media(Hashable, HasContentMixin):
         """Optional[:class:`.Member`]: The member that created this media."""
         return self.server.get_member(self.author_id)
 
-    async def add_reaction(self, emote: Emote, /) -> None:
-        """|coro|
-
-        Add a reaction to this media post.
-
-        Parameters
-        -----------
-        emote: :class:`.Emote`
-            The emote to add.
-        """
-        emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_reaction_emote(self.channel.id, self.id, emote_id)
-
-    async def remove_self_reaction(self, emote: Emote, /) -> None:
-        """|coro|
-
-        Remove one of your reactions from this media post.
-
-        Parameters
-        -----------
-        emote: :class:`.Emote`
-            The emote to remove.
-        """
-        emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
-
     #async def reply(self, *content, **kwargs) -> MediaReply:
     #    """|coro|
 

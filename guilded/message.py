@@ -830,7 +830,7 @@ class ChatMessage(Hashable, HasContentMixin):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_reaction_emote(self.channel_id, self.id, emote_id)
+        await self._state.add_channel_message_reaction_emote(self.channel_id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -843,7 +843,7 @@ class ChatMessage(Hashable, HasContentMixin):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.remove_channel_message_reaction_emote(self.channel.id, self.id, emote_id)
 
     async def reply(
         self,

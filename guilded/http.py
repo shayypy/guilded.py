@@ -633,6 +633,12 @@ class HTTPClient(HTTPClientBase):
 
         return self.request(Route('GET', f'/channels/{channel_id}/messages'), params=params)
 
+    def add_channel_message_reaction_emote(self, channel_id: str, message_id: str, emote_id: int):
+        return self.request(Route('PUT', f'/channels/{channel_id}/messages/{message_id}/emotes/{emote_id}'))
+
+    def remove_channel_message_reaction_emote(self, channel_id: str, message_id: str, emote_id: int):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes/{emote_id}'))
+
     def create_forum_topic(self, channel_id: str, *, title: str, content: str):
         payload = {
             'title': title,
@@ -847,12 +853,6 @@ class HTTPClient(HTTPClientBase):
 
     def remove_doc_comment_reaction_emote(self, channel_id: str, doc_id: int, comment_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}/emotes/{emote_id}'))
-
-    def add_reaction_emote(self, channel_id: str, content_id: Union[str, int], emote_id: int):
-        return self.request(Route('PUT', f'/channels/{channel_id}/content/{content_id}/emotes/{emote_id}'))
-
-    def remove_reaction_emote(self, channel_id: str, content_id: str, emote_id: int):
-        return self.request(Route('DELETE', f'/channels/{channel_id}/content/{content_id}/emotes/{emote_id}'))
 
     def create_calendar_event(self, channel_id: str, *, payload: Dict[str, Any]):
         return self.request(Route('POST', f'/channels/{channel_id}/events'), json=payload)
