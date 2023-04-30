@@ -944,7 +944,7 @@ class CalendarEvent(Hashable, HasContentMixin):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_calendar_event_reaction_emote(self.channel_id, self.id, emote_id)
+        await self._state.add_calendar_event_reaction(self.channel_id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -959,7 +959,7 @@ class CalendarEvent(Hashable, HasContentMixin):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_calendar_event_reaction_emote(self.channel_id, self.id, emote_id)
+        await self._state.remove_calendar_event_reaction(self.channel_id, self.id, emote_id)
 
     async def reply(self, content: str) -> CalendarEventReply:
         """|coro|
@@ -1475,7 +1475,7 @@ class Doc(Hashable, HasContentMixin):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_doc_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.add_doc_reaction(self.channel.id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -1488,7 +1488,7 @@ class Doc(Hashable, HasContentMixin):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_doc_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.remove_doc_reaction(self.channel.id, self.id, emote_id)
 
     async def delete(self) -> None:
         """|coro|
@@ -1832,7 +1832,7 @@ class ForumTopic(Hashable, HasContentMixin):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_forum_topic_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.add_forum_topic_reaction(self.channel.id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -1845,7 +1845,7 @@ class ForumTopic(Hashable, HasContentMixin):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_forum_topic_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.remove_forum_topic_reaction(self.channel.id, self.id, emote_id)
 
     async def edit(
         self,
@@ -2542,7 +2542,7 @@ class Announcement(Hashable, HasContentMixin):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_announcement_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.add_announcement_reaction(self.channel.id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -2555,7 +2555,7 @@ class Announcement(Hashable, HasContentMixin):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_announcement_reaction_emote(self.channel.id, self.id, emote_id)
+        await self._state.remove_announcement_reaction(self.channel.id, self.id, emote_id)
 
     async def reply(self, content: str) -> AnnouncementReply:
         """|coro|

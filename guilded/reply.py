@@ -182,7 +182,7 @@ class AnnouncementReply(Reply):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_announcement_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+        await self._state.add_announcement_comment_reaction(self.channel.id, self.parent_id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -195,7 +195,7 @@ class AnnouncementReply(Reply):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_announcement_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+        await self._state.remove_announcement_comment_reaction(self.channel.id, self.parent_id, self.id, emote_id)
 
 
 class CalendarEventReply(Reply):
@@ -308,7 +308,7 @@ class CalendarEventReply(Reply):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_calendar_event_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+        await self._state.add_calendar_event_comment_reaction(self.channel.id, self.parent_id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -321,7 +321,7 @@ class CalendarEventReply(Reply):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_calendar_event_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+        await self._state.remove_calendar_event_comment_reaction(self.channel.id, self.parent_id, self.id, emote_id)
 
 
 class DocReply(Reply):
@@ -434,7 +434,7 @@ class DocReply(Reply):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_doc_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+        await self._state.add_doc_comment_reaction(self.channel.id, self.parent_id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -447,7 +447,7 @@ class DocReply(Reply):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_doc_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+        await self._state.remove_doc_comment_reaction(self.channel.id, self.parent_id, self.id, emote_id)
 
 
 class ForumTopicReply(Reply):
@@ -562,7 +562,7 @@ class ForumTopicReply(Reply):
             The emote to add.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.add_forum_topic_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+        await self._state.add_forum_topic_comment_reaction(self.channel.id, self.parent_id, self.id, emote_id)
 
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
@@ -577,4 +577,4 @@ class ForumTopicReply(Reply):
             The emote to remove.
         """
         emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_forum_topic_comment_reaction_emote(self.channel.id, self.parent_id, self.id, emote_id)
+        await self._state.remove_forum_topic_comment_reaction(self.channel.id, self.parent_id, self.id, emote_id)

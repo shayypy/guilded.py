@@ -633,10 +633,10 @@ class HTTPClient(HTTPClientBase):
 
         return self.request(Route('GET', f'/channels/{channel_id}/messages'), params=params)
 
-    def add_channel_message_reaction_emote(self, channel_id: str, message_id: str, emote_id: int):
+    def add_channel_message_reaction(self, channel_id: str, message_id: str, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/messages/{message_id}/emotes/{emote_id}'))
 
-    def remove_channel_message_reaction_emote(self, channel_id: str, message_id: str, emote_id: int):
+    def remove_channel_message_reaction(self, channel_id: str, message_id: str, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes/{emote_id}'))
 
     def create_forum_topic(self, channel_id: str, *, title: str, content: str):
@@ -701,16 +701,16 @@ class HTTPClient(HTTPClientBase):
     def delete_forum_topic_comment(self, channel_id: str, topic_id: int, comment_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}/comments/{comment_id}'))
 
-    def add_forum_topic_reaction_emote(self, channel_id: str, topic_id: int, emote_id: int):
+    def add_forum_topic_reaction(self, channel_id: str, topic_id: int, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/topics/{topic_id}/emotes/{emote_id}'))
 
-    def remove_forum_topic_reaction_emote(self, channel_id: str, topic_id: int, emote_id: int):
+    def remove_forum_topic_reaction(self, channel_id: str, topic_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}/emotes/{emote_id}'))
 
-    def add_forum_topic_comment_reaction_emote(self, channel_id: str, topic_id: int, comment_id: int, emote_id: int):
+    def add_forum_topic_comment_reaction(self, channel_id: str, topic_id: int, comment_id: int, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/topics/{topic_id}/comments/{comment_id}/emotes/{emote_id}'))
 
-    def remove_forum_topic_comment_reaction_emote(self, channel_id: str, topic_id: int, comment_id: int, emote_id: int):
+    def remove_forum_topic_comment_reaction(self, channel_id: str, topic_id: int, comment_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/topics/{topic_id}/comments/{comment_id}/emotes/{emote_id}'))
 
     def create_list_item(self, channel_id: str, *, message: str, note_content: Optional[str] = None):
@@ -768,10 +768,10 @@ class HTTPClient(HTTPClientBase):
     def delete_announcement(self, channel_id: str, announcement_id: str):
         return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}'))
 
-    def add_announcement_reaction_emote(self, channel_id: str, announcement_id: str, emote_id: int):
+    def add_announcement_reaction(self, channel_id: str, announcement_id: str, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/announcements/{announcement_id}/emotes/{emote_id}'))
 
-    def remove_announcement_reaction_emote(self, channel_id: str, announcement_id: str, emote_id: int):
+    def remove_announcement_reaction(self, channel_id: str, announcement_id: str, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}/emotes/{emote_id}'))
 
     def create_announcement_comment(self, channel_id: str, announcement_id: str, *, content: str):
@@ -792,10 +792,10 @@ class HTTPClient(HTTPClientBase):
     def delete_announcement_comment(self, channel_id: str, announcement_id: str, comment_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}/comments/{comment_id}'))
 
-    def add_announcement_comment_reaction_emote(self, channel_id: str, announcement_id: str, comment_id: int, emote_id: int):
+    def add_announcement_comment_reaction(self, channel_id: str, announcement_id: str, comment_id: int, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/announcements/{announcement_id}/comments/{comment_id}/emotes/{emote_id}'))
 
-    def remove_announcement_comment_reaction_emote(self, channel_id: str, announcement_id: str, comment_id: int, emote_id: int):
+    def remove_announcement_comment_reaction(self, channel_id: str, announcement_id: str, comment_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/announcements/{announcement_id}/comments/{comment_id}/emotes/{emote_id}'))
 
     def create_doc(self, channel_id: str, *, title: str, content: str):
@@ -824,10 +824,10 @@ class HTTPClient(HTTPClientBase):
     def delete_doc(self, channel_id: str, doc_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}'))
 
-    def add_doc_reaction_emote(self, channel_id: str, doc_id: int, emote_id: int):
+    def add_doc_reaction(self, channel_id: str, doc_id: int, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/docs/{doc_id}/emotes/{emote_id}'))
 
-    def remove_doc_reaction_emote(self, channel_id: str, doc_id: int, emote_id: int):
+    def remove_doc_reaction(self, channel_id: str, doc_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}/emotes/{emote_id}'))
 
     def create_doc_comment(self, channel_id: str, doc_id: int, *, content: str):
@@ -848,10 +848,10 @@ class HTTPClient(HTTPClientBase):
     def delete_doc_comment(self, channel_id: str, doc_id: int, comment_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}'))
 
-    def add_doc_comment_reaction_emote(self, channel_id: str, doc_id: int, comment_id: int, emote_id: int):
+    def add_doc_comment_reaction(self, channel_id: str, doc_id: int, comment_id: int, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}/emotes/{emote_id}'))
 
-    def remove_doc_comment_reaction_emote(self, channel_id: str, doc_id: int, comment_id: int, emote_id: int):
+    def remove_doc_comment_reaction(self, channel_id: str, doc_id: int, comment_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/docs/{doc_id}/comments/{comment_id}/emotes/{emote_id}'))
 
     def create_calendar_event(self, channel_id: str, *, payload: Dict[str, Any]):
@@ -881,10 +881,10 @@ class HTTPClient(HTTPClientBase):
 
         return self.request(Route('DELETE', f'/channels/{channel_id}/events/{event_id}'), json=payload)
 
-    def add_calendar_event_reaction_emote(self, channel_id: str, event_id: int, emote_id: int):
+    def add_calendar_event_reaction(self, channel_id: str, event_id: int, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/events/{event_id}/emotes/{emote_id}'))
 
-    def remove_calendar_event_reaction_emote(self, channel_id: str, event_id: int, emote_id: int):
+    def remove_calendar_event_reaction(self, channel_id: str, event_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/events/{event_id}/emotes/{emote_id}'))
 
     def create_calendar_event_comment(self, channel_id: str, event_id: int, *, content: str):
@@ -905,10 +905,10 @@ class HTTPClient(HTTPClientBase):
     def delete_calendar_event_comment(self, channel_id: str, event_id: int, comment_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/events/{event_id}/comments/{comment_id}'))
 
-    def add_calendar_event_comment_reaction_emote(self, channel_id: str, event_id: int, comment_id: int, emote_id: int):
+    def add_calendar_event_comment_reaction(self, channel_id: str, event_id: int, comment_id: int, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/events/{event_id}/comments/{comment_id}/emotes/{emote_id}'))
 
-    def remove_calendar_event_comment_reaction_emote(self, channel_id: str, event_id: int, comment_id: int, emote_id: int):
+    def remove_calendar_event_comment_reaction(self, channel_id: str, event_id: int, comment_id: int, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/events/{event_id}/comments/{comment_id}/emotes/{emote_id}'))
 
     def get_calendar_event_rsvp(self, channel_id: str, event_id: int, user_id: str):
