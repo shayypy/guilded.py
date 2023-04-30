@@ -34,6 +34,7 @@ class ChatMessage(TypedDict):
     id: str
     type: Literal['default', 'system']
     serverId: NotRequired[str]
+    groupId: NotRequired[str]
     channelId: str
     content: Optional[str]
     embeds: Optional[List[Embed]]

@@ -576,6 +576,7 @@ class ChatMessage(Hashable, HasContentMixin):
         'channel',
         'channel_id',
         'server_id',
+        'group_id',
         'id',
         'type',
         'webhook_id',
@@ -601,6 +602,7 @@ class ChatMessage(Hashable, HasContentMixin):
 
         self.channel_id: str = data.get('channelId')
         self.server_id: str = data.get('serverId') or data.get('teamId')
+        self.group_id: Optional[str] = data.get('groupId')
 
         self.id: str = data['id']
         self.type: MessageType = try_enum(MessageType, data.get('type'))
