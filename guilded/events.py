@@ -138,6 +138,7 @@ __all__ = (
     'ListItemUncompleteEvent',
     'MessageReactionAddEvent',
     'MessageReactionRemoveEvent',
+    'BulkMessageReactionRemoveEvent',
 )
 
 
@@ -2561,37 +2562,7 @@ class ListItemUncompleteEvent(_ListItemEvent):
     __dispatch_event__ = 'list_item_uncomplete'
 
 
-class _MessageReactionEvent(ServerEvent):
-    __slots__: Tuple[str, ...] = (
-        'channel_id',
-        'message_id',
-        'user_id',
-        'emote',
-        'channel',
-        'message',
-        'member',
-    )
-
-    def __init__(
-        self,
-        state,
-        data: gw.ChannelMessageReactionEvent,
-        /,
-        channel: Union[ChatChannel, VoiceChannel, Thread, DMChannel],
-    ) -> None:
-        super().__init__(state, data)
-
-        self.channel_id = data['reaction']['channelId']
-        self.message_id = data['reaction']['messageId']
-        self.user_id = data['reaction']['createdBy']
-        self.emote = Emote(state=state, data=data['reaction']['emote'])
-
-        self.channel = channel
-        self.message: Optional[ChatMessage] = state._get_message(self.message_id)
-        self.member = self.server.get_member(self.user_id)
-
-
-class MessageReactionAddEvent(_MessageReactionEvent):
+class MessageReactionAddEvent(ServerEvent):
     """Represents a :gdocs:`ChannelMessageReactionCreated <websockets/ChannelMessageReactionCreated>` event for dispatching to event handlers.
 
     Attributes
@@ -2618,32 +2589,158 @@ class MessageReactionAddEvent(_MessageReactionEvent):
 
     __gateway_event__ = 'ChannelMessageReactionCreated'
     __dispatch_event__ = 'message_reaction_add'
+    __slots__: Tuple[str, ...] = (
+        'channel_id',
+        'message_id',
+        'user_id',
+        'emote',
+        'channel',
+        'message',
+        'member',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.ChannelMessageReactionCreatedEvent,
+        /,
+        channel: Union[ChatChannel, VoiceChannel, Thread, DMChannel],
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel_id = data['reaction']['channelId']
+        self.message_id = data['reaction']['messageId']
+        self.user_id = data['reaction']['createdBy']
+        self.emote = Emote(state=state, data=data['reaction']['emote'])
+
+        self.channel = channel
+        self.message: Optional[ChatMessage] = state._get_message(self.message_id)
+        self.member = self.server.get_member(self.user_id)
 
 
-class MessageReactionRemoveEvent(_MessageReactionEvent):
+class MessageReactionRemoveEvent(ServerEvent):
     """Represents a :gdocs:`ChannelMessageReactionDeleted <websockets/ChannelMessageReactionDeleted>` event for dispatching to event handlers.
 
     Attributes
     -----------
     server_id: :class:`str`
-        The ID of the server that the reaction is in.
+        The ID of the server that the reaction was in.
     server: :class:`Server`
-        The server that the reaction is in.
+        The server that the reaction was in.
     channel: Union[:class:`ChatChannel`, :class:`VoiceChannel`, :class:`Thread`, :class:`DMChannel`]
-        The channel that the reaction is in.
+        The channel that the reaction was in.
     message: Optional[:class:`ChatMessage`]
-        The message that the reaction is on, if it is cached.
+        The message that the reaction was on, if it is cached.
     member: Optional[:class:`Member`]
         The member that added the reaction, if they are cached.
+    deleted_by: Optional[:class:`Member`]
+        The member that removed the reaction, if they are cached.
     channel_id: :class:`str`
-        The ID of the channel that the reaction is in.
+        The ID of the channel that the reaction was in.
     message_id: :class:`str`
-        The ID of the message that the reaction is on.
+        The ID of the message that the reaction was on.
     user_id: :class:`str`
         The ID of the user that added the reaction.
+    deleted_by_id: :class:`str`
+        The ID of the user that removed the reaction.
     emote: :class:`Emote`
-        The emote that the reaction shows.
+        The emote that the reaction showed.
     """
 
     __gateway_event__ = 'ChannelMessageReactionDeleted'
     __dispatch_event__ = 'message_reaction_remove'
+    __slots__: Tuple[str, ...] = (
+        'channel_id',
+        'message_id',
+        'user_id',
+        'deleted_by_id',
+        'emote',
+        'channel',
+        'message',
+        'member',
+        'deleted_by',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.ChannelMessageReactionDeletedEvent,
+        /,
+        channel: Union[ChatChannel, VoiceChannel, Thread, DMChannel],
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel_id = data['reaction']['channelId']
+        self.message_id = data['reaction']['messageId']
+        self.user_id = data['reaction']['createdBy']
+        self.deleted_by_id = data['deletedBy']
+        self.emote = Emote(state=state, data=data['reaction']['emote'])
+
+        self.channel = channel
+        self.message: Optional[ChatMessage] = state._get_message(self.message_id)
+        self.member = self.server.get_member(self.user_id)
+        self.deleted_by = self.server.get_member(self.deleted_by_id)
+
+
+class BulkMessageReactionRemoveEvent(ServerEvent):
+    """Represents a :gdocs:`ChannelMessageReactionManyDeleted <websockets/ChannelMessageReactionManyDeleted>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the reactions were in.
+    server: :class:`Server`
+        The server that the reactions were in.
+    channel: Union[:class:`ChatChannel`, :class:`VoiceChannel`, :class:`Thread`, :class:`DMChannel`]
+        The channel that the reactions were in.
+    message: Optional[:class:`ChatMessage`]
+        The message that the reactions were on, if it is cached.
+    channel_id: :class:`str`
+        The ID of the channel that the reactions were in.
+    message_id: :class:`str`
+        The ID of the message that the reactions were on.
+    user_id: :class:`str`
+        The ID of the user that added the reaction.
+    deleted_by_id: :class:`str`
+        The ID of the user that removed the reactions.
+    deleted_by: Optional[:class:`Member`]
+        The member that removed the reactions, if they are cached.
+    count: :class:`int`
+        The number of reactions that were removed.
+    emote: :class:`Emote`
+        The emote that the reactions showed.
+    """
+
+    __gateway_event__ = 'ChannelMessageReactionManyDeleted'
+    __dispatch_event__ = 'bulk_message_reaction_remove'
+
+    __slots__: Tuple[str, ...] = (
+        'channel_id',
+        'message_id',
+        'user_id',
+        'deleted_by_id',
+        'count',
+        'emote',
+        'channel',
+        'message',
+        'deleted_by',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.ChannelMessageReactionManyDeletedEvent,
+        /,
+        channel: Union[ChatChannel, VoiceChannel, Thread, DMChannel],
+    ) -> None:
+        super().__init__(state, data)
+
+        self.channel_id = data['channelId']
+        self.message_id = data['messageId']
+        self.deleted_by_id = data['deletedBy']
+        self.count = data['count']
+        self.emote = Emote(state=state, data=data['emote'])
+
+        self.channel = channel
+        self.message: Optional[ChatMessage] = state._get_message(self.message_id)
+        self.deleted_by = self.server.get_member(self.deleted_by_id)

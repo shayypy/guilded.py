@@ -825,7 +825,7 @@ class WebSocketEventParsers:
             channel.server._channels.pop(channel.id, None)
             self.client.dispatch('server_channel_delete', channel)
 
-    async def parse_channel_message_reaction_created(self, data: gw.ChannelMessageReactionEvent):
+    async def parse_channel_message_reaction_created(self, data: gw.ChannelMessageReactionCreatedEvent):
         if self._exp_style:
             channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'])
             event = ev.MessageReactionAddEvent(self._state, data, channel)
@@ -842,7 +842,7 @@ class WebSocketEventParsers:
                 reaction = Reaction(data=data['reaction'], parent=message)
                 self.client.dispatch('message_reaction_add', reaction)
 
-    async def parse_channel_message_reaction_deleted(self, data: gw.ChannelMessageReactionEvent):
+    async def parse_channel_message_reaction_deleted(self, data: gw.ChannelMessageReactionDeletedEvent):
         if self._exp_style:
             channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'])
             event = ev.MessageReactionRemoveEvent(self._state, data, channel)
@@ -858,6 +858,12 @@ class WebSocketEventParsers:
             if message:
                 reaction = Reaction(data=data['reaction'], parent=message)
                 self.client.dispatch('message_reaction_remove', reaction)
+
+    async def parse_channel_message_reaction_many_deleted(self, data: gw.ChannelMessageReactionManyDeletedEvent):
+        if self._exp_style:
+            channel = await self._force_resolve_channel(data['serverId'], data['channelId'])
+            event = ev.BulkMessageReactionRemoveEvent(self._state, data, channel)
+            self.client.dispatch(event)
 
     async def parse_calendar_event_created(self, data: gw.CalendarEventEvent):
         if self._exp_style:

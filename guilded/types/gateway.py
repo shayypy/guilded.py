@@ -30,6 +30,7 @@ from .announcement import Announcement, AnnouncementComment
 from .calendar_event import CalendarEvent, CalendarEventComment, CalendarEventRsvp
 from .channel import ServerChannel
 from .doc import Doc, DocComment
+from .emote import Emote
 from .forum_topic import ForumTopic, ForumTopicComment
 from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
@@ -212,5 +213,18 @@ class ListItemEvent(_ServerEvent):
     listItem: ListItem
 
 
-class ChannelMessageReactionEvent(_ServerEvent):
+class ChannelMessageReactionCreatedEvent(_ServerEvent):
     reaction: ChannelMessageReaction
+
+
+class ChannelMessageReactionDeletedEvent(_ServerEvent):
+    deletedBy: str
+    reaction: ChannelMessageReaction
+
+
+class ChannelMessageReactionManyDeletedEvent(_ServerEvent):
+    channelId: str
+    messageId: str
+    deletedBy: str
+    count: int
+    emote: Emote
