@@ -915,6 +915,15 @@ Messages
     :param reaction: The reaction that was removed.
     :type reaction: :class:`Reaction`
 
+.. function:: on_bulk_message_reaction_remove(event)
+
+    |nesonly|
+
+    One or multiple reactions were bulk removed from a message.
+
+    :param event: The event containing the payload.
+    :type event: :class:`BulkMessageReactionRemoveEvent`
+
 Webhooks
 ~~~~~~~~~
 
@@ -1253,6 +1262,10 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: MessageReactionRemoveEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: BulkMessageReactionRemoveEvent()
     :members:
     :inherited-members:
 
