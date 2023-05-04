@@ -640,15 +640,19 @@ class HTTPClient(HTTPClientBase):
     def add_channel_message_reaction(self, channel_id: str, message_id: str, emote_id: int):
         return self.request(Route('PUT', f'/channels/{channel_id}/messages/{message_id}/emotes/{emote_id}'))
 
-    def remove_channel_message_reaction(self, channel_id: str, message_id: str, emote_id: int):
-        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes/{emote_id}'))
+    def remove_channel_message_reaction(self, channel_id: str, message_id: str, emote_id: int, user_id: Optional[str] = None):
+        params = {}
+        if user_id:
+            params['userId'] = user_id
+
+        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes/{emote_id}'), params=params)
 
     def remove_channel_message_reactions(self, channel_id: str, message_id: str, emote_id: int):
-        query = {
+        params = {
             'emoteId': emote_id,
         }
 
-        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes'), params=query)
+        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes'), params=params)
 
     def create_forum_topic(self, channel_id: str, *, title: str, content: str):
         payload = {

@@ -68,7 +68,7 @@ from .utils import ISO8601, MISSING, valid_video_extensions
 if TYPE_CHECKING:
     from .types.channel import Mentions as MentionsPayload
 
-    from .abc import Messageable, ServerChannel
+    from .abc import Messageable, ServerChannel, User as abc_User
     from .emote import Emote
     from .group import Group
     from .role import Role
@@ -834,24 +834,47 @@ class ChatMessage(Hashable, HasContentMixin):
         emote_id: int = getattr(emote, 'id', emote)
         await self._state.add_channel_message_reaction(self.channel_id, self.id, emote_id)
 
+    async def remove_reaction(self, emote: Emote, member: Optional[abc_User] = None) -> None:
+        """|coro|
+
+        Remove a reaction from this message.
+
+        If the reaction is not your own then :attr:`~Permissions.manage_messages` is required.
+
+        .. versionadded:: 1.9
+
+        Parameters
+        -----------
+        emote: :class:`.Emote`
+            The emote to remove.
+        member: Optional[:class:`~.abc.User`]
+            The member whose reaction to remove.
+            If this is not specified, the client's reaction will be removed instead.
+        """
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.remove_channel_message_reaction(self.channel.id, self.id, emote_id, member.id if member else None)
+
     async def remove_self_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Remove one of your reactions from this message.
+
+        .. deprecated:: 1.9
+            Use :meth:`.remove_reaction` instead.
 
         Parameters
         -----------
         emote: :class:`.Emote`
             The emote to remove.
         """
-        emote_id: int = getattr(emote, 'id', emote)
-        await self._state.remove_channel_message_reaction(self.channel.id, self.id, emote_id)
+        await self.remove_reaction(emote)
 
     async def remove_reactions(self, emote: Emote, /) -> None:
         """|coro|
 
         Bulk remove reactions from this message based on their emote.
-        You cannot remove individual reactions from specific users.
+
+        To remove individual reactions from specific users, see :meth:`.remove_reaction`.
 
         Parameters
         -----------
