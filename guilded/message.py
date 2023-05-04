@@ -847,6 +847,20 @@ class ChatMessage(Hashable, HasContentMixin):
         emote_id: int = getattr(emote, 'id', emote)
         await self._state.remove_channel_message_reaction(self.channel.id, self.id, emote_id)
 
+    async def remove_reactions(self, emote: Emote, /) -> None:
+        """|coro|
+
+        Bulk remove reactions from this message based on their emote.
+        You cannot remove individual reactions from specific users.
+
+        Parameters
+        -----------
+        emote: :class:`.Emote`
+            The emote to remove.
+        """
+        emote_id: int = getattr(emote, 'id', emote)
+        await self._state.remove_channel_message_reactions(self.channel.id, self.id, emote_id)
+
     async def reply(
         self,
         content: Optional[str] = MISSING,

@@ -54,6 +54,7 @@ import sys
 
 import aiohttp
 import asyncio
+from collections.abc import Iterable
 import datetime
 import json
 import logging
@@ -458,7 +459,10 @@ class HTTPClient(HTTPClientBase):
         # route.url doesn't include params since we don't pass them to the Route
         log_url = url
         if kwargs.get('params'):
-            log_url = '?' + '&'.join([f'{key}={val}' for key, val in kwargs['params'].items()])
+            if isinstance(kwargs['params'], dict):
+                log_url += '?' + '&'.join([f'{key}={val}' for key, val in kwargs['params'].items()])
+            elif isinstance(kwargs['params'], Iterable):
+                log_url += '?' + '&'.join([f'{param[0]}={param[1]}' for param in kwargs['params']])
 
         log_headers = headers.copy()
         if 'Authorization' in log_headers:
@@ -638,6 +642,13 @@ class HTTPClient(HTTPClientBase):
 
     def remove_channel_message_reaction(self, channel_id: str, message_id: str, emote_id: int):
         return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes/{emote_id}'))
+
+    def remove_channel_message_reactions(self, channel_id: str, message_id: str, emote_id: int):
+        query = {
+            'emoteId': emote_id,
+        }
+
+        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes'), params=query)
 
     def create_forum_topic(self, channel_id: str, *, title: str, content: str):
         payload = {
