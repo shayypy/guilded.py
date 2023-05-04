@@ -2685,6 +2685,8 @@ class MessageReactionRemoveEvent(ServerEvent):
 class BulkMessageReactionRemoveEvent(ServerEvent):
     """Represents a :gdocs:`ChannelMessageReactionManyDeleted <websockets/ChannelMessageReactionManyDeleted>` event for dispatching to event handlers.
 
+    .. versionadded: 1.9
+
     Attributes
     -----------
     server_id: :class:`str`

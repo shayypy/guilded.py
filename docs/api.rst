@@ -921,6 +921,8 @@ Messages
 
     One or multiple reactions were bulk removed from a message.
 
+    .. versionadded: 1.9
+
     :param event: The event containing the payload.
     :type event: :class:`BulkMessageReactionRemoveEvent`
 
