@@ -876,6 +876,8 @@ class ChatMessage(Hashable, HasContentMixin):
 
         To remove individual reactions from specific users, see :meth:`.remove_reaction`.
 
+        .. versionadded:: 1.9
+
         Parameters
         -----------
         emote: :class:`.Emote`
