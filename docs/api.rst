@@ -936,7 +936,7 @@ Webhooks
     :param webhook: The webhook that was created.
     :type webhook: :class:`.Webhook`
 
-.. function:: on_webhook_update(webhook)
+.. function:: on_webhook_update(event)
 
     |nesonly|
 
