@@ -261,7 +261,7 @@ class MemberConverter(GenericIDConverter[guilded.Member]):
         result = None
         user_id = None
         if match is None:
-            # not a mention
+            # not an ID
             result = self.find_member_named(server, argument)
         else:
             user_id = match.group(1)
@@ -275,8 +275,13 @@ class MemberConverter(GenericIDConverter[guilded.Member]):
                 raise MemberNotFound(argument)
 
             if user_id is not None:
-                result = await server.getch_member(user_id)
-            else:
+                try:
+                    result = await server.getch_member(user_id)
+                except:
+                    pass
+
+            if not result:
+                # At this point, the argument is definitely not an ID
                 result = self.find_member_named(server, argument)
 
             if not result:
