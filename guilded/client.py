@@ -721,6 +721,50 @@ class Client:
         )
         return invite
 
+    async def set_status(self, emote: Emote, *, content: Optional[str] = MISSING) -> None:
+        """|coro|
+
+        Update your custom status.
+
+        This method cannot be used to remove your status.
+        Instead, use :meth:`.remove_status`.
+
+        .. versionadded: 1.9
+
+        Parameters
+        -----------
+        emote: :class:`Emote`
+            The emote displayed to the left of the content.
+
+            .. note::
+
+                Perhaps unexpectedly, this parameter is required by Guilded.
+                If you do not wish to provide it, ``90002547`` is the default
+                emote ID used by the desktop client.
+
+        content: Optional[:class:`str`]
+            The text content of the status.
+        """
+
+        emote_id: int = getattr(emote, 'id', emote)
+        payload = {
+            'emoteId': emote_id,
+        }
+
+        if content is not MISSING:
+            payload['content'] = content
+
+        await self.http.update_my_status(payload)
+
+    async def remove_status(self) -> None:
+        """|coro|
+
+        Remove your custom status.
+
+        .. versionadded: 1.9
+        """
+        await self.http.delete_my_status()
+
     async def on_error(self, event_method, *args, **kwargs) -> None:
         print(f'Ignoring exception in {event_method}:', file=sys.stderr)
         traceback.print_exc()

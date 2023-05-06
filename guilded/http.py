@@ -395,6 +395,12 @@ class HTTPClientBase:
     def get_my_servers(self):
         return self.request(Route('GET', '/users/@me/servers'))
 
+    def update_my_status(self, payload: Dict[str, Any]):
+        return self.request(Route('PUT', '/users/@me/status'), json=payload)
+
+    def delete_my_status(self):
+        return self.request(Route('DELETE', '/users/@me/status'))
+
     # /content
 
     def get_metadata(self, route: str):
