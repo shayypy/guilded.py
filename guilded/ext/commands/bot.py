@@ -87,8 +87,7 @@ def when_mentioned(bot: BotBase, message: guilded.Message, /) -> List[str]:
 
     These are meant to be passed into the :attr:`.Bot.command_prefix` attribute.
     """
-    # bot.user will never be None when this is called
-    return [f'<@{bot.user.id}> ']  # type: ignore
+    return [f'<@{bot.user_id}> ']
 
 
 def when_mentioned_or(*prefixes: str) -> Callable[[BotBase, guilded.Message], List[str]]:
@@ -425,7 +424,7 @@ class BotBase:
         elif self.owner_ids:
             return user.id in self.owner_ids
         else:
-            return user.id == self.user.id
+            return user.id == self.user_id
 
     async def get_prefix(self, message: guilded.ChatMessage, /) -> Union[List[str], str]:
         """|coro|
@@ -467,7 +466,7 @@ class BotBase:
         view = StringView(str(message.content))
         ctx = cls(prefix=None, view=view, bot=self, message=message)
 
-        if self._skip_check(message.author.id, self.user.id):
+        if self._skip_check(message.author.id, self.user_id):
             return ctx
 
         prefix = await self.get_prefix(message)
