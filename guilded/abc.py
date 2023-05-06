@@ -336,7 +336,7 @@ class User(Hashable, metaclass=abc.ABCMeta):
         The user's profile banner, if any.
     created_at: :class:`datetime.datetime`
         When the user's account was created.
-    status: Optional[:class:`Status`]
+    status: Optional[:class:`.Status`]
         The custom status set by the user.
     """
 

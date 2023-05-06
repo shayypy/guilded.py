@@ -2198,6 +2198,12 @@ RepeatInfo
 .. autoclass:: RepeatInfo()
     :members:
 
+Status
+~~~~~~~
+
+.. autoclass:: Status()
+    :members:
+
 Exceptions
 -----------
 
