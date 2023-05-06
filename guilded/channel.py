@@ -66,7 +66,6 @@ from .mixins import Hashable
 from .reply import AnnouncementReply, CalendarEventReply, DocReply, ForumTopicReply
 from .user import Member
 from .utils import GUILDED_EPOCH_DATETIME, MISSING, ISO8601, Object
-from .status import Game
 
 if TYPE_CHECKING:
     from .types.announcement import Announcement as AnnouncementPayload
@@ -2836,10 +2835,6 @@ class Media(Hashable, HasContentMixin):
         try:
             self.type = getattr(FileType, data['type'])
         except (KeyError, AttributeError):
-            pass
-        try:
-            self.game = Game(game_id=data['gameId'])
-        except KeyError:
             pass
 
     @property

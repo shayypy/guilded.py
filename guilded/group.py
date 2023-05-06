@@ -56,7 +56,6 @@ from typing import TYPE_CHECKING, Optional
 
 from .asset import Asset
 from .mixins import Hashable
-from .status import Game
 from .utils import ISO8601
 
 if TYPE_CHECKING:
@@ -119,7 +118,6 @@ class Group(Hashable):
         self.position: Optional[int] = data.get('priority')
         self.server_id: str = data.get('teamId')
 
-        self.game_id: Optional[int] = data.get('gameId')
         self._base: bool = data.get('isBase')
         self.public: bool = data.get('isPublic')
 
@@ -147,13 +145,6 @@ class Group(Hashable):
 
     def __repr__(self):
         return f'<Group id={self.id!r} name={self.name!r} server_id={self.server_id!r}>'
-
-    @property
-    def game(self) -> Game:
-        """Optional[:class:`Game`]: The game that the group is for."""
-        if self.game_id:
-            return Game(game_id=self.game_id)
-        return None
 
     @property
     def archived(self) -> bool:
