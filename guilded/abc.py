@@ -56,13 +56,13 @@ import datetime
 import re
 from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
-from .activity import Activity
 from .asset import Asset
 from .colour import Colour
 from .enums import ChannelType, try_enum, UserType
 from .message import HasContentMixin, ChatMessage
 from .mixins import Hashable
 from .presence import Presence
+from .status import Status
 from .utils import ISO8601, MISSING
 
 if TYPE_CHECKING:
@@ -336,6 +336,8 @@ class User(Hashable, metaclass=abc.ABCMeta):
         The user's profile banner, if any.
     created_at: :class:`datetime.datetime`
         When the user's account was created.
+    status: Optional[:class:`Status`]
+        The custom status set by the user.
     """
 
     __slots__ = (
@@ -381,11 +383,7 @@ class User(Hashable, metaclass=abc.ABCMeta):
         self.bio: str = (data.get('aboutInfo') or {}).get('bio') or ''
         self.tagline: str = (data.get('aboutInfo') or {}).get('tagLine') or ''
         self.presence: Presence = Presence.from_value(data.get('userPresenceStatus')) or None
-        status = data.get('userStatus') or {}
-        if status.get('content'):
-            self.status: Optional[Activity] = Activity.build(status['content'])
-        else:
-            self.status: Optional[Activity] = None
+        self.status = Status(data.get('status')) if data.get('status') else None
 
         self.blocked_at: Optional[datetime.datetime] = ISO8601(data.get('blockedDate'))
         self.online_at: Optional[datetime.datetime] = ISO8601(data.get('lastOnline'))

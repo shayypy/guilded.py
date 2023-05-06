@@ -49,30 +49,36 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-import logging
+from typing import TYPE_CHECKING, Tuple
 
-log = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from .types.user import UserStatus as UserStatusPayload
+
 
 __all__ = (
-    'TransientStatus',
+    'Status',
 )
 
-class TransientStatus:
-    """Represents a transient status of a user.
+
+class Status:
+    """Represents a user's status.
 
     This is displayed under the user's name in the sidebar, analogous to an
     "activity" on Discord.
 
     Attributes
     -----------
-    id: Optional[:class:`int`]
-        The id of the status.
-    game_id: Optional[:class:`int`]
-        The id of the game that this status is for.
+    content: Optional[:class:`str`]
+        The content of the status.
+    emote_id: Optional[:class:`int`]
+        The ID of the emote associated with the status.
     """
-    def __init__(self, *, state, data, **extra):
-        self.id = data.get('id')
-        self.game_id = data.get('id')
 
+    __slots__: Tuple[str, ...] = (
+        'content',
+        'emote_id',
+    )
 
-
+    def __init__(self, *, data: UserStatusPayload):
+        self.content = data.get('content')
+        self.emote_id = data.get('emoteId')
