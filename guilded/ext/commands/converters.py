@@ -108,7 +108,6 @@ __all__ = (
     'ColorConverter',
     'EmoteConverter',
     'EmojiConverter',
-    'GameConverter',
     'RoleConverter',
     'Greedy',
     'clean_content',
@@ -688,34 +687,6 @@ class ColourConverter(Converter[guilded.Colour]):
 ColorConverter = ColourConverter
 
 
-class GameConverter(Converter[guilded.Game]):
-    """Converts to a :class:`~guilded.Game`.
-
-    :attr:`~guilded.Game.MAPPING` must be populated for this converter to work
-    as expected. Call :meth:`~guilded.Client.fill_game_list` at least
-    once in your process's lifetime to ensure this.
-
-    The lookup strategy is as follows (in order):
-
-    1. Lookup by ID
-    2. Lookup by name
-    """
-
-    async def convert(self, ctx: Context, argument: str):
-        if not guilded.Game.MAPPING:
-            raise BadGameArgument(argument)
-
-        result = None
-        if argument in guilded.Game.MAPPING.keys():
-            result = guilded.Game(game_id=argument)
-        elif argument in guilded.Game.MAPPING.values():
-            result = guilded.Game(name=argument)
-        else:
-            raise GameNotFound(argument)
-
-        return result
-
-
 class RoleConverter(IntIDConverter[guilded.Role]):
     """Converts to a :class:`~guilded.Role`.
 
@@ -920,7 +891,6 @@ CONVERTER_MAPPING: Dict[Type[Any], Any] = {
     guilded.DocsChannel: DocsChannelConverter,
     guilded.Emote: EmoteConverter,
     guilded.ForumChannel: ForumChannelConverter,
-    guilded.Game: GameConverter,
     guilded.ListChannel: ListChannelConverter,
     guilded.MediaChannel: MediaChannelConverter,
     guilded.Member: MemberConverter,
