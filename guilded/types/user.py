@@ -27,6 +27,11 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 from typing_extensions import NotRequired
 
 
+class UserStatus(TypedDict):
+    content: NotRequired[str]
+    emoteId: NotRequired[int]
+
+
 class UserSummary(TypedDict):
     id: str
     type: NotRequired[Literal['user', 'bot']]
@@ -56,6 +61,7 @@ class User(UserSummary):
     badges: NotRequired[List[str]]
     flairInfos: NotRequired[Dict[str, Any]]
     teams: NotRequired[Union[Literal[False], List[Dict[str, Any]]]]
+    status: NotRequired[UserStatus]
 
 
 class ServerMemberSummary(TypedDict):
