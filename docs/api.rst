@@ -2168,13 +2168,6 @@ Embed
 .. autoclass:: Embed()
     :members:
 
-Game
-~~~~~
-
-.. autoclass:: Game()
-    :members:
-    :inherited-members:
-
 Colour
 ~~~~~~~
 
