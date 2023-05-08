@@ -2135,6 +2135,13 @@ Server
 .. autoclass:: Server()
     :members:
 
+StreamChannel
+~~~~~~~~~~~~~~
+
+.. autoclass:: StreamChannel()
+    :members:
+    :inherited-members:
+
 Thread
 ~~~~~~~
 
