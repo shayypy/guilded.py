@@ -109,6 +109,8 @@ __all__ = (
     'PartialMessageable',
     'RepeatInfo',
     'SchedulingChannel',
+    'StreamChannel',
+    'StreamingChannel',
     'TextChannel',
     'Thread',
     'VoiceChannel',
@@ -3908,6 +3910,16 @@ class SchedulingChannel(guilded.abc.ServerChannel):
     #        availability = Availability(data=availability_data, channel=self, state=self._state)
     #        if availability.id == data['id']:
     #            return availability
+
+
+class StreamChannel(guilded.abc.ServerChannel, guilded.abc.Messageable):
+    """Represents a stream channel in a :class:`.Server`."""
+    def __init__(self, **fields):
+        super().__init__(**fields)
+        self.type = ChannelType.stream
+        self._channel_id = self.id
+
+StreamingChannel = StreamChannel
 
 
 class PartialMessageable(guilded.abc.Messageable, Hashable):

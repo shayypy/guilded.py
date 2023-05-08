@@ -1095,6 +1095,7 @@ class HTTPClient(HTTPClientBase):
                 ChannelType.list: channel.ListChannel,
                 ChannelType.media: channel.MediaChannel,
                 ChannelType.scheduling: channel.SchedulingChannel,
+                ChannelType.stream: channel.StreamChannel,
                 ChannelType.voice: channel.VoiceChannel,
             }
             cls = types.get(try_enum(ChannelType, channel_data['type']))
