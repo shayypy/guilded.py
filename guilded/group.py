@@ -52,7 +52,7 @@ DEALINGS IN THE SOFTWARE.
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from .asset import Asset
 from .mixins import Hashable
@@ -61,6 +61,8 @@ from .utils import ISO8601
 if TYPE_CHECKING:
     from .server import Server
     from .user import Member
+
+    from .types.group import Group as GroupPayload
 
 
 __all__ = (
@@ -99,46 +101,64 @@ class Group(Hashable):
         The group's name.
     description: Optional[:class:`str`]
         The group's description.
-    position: Optional[:class:`int`]
-        The group's position on the sidebar. Will be ``None`` if :attr:`.base`
-        is ``True``\.
+    home: :class:`bool`
+        Whether the group is the home group of its server.
     public: :class:`bool`
-        Whether the group is public.
+        Whether the group is able to be joined by anyone.
+    emote_id: Optional[:class:`int`]
+        The ID of the emote associated with the group, if any.
+    created_at: :class:`datetime.datetime`
+        When the group was created.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the group was last updated.
+    archived_at: Optional[:class:`datetime.datetime`]
+        When the group was archived, if applicable.
     """
 
-    def __init__(self, *, state, data, server: Server):
+    __slots__: Tuple[str, ...] = (
+        '_state',
+        'server',
+        'server_id',
+        'id',
+        'name',
+        'description',
+        'home',
+        'public',
+        'emote_id',
+        'author_id',
+        'updated_by_id',
+        'archived_by_id',
+        'created_at',
+        'updated_at',
+        'archived_at',
+        '_avatar',
+    )
+
+    def __init__(self, *, state, data: GroupPayload, server: Server):
         self._state = state
         self.server = server
-        data = data.get('group', data)
+        self.server_id: str = data.get('serverId')
 
-        self.id: str = data.get('id')
+        self.id: str = data['id']
         self.name: str = data.get('name')
-        self.type: str = data.get('type', 'team')
         self.description: str = data.get('description') or ''
-        self.position: Optional[int] = data.get('priority')
-        self.server_id: str = data.get('teamId')
 
-        self._base: bool = data.get('isBase')
-        self.public: bool = data.get('isPublic')
+        self.home: bool = data.get('isHome') or False
+        self.public: bool = data.get('isPublic') or False
 
+        self.emote_id: Optional[int] = data.get('emoteId')
         self.author_id: Optional[str] = data.get('createdBy')
         self.updated_by_id: Optional[str] = data.get('updatedBy')
         self.archived_by_id: Optional[str] =  data.get('archivedBy')
 
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
-        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
         self.archived_at: Optional[datetime.datetime] = ISO8601(data.get('archivedAt'))
 
         avatar = None
         if data.get('avatar'):
             avatar = Asset._from_group_avatar(state, data.get('avatar'))
         self._avatar: Optional[Asset] = avatar
-
-        banner = None
-        if data.get('banner'):
-            banner = Asset._from_group_banner(state, data.get('banner'))
-        self._banner: Optional[Asset] = banner
 
     def __str__(self):
         return self.name
@@ -149,28 +169,17 @@ class Group(Hashable):
     @property
     def archived(self) -> bool:
         """:class:`bool`: Whether this group is archived."""
-        return self.archived_at is not None or self.archived_by is not None
+        return self.archived_at is not None
 
     @property
-    def base(self) -> bool:
-        """:class:`bool`: Whether the group is the base or "home" group of its server."""
-        return self._base or self.server.base_group == self
+    def display_avatar(self) -> Optional[Asset]:
+        """Optional[:class:`.Asset`]: The group's displayed avatar.
+        If :attr:`.home` is ``True``, this will be the :attr:`.server`\'s avatar instead."""
 
-    @property
-    def avatar(self) -> Optional[Asset]:
-        """Optional[:class:`.Asset`]: The group's avatar, if any.
-        If :attr:`.base` is ``True``, this will be the :attr:`.server`\'s avatar instead."""
-        if self.base:
+        if self.home:
             return self._avatar or self.server.avatar
-        return self._avatar
 
-    @property
-    def banner(self) -> Optional[Asset]:
-        """Optional[:class:`.Asset`]: The group's banner, if any.
-        If :attr:`.base` is ``True``, this will be the :attr:`.server`\'s banner instead."""
-        if self.base:
-            return self._banner or self.server.banner
-        return self._banner
+        return self._avatar
 
     @property
     def author(self) -> Optional[Member]:
