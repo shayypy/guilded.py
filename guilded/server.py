@@ -65,7 +65,7 @@ from .group import Group
 from .mixins import Hashable
 from .role import Role
 from .user import Member, MemberBan
-from .utils import ISO8601, get, find
+from .utils import ISO8601, MISSING, get, find
 
 if TYPE_CHECKING:
     from .types.server import Server as ServerPayload
@@ -1225,5 +1225,107 @@ class Server(Hashable):
             raise ValueError('This server has no default channel.')
 
         return await self.fetch_channel(self.default_channel_id)
+
+    async def create_group(
+        self,
+        name: str,
+        *,
+        description: Optional[str] = MISSING,
+        emote: Optional[Emote] = MISSING,
+        public: bool = MISSING,
+    ) -> Group:
+        """|coro|
+
+        Create a group in the server.
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The name of the group.
+        description: Optional[:class:`str`]
+            The description of the group.
+        emote: Optional[:class:`.Emote`]
+            The emote associated with the group.
+        public: Optional[:class:`bool`]
+            Whether the group is public.
+
+        Raises
+        -------
+        HTTPException
+            Creating the group failed.
+        Forbidden
+            You do not have permissions to create a group.
+
+        Returns
+        --------
+        :class:`Group`
+            The created group.
+        """
+
+        payload = {
+            'name': name,
+        }
+
+        if description is not MISSING:
+            payload['description'] = description
+
+        if emote is not MISSING:
+            emote_id: int = getattr(emote, 'id', emote)
+            payload['emoteId'] = emote_id
+
+        if public is not MISSING:
+            payload['isPublic'] = public
+
+        data = await self._state.create_group(
+            self.id,
+            payload=payload
+        )
+
+        group = Group(state=self._state, data=data['group'], server=self)
+        return group
+
+    async def fetch_group(self, group_id: str, /) -> Group:
+        """|coro|
+
+        Fetch a group in the server.
+
+        Raises
+        -------
+        HTTPException
+            Fetching the group failed.
+        Forbidden
+            You do not have permissions to fetch the group.
+
+        Returns
+        --------
+        :class:`Group`
+            The group by the ID.
+        """
+
+        data = await self._state.get_group(self.id, group_id)
+        group = Group(state=self._state, data=data['group'], server=self)
+        return group
+
+    async def fetch_groups(self) -> List[Group]:
+        """|coro|
+
+        Fetch all groups in the server.
+
+        Raises
+        -------
+        HTTPException
+            Fetching the groups failed.
+        Forbidden
+            You do not have permissions to fetch the groups.
+
+        Returns
+        --------
+        List[:class:`Group`]
+            The groups in the server.
+        """
+
+        data = await self._state.get_groups(self.id)
+        groups = [Group(state=self._state, data=group_data, server=self) for group_data in data['groups']]
+        return groups
 
 Guild = Server  # discord.py

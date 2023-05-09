@@ -1059,7 +1059,22 @@ class HTTPClient(HTTPClientBase):
     def delete_webhook(self, server_id: str, webhook_id: str):
         return self.request(Route('DELETE', f'/servers/{server_id}/webhooks/{webhook_id}'))
 
-    # /groups
+    # groups
+
+    def create_group(self, server_id: str, *, payload: Dict[str, Any]):
+        return self.request(Route('POST', f'/servers/{server_id}/groups'), json=payload)
+
+    def get_group(self, server_id: str, group_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/groups/{group_id}'))
+
+    def get_groups(self, server_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/groups'))
+
+    def update_group(self, server_id: str, group_id: str, *, payload: Dict[str, Any]):
+        return self.request(Route('PATCH', f'/servers/{server_id}/groups/{group_id}'), json=payload)
+
+    def delete_group(self, server_id: str, group_id: str):
+        return self.request(Route('POST', f'/servers/{server_id}/groups/{group_id}'))
 
     def add_group_member(self, group_id: str, user_id: str):
         return self.request(Route('PUT', f'/groups/{group_id}/members/{user_id}'))

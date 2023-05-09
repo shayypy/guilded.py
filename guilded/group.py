@@ -56,9 +56,10 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from .asset import Asset
 from .mixins import Hashable
-from .utils import ISO8601
+from .utils import ISO8601, MISSING
 
 if TYPE_CHECKING:
+    from .emote import Emote
     from .server import Server
     from .user import Member
 
@@ -195,6 +196,86 @@ class Group(Hashable):
     def archived_by(self) -> Optional[Member]:
         """Optional[:class:`.Member`]: The member who archived the group, if any."""
         return self.server.get_member(self.archived_by_id)
+
+    async def edit(
+        self,
+        *,
+        name: Optional[str] = MISSING,
+        description: Optional[str] = MISSING,
+        emote: Optional[Emote] = MISSING,
+        public: bool = MISSING,
+    ) -> Group:
+        """|coro|
+
+        Edit the group.
+
+        All parameters are optional.
+
+        .. versionadded:: 1.9
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The name of the group.
+        description: :class:`str`
+            The description of the group.
+        emote: :class:`.Emote`
+            The emote associated with the group.
+        public: :class:`bool`
+            Whether the group is public.
+
+        Raises
+        -------
+        HTTPException
+            Editing the group failed.
+        Forbidden
+            You do not have permissions to edit the group.
+
+        Returns
+        --------
+        :class:`Group`
+            The newly edited group.
+        """
+
+        payload = {}
+
+        if name is not MISSING:
+            payload['name'] = name
+
+        if description is not MISSING:
+            payload['description'] = description
+
+        if emote is not MISSING:
+            emote_id: int = getattr(emote, 'id', emote)
+            payload['emoteId'] = emote_id
+
+        if public is not MISSING:
+            payload['isPublic'] = public
+
+        data = await self._state.update_group(
+            self.server_id,
+            self.id,
+            payload=payload
+        )
+
+        group = Group(state=self._state, data=data['group'], server=self.server)
+        return group
+
+    async def delete(self) -> None:
+        """|coro|
+
+        Delete the group.
+
+        .. versionadded:: 1.9
+
+        Raises
+        -------
+        HTTPException
+            Deleting the group failed.
+        Forbidden
+            You do not have permissions to delete the group.
+        """
+        await self._state.delete_group(self.server_id, self.id)
 
     async def add_member(self, member: Member, /) -> None:
         """|coro|
