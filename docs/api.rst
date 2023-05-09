@@ -183,11 +183,20 @@ Calendar Events
     :param event: The event that was created.
     :type event: :class:`.CalendarEvent`
 
-.. function:: on_raw_calendar_event_update(event)
+.. function:: on_calendar_event_update(event)
+
+    |nesonly|
 
     A calendar event was updated in a calendar channel.
 
-    |nestype| :class:`CalendarEventUpdateEvent`
+    :param event: The event containing the payload.
+    :type event: :class:`.CalendarEventUpdateEvent`
+
+.. function:: on_raw_calendar_event_update(event)
+
+    |nesnever|
+
+    A calendar event was updated in a calendar channel.
 
     :param event: The event that was updated.
     :type event: :class:`.CalendarEvent`
