@@ -656,6 +656,45 @@ Gateway
 
     This function can be called many times without a corresponding :func:`on_connect` call.
 
+Groups
+~~~~~~~
+
+.. function:: on_group_create(group)
+
+    A group was created in a server.
+
+    |nestype| :class:`GroupCreateEvent`
+
+    :param group: The group that was created.
+    :type group: :class:`.Group`
+
+.. function:: on_group_update(event)
+
+    |nesonly|
+
+    A group was updated in a server.
+
+    :param event: The event containing the payload.
+    :type event: :class:`.GroupUpdateEvent`
+
+.. function:: on_raw_group_update(group)
+
+    |nesnever|
+
+    A group was updated in a server.
+
+    :param group: The group that was updated.
+    :type group: :class:`.Group`
+
+.. function:: on_group_delete(group)
+
+    A group was deleted in a server.
+
+    |nestype| :class:`GroupDeleteEvent`
+
+    :param group: The group that was deleted.
+    :type group: :class:`.Group`
+
 List Items
 ~~~~~~~~~~~
 
@@ -1245,6 +1284,18 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: ForumTopicReplyReactionRemoveEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: GroupCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: GroupUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: GroupDeleteEvent()
     :members:
     :inherited-members:
 
