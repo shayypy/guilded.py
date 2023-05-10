@@ -32,6 +32,7 @@ from .channel import ServerChannel
 from .doc import Doc, DocComment
 from .emote import Emote
 from .forum_topic import ForumTopic, ForumTopicComment
+from .group import Group
 from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
 from .reaction import AnnouncementCommentReaction, AnnouncementReaction, CalendarEventCommentReaction, ChannelMessageReaction, CalendarEventReaction, DocCommentReaction, DocReaction, ForumTopicCommentReaction, ForumTopicReaction
@@ -199,6 +200,10 @@ class ForumTopicCommentEvent(_ServerEvent):
 
 class ForumTopicCommentReactionEvent(_ServerEvent):
     reaction: ForumTopicCommentReaction
+
+
+class GroupEvent(_ServerEvent):
+    group: Group
 
 
 class CalendarEventRsvpEvent(_ServerEvent):

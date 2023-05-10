@@ -43,6 +43,7 @@ from .channel import (
     VoiceChannel,
 )
 from .emote import Emote
+from .group import Group
 from .message import ChatMessage
 from .reply import AnnouncementReply, CalendarEventReply, DocReply, ForumTopicReply
 from .user import Member, MemberBan, SocialLink
@@ -131,6 +132,9 @@ __all__ = (
     'ForumTopicReplyDeleteEvent',
     'ForumTopicReplyReactionAddEvent',
     'ForumTopicReplyReactionRemoveEvent',
+    'GroupCreateEvent',
+    'GroupUpdateEvent',
+    'GroupDeleteEvent',
     'ListItemCreateEvent',
     'ListItemUpdateEvent',
     'ListItemDeleteEvent',
@@ -2446,6 +2450,73 @@ class ForumTopicReplyReactionRemoveEvent(_ForumTopicReplyReactionEvent):
 
     __gateway_event__ = 'ForumTopicCommentReactionDeleted'
     __dispatch_event__ = 'forum_topic_reply_reaction_remove'
+
+
+class _GroupEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'group',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.GroupEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.group = Group(state=state, data=data['group'], server=self.server)
+
+
+class GroupCreateEvent(_GroupEvent):
+    """Represents a :gdocs:`GroupCreated <websockets/GroupCreated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the group is in.
+    server: :class:`Server`
+        The server that the group is in.
+    group: :class:`Group`
+        The group that was created.
+    """
+
+    __gateway_event__ = 'GroupCreated'
+    __dispatch_event__ = 'group_create'
+
+
+class GroupUpdateEvent(_GroupEvent):
+    """Represents a :gdocs:`GroupUpdated <websockets/GroupUpdated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the group is in.
+    server: :class:`Server`
+        The server that the group is in.
+    group: :class:`Group`
+        The group after modification.
+    """
+
+    __gateway_event__ = 'GroupUpdated'
+    __dispatch_event__ = 'group_update'
+
+
+class GroupDeleteEvent(_GroupEvent):
+    """Represents a :gdocs:`GroupDeleted <websockets/GroupDeleted>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the group was in.
+    server: :class:`Server`
+        The server that the group was in.
+    group: :class:`Group`
+        The group that was deleted.
+    """
+
+    __gateway_event__ = 'GroupDeleted'
+    __dispatch_event__ = 'group_delete'
 
 
 class _ListItemEvent(ServerEvent):

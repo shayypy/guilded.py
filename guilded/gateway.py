@@ -67,6 +67,7 @@ from .errors import GuildedException, HTTPException
 from .enums import ChannelType
 from . import events as ev
 from .channel import *
+from .group import Group
 from .reaction import RawReactionActionEvent, Reaction
 from .role import Role
 from .user import ClientUser, Member
@@ -1116,6 +1117,45 @@ class WebSocketEventParsers:
             channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'], ChannelType.forums)
             event = ev.ForumTopicReplyReactionRemoveEvent(self._state, data, channel)
             self.client.dispatch(event)
+
+    async def parse_group_created(self, data: gw.GroupEvent):
+        if self._exp_style:
+            event = ev.GroupCreateEvent(self._state, data)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
+
+            group = Group(state=self._state, data=data['group'], server=server)
+            self.client.dispatch('group_create', group)
+
+    async def parse_group_updated(self, data: gw.GroupEvent):
+        if self._exp_style:
+            event = ev.GroupUpdateEvent(self._state, data)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
+
+            group = Group(state=self._state, data=data['group'], server=server)
+            self.client.dispatch('raw_group_update', group)
+
+    async def parse_group_deleted(self, data: gw.GroupEvent):
+        if self._exp_style:
+            event = ev.GroupDeleteEvent(self._state, data)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            if not server:
+                return
+
+            group = Group(state=self._state, data=data['group'], server=server)
+            self.client.dispatch('group_delete', group)
 
     async def parse_list_item_created(self, data: gw.ListItemEvent):
         if self._exp_style:
