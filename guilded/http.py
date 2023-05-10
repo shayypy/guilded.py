@@ -1074,7 +1074,7 @@ class HTTPClient(HTTPClientBase):
         return self.request(Route('PATCH', f'/servers/{server_id}/groups/{group_id}'), json=payload)
 
     def delete_group(self, server_id: str, group_id: str):
-        return self.request(Route('POST', f'/servers/{server_id}/groups/{group_id}'))
+        return self.request(Route('DELETE', f'/servers/{server_id}/groups/{group_id}'))
 
     def add_group_member(self, group_id: str, user_id: str):
         return self.request(Route('PUT', f'/groups/{group_id}/members/{user_id}'))
