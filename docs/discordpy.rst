@@ -48,7 +48,6 @@ Not present
 * ``Client.create_dm``
 * ``Client.create_guild`` (``create_server``)
 * ``Client.delete_invite``
-* ``Client.fetch_guilds`` (``fetch_servers``)
 * ``Client.fetch_premium_sticker_packs``
 * ``Client.fetch_stage_instance``
 * ``Client.fetch_sticker``
