@@ -665,7 +665,7 @@ class Client:
 
         Returns
         --------
-        List[:class:`.Servers`]
+        List[:class:`.Server`]
             The servers you are a member of.
         """
 
