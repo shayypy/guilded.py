@@ -35,6 +35,7 @@ Modified
   :attr:`.Webhook.server_id` to be filled or for you to provide the ``server``
   parameter to the respective method.
 * :meth:`.Client.fetch_invite` does not accept URLs or vanity codes.
+* :meth:`.Client.fetch_servers` returns a list of :class:`.Server` instead of an async iterator.
 
 Not present
 ~~~~~~~~~~~~
@@ -48,6 +49,7 @@ Not present
 * ``Client.create_dm``
 * ``Client.create_guild`` (``create_server``)
 * ``Client.delete_invite``
+* ``Client.fetch_guilds``
 * ``Client.fetch_premium_sticker_packs``
 * ``Client.fetch_stage_instance``
 * ``Client.fetch_sticker``
