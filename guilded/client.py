@@ -659,13 +659,14 @@ class Client:
     async def fetch_servers(self) -> List[Server]:
         """|coro|
 
+
         Fetch your list of servers from the API.
 
         .. versionadded:: 1.8
 
         Returns
         --------
-        List[:class:`.Servers`]
+        List[:class:`.Server`]
             The servers you are a member of.
         """
 
