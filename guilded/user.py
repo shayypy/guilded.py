@@ -532,12 +532,12 @@ class Member(User):
 
         Fetch one of this member's social links.
 
+        .. versionadded:: 1.3
+
         Parameters
         -----------
         social_link_type: :class:`SocialLinkType`
             The type of social link to get.
-
-        .. versionadded:: 1.3
 
         Returns
         --------
