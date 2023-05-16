@@ -55,7 +55,7 @@ import datetime
 import inspect
 import itertools
 from operator import attrgetter
-from typing import TYPE_CHECKING, List, Optional, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple, TypeVar, Union
 
 import guilded.abc
 
