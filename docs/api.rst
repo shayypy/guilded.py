@@ -1751,6 +1751,79 @@ API from being stringly typed in case the strings change in the future.
 
         The server's type is "Other".
 
+.. class:: SocialLinkType
+
+    A type of social link.
+
+    .. versionadded:: 1.3
+
+    .. attribute:: twitch
+
+        The social link is a Twitch connection.
+
+    .. attribute:: bnet
+
+        The social link is a Battle.net connection.
+
+    .. attribute:: battlenet
+
+        The social link is a Battle.net connection.
+        This is an alias of :attr:`.bnet`.
+
+    .. attribute:: psn
+
+        The social link is a Playstation Network connection.
+
+    .. attribute:: playstation
+
+        The social link is a Playstation Network connection.
+        This is an alias of :attr:`.psn`.
+
+    .. attribute:: xbox
+
+        The social link is an Xbox connection.
+
+    .. attribute:: steam
+
+        The social link is a Steam connection.
+
+    .. attribute:: origin
+
+        The social link is an Origin connection.
+
+    .. attribute:: youtube
+
+        The social link is a YouTube connection.
+
+    .. attribute:: twitter
+
+        The social link is a Twitter connection.
+
+    .. attribute:: facebook
+
+        The social link is a Facebook connection.
+
+    .. attribute:: switch
+
+        The social link is a Nintendo Switch connection.
+
+    .. attribute:: patreon
+
+        The social link is a Patreon connection.
+
+    .. attribute:: roblox
+
+        The social link is a Roblox connection.
+
+    .. attribute:: epic
+
+        The social link is an Epic Games connection.
+
+    .. attribute:: epicgames
+
+        The social link is an Epic Games connection.
+        This is an alias of :attr:`.epic`.
+
 .. class:: RepeatInterval
 
     A basic repeat interval setting for calendar events.
@@ -2263,6 +2336,12 @@ RepeatInfo
 ~~~~~~~~~~~
 
 .. autoclass:: RepeatInfo()
+    :members:
+
+SocialLink
+~~~~~~~~~~~
+
+.. autoclass:: SocialLink()
     :members:
 
 Status

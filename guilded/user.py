@@ -703,6 +703,8 @@ class SocialLink:
 
             Checks if two social links are not equal.
 
+    .. versionadded:: 1.3
+
     Attributes
     -----------
     user: Union[:class:`Member`, :class:`~guilded.User`]
