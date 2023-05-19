@@ -23,23 +23,21 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
+from typing import List, TypedDict
 from typing_extensions import NotRequired
 
 
 class Role(TypedDict):
     id: int
-    name: str
-    color: Optional[str]
-    permissions: NotRequired[Dict[str, int]]
-    priority: NotRequired[int]
-    teamId: str
+    serverId: str
     createdAt: str
     updatedAt: NotRequired[str]
-    isBase: NotRequired[bool]
-    discordRoleId: NotRequired[Optional[str]]
-    discordSyncedAt: NotRequired[Optional[str]]
-    isMentionable: NotRequired[bool]
-    isSelfAssignable: NotRequired[bool]
+    name: str
     isDisplayedSeparately: NotRequired[bool]
-    botScope: NotRequired[Optional[Dict[str, str]]]
+    isSelfAssignable: NotRequired[bool]
+    isMentionable: NotRequired[bool]
+    permissions: List[str]
+    colors: NotRequired[List[int]]
+    icon: NotRequired[str]
+    position: int
+    isBase: NotRequired[bool]

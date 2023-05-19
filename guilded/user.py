@@ -230,7 +230,6 @@ class Member(User):
         '_role_ids',
         '_user'
         '_server',
-        'bot_id',
         'nick',
         'xp',
         'joined_at',
@@ -288,15 +287,6 @@ class Member(User):
             if self.server.get_role(int(role_id)) is not None
         ]
         return roles
-
-    @property
-    def bot(self) -> bool:
-        """:class:`bool`: Whether the member is a bot or webhook."""
-        return self._user.bot or (
-            self.server is not None
-            and self.server.bot_role is not None
-            and self.server.bot_role.id in self._role_ids
-        )
 
     @classmethod
     def _copy(cls, member: Member):

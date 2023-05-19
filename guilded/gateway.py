@@ -579,7 +579,7 @@ class WebSocketEventParsers:
                     if role_id.isdigit():
                         # "baseRole" is included in rolesById, resulting in a
                         # duplicate entry for the base role.
-                        role = Role(state=self._state, data=updated, server=server)
+                        role = Role(state=self._state, data=updated)
                         server._roles[role.id] = role
 
     async def parse_server_member_social_link_created(self, data: gw.ServerMemberSocialLinkEvent):

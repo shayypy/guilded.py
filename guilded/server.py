@@ -178,7 +178,7 @@ class Server(Hashable):
             if role_id.isdigit():
                 # "baseRole" is included in rolesById, resulting in a
                 # duplicate entry for the base role.
-                role: Role = Role(state=self._state, data=role, server=self)
+                role: Role = Role(state=self._state, data=role)
                 self._roles[role.id] = role
                 if role.base:
                     self._base_role: Optional[Role] = role
@@ -1026,6 +1026,62 @@ class Server(Hashable):
                 continue
             else:
                 self._members[member.id] = member
+
+    async def fetch_roles(self) -> List[Role]:
+        """|coro|
+
+        Fetch the list of :class:`Role`\s in the server.
+
+        Returns
+        --------
+        List[:class:`.Role`]
+            The roles in the server.
+        """
+        data = await self._state.get_roles(self.id)
+        return [Role(state=self._state, data=role_data) for role_data in data['roles']]
+
+    async def fetch_role(self, role_id: int, /) -> Role:
+        """|coro|
+
+        Fetch a specific :class:`Role` in this server.
+
+        Parameters
+        -----------
+        id: :class:`int`
+            The role's ID to fetch.
+
+        Returns
+        --------
+        :class:`Role`
+            The role from the ID.
+
+        Raises
+        -------
+        :class:`NotFound`
+            A role with that ID does not exist in this server.
+        """
+
+        data = await self._state.get_role(self.id, role_id)
+        return Role(state=self._state, data=data['role'])
+
+    async def getch_role(self, role_id: int, /) -> Role:
+        return self.get_role(role_id) or await self.fetch_role(role_id)
+
+    async def fill_roles(self) -> None:
+        """Fill the role cache for this server.
+
+        .. note::
+
+            This is used internally and is generally not needed for most
+            applications as member cache is created and discarded
+            automatically throughout a connected client's lifetime.
+
+        """
+
+        data = await self._state.get_roles(self.id)
+        self._roles.clear()
+        for role_data in data['roles']:
+            self._roles[role_data['id']] = Role(state=self._state, data=role_data)
 
     async def ban(
         self,

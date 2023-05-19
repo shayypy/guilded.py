@@ -81,6 +81,7 @@ if TYPE_CHECKING:
     from .emote import Emote
     from .file import Attachment, File
     from .gateway import GuildedWebSocket
+    from .role import Role
     from .server import Server
     from .user import ClientUser
 
@@ -276,6 +277,10 @@ class HTTPClientBase:
         if self._get_server(server_id):
             return self._get_server(server_id).get_member(user_id)
 
+    def _get_server_role(self, server_id: str, role_id: int) -> Optional[Role]:
+        if self._get_server(server_id):
+            return self._get_server(server_id).get_role(role_id)
+
     @property
     def _emotes(self) -> Dict[int, Emote]:
         emotes = {}
@@ -294,20 +299,29 @@ class HTTPClientBase:
         while len(self._messages) > self._max_messages:
             del self._messages[list(self._messages.keys())[0]]
 
-    def add_to_server_cache(self, server):
+    def add_to_server_cache(self, server: Server):
         self._servers[server.id] = server
 
     def remove_from_server_cache(self, server_id: str):
         self._servers.pop(server_id, None)
 
-    def add_to_member_cache(self, member):
+    def add_to_member_cache(self, member: Member):
         server = member.server or self._get_server(member.server_id)
         if server:
             server._members[member.id] = member
 
-    def remove_from_member_cache(self, server_id, member_id):
+    def remove_from_member_cache(self, server_id: str, member_id: str):
         if self._get_server(server_id):
             self._get_server(server_id)._members.pop(member_id, None)
+
+    def add_to_role_cache(self, role: Role):
+        server = role.server
+        if server:
+            server._roles[role.id] = role
+
+    def remove_from_role_cache(self, server_id: str, role_id: int):
+        if self._get_server(server_id):
+            self._get_server(server_id)._roles.pop(role_id, None)
 
     def add_to_server_channel_cache(self, channel):
         server = channel.server or self._get_server(channel.server_id)
@@ -1022,6 +1036,12 @@ class HTTPClient(HTTPClientBase):
             'amount': amount,
         }
         return self.request(Route('POST', f'/servers/{server_id}/roles/{role_id}/xp'), json=payload)
+
+    def get_role(self, server_id: str, role_id: int):
+        return self.request(Route('GET', f'/servers/{server_id}/roles/{role_id}'))
+
+    def get_roles(self, server_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/roles'))
 
     def ban_server_member(self, server_id: str, user_id: str, *, reason: str = None):
         payload = {}

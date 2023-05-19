@@ -24,9 +24,9 @@ SOFTWARE.
 
 from __future__ import annotations
 
-import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
+from .asset import Asset
 from .colour import Colour
 from .mixins import Hashable
 from .utils import ISO8601
@@ -74,9 +74,8 @@ class Role(Hashable):
         When the role was created.
     updated_at: Optional[:class:`datetime.datetime`]
         When the role was last updated.
-    priority: :class:`int`
-        The role's priority. The base role has a priority of 1, but you should
-        rely on :attr:`.base` instead.
+    position: :class:`int`
+        The role's position in the role hierarchy.
     mentionable: :class:`bool`
         Whether members may mention this role.
     self_assignable: :class:`bool`
@@ -89,35 +88,42 @@ class Role(Hashable):
         Whether the role is the base ``Member`` role.
     """
 
-    def __init__(self, *, state, data: RolePayload, **extra):
+    __slots__: Tuple[str, ...] = (
+        '_state',
+        'server_id',
+        'id',
+        'name',
+        '_colours',
+        'created_at',
+        'updated_at',
+        '_icon',
+        '_permissions',
+        'position',
+        'mentionable',
+        'self_assignable',
+        'displayed_separately',
+        'base',
+    )
+
+    def __init__(self, *, state, data: RolePayload):
         self._state = state
-        self._member_ids = set()
+        self.server_id: str = data.get('serverId')
 
-        self.server_id: str = data.get('serverId') or data.get('teamId')
-
-        self.id: int = int(data['id'])
+        self.id: int = data['id']
         self.name: str = data.get('name') or ''
+        self._colours: List[int] = data.get('colors') or []
+        self._permissions = data.get('permissions') or []
 
-        self.colour: Optional[Colour]
-        colour = data.get('colour') or data.get('color')
-        if colour == 'transparent':
-            self.colour = None
-        elif colour is not None and not isinstance(colour, Colour):
-            self.colour = Colour.from_str(colour)
-        else:
-            self.colour = colour
+        self.created_at = ISO8601(data.get('createdAt'))
+        self.updated_at = ISO8601(data.get('updatedAt'))
 
-        self.created_at: Optional[datetime.datetime] = ISO8601(data.get('createdAt'))
-        self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self._icon = data.get('icon')
 
-        self._permissions = data.get('permissions', {})
-        self.priority: int = data.get('priority', 0)
-        self.base: bool = data.get('isBase', False)
-        self._is_bot_role: bool = data.get('botScope') is not None
-        self.bot_user_id: Optional[str] = (data.get('botScope') or {}).get('userId')
+        self.position: int = data.get('position', 0)
         self.mentionable: bool = data.get('isMentionable', False)
         self.self_assignable: bool = data.get('isSelfAssignable', False)
         self.displayed_separately: bool = data.get('isDisplayedSeparately', False)
+        self.base: bool = data.get('isBase', False)
 
     def __str__(self) -> str:
         return self.name
@@ -129,11 +135,8 @@ class Role(Hashable):
     def mention(self) -> str:
         """:class:`str`: The mention string for this role.
 
-        This will not notify members when sent as-is. If the client is a user
-        account, send the :class:`.Role` instance positionally instead,
-        e.g., ``await messageable.send('Here\'s a role mention: ', role)``.
-
-        This will render a role mention when sent in an :class:`.Embed`, but it will not notify anybody.
+        When sent in an :class:`.Embed`, this will render a role mention, but
+        it will not notify anybody.
         """
         return f'<@{self.id}>'
 
@@ -144,7 +147,7 @@ class Role(Hashable):
 
     @property
     def guild(self) -> Server:
-        """|dpyattr|
+        """:class:`.Server`: |dpyattr|
 
         This is an alias of :attr:`.server`.
 
@@ -153,13 +156,64 @@ class Role(Hashable):
         return self.server
 
     @property
+    def colours(self) -> List[Colour]:
+        """List[:class:`.Colour`]: The colour(s) of the role. If there are two
+        values, the second indicates the end of the gradient.
+
+        .. versionadded:: 1.9
+        """
+        return [Colour(value) for value in self._colours]
+
+    colors = colours
+
+    @property
+    def colour(self) -> Colour:
+        """:class:`.Colour`: The primary colour of the role."""
+        return Colour(self._colours[0] if self._colours else 0)
+
+    color = colour
+
+    @property
     def members(self) -> List[Member]:
         """List[:class:`.Member`]: The list of members that have this role."""
-        return [
-            self.server.get_member(member_id)
-            for member_id in self._member_ids
-            if self.server.get_member(member_id) is not None
-        ]
+        all_members = list(self.server._members.values())
+        if self.base:
+            return all_members
+
+        role_id = self.id
+        return [member for member in all_members if role_id in member._role_ids]
+
+    @property
+    def icon(self) -> Optional[Asset]:
+        """Optional[:class:`.Asset`]: The role's icon asset, if any.
+
+        .. versionadded:: 1.9
+        """
+        if self._icon is None:
+            return None
+
+        # All role icons are really just emojis so
+        # we're borrowing some `Emote` code here
+        stock = '/asset/Emojis' in self._icon
+        stock_guilded = stock and '/asset/Emojis/Custom' in self._icon
+        stock_unicode = stock and '/asset/Emojis/Custom' not in self._icon
+
+        if stock_guilded:
+            return Asset._from_guilded_stock_reaction(self._state, self._icon.replace('/asset/Emojis/Custom/', '').replace('.webp', ''))
+        elif stock_unicode:
+            return Asset._from_unicode_stock_reaction(self._state, self._icon.replace('/asset/Emojis/', '').replace('.webp', ''))
+        else:
+            return Asset._from_custom_reaction(self._state, self._icon, animated='ia=1' in self._icon)
+
+    @property
+    def display_icon(self) -> Optional[Union[Asset, str]]:
+        """Optional[:class:`.Asset`]: |dpyattr|
+
+        This is an alias of :attr:`.icon`.
+
+        The role's icon asset, if any.
+        """
+        return self.icon
 
     @property
     def hoist(self) -> bool:
@@ -170,26 +224,9 @@ class Role(Hashable):
         return self.displayed_separately
 
     @property
-    def position(self) -> int:
-        return self.priority
-
-    @property
     def permissions(self) -> Permissions:
         """:class:`.Permissions`: The permissions that the role has."""
-        return Permissions(**self._permissions)
-
-    @property
-    def bot_member(self) -> Optional[Member]:
-        """Optional[:class:`.Member`]: The bot member that this managed role is assigned to."""
-        return self.server.get_member(self.bot_user_id)
-
-    def is_bot(self) -> bool:
-        """:class:`bool`: Whether the role is the internal ``Bot`` role, which every bot in the server has."""
-        return self._is_bot_role and self.bot_user_id is None
-
-    def is_bot_managed(self) -> bool:
-        """:class:`bool`: Whether the role is associated with a specific bot in the server."""
-        return self._is_bot_role and self.bot_user_id is not None
+        return Permissions(*self._permissions)
 
     def is_default(self) -> bool:
         """|dpyattr|
@@ -206,7 +243,6 @@ class Role(Hashable):
         # TODO: Account for role hierarchy
         return (
             not self.is_default()
-            and not self._is_bot_role
         )
 
     async def award_xp(self, amount: int) -> None:
