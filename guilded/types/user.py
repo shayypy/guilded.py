@@ -29,7 +29,7 @@ from typing_extensions import NotRequired
 
 class UserStatus(TypedDict):
     content: NotRequired[str]
-    emoteId: NotRequired[int]
+    emoteId: int
 
 
 class UserSummary(TypedDict):

@@ -72,7 +72,7 @@ class Status:
     -----------
     content: Optional[:class:`str`]
         The content of the status.
-    emote_id: Optional[:class:`int`]
+    emote_id: :class:`int`
         The ID of the emote associated with the status.
     """
 
@@ -83,4 +83,4 @@ class Status:
 
     def __init__(self, *, data: UserStatusPayload):
         self.content = data.get('content')
-        self.emote_id = data.get('emoteId')
+        self.emote_id = data['emoteId']
