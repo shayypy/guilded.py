@@ -1024,6 +1024,8 @@ class Server(Hashable):
 
         Fetch the list of :class:`Role`\s in the server.
 
+        .. versionadded:: 1.9
+
         Returns
         --------
         List[:class:`.Role`]
@@ -1036,6 +1038,8 @@ class Server(Hashable):
         """|coro|
 
         Fetch a specific :class:`Role` in this server.
+
+        .. versionadded:: 1.9
 
         Parameters
         -----------
@@ -1062,12 +1066,7 @@ class Server(Hashable):
     async def fill_roles(self) -> None:
         """Fill the role cache for this server.
 
-        .. note::
-
-            This is used internally and is generally not needed for most
-            applications as member cache is created and discarded
-            automatically throughout a connected client's lifetime.
-
+        .. versionadded:: 1.9
         """
 
         data = await self._state.get_roles(self.id)
