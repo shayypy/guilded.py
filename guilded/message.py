@@ -166,10 +166,6 @@ class Mentions:
 
         Fetch & fill the internal cache with the targets referenced.
 
-        .. note::
-
-            Due to Guilded limitations, this will not fill role information.
-
         Parameters
         -----------
         ignore_cache: :class:`bool`
@@ -224,6 +220,34 @@ class Mentions:
                                 raise
                         else:
                             self._state.add_to_user_cache(user)
+
+        # Just fetch the whole role list instead of fetching >=5 roles individually.
+        uncached_role_count = len(self._roles) - len(self.roles)
+        if (
+            self._server and (
+                uncached_role_count >= 5
+                or (len(self._roles) >= 5 and ignore_cache)
+            )
+        ):
+            # `fill_roles` here would cause potentially unwanted/unexpected
+            # cache usage, especially in large servers.
+            roles = await self._server.fetch_roles()
+            role_ids = [role['id'] for role in self._roles]
+            for role in roles:
+                if role.id in role_ids:
+                    self._state.add_to_role_cache(role)
+
+        else:
+            for role_data in self._roles:
+                cached_role = self._state._get_server_role(self._server.id, role_data['id'])
+                if self._server and (ignore_cache or not cached_role):
+                    try:
+                        role = await self._server.fetch_role(role_data['id'])
+                    except HTTPException:
+                        if not ignore_errors:
+                            raise
+                    else:
+                        self._state.add_to_role_cache(role)
 
         for channel_data in self._channels:
             if not self._server:
