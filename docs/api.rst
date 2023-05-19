@@ -1007,6 +1007,36 @@ Webhooks
     :param webhook: The webhook that was updated.
     :type webhook: :class:`.Webhook`
 
+Users
+~~~~~~
+
+.. function:: on_user_status_create(user, status, expires_at)
+
+    A user set their status.
+
+    |nestype| :class:`UserStatusCreateEvent`
+
+    :param user: The user that updated their status.
+    :type user: :class:`~guilded.User`
+
+    :param status: The new status.
+    :type status: :class:`.Status`
+
+    :param expires_at: When the status will expire, if applicable.
+    :type expires_at: Optional[:class:`datetime.datetime`]
+
+.. function:: on_user_status_delete(user, status)
+
+    A user deleted their status.
+
+    |nestype| :class:`UserStatusDeleteEvent`
+
+    :param user: The user that deleted their status.
+    :type user: :class:`~guilded.User`
+
+    :param status: The status that was deleted.
+    :type status: :class:`.Status`
+
 Event Wrappers
 ---------------
 
@@ -1328,6 +1358,14 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: BulkMessageReactionRemoveEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: UserStatusCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: UserStatusDeleteEvent()
     :members:
     :inherited-members:
 
