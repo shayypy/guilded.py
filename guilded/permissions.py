@@ -30,10 +30,874 @@ __all__ = (
 class Permissions:
     """Wraps up permission values in Guilded.
 
+    An instance of this class is constructed by providing a
+    list of :gdocs:`permission values <Permissions>`: ::
+
+        # A `Permissions` instance representing the ability
+        # to read and send messages.
+        guilded.Permissions('CanReadChats', 'CanCreateChats')
+
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two permissions are equal.
+
+        .. describe:: x != y
+
+            Checks if two permissions are not equal.
+    """
+
+    def __init__(self, *values: str):
+        self.values = values
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, Permissions) and set(self.values) == set(other.values)
+
+    def __repr__(self) -> str:
+        return f'<Permissions values={len(self.values)}>'
+
+    @classmethod
+    def all(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        permissions set to ``True``."""
+        values = []
+        for category_values in all_values_by_category.values():
+            values += category_values
+
+        return cls(*values)
+
+    @classmethod
+    def none(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        permissions set to ``False``."""
+        return cls()
+
+    @classmethod
+    def general(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "General" permissions set to ``True``."""
+        return cls(*all_values_by_category['general'])
+
+    @classmethod
+    def recruitment(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Recruitment" permissions set to ``True``."""
+        return cls(*all_values_by_category['recruitment'])
+
+    @classmethod
+    def announcements(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Announcement" permissions set to ``True``."""
+        return cls(*all_values_by_category['announcements'])
+
+    @classmethod
+    def chat(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Chat" permissions set to ``True``."""
+        return cls(*all_values_by_category['chat'])
+
+    @classmethod
+    def calendar(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Calendar" permissions set to ``True``."""
+        return cls(*all_values_by_category['calendar'])
+
+    @classmethod
+    def forums(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Forum" permissions set to ``True``."""
+        return cls(*all_values_by_category['forums'])
+
+    @classmethod
+    def docs(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Docs" permissions set to ``True``."""
+        return cls(*all_values_by_category['docs'])
+
+    @classmethod
+    def media(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Media" permissions set to ``True``."""
+        return cls(*all_values_by_category['media'])
+
+    @classmethod
+    def voice(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Voice" permissions set to ``True``."""
+        return cls(*all_values_by_category['voice'])
+
+    @classmethod
+    def competitive(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Competitive" permissions set to ``True``."""
+        return cls(*all_values_by_category['competitive'])
+
+    @classmethod
+    def customization(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Customization" permissions set to ``True``."""
+        return cls(*all_values_by_category['customization'])
+
+    customisation = customization
+
+    @classmethod
+    def forms(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Forms" permissions set to ``True``."""
+        return cls(*all_values_by_category['forms'])
+
+    @classmethod
+    def lists(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "List" permissions set to ``True``."""
+        return cls(*all_values_by_category['lists'])
+
+    @classmethod
+    def brackets(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Bracket" permissions set to ``True``."""
+        return cls(*all_values_by_category['brackets'])
+
+    @classmethod
+    def scheduling(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Scheduling" permissions set to ``True``."""
+        return cls(*all_values_by_category['scheduling'])
+
+    @classmethod
+    def bots(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Bot" permissions set to ``True``."""
+        return cls(*all_values_by_category['bots'])
+
+    @classmethod
+    def xp(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "XP" permissions set to ``True``."""
+        return cls(*all_values_by_category['xp'])
+
+    @classmethod
+    def streams(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Stream" permissions set to ``True``."""
+        return cls(*all_values_by_category['streams'])
+
+    @property
+    def administrator(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user has every permission.
+
+        This is a pseudo-permission, i.e., there is no real "administrator"
+        permission, and thus this property being ``True`` does not necessarily
+        mean that a user will have all the same abilities as a Discord user
+        with the administrator permission.
+        """
+        return self == Permissions.all()
+
+    @property
+    def update_server(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can update the server's
+        settings."""
+        return 'CanUpdateServer' in self.values
+
+    @property
+    def manage_server(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.update_server`."""
+        return self.update_server
+
+    @property
+    def manage_guild(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.update_server`."""
+        return self.update_server
+
+    @property
+    def manage_roles(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can update the server's
+        roles."""
+        return 'CanManageRoles' in self.values
+
+    @property
+    def invite_members(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can directly invite
+        members to the server."""
+        return 'CanInviteMembers' in self.values
+
+    @property
+    def create_instant_invite(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.invite_members`."""
+        return self.invite_members
+
+    @property
+    def kick_members(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can kick *or ban* members
+        from the server."""
+        return 'CanKickMembers' in self.values
+
+    @property
+    def ban_members(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.kick_members`."""
+        return self.kick_members
+
+    @property
+    def manage_groups(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create, edit, or
+        delete groups."""
+        return 'CanManageGroups' in self.values
+
+    @property
+    def manage_channels(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create, edit, or
+        delete channels."""
+        return 'CanManageChannels' in self.values
+
+    @property
+    def manage_webhooks(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create, edit, or
+        delete webhooks."""
+        return 'CanManageWebhooks' in self.values
+
+    @property
+    def mention_everyone(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can use ``@everyone`` and
+        ``@here`` mentions."""
+        return 'CanMentionEveryone' in self.values
+
+    @property
+    def moderator_view(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can access "moderator
+        view" to see private replies."""
+        return 'CanModerateChannels' in self.values
+
+    @property
+    def slowmode_exempt(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user is exempt from slowmode
+        restrictions."""
+        return 'CanBypassSlowMode' in self.values
+
+    @property
+    def read_applications(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view server and game
+        applications."""
+        return 'CanReadApplications' in self.values
+
+    @property
+    def approve_applications(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can approve server and
+        game applications."""
+        return 'CanApproveApplications' in self.values
+
+    @property
+    def edit_application_form(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can edit server and game
+        applications, and toggle accepting applications."""
+        return 'CanEditApplicationForm' in self.values
+
+    @property
+    def indicate_lfm_interest(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can indicate interest in
+        a player instead of an upvote."""
+        return 'CanIndicateLfmInterest' in self.values
+
+    @property
+    def modify_lfm_status(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can modify the "Find
+        Player" status for the server listing card."""
+        return 'CanModifyLfmStatus' in self.values
+
+    @property
+    def read_announcements(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view announcements."""
+        return 'CanReadAnnouncements' in self.values
+
+    @property
+    def create_announcements(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create and delete
+        announcements."""
+        return 'CanCreateAnnouncements' in self.values
+
+    @property
+    def manage_announcements(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can delete announcements
+        by other members or pin any announcement."""
+        return 'CanManageAnnouncements' in self.values
+
+    @property
+    def read_messages(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can read chat messages."""
+        return 'CanReadChats' in self.values
+
+    @property
+    def view_channel(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.read_messages`."""
+        return self.read_messages
+
+    @property
+    def send_messages(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can send chat messages."""
+        return 'CanCreateChats' in self.values
+
+    @property
+    def upload_media(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can upload images and
+        videos to chat messages."""
+        return 'CanUploadChatMedia' in self.values
+
+    @property
+    def create_threads(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create threads."""
+        return 'CanCreateThreads' in self.values
+
+    @property
+    def create_public_threads(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.create_threads`."""
+        return self.create_threads
+
+    @property
+    def create_private_threads(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.create_threads`."""
+        return self.create_threads
+
+    @property
+    def send_messages_in_threads(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can reply to threads."""
+        return 'CanCreateThreadMessages' in self.values
+
+    @property
+    def send_private_replies(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can privately reply to
+        messages."""
+        return 'CanCreatePrivateMessages' in self.values
+
+    @property
+    def manage_messages(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can delete messages by
+        other members or pin any message."""
+        return 'CanManageChats' in self.values
+
+    @property
+    def manage_threads(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can archive and restore
+        threads."""
+        return 'CanManageThreads' in self.values
+
+    @property
+    def view_events(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view calendar
+        events."""
+        return 'CanReadEvents' in self.values
+
+    @property
+    def create_events(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create calendar
+        events."""
+        return 'CanCreateEvents' in self.values
+
+    @property
+    def manage_events(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can update calendar
+        events created by other members and move them to other channels."""
+        return 'CanEditEvents' in self.values
+
+    @property
+    def remove_events(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can remove calendar
+        events created by other members."""
+        return 'CanDeleteEvents' in self.values
+
+    @property
+    def edit_rsvps(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can edit the RSVP status
+        for members in a calendar event."""
+        return 'CanEditEventRsvps' in self.values
+
+    @property
+    def read_forums(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can read forums."""
+        return 'CanReadForums' in self.values
+
+    @property
+    def create_topics(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create forum
+        topics."""
+        return 'CanCreateTopics' in self.values
+
+    @property
+    def create_topic_replies(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create forum topic
+        replies."""
+        return 'CanCreateTopicReplies' in self.values
+
+    @property
+    def manage_topics(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can remove forum topics
+        and replies created by other members, or move them to other
+        channels."""
+        return 'CanDeleteTopics' in self.values
+
+    @property
+    def sticky_topics(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can sticky forum topics."""
+        return 'CanStickyTopics' in self.values
+
+    @property
+    def lock_topics(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can lock forum topics."""
+        return 'CanLockTopics' in self.values
+
+    @property
+    def view_docs(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view docs."""
+        return 'CanReadDocs' in self.values
+
+    @property
+    def read_docs(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.view_docs`."""
+        return self.view_docs
+
+    @property
+    def create_docs(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create docs."""
+        return 'CanCreateDocs' in self.values
+
+    @property
+    def manage_docs(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can update docs created
+        by other members and move them to other channels."""
+        return 'CanEditDocs' in self.values
+
+    @property
+    def remove_docs(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can remove docs created
+        by other members."""
+        return 'CanDeleteDocs' in self.values
+
+    @property
+    def see_media(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can see media."""
+        return 'CanReadMedia' in self.values
+
+    @property
+    def read_media(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.see_media`."""
+        return self.see_media
+
+    @property
+    def create_media(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create media."""
+        return 'CanAddMedia' in self.values
+
+    @property
+    def manage_media(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can update media created
+        by other members and move them to other channels."""
+        return 'CanEditMedia' in self.values
+
+    @property
+    def remove_media(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can remove media created
+        by other members."""
+        return 'CanRemoveMedia' in self.values
+
+    @property
+    def hear_voice(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can listen to voice
+        chat."""
+        return 'CanListenVoice' in self.values
+
+    @property
+    def add_voice(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can talk in voice chat."""
+        return 'CanAddVoice' in self.values
+
+    @property
+    def speak(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.add_voice`."""
+        return self.add_voice
+
+    @property
+    def manage_voice_rooms(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create, rename, and
+        delete voice rooms."""
+        return 'CanManageVoiceGroups' in self.values
+
+    @property
+    def move_members(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can move members to other
+        voice rooms."""
+        return 'CanAssignVoiceGroup' in self.values
+
+    @property
+    def broadcast(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can broadcast their voice
+        to voice rooms lower in the hierarchy when speaking in voice chat."""
+        return 'CanBroadcastVoice' in self.values
+
+    @property
+    def whisper(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can direct their voice to
+        specific members."""
+        return 'CanDirectVoice' in self.values
+
+    @property
+    def priority_speaker(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can prioritize their
+        voice when speaking in voice chat."""
+        return 'CanPrioritizeVoice' in self.values
+
+    @property
+    def use_voice_activity(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can use the voice
+        activity input mode for voice chats."""
+        return 'CanUseVoiceActivity' in self.values
+
+    @property
+    def use_voice_activation(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.use_voice_activity`."""
+        return self.use_voice_activity
+
+    @property
+    def mute_members(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can mute members in voice
+        chat."""
+        return 'CanMuteMembers' in self.values
+
+    @property
+    def deafen_members(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can deafen members in
+        voice chat."""
+        return 'CanDeafenMembers' in self.values
+
+    @property
+    def send_voice_messages(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can send chat messages to
+        voice channels."""
+        return 'CanSendVoiceMessages' in self.values
+
+    @property
+    def create_scrims(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create matchmaking
+        scrims."""
+        return 'CanCreateScrims' in self.values
+
+    @property
+    def create_tournaments(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create and manage
+        tournaments."""
+        return 'CanManageTournaments' in self.values
+
+    @property
+    def manage_tournaments(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.create_tournaments`."""
+        return self.create_tournaments
+
+    @property
+    def register_for_tournaments(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can register the server
+        for tournaments."""
+        return 'CanRegisterForTournaments' in self.values
+
+    @property
+    def manage_emojis(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create and manage
+        server emojis."""
+        return 'CanManageEmotes' in self.values
+
+    @property
+    def manage_emotes(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.manage_emojis`"""
+        return self.manage_emojis
+
+    @property
+    def change_nickname(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can change their own
+        nickname."""
+        return 'CanChangeNickname' in self.values
+
+    @property
+    def manage_nicknames(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can change the nicknames
+        of other members."""
+        return 'CanManageNicknames' in self.values
+
+    @property
+    def view_form_responses(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view all form
+        responses."""
+        return 'CanViewFormResponses' in self.values
+
+    @property
+    def view_poll_responses(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view all poll
+        results."""
+        return 'CanViewPollResponses' in self.values
+
+    @property
+    def view_poll_results(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.view_poll_responses`."""
+        return self.view_poll_responses
+
+    @property
+    def view_list_items(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view list items."""
+        return 'CanReadListItems' in self.values
+
+    @property
+    def read_list_items(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.view_list_items`."""
+        return self.view_list_items
+
+    @property
+    def create_list_items(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create list items."""
+        return 'CanCreateListItems' in self.values
+
+    @property
+    def manage_list_items(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can update list items
+        created by other members and move them to other channels."""
+        return 'CanUpdateListItems' in self.values
+
+    @property
+    def remove_list_items(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can remove list items
+        created by other members."""
+        return 'CanDeleteListItems' in self.values
+
+    @property
+    def complete_list_items(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can complete list items
+        created by other members."""
+        return 'CanCompleteListItems' in self.values
+
+    @property
+    def reorder_list_items(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can reorder list items."""
+        return 'CanReorderListItems' in self.values
+
+    @property
+    def view_brackets(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view tournament
+        brackets."""
+        return 'CanViewBracket' in self.values
+
+    @property
+    def read_brackets(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.view_brackets`."""
+        return self.view_brackets
+
+    @property
+    def report_scores(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can report match scores
+        on behalf of the server."""
+        return 'CanReportScores' in self.values
+
+    @property
+    def view_schedules(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view members'
+        schedules."""
+        return 'CanReadSchedules' in self.values
+
+    @property
+    def read_schedules(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.view_schedules`."""
+        return self.view_schedules
+
+    @property
+    def create_schedules(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can let the server know
+        their available schedule."""
+        return 'CanCreateSchedule' in self.values
+
+    @property
+    def remove_schedules(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can remove availabilities
+        created by other members."""
+        return 'CanDeleteSchedule' in self.values
+
+    @property
+    def manage_bots(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create and edit
+        flowbots."""
+        return 'CanManageBots' in self.values
+
+    @property
+    def manage_server_xp(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can manage XP for
+        members."""
+        return 'CanManageServerXp' in self.values
+
+    @property
+    def view_streams(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can view streams."""
+        return 'CanReadStreams' in self.values
+
+    @property
+    def join_stream_voice(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can listen in stream
+        channels."""
+        return 'CanJoinStreamVoice' in self.values
+
+    @property
+    def add_stream(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can stream as well as
+        speak in stream channels."""
+        return 'CanCreateStreams' in self.values
+
+    @property
+    def stream(self) -> bool:
+        """:class:`bool`: This is an alias of :attr:`.add_stream`."""
+        return self.add_stream
+
+    @property
+    def send_stream_messages(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can send messages in
+        stream channels."""
+        return 'CanSendStreamMessages' in self.values
+
+    @property
+    def add_stream_voice(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can speak in stream
+        channels."""
+        return 'CanAddStreamVoice' in self.values
+
+    @property
+    def use_stream_voice_activity(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can use voice activity in
+        stream channels."""
+        return 'CanUseVoiceActivityInStream' in self.values
+
+
+all_values_by_category = {
+    'general': [
+        'CanUpdateServer',
+        'CanManageRoles',
+        'CanInviteMembers',
+        'CanKickMembers',
+        'CanManageGroups',
+        'CanManageChannels',
+        'CanManageWebhooks',
+        'CanMentionEveryone',
+        'CanModerateChannels',
+        'CanBypassSlowMode',
+    ],
+    'recruitment': [
+        'CanReadApplications',
+        'CanApproveApplications',
+        'CanEditApplicationForm',
+        'CanIndicateLfmInterest',
+        'CanModifyLfmStatus',
+    ],
+    'announcements': [
+        'CanReadAnnouncements',
+        'CanCreateAnnouncements',
+        'CanManageAnnouncements',
+    ],
+    'chat': [
+        'CanReadChats',
+        'CanCreateChats',
+        'CanUploadChatMedia',
+        'CanCreateThreads',
+        'CanCreateThreadMessages',
+        'CanCreatePrivateMessages',
+        'CanManageChats',
+        'CanManageThreads',
+    ],
+    'calendar': [
+        'CanReadEvents',
+        'CanCreateEvents',
+        'CanEditEvents',
+        'CanDeleteEvents',
+        'CanEditEventRsvps',
+    ],
+    'forums': [
+        'CanReadForums',
+        'CanCreateTopics',
+        'CanCreateTopicReplies',
+        'CanDeleteTopics',
+        'CanStickyTopics',
+        'CanLockTopics',
+    ],
+    'docs': [
+        'CanReadDocs',
+        'CanCreateDocs',
+        'CanEditDocs',
+        'CanDeleteDocs',
+    ],
+    'media': [
+        'CanReadMedia',
+        'CanAddMedia',
+        'CanEditMedia',
+        'CanDeleteMedia',
+    ],
+    'voice': [
+        'CanListenVoice',
+        'CanAddVoice',
+        'CanManageVoiceGroups',
+        'CanAssignVoiceGroup',
+        'CanBroadcastVoice',
+        'CanDirectVoice',
+        'CanPrioritizeVoice',
+        'CanUseVoiceActivity',
+        'CanMuteMembers',
+        'CanDeafenMembers',
+        'CanSendVoiceMessages',
+    ],
+    'competitive': [
+        'CanCreateScrims',
+        'CanManageTournaments',
+        'CanRegisterForTournaments',
+    ],
+    'customization': [
+        'CanManageEmotes',
+        'CanChangeNickname',
+        'CanManageNicknames',
+    ],
+    'form': [
+        'CanViewFormResponses',
+        'CanViewPollResponses',
+    ],
+    'lists': [
+        'CanReadListItems',
+        'CanCreateListItems',
+        'CanUpdateListItems',
+        'CanDeleteListItems',
+        'CanCompleteListItems',
+        'CanReorderListItems',
+    ],
+    'brackets': [
+        'CanViewBracket',
+        'CanReportScores',
+    ],
+    'scheduling': [
+        'CanReadSchedules',
+        'CanCreateSchedule',
+        'CanDeleteSchedule',
+    ],
+    'bots': [
+        'CanManageBots',
+    ],
+    'xp': [
+        'CanManageServerXp',
+    ],
+    'streams': [
+        'CanReadStreams',
+        'CanJoinStreamVoice',
+        'CanCreateStreams',
+        'CanSendStreamMessages',
+        'CanAddStreamVoice',
+        'CanUseVoiceActivityInStream',
+    ]
+}
+
+
+class _OldPermissions:
+    """Wraps up permission values in Guilded.
+
     An instance of this class is constructed by providing kwargs of
     permission category names to the integer value of the category itself: ::
 
-        guilded.Permissions(general=64, chat=128, ...)
+        _OldPermissions(general=64, chat=128, ...)
 
 
     .. container:: operations
