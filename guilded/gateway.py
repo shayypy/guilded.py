@@ -70,6 +70,7 @@ from .channel import *
 from .group import Group
 from .reaction import RawReactionActionEvent, Reaction
 from .role import Role
+from .status import Status
 from .user import ClientUser, Member
 from .utils import ISO8601
 from .webhook import Webhook
@@ -1264,6 +1265,31 @@ class WebSocketEventParsers:
 
             rsvp = CalendarEventRSVP(data=data['calendarEventRsvp'], event=event)
             self.client.dispatch('calendar_event_rsvp_delete', rsvp)
+
+    async def parse_user_status_created(self, data: gw.UserStatusCreatedEvent):
+        if self._exp_style:
+            event = ev.UserStatusCreateEvent(self._state, data)
+            self.client.dispatch(event)
+
+        else:
+            user = self._state._get_user(data['userId'])
+            status = Status(state=self._state, data=data['userStatus'])
+            expires_at = ISO8601(data.get('expiresAt'))
+
+            if user:
+                self.client.dispatch('user_status_create', user, status, expires_at)
+
+    async def parse_user_status_deleted(self, data: gw.UserStatusDeletedEvent):
+        if self._exp_style:
+            event = ev.UserStatusDeleteEvent(self._state, data)
+            self.client.dispatch(event)
+
+        else:
+            user = self._state._get_user(data['userId'])
+            status = Status(state=self._state, data=data['userStatus'])
+
+            if user:
+                self.client.dispatch('user_status_delete', user, status)
 
 
 class Heartbeater(threading.Thread):

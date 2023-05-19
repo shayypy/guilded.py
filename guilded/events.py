@@ -45,6 +45,7 @@ from .channel import (
 from .emote import Emote
 from .group import Group
 from .message import ChatMessage
+from .status import Status
 from .reply import AnnouncementReply, CalendarEventReply, DocReply, ForumTopicReply
 from .user import Member, MemberBan, SocialLink
 from .utils import ISO8601
@@ -143,6 +144,8 @@ __all__ = (
     'MessageReactionAddEvent',
     'MessageReactionRemoveEvent',
     'BulkMessageReactionRemoveEvent',
+    'UserStatusCreateEvent',
+    'UserStatusDeleteEvent',
 )
 
 
@@ -2817,3 +2820,77 @@ class BulkMessageReactionRemoveEvent(ServerEvent):
         self.channel = channel
         self.message: Optional[ChatMessage] = state._get_message(self.message_id)
         self.deleted_by = self.server.get_member(self.deleted_by_id)
+
+
+class UserStatusCreateEvent(BaseEvent):
+    """Represents a :gdocs:`UserStatusCreated <websockets/UserStatusCreated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    user_id: :class:`str`
+        The ID of the user that updated their status.
+    user: Optional[:class:`~guilded.User`]
+        The user that updated their status.
+    status: :class:`.Status`
+        The new status.
+    expires_at: Optional[:class:`datetime.datetime`]
+        When the status will expire, if applicable.
+    """
+
+    __gateway_event__ = 'UserStatusCreated'
+    __dispatch_event__ = 'user_status_create'
+    __slots__: Tuple[str, ...] = (
+        'user_id',
+        'user',
+        'status',
+        'expires_at',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.UserStatusCreatedEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.user_id = data['userId']
+        self.user: Optional[User] = state._get_user(self.user_id)
+
+        self.status = Status(data=data['userStatus'])
+        self.expires_at = ISO8601(data.get('expiresAt'))
+
+
+class UserStatusDeleteEvent(BaseEvent):
+    """Represents a :gdocs:`UserStatusDeleted <websockets/UserStatusDeleted>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    user_id: :class:`str`
+        The ID of the user that deleted their status.
+    user: Optional[:class:`~guilded.User`]
+        The user that deleted their status.
+    status: :class:`.Status`
+        The status that was deleted.
+    """
+
+    __gateway_event__ = 'UserStatusDeleted'
+    __dispatch_event__ = 'user_status_delete'
+    __slots__: Tuple[str, ...] = (
+        'user_id',
+        'user',
+        'status',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.UserStatusDeletedEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.user_id = data['userId']
+        self.user: Optional[User] = state._get_user(self.user_id)
+
+        self.status = Status(data=data['userStatus'])

@@ -38,7 +38,7 @@ from .message import ChatMessage, DeletedChatMessage
 from .reaction import AnnouncementCommentReaction, AnnouncementReaction, CalendarEventCommentReaction, ChannelMessageReaction, CalendarEventReaction, DocCommentReaction, DocReaction, ForumTopicCommentReaction, ForumTopicReaction
 from .server import Server
 from .social_link import SocialLink
-from .user import ServerMember, ServerMemberBan, User
+from .user import ServerMember, ServerMemberBan, User, UserStatus
 from .webhook import Webhook
 
 
@@ -233,3 +233,14 @@ class ChannelMessageReactionManyDeletedEvent(_ServerEvent):
     deletedBy: str
     count: int
     emote: Emote
+
+
+class UserStatusCreatedEvent(TypedDict):
+    userId: str
+    expiresAt: NotRequired[str]
+    userStatus: UserStatus
+
+
+class UserStatusDeletedEvent(TypedDict):
+    userId: str
+    userStatus: UserStatus
