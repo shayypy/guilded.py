@@ -159,7 +159,6 @@ class Server(Hashable):
         self._flowbots: Dict[str, FlowBot] = {}
 
         self._base_role: Optional[Role] = None
-        self._bot_role: Optional[Role] = None
 
         self.owner_id: str = data.get('ownerId')
         self.name: str = data.get('name')
@@ -182,8 +181,6 @@ class Server(Hashable):
                 self._roles[role.id] = role
                 if role.base:
                     self._base_role: Optional[Role] = role
-                if role.is_bot():
-                    self._bot_role: Optional[Role] = role
 
         avatar = None
         avatar_url = data.get('profilePicture') or data.get('avatar')
@@ -391,11 +388,6 @@ class Server(Hashable):
     def base_role(self) -> Optional[Role]:
         """Optional[:class:`.Role`]: The base ``Member`` role for the server."""
         return self._base_role or get(self.roles, base=True)
-
-    @property
-    def bot_role(self) -> Optional[Role]:
-        """Optional[:class:`.Role`]: The ``Bot`` role for the server."""
-        return self._bot_role or find(lambda role: role.is_bot(), self.roles)
 
     @property
     def icon(self) -> Optional[Asset]:
