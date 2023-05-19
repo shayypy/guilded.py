@@ -184,6 +184,12 @@ class Permissions:
         "Stream" permissions set to ``True``."""
         return cls(*all_values_by_category['streams'])
 
+    @classmethod
+    def socket_events(cls):
+        """A factory method that creates a :class:`Permissions` with all
+        "Socket event" permissions set to ``True``."""
+        return cls(*all_values_by_category['socket_events'])
+
     @property
     def administrator(self) -> bool:
         """:class:`bool`: Returns ``True`` if a user has every permission.
@@ -767,6 +773,12 @@ class Permissions:
         stream channels."""
         return 'CanUseVoiceActivityInStream' in self.values
 
+    @property
+    def receive_all_events(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a bot can receive all server
+        socket events instead of only those that match its prefix."""
+        return 'CanReceiveAllSocketEvents' in self.values
+
 
 all_values_by_category = {
     'general': [
@@ -887,7 +899,10 @@ all_values_by_category = {
         'CanSendStreamMessages',
         'CanAddStreamVoice',
         'CanUseVoiceActivityInStream',
-    ]
+    ],
+    'socket_events': [
+        'CanReceiveAllSocketEvents',
+    ],
 }
 
 
