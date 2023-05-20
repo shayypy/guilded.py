@@ -1012,6 +1012,10 @@ Users
 
 .. function:: on_user_status_create(user, status, expires_at)
 
+    .. warning::
+
+        Due to a Guilded bug, this event is currently not sent.
+
     A user set their status.
 
     |nestype| :class:`UserStatusCreateEvent`
@@ -1026,6 +1030,10 @@ Users
     :type expires_at: Optional[:class:`datetime.datetime`]
 
 .. function:: on_user_status_delete(user, status)
+
+    .. warning::
+
+        Due to a Guilded bug, this event is currently not sent.
 
     A user deleted their status.
 
