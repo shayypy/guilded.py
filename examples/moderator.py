@@ -2,7 +2,7 @@ import guilded
 
 # This is a guilded.py clone of the plain Node.js sample bot that Guilded
 # provides, with a little extra spice.
-# https://www.guilded.gg/API-Official/groups/53NVy4j3/channels/9fd03b10-c4a1-4c3a-814a-5f6a7b39c632/docs/256914
+# https://www.guilded.gg/docs/api/connecting
 
 client = guilded.Client()
 
