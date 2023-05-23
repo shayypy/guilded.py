@@ -71,6 +71,7 @@ if TYPE_CHECKING:
     from .types.channel import ServerChannel as ServerChannelPayload
     from .types.comment import ContentComment
 
+    from .channel import Thread
     from .embed import Embed
     from .group import Group
     from .server import Server
@@ -261,38 +262,69 @@ class Messageable(metaclass=abc.ABCMeta):
         message = self._state.create_message(data=data['message'], channel=self._channel)
         return message
 
-    #async def create_thread(self, *content, **kwargs) -> Thread:
-    #    """|coro|
+    async def create_thread(
+        self,
+        name: str,
+        *,
+        message: Optional[ChatMessage] = None,
+    ) -> Thread:
+        """|coro|
 
-    #    Create a new thread in this channel.
+        Create a new thread in the channel.
 
-    #    Parameters
-    #    -----------
-    #    \*content: Any
-    #        The content of the message that should be created as the initial
-    #        message of the newly-created thread. Passing either this or
-    #        ``message`` is required.
-    #    name: :class:`str`
-    #        The name to create the thread with.
-    #    message: Optional[:class:`.ChatMessage`]
-    #        The message to create the thread from. Passing either this or
-    #        values for ``content`` is required.
+        Depending on the type of the parent channel, this method requires
+        different permissions:
 
-    #    Returns
-    #    --------
-    #    :class:`.Thread`
-    #        The thread that was created.
-    #    """
-    #    name = kwargs.get('name')
-    #    message = kwargs.get('message')
-    #    if not name:
-    #        raise TypeError('name is a required argument that is missing.')
-    #    if not message and not content:
-    #        raise TypeError('Must include message, an argument list of content, or both.')
+        +------------------------------+-----------------------------------+
+        |         Parent Type          |             Permission            |
+        +------------------------------+-----------------------------------+
+        | :attr:`~.ChannelType.chat`   | :attr:`Permissions.read_messages` |
+        +------------------------------+-----------------------------------+
+        | :attr:`~.ChannelType.voice`  | :attr:`Permissions.hear_voice`    |
+        +------------------------------+-----------------------------------+
+        | :attr:`~.ChannelType.stream` | :attr:`Permissions.view_streams`  |
+        +------------------------------+-----------------------------------+
 
-    #    data = await self._state.create_thread(self._channel_id, content, name=name, initial_message=message)
-    #    thread = self._state.create_channel(data=data.get('thread', data), group=self.group, server=self.server)
-    #    return thread
+        .. versionadded:: 1.9
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The thread's name. Can include spaces.
+        message: Optional[:class:`.ChatMessage`]
+            The message to create the thread with.
+            If a private message is passed (i.e. :attr:`.ChatMessage.private`
+            is ``True``), then the thread is private too.
+            Otherwise, the thread is always public.
+
+        Returns
+        --------
+        :class:`.Thread`
+            The created thread.
+
+        Raises
+        -------
+        NotFound
+            The server, channel, or message provided does not exist.
+        Forbidden
+            You are not allowed to create a thread in this channel.
+        HTTPException
+            Failed to create a thread.
+        """
+
+        data = await self._state.create_server_channel(
+            self.id,
+            'chat',
+            name=name,
+            parent_id=self._channel_id,
+            message_id=message.id if message else None,
+        )
+        channel = self._state.create_channel(
+            data=data['channel'],
+            group=message.group if message else None,
+            server=message.server if message else None,
+        )
+        return channel
 
     #async def pins(self) -> List[ChatMessage]:
     #    """|coro|

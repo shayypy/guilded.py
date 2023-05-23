@@ -76,6 +76,8 @@ if TYPE_CHECKING:
     from typing_extensions import Self
     from types import TracebackType
 
+    from .types.channel import ServerChannel as ServerChannelPayload
+
     from .asset import Asset
     from .channel import DMChannel, Thread
     from .emote import Emote
@@ -588,6 +590,8 @@ class HTTPClient(HTTPClientBase):
         public: Optional[bool] = None,
         category_id: Optional[int] = None,
         group_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+        message_id: Optional[str] = None,
     ):
         payload = {
             'serverId': server_id,
@@ -606,6 +610,12 @@ class HTTPClient(HTTPClientBase):
 
         if group_id is not None:
             payload['groupId'] = group_id
+
+        if parent_id is not None:
+            payload['parentId'] = parent_id
+
+        if message_id is not None:
+            payload['messageId'] = message_id
 
         return self.request(Route('POST', f'/channels'), json=payload)
 
@@ -1110,13 +1120,12 @@ class HTTPClient(HTTPClientBase):
     def create_member(self, **data) -> Member:
         return Member(state=self, **data)
 
-    def create_channel(self, **data) -> ServerChannel:
-        channel_data = data.get('data', data)
-        if channel_data.get('serverId') is None:
-            return channel.DMChannel(state=self, **data)
+    def create_channel(self, *, data: ServerChannelPayload, **extra) -> ServerChannel:
+        if data.get('serverId') is None:
+            return channel.DMChannel(state=self, **extra)
 
         data['group'] = data.get('group')
-        if 'parentId' in channel_data:
+        if 'parentId' in data:
             # Only threads have parent channels or parent threads.
             # Their type is still 'chat' so this is the only way we can differentiate them.
             cls = channel.Thread
@@ -1133,11 +1142,11 @@ class HTTPClient(HTTPClientBase):
                 ChannelType.stream: channel.StreamChannel,
                 ChannelType.voice: channel.VoiceChannel,
             }
-            cls = types.get(try_enum(ChannelType, channel_data['type']))
+            cls = types.get(try_enum(ChannelType, data['type']))
             if cls is None:
                 cls = ServerChannel
 
-        return cls(state=self, **data)
+        return cls(state=self, data=data, **extra)
 
     def create_message(self, **data) -> ChatMessage:
         data['channel'] = data.get('channel')

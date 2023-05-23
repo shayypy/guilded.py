@@ -69,6 +69,7 @@ if TYPE_CHECKING:
     from .types.channel import Mentions as MentionsPayload
 
     from .abc import Messageable, ServerChannel, User as abc_User
+    from .channel import Thread
     from .emote import Emote
     from .group import Group
     from .role import Role
@@ -948,13 +949,46 @@ class ChatMessage(Hashable, HasContentMixin):
             delete_after=delete_after,
         )
 
-    #async def create_thread(self, *content, **kwargs):
-    #    """|coro|
+    async def create_thread(self, name: str) -> Thread:
+        """|coro|
 
-    #    Create a thread on this message.
-    #    """
-    #    kwargs['message'] = self
-    #    return await self.channel.create_thread(*content, **kwargs)
+        Create a new thread under the message.
+
+        Depending on the type of the parent channel, this method requires
+        different permissions:
+
+        +------------------------------+-----------------------------------+
+        |         Parent Type          |             Permission            |
+        +------------------------------+-----------------------------------+
+        | :attr:`~.ChannelType.chat`   | :attr:`Permissions.read_messages` |
+        +------------------------------+-----------------------------------+
+        | :attr:`~.ChannelType.voice`  | :attr:`Permissions.hear_voice`    |
+        +------------------------------+-----------------------------------+
+        | :attr:`~.ChannelType.stream` | :attr:`Permissions.view_streams`  |
+        +------------------------------+-----------------------------------+
+
+        .. versionadded:: 1.9
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The thread's name. Can include spaces.
+
+        Returns
+        --------
+        :class:`.Thread`
+            The created thread.
+
+        Raises
+        -------
+        NotFound
+            The server, channel, or message does not exist.
+        Forbidden
+            You are not allowed to create a thread in this channel.
+        HTTPException
+            Failed to create a thread.
+        """
+        return await self.channel.create_thread(name=name, message=self)
 
     #async def pin(self):
     #    """|coro|
