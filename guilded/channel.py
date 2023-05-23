@@ -74,6 +74,7 @@ if TYPE_CHECKING:
         CalendarEventRsvp as CalendarEventRsvpPayload,
         RepeatInfo as RepeatInfoPayload,
     )
+    from .types.channel import Thread as ThreadPayload
     from .types.doc import Doc as DocPayload
     from .types.list_item import (
         ListItem as ListItemPayload,
@@ -82,6 +83,7 @@ if TYPE_CHECKING:
     from .types.forum_topic import ForumTopic as ForumTopicPayload
 
     from .emote import Emote
+    from .message import ChatMessage
     from .role import Role
     from .server import Server
     from .user import User
@@ -2252,94 +2254,91 @@ class VoiceChannel(guilded.abc.ServerChannel, guilded.abc.Messageable):
 
 class Thread(guilded.abc.ServerChannel, guilded.abc.Messageable):
     """Represents a thread in a :class:`.Server`.
+
+    Attributes
+    -----------
+    parent_id: :class:`str`
+        The ID of the immediately next higher channel or thread in the thread chain.
+    root_id: :class:`str`
+        The ID of the topmost channel in the thread chain.
+
+        .. versionadded:: 1.9
+    starter_message_id: Optional[:class:`str`]
+        The ID of the message that the thread was created from, if any.
+
+        .. versionadded:: 1.9
     """
-    def __init__(self, **fields):
-        super().__init__(**fields)
+
+    __slots__: Tuple[str, ...] = (
+        'type',
+        'root_id',
+        'parent_id',
+        'starter_message_id',
+    )
+
+    def __init__(self, *, data: ThreadPayload, **fields):
+        super().__init__(data=data, **fields)
         self.type = ChannelType.thread
-    #    data = fields.get('data') or fields.get('channel', {})
 
-    #    self._message_count = data.get('messageCount') or 0
-    #    self.initial_message_id = data.get('threadMessageId')
-    #    self._initial_message = self._state._get_message(self.initial_message_id)
-    #    # This is unlikely to not be None given the temporal nature of message cache
+        self.root_id: str = data.get('rootId')
+        self.parent_id: str = data.get('parentId')
+        self.starter_message_id: Optional[str] = data.get('messageId')
 
-    #    self._participant_ids = []
+    @property
+    def root(self) -> Optional[ChatChannel | VoiceChannel | StreamChannel]:
+        """Optional[:class:`.ChatChannel` | :class:`.VoiceChannel` | :class:`.StreamChannel`]:
+        The topmost channel in the thread chain
 
-    #    for user_id in data.get('userIds') or []:
-    #        self._participant_ids.append(user_id)
+        .. versionadded:: 1.9
+        """
+        if self.root_id:
+            return self.server.get_channel_or_thread(self.root_id)
 
-    #    for member_data in data.get('participants') or []:
-    #        if member_data.get('id'):
-    #            self._participant_ids.append(member_data['id'])
+    @property
+    def parent(self) -> Optional[ChatChannel | VoiceChannel | StreamChannel | Thread]:
+        """Optional[:class:`.ChatChannel` | :class:`.VoiceChannel` | :class:`.StreamChannel` | :class:`.Thread`]:
+        The parent channel or thread that the thread belongs to"""
+        if self.parent_id:
+            return self.server.get_channel_or_thread(self.parent_id)
 
-    #@property
-    #def message_count(self) -> int:
-    #    """:class:`int`: The number of messages in the thread.
+    @property
+    def starter_message(self) -> Optional[ChatMessage]:
+        """Optional[:class:`.ChatMessage`]: The starter message in the thread,
+        if it exists and is cached.
 
-    #    This may be inaccurate if this object has existed for an extended
-    #    period of time since it does not get updated by the library when new
-    #    messages are sent within the thread.
-    #    """
-    #    return int(self._message_count)
+        .. versionadded:: 1.9
+        """
+        if self.starter_message_id:
+            return self._state._get_message(self.starter_message_id)
 
-    #@property
-    #def initial_message(self) -> Optional[ChatMessage]:
-    #    """Optional[:class:`.ChatMessage`]: The initial message in this thread.
+    async def fetch_starter_message(self) -> Optional[ChatMessage]:
+        """|coro|
 
-    #    This may be ``None`` if the message was not cached when this object was
-    #    created. In this case, you may fetch the message with :meth:`.fetch_initial_message`.
-    #    """
-    #    return self._initial_message
+        Fetch the starter message in this thread. Sometimes this may be
+        available via :attr:`.starter_message`, but it is unlikely when
+        dealing with existing threads because it relies on message cache.
 
-    #@property
-    #def participants(self) -> List[Member]:
-    #    """List[:class:`.Member`]: The cached list of participants in this thread."""
-    #    return [self.server.get_member(member_id) for member_id in self._participant_ids]
+        This is roughly equivalent to:
 
-    #async def archive(self) -> None:
-    #    """|coro|
+        .. code-block:: python3
 
-    #    Archive this thread.
-    #    """
-    #    request = self._state.archive_thread(self.server_id, self.group_id, self.id)
-    #    await request
+            initial_message = await thread.fetch_message(thread.starter_message_id)
 
-    #async def restore(self) -> None:
-    #    """|coro|
+        .. versionadded:: 1.9
 
-    #    Restore this thread.
-    #    """
-    #    request = self._state.restore_thread(self.server_id, self.group_id, self.id)
-    #    await request
+        Returns
+        --------
+        Optional[:class:`.ChatMessage`]
+            The initial message in the thread, if any.
 
-    #async def leave(self) -> None:
-    #    """|coro|
-
-    #    Leave this thread.
-    #    """
-    #    request = self._state.leave_thread(self.id)
-    #    await request
-
-    #async def fetch_initial_message(self) -> ChatMessage:
-    #    """|coro|
-
-    #    Fetch the initial message in this thread. Sometimes this may be
-    #    available via :attr:`.initial_message`, but it is unlikely when
-    #    dealing with existing threads because it relies on message cache.
-
-    #    This is equivalent to:
-
-    #    .. code-block:: python3
-
-    #        initial_message = await thread.fetch_message(thread.initial_message_id)
-
-    #    Returns
-    #    --------
-    #    :class:`.ChatMessage`
-    #        The initial message in the thread.
-    #    """
-    #    message = await self.fetch_message(self.initial_message_id)
-    #    return message
+        Raises
+        -------
+        NotFound
+            The starter message was deleted.
+        """
+        if self.starter_message_id:
+            message = await self.fetch_message(self.starter_message_id)
+            return message
 
 
 class DMChannel(Hashable, guilded.abc.Messageable):

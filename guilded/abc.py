@@ -486,7 +486,6 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
 
         self.group_id: str = data.get('groupId')
         self.server_id: str = data.get('serverId')
-        self.parent_id: Optional[str] = data.get('parentId')
         self.category_id: Optional[int] = data.get('categoryId')
 
         self.id: str = data['id']
@@ -596,7 +595,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
             The channel's topic. Not applicable to threads.
         public: :class:`bool`
             Whether the channel should be public, i.e., visible to users who
-            are not a member of the server.
+            are not a member of the server. Not applicable to threads.
 
         Returns
         --------

@@ -39,12 +39,19 @@ class ServerChannel(TypedDict):
     createdBy: str
     updatedAt: NotRequired[str]
     serverId: str
+    rootId: NotRequired[str]
     parentId: NotRequired[str]
+    messageId: NotRequired[str]
     categoryId: NotRequired[int]
     groupId: str
     isPublic: NotRequired[bool]
     archivedBy: NotRequired[str]
     archivedAt: NotRequired[str]
+
+
+class Thread(ServerChannel):
+    rootId: str
+    parentId: str
 
 
 class Mentions(TypedDict):
