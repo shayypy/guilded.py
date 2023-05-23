@@ -193,13 +193,6 @@ class Messageable(metaclass=abc.ABCMeta):
 
         return message
 
-    async def trigger_typing(self) -> None:
-        """|coro|
-
-        Begin your typing indicator in this channel.
-        """
-        await self._state.trigger_typing(self._channel_id)
-
     async def history(self,
         *,
         before: datetime.datetime = None,
