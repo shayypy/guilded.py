@@ -54,7 +54,8 @@ from __future__ import annotations
 import abc
 import datetime
 import re
-from typing import TYPE_CHECKING, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence
+from typing_extensions import Self
 
 from .asset import Asset
 from .colour import Colour
@@ -580,7 +581,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
         name: str = MISSING,
         topic: str = MISSING,
         public: bool = None,
-    ) -> ServerChannel:
+    ) -> Self:
         """|coro|
 
         Edit this channel.
