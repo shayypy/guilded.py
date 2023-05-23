@@ -1353,6 +1353,9 @@ class Server(Hashable):
         group = Group(state=self._state, data=data['group'], server=self)
         return group
 
+    async def getch_group(self, group_id: str, /) -> Group:
+        return self.get_group(group_id) or await self.fetch_group(group_id)
+
     async def fetch_groups(self) -> List[Group]:
         """|coro|
 

@@ -505,7 +505,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
         * :class:`.VoiceChannel`
     """
 
-    def __init__(self, *, state, data: ServerChannelPayload, group: Group, **extra):
+    def __init__(self, *, state, data: ServerChannelPayload, group: Optional[Group] = None, **extra):
         self._state = state
         self._group = group
 
@@ -558,8 +558,8 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
         return f'<#{self.id}>'
 
     @property
-    def group(self) -> Group:
-        """:class:`~guilded.Group`: The group that this channel is in."""
+    def group(self) -> Optional[Group]:
+        """Optional[:class:`~guilded.Group`]: The group that this channel is in."""
         group = self._group
         if not group and self.server:
             group = self.server.get_group(self.group_id)
