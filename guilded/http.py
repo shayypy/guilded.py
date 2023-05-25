@@ -1057,7 +1057,7 @@ class HTTPClient(HTTPClientBase):
         return self.request(Route('GET', f'/servers/{server_id}/roles'))
 
     def update_role(self, server_id: str, role_id: int, *, payload: Dict[str, Any]):
-        return self.request(Route('PATCH', f'/servers/{server_id}/roles'), json=payload)
+        return self.request(Route('PATCH', f'/servers/{server_id}/roles/{role_id}'), json=payload)
 
     def delete_role(self, server_id: str, role_id: int):
         return self.request(Route('DELETE', f'/servers/{server_id}/roles/{role_id}'))
