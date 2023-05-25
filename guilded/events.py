@@ -147,6 +147,9 @@ __all__ = (
     'BulkMessageReactionRemoveEvent',
     'UserStatusCreateEvent',
     'UserStatusDeleteEvent',
+    'RoleCreateEvent',
+    'RoleUpdateEvent',
+    'RoleDeleteEvent',
 )
 
 
