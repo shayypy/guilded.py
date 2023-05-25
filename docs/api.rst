@@ -974,6 +974,39 @@ Messages
     :param event: The event containing the payload.
     :type event: :class:`BulkMessageReactionRemoveEvent`
 
+Roles
+~~~~~~
+
+.. function:: on_role_create(role)
+
+    A role was created in a server.
+
+    |nestype| :class:`RoleCreateEvent`
+
+    :param role: The role that was created.
+    :type role: :class:`.Role`
+
+.. function:: on_role_update(before, after)
+
+    A role was updated.
+
+    |nestype| :class:`RoleUpdateEvent`
+
+    :param before: The role before modification.
+    :type before: :class:`.Role`
+
+    :param after: The role after modification.
+    :type after: :class:`.Role`
+
+.. function:: on_role_delete(role)
+
+    A role was deleted.
+
+    |nestype| :class:`RoleDeleteEvent`
+
+    :param role: The role that was deleted.
+    :type role: :class:`.Role`
+
 Webhooks
 ~~~~~~~~~
 
@@ -1366,6 +1399,18 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: BulkMessageReactionRemoveEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: RoleCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: RoleUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: RoleDeleteEvent()
     :members:
     :inherited-members:
 
