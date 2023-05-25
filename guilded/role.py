@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 from .asset import Asset
 from .colour import Colour
 from .mixins import Hashable
-from .utils import ISO8601
+from .utils import ISO8601, MISSING
 from .permissions import Permissions
 
 if TYPE_CHECKING:
@@ -257,3 +257,136 @@ class Role(Hashable):
             The amount of XP to award.
         """
         await self._state.award_role_xp(self.server.id, self.id, amount)
+
+    async def edit(
+        self,
+        *,
+        name: str = MISSING,
+        permissions: Permissions = MISSING,
+        colours: List[Union[Colour, int]] = MISSING,
+        colors: List[Union[Colour, int]] = MISSING,
+        colour: Union[Colour, int] = MISSING,
+        color: Union[Colour, int] = MISSING,
+        displayed_separately: bool = MISSING,
+        hoist: bool = MISSING,
+        self_assignable: bool = MISSING,
+        mentionable: bool = MISSING,
+    ) -> Role:
+        """|coro|
+
+        Update the role.
+
+        All parameters are optional.
+
+        .. versionadded:: 1.9
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The name of the role.
+        permissions: :class:`Permissions`
+            The permissions for the role.
+        colours: List[Union[:class:`Colour`, :class:`int`]]
+            The colour(s) of the role. If there are two values, the
+            second indicates the end of the gradient.
+            This is also aliased to ``colors``.
+            This cannot be used with ``colour``.
+        colour: Union[:class:`Colour`, :class:`int`]
+            The primary colour of the role.
+            This is also aliased to ``color``.
+            This cannot be used with ``colours``.
+        displayed_separately: :class:`bool`
+            Whether the role should be separated in the member list.
+            Defaults to ``False``.
+            This is also aliased to ``hoist``.
+        self_assignable: :class:`bool`
+            Whether members should be allowed to assign the role to themselves.
+            Defaults to ``False``.
+        mentionable: :class:`bool`
+            Whether all members should be able to mention the role.
+            Defaults to ``False``.
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to update the role.
+        HTTPException
+            Updating the role failed.
+        TypeError
+            Cannot provide both ``colours`` and ``colour``
+            or ``displayed_separately`` and ``hoist``.
+
+        Returns
+        --------
+        :class:`Role`
+            The newly updated role.
+        """
+
+        if (
+            (colours is not MISSING or colors is not MISSING) and
+            (colour is not MISSING or color is not MISSING)
+        ):
+            raise TypeError('Cannot mix colour/color and colours/colors keyword arguments.')
+        if displayed_separately is not MISSING and hoist is not MISSING:
+            raise TypeError('Cannot mix displayed_separately and hoist keyword arguments.')
+
+        payload = {}
+
+        if name is not MISSING:
+            payload['name'] = name
+
+        if permissions is not MISSING:
+            payload['permissions'] = permissions.values
+
+        if colours is not MISSING:
+            payload['colors'] = [c.value if isinstance(c, Colour) else c for c in colours]
+        elif colors is not MISSING:
+            payload['colors'] = [c.value if isinstance(c, Colour) else c for c in colors]
+        elif colour is not MISSING:
+            payload['colors'] = [colour.value if isinstance(colour, Colour) else colour]
+        elif color is not MISSING:
+            payload['colors'] = [color.value if isinstance(color, Colour) else color]
+
+        if displayed_separately is not MISSING:
+            payload['isDisplayedSeparately'] = displayed_separately
+        elif hoist is not MISSING:
+            payload['isDisplayedSeparately'] = hoist
+
+        if self_assignable is not MISSING:
+            payload['isSelfAssignable'] = self_assignable
+
+        if mentionable is not MISSING:
+            payload['isMentionable'] = mentionable
+
+        data = await self._state.update_role(
+            self.server_id,
+            self.id,
+            payload=payload
+        )
+
+        role = Role(state=self._state, data=data['role'])
+        return role
+
+    async def delete(self) -> None:
+        """|coro|
+
+        Delete the role.
+
+        .. versionadded:: 1.9
+
+        Raises
+        -------
+        Forbidden
+            You do not have permissions to delete the role.
+        HTTPException
+            Deleting the role failed.
+
+        Returns
+        --------
+        :class:`Role`
+            The deleted role.
+        """
+
+        data = await self._state.delete_role(self.server_id, self.id)
+        role = Role(state=self._state, data=data['role'])
+        return role

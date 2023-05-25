@@ -1047,11 +1047,20 @@ class HTTPClient(HTTPClientBase):
         }
         return self.request(Route('POST', f'/servers/{server_id}/roles/{role_id}/xp'), json=payload)
 
+    def create_role(self, server_id: str, *, payload: Dict[str, Any]):
+        return self.request(Route('POST', f'/servers/{server_id}/roles'), json=payload)
+
     def get_role(self, server_id: str, role_id: int):
         return self.request(Route('GET', f'/servers/{server_id}/roles/{role_id}'))
 
     def get_roles(self, server_id: str):
         return self.request(Route('GET', f'/servers/{server_id}/roles'))
+
+    def update_role(self, server_id: str, role_id: int, *, payload: Dict[str, Any]):
+        return self.request(Route('PATCH', f'/servers/{server_id}/roles'), json=payload)
+
+    def delete_role(self, server_id: str, role_id: int):
+        return self.request(Route('DELETE', f'/servers/{server_id}/roles/{role_id}'))
 
     def ban_server_member(self, server_id: str, user_id: str, *, reason: str = None):
         payload = {}
