@@ -802,7 +802,7 @@ class WebSocketEventParsers:
     async def parse_server_channel_updated(self, data: gw.ServerChannelEvent):
         if self._exp_style:
             event = ev.ServerChannelUpdateEvent(self._state, data)
-            self._state.add_to_server_channel_cache(event.channel)
+            self._state.add_to_server_channel_cache(event.after)
             self.client.dispatch(event)
 
         else:

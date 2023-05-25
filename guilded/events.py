@@ -812,6 +812,9 @@ class ServerChannelUpdateEvent(ServerEvent):
         The channel before modification, if it was cached.
     after: :class:`.abc.ServerChannel`
         The channel after modification.
+
+        .. deprecated:: 1.9
+            The ``channel`` alias.
     """
 
     __gateway_event__ = 'ServerChannelUpdated'
@@ -819,6 +822,7 @@ class ServerChannelUpdateEvent(ServerEvent):
     __slots__: Tuple[str, ...] = (
         'before',
         'after',
+        'channel',
     )
 
     def __init__(
@@ -830,7 +834,8 @@ class ServerChannelUpdateEvent(ServerEvent):
         super().__init__(state, data)
 
         self.before = self.server.get_channel_or_thread(data['channel']['id'])
-        self.channel: ServerChannel = state.create_channel(data=data['channel'], server=self.server)
+        self.after: ServerChannel = state.create_channel(data=data['channel'], server=self.server)
+        self.channel = self.after
 
 
 class ServerChannelDeleteEvent(_ServerChannelEvent):
