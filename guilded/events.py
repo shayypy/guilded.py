@@ -2929,7 +2929,7 @@ class RoleCreateEvent(_RoleEvent):
         The ID of the server that the role is in.
     server: :class:`Server`
         The server that the role is in.
-    role: :class:`.abc.Role`
+    role: :class:`.Role`
         The role that was created.
     """
 
