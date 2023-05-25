@@ -1291,6 +1291,44 @@ class WebSocketEventParsers:
             if user:
                 self.client.dispatch('user_status_delete', user, status)
 
+    async def parse_role_created(self, data: gw.RoleEvent):
+        if self._exp_style:
+            event = ev.RoleCreateEvent(self._state, data)
+            self._state.add_to_role_cache(event.role)
+            self.client.dispatch(event)
+
+        else:
+            role = Role(state=self._state, data=data['role'])
+            self._state.add_to_role_cache(role)
+            self.client.dispatch('role_create', role)
+
+    async def parse_role_updated(self, data: gw.RoleEvent):
+        if self._exp_style:
+            event = ev.RoleUpdateEvent(self._state, data)
+            self._state.add_to_role_cache(event.after)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            before = server.get_role(data['role']['id'])
+            if not before:
+                return
+
+            role = Role(state=self._state, data=data['role'])
+            self._state.add_to_role_cache(role)
+            self.client.dispatch('role_update', before, role)
+
+    async def parse_role_deleted(self, data: gw.RoleEvent):
+        if self._exp_style:
+            event = ev.RoleDeleteEvent(self._state, data)
+            self._state.remove_from_role_cache(event.server_id, event.role.id)
+            self.client.dispatch(event)
+
+        else:
+            role = Role(state=self._state, data=data['role'])
+            self._state.remove_from_role_cache(data['serverId'], role.id)
+            self.client.dispatch('role_delete', role)
+
 
 class Heartbeater(threading.Thread):
     def __init__(self, ws: GuildedWebSocket, *, interval: float):

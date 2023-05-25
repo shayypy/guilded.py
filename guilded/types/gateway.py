@@ -36,6 +36,7 @@ from .group import Group
 from .list_item import ListItem
 from .message import ChatMessage, DeletedChatMessage
 from .reaction import AnnouncementCommentReaction, AnnouncementReaction, CalendarEventCommentReaction, ChannelMessageReaction, CalendarEventReaction, DocCommentReaction, DocReaction, ForumTopicCommentReaction, ForumTopicReaction
+from .role import Role
 from .server import Server
 from .social_link import SocialLink
 from .user import ServerMember, ServerMemberBan, User, UserStatus
@@ -244,3 +245,7 @@ class UserStatusCreatedEvent(TypedDict):
 class UserStatusDeletedEvent(TypedDict):
     userId: str
     userStatus: UserStatus
+
+
+class RoleEvent(TypedDict):
+    role: Role

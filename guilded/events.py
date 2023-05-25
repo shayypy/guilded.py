@@ -47,6 +47,7 @@ from .group import Group
 from .message import ChatMessage
 from .status import Status
 from .reply import AnnouncementReply, CalendarEventReply, DocReply, ForumTopicReply
+from .role import Role
 from .user import Member, MemberBan, SocialLink
 from .utils import ISO8601
 from .webhook.async_ import Webhook
@@ -2894,3 +2895,86 @@ class UserStatusDeleteEvent(BaseEvent):
         self.user: Optional[User] = state._get_user(self.user_id)
 
         self.status = Status(data=data['userStatus'])
+
+
+class _RoleEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'role',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.RoleEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+        self.role = Role(state=state, data=data['role'])
+
+
+class RoleCreateEvent(_RoleEvent):
+    """Represents a :gdocs:`RoleCreated <websockets/RoleCreated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the role is in.
+    server: :class:`Server`
+        The server that the role is in.
+    role: :class:`.abc.Role`
+        The role that was created.
+    """
+
+    __gateway_event__ = 'RoleCreated'
+    __dispatch_event__ = 'role_create'
+
+
+class RoleUpdateEvent(ServerEvent):
+    """Represents a :gdocs:`RoleUpdated <websockets/RoleUpdated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the role is in.
+    server: :class:`Server`
+        The server that the role is in.
+    before: Optional[:class:`.Role`]
+        The role before modification, if it was cached.
+    after: :class:`.Role`
+        The role after modification.
+    """
+
+    __gateway_event__ = 'RoleUpdated'
+    __dispatch_event__ = 'role_update'
+    __slots__: Tuple[str, ...] = (
+        'before',
+        'after',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.RoleEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.before = self.server.get_role(data['role']['id'])
+        self.after = Role(state=state, data=data['role'])
+
+
+class RoleDeleteEvent(_RoleEvent):
+    """Represents a :gdocs:`RoleDeleted <websockets/RoleDeleted>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the role was in.
+    server: :class:`Server`
+        The server that the role was in.
+    role: :class:`.Role`
+        The role that was deleted.
+    """
+
+    __gateway_event__ = 'RoleDeleted'
+    __dispatch_event__ = 'role_delete'
