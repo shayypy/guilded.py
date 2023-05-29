@@ -60,6 +60,7 @@ from typing_extensions import Self
 from .asset import Asset
 from .colour import Colour
 from .enums import ChannelType, try_enum, UserType
+from .errors import InvalidArgument
 from .message import HasContentMixin, ChatMessage
 from .mixins import Hashable
 from .presence import Presence
@@ -305,8 +306,12 @@ class Messageable(metaclass=abc.ABCMeta):
             Failed to create a thread.
         """
 
+        server_id = getattr(self._channel, 'server_id', None)
+        if not server_id:
+            raise InvalidArgument('Threads can only be created in a server context.')
+
         data = await self._state.create_server_channel(
-            self.id,
+            server_id,
             'chat',
             name=name,
             parent_id=self._channel_id,

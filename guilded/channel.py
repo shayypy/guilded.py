@@ -2279,6 +2279,7 @@ class Thread(guilded.abc.ServerChannel, guilded.abc.Messageable):
     def __init__(self, *, data: ThreadPayload, **fields):
         super().__init__(data=data, **fields)
         self.type = ChannelType.thread
+        self._channel_id = self.id
 
         self.root_id: str = data.get('rootId')
         self.parent_id: str = data.get('parentId')
