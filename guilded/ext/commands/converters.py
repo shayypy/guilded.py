@@ -375,10 +375,10 @@ class ServerChannelConverter(UUIDConverter[guilded.abc.ServerChannel]):
     """
 
     async def convert(self, ctx: Context, argument: str) -> guilded.abc.GuildChannel:
-        return self._resolve_channel(ctx, argument, 'channels', guilded.abc.GuildChannel)
+        return await self._resolve_channel(ctx, argument, 'channels', guilded.abc.GuildChannel)
 
     @staticmethod
-    def _resolve_channel(ctx: Context, argument: str, attribute: str, type: Type[CT]) -> CT:
+    async def _resolve_channel(ctx: Context, argument: str, attribute: str, type: Type[CT]) -> CT:
         bot = ctx.bot
 
         match = UUIDConverter._get_id_match(argument) or re.match(r'<#(\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b)>$', argument)
@@ -398,11 +398,13 @@ class ServerChannelConverter(UUIDConverter[guilded.abc.ServerChannel]):
                 result = _utils_find(check, bot.get_all_channels())  # type: ignore
         else:
             channel_id = match.group(1)
-            if server:
-                # server.get_channel returns an explicit union instead of the base class
-                result = server.get_channel(channel_id)  # type: ignore
-            else:
-                result = _get_from_servers(bot, 'get_channel', channel_id)
+            try:
+                result = await ctx.bot.getch_channel(channel_id)
+            except:
+                pass
+
+            if server and result and result.server_id != server.id:
+                raise ChannelNotFound(argument)
 
         if not isinstance(result, type):
             raise ChannelNotFound(argument)
@@ -410,7 +412,7 @@ class ServerChannelConverter(UUIDConverter[guilded.abc.ServerChannel]):
         return result
 
     @staticmethod
-    def _resolve_thread(ctx: Context, argument: str, attribute: str, type: Type[TT]) -> TT:
+    async def _resolve_thread(ctx: Context, argument: str, attribute: str, type: Type[TT]) -> TT:
         match = UUIDConverter._get_id_match(argument) or re.match(r'<#(\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b)>$', argument)
         result = None
         server = ctx.server
@@ -423,9 +425,12 @@ class ServerChannelConverter(UUIDConverter[guilded.abc.ServerChannel]):
         else:
             thread_id = match.group(1)
             if server:
-                result = server.get_thread(thread_id)  # type: ignore
+                try:
+                    result = server.get_thread(thread_id) or await ctx.bot.fetch_channel(thread_id)
+                except:
+                    pass
 
-        if not result or not isinstance(result, type):
+        if not result or not isinstance(result, type) or (server and result.server_id != server.id):
             raise ThreadNotFound(argument)
 
         return result
@@ -446,7 +451,7 @@ class AnnouncementChannelConverter(UUIDConverter[guilded.AnnouncementChannel]):
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.AnnouncementChannel:
+    def convert(self, ctx: Context, argument: str) -> guilded.AnnouncementChannel:
         return ServerChannelConverter._resolve_channel(ctx, argument, 'announcement_channels', guilded.AnnouncementChannel)
 
 
@@ -463,7 +468,7 @@ class ChatChannelConverter(UUIDConverter[guilded.ChatChannel]):
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.ChatChannel:
+    def convert(self, ctx: Context, argument: str) -> guilded.ChatChannel:
         return ServerChannelConverter._resolve_channel(ctx, argument, 'chat_channels', guilded.ChatChannel)
 
 TextChannelConverter = ChatChannelConverter  # discord.py
@@ -482,7 +487,7 @@ class DocsChannelConverter(UUIDConverter[guilded.DocsChannel]):
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.DocsChannel:
+    def convert(self, ctx: Context, argument: str) -> guilded.DocsChannel:
         return ServerChannelConverter._resolve_channel(ctx, argument, 'docs_channels', guilded.DocsChannel)
 
 
@@ -499,7 +504,7 @@ class ForumChannelConverter(UUIDConverter[guilded.ForumChannel]):
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.ForumChannel:
+    def convert(self, ctx: Context, argument: str) -> guilded.ForumChannel:
         return ServerChannelConverter._resolve_channel(ctx, argument, 'forum_channels', guilded.ForumChannel)
 
 
@@ -516,7 +521,7 @@ class ListChannelConverter(UUIDConverter[guilded.ListChannel]):
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.ListChannel:
+    def convert(self, ctx: Context, argument: str) -> guilded.ListChannel:
         return ServerChannelConverter._resolve_channel(ctx, argument, 'list_channels', guilded.ListChannel)
 
 
@@ -533,7 +538,7 @@ class MediaChannelConverter(UUIDConverter[guilded.MediaChannel]):
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.MediaChannel:
+    def convert(self, ctx: Context, argument: str) -> guilded.MediaChannel:
         return ServerChannelConverter._resolve_channel(ctx, argument, 'media_channels', guilded.MediaChannel)
 
 
@@ -550,7 +555,7 @@ class SchedulingChannelConverter(UUIDConverter[guilded.SchedulingChannel]):
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.SchedulingChannel:
+    def convert(self, ctx: Context, argument: str) -> guilded.SchedulingChannel:
         return ServerChannelConverter._resolve_channel(ctx, argument, 'scheduling_channels', guilded.SchedulingChannel)
 
 
@@ -567,7 +572,7 @@ class ThreadConverter(UUIDConverter[guilded.Thread]):
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.Thread:
+    def convert(self, ctx: Context, argument: str) -> guilded.Thread:
         return ServerChannelConverter._resolve_thread(ctx, argument, 'threads', guilded.Thread)
 
 
@@ -584,7 +589,7 @@ class VoiceChannelConverter(UUIDConverter[guilded.VoiceChannel]):
     3. Lookup by name
     """
 
-    async def convert(self, ctx: Context, argument: str) -> guilded.VoiceChannel:
+    def convert(self, ctx: Context, argument: str) -> guilded.VoiceChannel:
         return ServerChannelConverter._resolve_channel(ctx, argument, 'voice_channels', guilded.VoiceChannel)
 
 
