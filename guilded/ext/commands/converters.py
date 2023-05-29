@@ -705,13 +705,22 @@ class RoleConverter(IntIDConverter[guilded.Role]):
         if not server:
             raise NoPrivateMessage()
 
+        if len(server.roles) == 0:
+            # Every server has at least the base role,
+            # so we know our cache is improperly filled
+            await server.fill_roles()
+
         result = None
         match = self._get_id_match(argument)
 
         if match is not None:
             role_id = int(match.group(1))
-            result = server.get_role(role_id)
-        else:
+            try:
+                result = await server.getch_role(role_id)
+            except:
+                pass
+
+        if not result:
             result = _utils_get(server.roles, name=argument)
 
         if not result:
