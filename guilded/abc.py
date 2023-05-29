@@ -266,6 +266,12 @@ class Messageable(metaclass=abc.ABCMeta):
 
         Create a new thread in the channel.
 
+        .. warning::
+
+            Be careful with this method!
+            It is very easy to accidentally cause a loop if you create a
+            thread on a message that caused the creation of its thread.
+
         Depending on the type of the parent channel, this method requires
         different permissions:
 

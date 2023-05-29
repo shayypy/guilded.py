@@ -954,6 +954,12 @@ class ChatMessage(Hashable, HasContentMixin):
 
         Create a new thread under the message.
 
+        .. warning::
+
+            Be careful with this method!
+            It is very easy to accidentally cause a loop if you create a
+            thread on a message that caused the creation of its thread.
+
         Depending on the type of the parent channel, this method requires
         different permissions:
 
