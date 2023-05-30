@@ -233,7 +233,7 @@ class ChannelMessageReactionManyDeletedEvent(_ServerEvent):
     messageId: str
     deletedBy: str
     count: int
-    emote: Emote
+    emote: NotRequired[Emote]
 
 
 class UserStatusCreatedEvent(TypedDict):

@@ -2792,8 +2792,8 @@ class BulkMessageReactionRemoveEvent(ServerEvent):
         The member that removed the reactions, if they are cached.
     count: :class:`int`
         The number of reactions that were removed.
-    emote: :class:`Emote`
-        The emote that the reactions showed.
+    emote: Optional[:class:`Emote`]
+        The emote that the reactions showed, if applicable.
     """
 
     __gateway_event__ = 'ChannelMessageReactionManyDeleted'
@@ -2824,7 +2824,7 @@ class BulkMessageReactionRemoveEvent(ServerEvent):
         self.message_id = data['messageId']
         self.deleted_by_id = data['deletedBy']
         self.count = data['count']
-        self.emote = Emote(state=state, data=data['emote'])
+        self.emote = Emote(state=state, data=data.get('emote')) if data.get('emote') else None
 
         self.channel = channel
         self.message: Optional[ChatMessage] = state._get_message(self.message_id)
