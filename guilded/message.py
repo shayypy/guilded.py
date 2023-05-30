@@ -894,7 +894,7 @@ class ChatMessage(Hashable, HasContentMixin):
         """
         await self.remove_reaction(emote)
 
-    async def remove_reactions(self, emote: Emote, /) -> None:
+    async def clear_reaction(self, emote: Emote, /) -> None:
         """|coro|
 
         Bulk remove reactions from this message based on their emote.
@@ -910,6 +910,15 @@ class ChatMessage(Hashable, HasContentMixin):
         """
         emote_id: int = getattr(emote, 'id', emote)
         await self._state.remove_channel_message_reactions(self.channel.id, self.id, emote_id)
+
+    async def clear_reactions(self) -> None:
+        """|coro|
+
+        Bulk remove all the reactions from this message.
+
+        .. versionadded:: 1.9
+        """
+        await self._state.remove_channel_message_reactions(self.channel.id, self.id)
 
     async def reply(
         self,

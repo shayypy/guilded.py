@@ -677,10 +677,10 @@ class HTTPClient(HTTPClientBase):
 
         return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes/{emote_id}'), params=params)
 
-    def remove_channel_message_reactions(self, channel_id: str, message_id: str, emote_id: int):
-        params = {
-            'emoteId': emote_id,
-        }
+    def remove_channel_message_reactions(self, channel_id: str, message_id: str, emote_id: int = None):
+        params = {}
+        if emote_id is not None:
+            params['emoteId'] = emote_id
 
         return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes'), params=params)
 
