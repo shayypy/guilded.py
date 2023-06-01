@@ -41,3 +41,4 @@ class Role(TypedDict):
     icon: NotRequired[str]
     position: int
     isBase: NotRequired[bool]
+    botUserId: NotRequired[str]

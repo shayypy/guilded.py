@@ -86,6 +86,10 @@ class Role(Hashable):
         list.
     base: :class:`bool`
         Whether the role is the base ``Member`` role.
+    bot_user_id: Optional[:class:`str`]
+        The user ID of the bot that the role was created for.
+        If this is present, it means the role cannot be deleted normally or
+        assigned to other members.
     """
 
     __slots__: Tuple[str, ...] = (
@@ -98,6 +102,7 @@ class Role(Hashable):
         'updated_at',
         '_icon',
         '_permissions',
+        'bot_user_id',
         'position',
         'mentionable',
         'self_assignable',
@@ -119,6 +124,7 @@ class Role(Hashable):
 
         self._icon = data.get('icon')
 
+        self.bot_user_id: Optional[str] = data.get('botUserId')
         self.position: int = data.get('position', 0)
         self.mentionable: bool = data.get('isMentionable', False)
         self.self_assignable: bool = data.get('isSelfAssignable', False)
@@ -228,6 +234,15 @@ class Role(Hashable):
         """:class:`.Permissions`: The permissions that the role has."""
         return Permissions(*self._permissions)
 
+    @property
+    def bot_member(self) -> Optional[Member]:
+        """Optional[:class:`.Member`]: The bot member that this managed role is assigned to."""
+        return self.server.get_member(self.bot_user_id)
+
+    def is_bot_managed(self) -> bool:
+        """:class:`bool`: Whether the role is associated with a specific bot in the server."""
+        return self.bot_user_id is not None
+
     def is_default(self) -> bool:
         """|dpyattr|
 
@@ -242,7 +257,8 @@ class Role(Hashable):
         """
         # TODO: Account for role hierarchy
         return (
-            not self.is_default()
+            not self.is_default() and
+            not self.is_bot_managed()
         )
 
     async def award_xp(self, amount: int) -> None:
