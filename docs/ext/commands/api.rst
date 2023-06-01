@@ -150,6 +150,30 @@ Checks
 .. autofunction:: guilded.ext.commands.max_concurrency(,)
     :decorator:
 
+.. autofunction:: guilded.ext.commands.has_role(,)
+    :decorator:
+
+.. autofunction:: guilded.ext.commands.has_any_role(,)
+    :decorator:
+
+.. autofunction:: guilded.ext.commands.bot_has_role(,)
+    :decorator:
+
+.. autofunction:: guilded.ext.commands.bot_has_any_role(,)
+    :decorator:
+
+.. autofunction:: guilded.ext.commands.has_server_permissions(,)
+    :decorator:
+
+.. autofunction:: guilded.ext.commands.has_guild_permissions(,)
+    :decorator:
+
+.. autofunction:: guilded.ext.commands.bot_has_server_permissions(,)
+    :decorator:
+
+.. autofunction:: guilded.ext.commands.bot_has_guild_permissions(,)
+    :decorator:
+
 .. _ext_commands_api_context:
 
 Context
