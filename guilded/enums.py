@@ -69,6 +69,7 @@ __all__ = (
     'CustomRepeatInterval',
     'Weekday',
     'DeleteSeriesType',
+    'ServerSubscriptionTierType',
 )
 
 
