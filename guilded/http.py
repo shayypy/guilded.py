@@ -515,7 +515,10 @@ class HTTPClient(HTTPClientBase):
                     last_user.id = self.my_id
                     self._users[self.my_id] = last_user
 
-            data = await json_or_text(response)
+            if response.headers.get('Content-Type').startswith(('image/', 'video/')):
+                data = await response.read()
+            else:
+                data = await json_or_text(response)
 
             # The request was successful so just return the text/json
             if 300 > response.status >= 200:
