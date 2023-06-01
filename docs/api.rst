@@ -2022,6 +2022,24 @@ API from being stringly typed in case the strings change in the future.
 
         Only the event and future items in its series will be deleted.
 
+.. class:: ServerSubscriptionTierType
+
+    A type of server subscription tier.
+
+    .. versionadded:: 1.9
+
+    .. attribute:: gold
+
+        The tier type is "Gold".
+
+    .. attribute:: silver
+
+        The tier type is "Silver".
+
+    .. attribute:: copper
+
+        The tier type is "Copper".
+
 
 Utility Functions
 ------------------
@@ -2357,6 +2375,12 @@ Server
 ~~~~~~~
 
 .. autoclass:: Server()
+    :members:
+
+ServerSubscriptionTier
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ServerSubscriptionTier()
     :members:
 
 StreamChannel

@@ -1493,6 +1493,13 @@ class Server(Hashable):
 
         Fetch a subscription tier in the server.
 
+        .. versionadded:: 1.9
+
+        Parameters
+        -----------
+        tier_type: :class:`.ServerSubscriptionTierType`
+            The type of the tier to fetch.
+
         Raises
         -------
         NotFound
@@ -1513,6 +1520,8 @@ class Server(Hashable):
         """|coro|
 
         Fetch all subscription tiers in the server.
+
+        .. versionadded:: 1.9
 
         Raises
         -------
