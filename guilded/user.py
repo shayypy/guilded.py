@@ -61,6 +61,7 @@ import guilded.abc
 
 from .asset import Asset
 from .enums import SocialLinkType, try_enum
+from .permissions import Permissions
 from .role import Role
 from .utils import MISSING, Object, copy_doc, ISO8601
 
@@ -287,6 +288,35 @@ class Member(User):
             if self.server.get_role(int(role_id)) is not None
         ]
         return roles
+
+    @property
+    def server_permissions(self) -> Permissions:
+        """:class:`.Permissions`: The server-level permissions that this
+        member has.
+
+        This only considers the permissions immediately granted by the
+        member's roles and not any channel permission overwrites.
+
+        This does take into consideration server ownership.
+
+        .. versionadded:: 1.9
+        """
+        if self.is_owner():
+            return Permissions.all()
+
+        values: List[str] = []
+        for role in self.roles:
+            values += role.permissions.values
+
+        return Permissions(*set(values))
+
+    @property
+    def guild_permissions(self) -> Permissions:
+        """:class:`.Permissions`: |dpyattr|
+
+        This is an alias of :attr:`.server_permissions`.
+        """
+        return self.server_permissions
 
     @classmethod
     def _copy(cls, member: Member):

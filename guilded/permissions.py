@@ -47,10 +47,18 @@ class Permissions:
         .. describe:: x != y
 
             Checks if two permissions are not equal.
+
+    Attributes
+    -----------
+    values: List[:class:`str`]
+        The raw array of permission values.
+        This list is not guaranteed to be in any particular order.
+        You should use the properties available on this class instead of this
+        attribute.
     """
 
     def __init__(self, *values: str):
-        self.values = values
+        self.values = list(values)
 
     def __eq__(self, other) -> bool:
         return isinstance(other, Permissions) and set(self.values) == set(other.values)
