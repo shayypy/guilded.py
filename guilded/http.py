@@ -515,7 +515,7 @@ class HTTPClient(HTTPClientBase):
                     last_user.id = self.my_id
                     self._users[self.my_id] = last_user
 
-            if response.headers.get('Content-Type').startswith(('image/', 'video/')):
+            if response.headers.get('Content-Type', '').startswith(('image/', 'video/')):
                 data = await response.read()
             else:
                 data = await json_or_text(response)
