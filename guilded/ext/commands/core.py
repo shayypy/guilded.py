@@ -77,16 +77,16 @@ __all__ = (
     'Group',
     'command',
     'group',
-    # 'has_role',
+    'has_role',
     # 'has_permissions',
-    # 'has_any_role',
+    'has_any_role',
     'check',
     'check_any',
     'before_invoke',
     'after_invoke',
-    # 'bot_has_role',
+    'bot_has_role',
     # 'bot_has_permissions',
-    # 'bot_has_any_role',
+    'bot_has_any_role',
     'cooldown',
     'dynamic_cooldown',
     'max_concurrency',
@@ -1672,6 +1672,151 @@ def max_concurrency(number: int, per: BucketType = BucketType.default, *, wait: 
         return func
 
     return decorator  # type: ignore
+
+
+def has_role(item: Union[int, str], /) -> Check[Any]:
+    """A :func:`.check` that is added that checks if the member invoking the
+    command has the role specified via the name or ID specified.
+
+    If a string is specified, you must give the exact name of the role, including
+    caps and spelling.
+
+    If an integer is specified, you must give the ID of the role.
+
+    This check raises one of two special exceptions, :exc:`.MissingRole` if the user
+    is missing a role, or :exc:`.NoPrivateMessage` if it is used in a private message.
+    Both inherit from :exc:`.CheckFailure`.
+
+    .. versionadded:: 1.9
+
+    Parameters
+    -----------
+    item: Union[:class:`int`, :class:`str`]
+        The name or ID of the role to check.
+    """
+
+    def predicate(ctx: Context) -> bool:
+        if ctx.server is None:
+            raise NoPrivateMessage()
+
+        # ctx.server is None doesn't narrow ctx.author to Member
+        if isinstance(item, int):
+            # This is more reliable since server roles are often unfilled,
+            # but member instances should usually have role IDs
+            role = item in ctx.author._role_ids  # type: ignore
+        else:
+            role = guilded.utils.get(ctx.author.roles, name=item) is not None  # type: ignore
+
+        if not role:
+            raise MissingRole(item)
+
+        return True
+
+    return check(predicate)
+
+
+def has_any_role(*items: Union[int, str]) -> Callable[[T], T]:
+    r"""A :func:`.check` that is added that checks if the member invoking the
+    command has **any** of the roles specified. This means that if they have
+    one out of the three roles specified, then this check will return ``True``.
+
+    Similar to :func:`.has_role`\, the names or IDs passed in must be exact.
+
+    This check raises one of two special exceptions, :exc:`.MissingAnyRole` if the user
+    is missing all roles, or :exc:`.NoPrivateMessage` if it is used in a private message.
+    Both inherit from :exc:`.CheckFailure`.
+
+    .. versionadded:: 1.9
+
+    Parameters
+    -----------
+    items: List[Union[:class:`str`, :class:`int`]]
+        An argument list of names or IDs to check for roles that the member has.
+
+    Example
+    --------
+
+    .. code-block:: python3
+
+        @bot.command()
+        @commands.has_any_role('Library Developer', 'Moderator', 23218717)
+        async def cool(ctx):
+            await ctx.send('You are cool indeed')
+    """
+
+    def predicate(ctx: Context):
+        if ctx.server is None:
+            raise NoPrivateMessage()
+
+        # ctx.server is None doesn't narrow ctx.author to Member
+        if any(
+            item in ctx.author._role_ids
+            if isinstance(item, int)
+            else guilded.utils.get(ctx.author.roles, name=item) is not None
+            for item in items
+        ):
+            return True
+
+        raise MissingAnyRole(list(items))
+
+    return check(predicate)
+
+
+def bot_has_role(item: int, /) -> Callable[[T], T]:
+    """Similar to :func:`.has_role` except checks if the bot itself has the
+    role.
+
+    This check raises one of two special exceptions, :exc:`.BotMissingRole` if the bot
+    is missing the role, or :exc:`.NoPrivateMessage` if it is used in a private message.
+    Both inherit from :exc:`.CheckFailure`.
+
+    .. versionadded:: 1.9
+    """
+
+    def predicate(ctx: Context):
+        if ctx.server is None:
+            raise NoPrivateMessage()
+
+        if isinstance(item, int):
+            role = item in ctx.me._role_ids
+        else:
+            role = guilded.utils.get(ctx.me.roles, name=item) is not None
+
+        if not role:
+            raise BotMissingRole(item)
+
+        return True
+
+    return check(predicate)
+
+
+def bot_has_any_role(*items: int) -> Callable[[T], T]:
+    """Similar to :func:`.has_any_role` except checks if the bot itself has
+    any of the roles listed.
+
+    This check raises one of two special exceptions, :exc:`.BotMissingAnyRole` if the bot
+    is missing all roles, or :exc:`.NoPrivateMessage` if it is used in a private message.
+    Both inherit from :exc:`.CheckFailure`.
+
+    .. versionadded:: 1.9
+    """
+
+    def predicate(ctx: Context):
+        if ctx.server is None:
+            raise NoPrivateMessage()
+
+        me = ctx.me
+        if any(
+            item in me._role_ids
+            if isinstance(item, int)
+            else guilded.utils.get(me.roles, name=item) is not None
+            for item in items
+        ):
+            return True
+
+        raise BotMissingAnyRole(list(items))
+
+    return check(predicate)
 
 
 def has_server_permissions(**perms: bool) -> Check[Any]:
