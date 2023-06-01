@@ -95,8 +95,10 @@ __all__ = (
     'guild_only',
     'is_owner',
     'is_nsfw',
-    # 'has_server_permissions',
-    # 'bot_has_server_permissions',
+    'has_server_permissions',
+    'has_guild_permissions',
+    'bot_has_server_permissions',
+    'bot_has_guild_permissions',
 )
 
 
@@ -1670,3 +1672,94 @@ def max_concurrency(number: int, per: BucketType = BucketType.default, *, wait: 
         return func
 
     return decorator  # type: ignore
+
+
+def has_server_permissions(**perms: bool) -> Check[Any]:
+    """A :func:`.check` that is added that checks if the member has all of
+    the permissions necessary at the server level.
+
+    The permissions passed in must be exactly like the properties shown under
+    :class:`~guilded.Permissions`.
+
+    This check raises a special exception, :exc:`.MissingPermissions`
+    that is inherited from :exc:`.CheckFailure`.
+
+    If this check is called in a DM context, it will raise an
+    exception, :exc:`.NoPrivateMessage`.
+
+    .. versionadded:: 1.9
+
+    Parameters
+    -----------
+    perms
+        An argument list of permissions to check for.
+
+    Example
+    --------
+
+    .. code-block:: python3
+
+        @bot.command()
+        @commands.has_server_permissions(manage_messages=True)
+        async def test(ctx):
+            await ctx.send('You can manage messages in this server.')
+
+    """
+
+    # I'm aware that this is open to false positives
+    # e.g. if the user passes `values=True`.
+    # But since Guilded permissions are not flag-based I'll have to develop
+    # another solution sometime later. Preferably not just an enormous list
+    # of valid permission names.
+    invalid = [perm for perm in perms.keys() if not getattr(guilded.Permissions, perm, None)]
+    if invalid:
+        raise TypeError(f"Invalid permission(s): {', '.join(invalid)}")
+
+    def predicate(ctx: Context) -> bool:
+        if not ctx.server:
+            raise NoPrivateMessage
+
+        permissions = ctx.author.server_permissions  # type: ignore
+        missing = [perm for perm, value in perms.items() if getattr(permissions, perm) != value]
+
+        if not missing:
+            return True
+
+        raise MissingPermissions(missing)
+
+    return check(predicate)
+
+has_guild_permissions = has_server_permissions  # discord.py
+
+
+def bot_has_server_permissions(**perms: bool) -> Check[Any]:
+    """Identical to :func:`.has_server_permissions` but for the bot
+    member's permissions.
+
+    .. versionadded:: 1.9
+    """
+
+    # I'm aware that this is open to false positives
+    # e.g. if the user passes `values=True`.
+    # But since Guilded permissions are not flag-based I'll have to develop
+    # another solution sometime later. Preferably not just an enormous list
+    # of valid permission names.
+    invalid = [perm for perm in perms.keys() if not getattr(guilded.Permissions, perm, None)]
+    if invalid:
+        raise TypeError(f"Invalid permission(s): {', '.join(invalid)}")
+
+    def predicate(ctx: Context) -> bool:
+        if not ctx.server:
+            raise NoPrivateMessage
+
+        permissions = ctx.me.server_permissions  # type: ignore
+        missing = [perm for perm, value in perms.items() if getattr(permissions, perm) != value]
+
+        if not missing:
+            return True
+
+        raise MissingPermissions(missing)
+
+    return check(predicate)
+
+bot_has_guild_permissions = bot_has_server_permissions  # discord.py
