@@ -398,6 +398,12 @@ class DeleteSeriesType(Enum):
     forward = 'fromEventForward'
 
 
+class ServerSubscriptionTierType(Enum):
+    gold = 'Gold'
+    silver = 'Silver'
+    copper = 'Copper'
+
+
 T = TypeVar('T')
 
 

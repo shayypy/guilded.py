@@ -27,6 +27,7 @@ from .presence import *
 from .reaction import *
 from .server import *
 from .status import *
+from .subscription import *
 from .user import *
 from .webhook import *
 
