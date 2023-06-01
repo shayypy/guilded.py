@@ -60,10 +60,11 @@ from .asset import Asset
 from .channel import AnnouncementChannel, ChatChannel, DocsChannel, ForumChannel, ListChannel, MediaChannel, SchedulingChannel, Thread, VoiceChannel
 from .colour import Colour
 from .errors import InvalidData
-from .enums import ServerType, try_enum, ChannelType
+from .enums import ServerSubscriptionTierType, ServerType, try_enum, ChannelType
 from .group import Group
 from .mixins import Hashable
 from .role import Role
+from .subscription import ServerSubscriptionTier
 from .user import Member, MemberBan
 from .utils import ISO8601, MISSING, get
 
@@ -1486,5 +1487,45 @@ class Server(Hashable):
         data = await self._state.get_groups(self.id)
         groups = [Group(state=self._state, data=group_data, server=self) for group_data in data['groups']]
         return groups
+
+    async def fetch_subscription_tier(self, tier_type: ServerSubscriptionTierType, /) -> ServerSubscriptionTier:
+        """|coro|
+
+        Fetch a subscription tier in the server.
+
+        Raises
+        -------
+        NotFound
+            The server has no tier with the provided type.
+        HTTPException
+            Fetching the tier failed.
+
+        Returns
+        --------
+        :class:`.ServerSubscriptionTier`
+            The subscription tier by the type.
+        """
+
+        data = await self._state.get_subscription_tier(self.id, tier_type.value)
+        return ServerSubscriptionTier(state=self._state, data=data['serverSubscriptionTier'])
+
+    async def fetch_subscription_tiers(self) -> List[ServerSubscriptionTier]:
+        """|coro|
+
+        Fetch all subscription tiers in the server.
+
+        Raises
+        -------
+        HTTPException
+            Fetching the tiers failed.
+
+        Returns
+        --------
+        List[:class:`.ServerSubscriptionTier`]
+            The subscription tiers in the server.
+        """
+
+        data = await self._state.get_subscription_tiers(self.id)
+        return [ServerSubscriptionTier(state=self._state, data=tier_data) for tier_data in data['serverSubscriptionTiers']]
 
 Guild = Server  # discord.py

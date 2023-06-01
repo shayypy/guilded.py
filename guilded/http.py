@@ -1121,6 +1121,14 @@ class HTTPClient(HTTPClientBase):
     def remove_group_member(self, group_id: str, user_id: str):
         return self.request(Route('DELETE', f'/groups/{group_id}/members/{user_id}'))
 
+    # subscriptions
+
+    def get_subscription_tier(self, server_id: str, tier_type: str):
+        return self.request(Route('GET', f'/servers/{server_id}/subscriptions/tiers/{tier_type}'))
+
+    def get_subscription_tiers(self, server_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/subscriptions/tiers'))
+
     # create objects from data
 
     def create_user(self, **data) -> User:
