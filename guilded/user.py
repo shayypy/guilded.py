@@ -654,7 +654,7 @@ class Member(User):
         """
 
         data = await self._state.get_member_permissions(
-            self.server_id,
+            self.server.id,
             self.id,
             # ids=require.values if require is not MISSING else None,
         )
