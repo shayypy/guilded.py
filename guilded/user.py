@@ -252,7 +252,7 @@ class Member(User):
         state._users[self._user.id] = self._user
 
         self._server = extra.get('server')
-        self.server_id: str = data.get('teamId') or data.get('serverId')
+        self.server_id: str = self._server.id if self._server else data.get('serverId') or data.get('teamId')
 
         self._role_ids: Set[int] = set(data.get('roleIds') or [])
         self._owner: Optional[bool] = data.get('isOwner')
