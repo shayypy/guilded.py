@@ -65,6 +65,7 @@ __all__ = (
     'BadRequest',
     'Forbidden',
     'NotFound',
+    'ImATeapot',
     'TooManyRequests',
     'GuildedServerError',
     'InvalidData',
@@ -139,6 +140,31 @@ class Forbidden(HTTPException):
 class NotFound(HTTPException):
     """Thrown on status code 404"""
     pass
+
+
+class ImATeapot(HTTPException):
+    """Thrown on status code 418
+
+    Currently, this error should only be thrown from :gdocs:`Read a server
+    member's permissions <roles/ServerMemberPermissionsRead>`, when the member
+    does not have all the permissions passed to ``ids``.
+
+    .. versionadded:: 1.10
+
+    Attributes
+    -----------
+    raw_missing_permissions: Optional[List[:class:`str`]]
+        If applicable, the permissions that the member is missing.
+        This is a list of :gdocs:`raw permissions values <Permissions>`\.
+    """
+    def __init__(self, response: ClientResponse, data: HTTPErrorPayload):
+        super().__init__(response, data)
+
+        missing_permissions = None
+        if data.get('meta') and data['meta'].get('missingPermissions'):
+            missing_permissions = data['meta']['missingPermissions']
+
+        self.raw_missing_permissions = missing_permissions
 
 
 class TooManyRequests(HTTPException):

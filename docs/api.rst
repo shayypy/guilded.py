@@ -2480,6 +2480,8 @@ Exceptions
 
 .. autoexception:: NotFound
 
+.. autoexception:: ImATeapot
+
 .. autoexception:: TooManyRequests
 
 .. autoexception:: GuildedServerError
@@ -2504,5 +2506,6 @@ Hierarchy
             * :exc:`BadRequest`
             * :exc:`Forbidden`
             * :exc:`NotFound`
+            * :exc:`ImATeapot`
             * :exc:`TooManyRequests`
             * :exc:`GuildedServerError`
