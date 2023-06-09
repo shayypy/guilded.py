@@ -49,6 +49,15 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aiohttp import ClientResponse
+
+    from .types.http import HTTPError as HTTPErrorPayload
+
 __all__ = (
     'GuildedException',
     'ClientException',
@@ -89,15 +98,14 @@ class HTTPException(GuildedException):
     message: :class:`str`
         The message that came with the error.
     """
-    def __init__(self, response, data):
+    def __init__(self, response: ClientResponse, data: HTTPErrorPayload):
         self.response = response
         self.status = response.status
+        self.message: str = ''
+        self.code: str = ''
         if isinstance(data, dict):
-            self.message = data.get('message', data)
+            self.message = data.get('message') or ''
             self.code = data.get('code', 'UnknownCode')
-        else:
-            self.message = data
-            self.code = ''
 
         super().__init__(f'{self.status} ({self.code}): {self.message}')
 
