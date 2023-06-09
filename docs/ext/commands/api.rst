@@ -252,9 +252,6 @@ Converters
 
 .. autoclass:: guilded.ext.commands.EmojiConverter
 
-.. autoclass:: guilded.ext.commands.GameConverter
-    :members:
-
 .. autoclass:: guilded.ext.commands.RoleConverter
     :members:
 
