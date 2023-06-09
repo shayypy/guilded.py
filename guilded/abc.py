@@ -55,7 +55,6 @@ import abc
 import datetime
 import re
 from typing import TYPE_CHECKING, List, Optional, Sequence
-from typing_extensions import Self
 
 from .asset import Asset
 from .colour import Colour
@@ -68,6 +67,8 @@ from .status import Status
 from .utils import ISO8601, MISSING
 
 if TYPE_CHECKING:
+    from typing_extensions import Self
+
     from .types.user import User as UserPayload
     from .types.channel import ServerChannel as ServerChannelPayload
     from .types.comment import ContentComment
