@@ -633,6 +633,33 @@ class Member(User):
         self.xp = data['total']
         return self.xp
 
+    async def fetch_permissions(self) -> Permissions:
+        """|coro|
+
+        Fetch this member's server permissions.
+
+        .. versionadded:: 1.10
+
+        Returns
+        --------
+        :class:`.Permissions`
+            The permissions that this member has.
+
+        Raises
+        -------
+        NotFound
+            The member does not exist.
+        HTTPException
+            Failed to fetch the member's permissions.
+        """
+
+        data = await self._state.get_member_permissions(
+            self.server_id,
+            self.id,
+            # ids=require.values if require is not MISSING else None,
+        )
+        return Permissions(*data['permissions'])
+
 
 class MemberBan:
     """Represents a ban created in a :class:`.Server`.

@@ -1044,6 +1044,13 @@ class HTTPClient(HTTPClientBase):
         }
         return self.request(Route('PUT', f'/servers/{server_id}/members/{user_id}/xp'), json=payload)
 
+    def get_member_permissions(self, server_id: str, user_id: str, *, ids: List[str] = None):
+        params = {}
+        if ids is not None:
+            params['ids'] = ','.join(ids)
+
+        return self.request(Route('GET', f'/servers/{server_id}/members/{user_id}/permissions'), params=params)
+
     def award_role_xp(self, server_id: str, role_id: int, amount: int):
         payload = {
             'amount': amount,
