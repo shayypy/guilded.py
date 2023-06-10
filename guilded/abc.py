@@ -654,9 +654,8 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
             self.id,
             payload=payload,
         )
-        channel = self.__class__.__init__(
+        channel: Self = self._state.create_channel(
             data=data['channel'],
-            state=self._state,
             group=self.group,
         )
         return channel
