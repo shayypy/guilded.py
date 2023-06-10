@@ -218,8 +218,9 @@ class Member(User):
 
     Attributes
     -----------
-    joined_at: :class:`datetime.datetime`
+    joined_at: Optional[:class:`datetime.datetime`]
         When the member joined their server.
+        This may be ``None`` if the member object was partial.
     nick: Optional[:class:`str`]
         The member's nickname, if any.
     xp: Optional[:class:`int`]

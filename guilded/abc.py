@@ -372,8 +372,9 @@ class User(Hashable, metaclass=abc.ABCMeta):
         The user's set avatar, if any.
     banner: Optional[:class:`.Asset`]
         The user's profile banner, if any.
-    created_at: :class:`datetime.datetime`
+    created_at: Optional[:class:`datetime.datetime`]
         When the user's account was created.
+        This may be ``None`` if the user object was partial.
     status: Optional[:class:`.Status`]
         The custom status set by the user.
     """
