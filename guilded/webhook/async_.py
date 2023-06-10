@@ -572,9 +572,6 @@ class Webhook(BaseWebhook):
         auth_token: Optional[:class:`str`]
             The bot authentication token for authenticated requests
             involving the webhook.
-            For user authentication, this should be a ``guilded_mid`` cookie.
-        bot: Optional[:class:`bool`]
-            Whether ``auth_token`` represents a bot account.
 
         Returns
         --------
