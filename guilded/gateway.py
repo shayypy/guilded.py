@@ -1273,7 +1273,7 @@ class WebSocketEventParsers:
 
         else:
             user = self._state._get_user(data['userId'])
-            status = Status(state=self._state, data=data['userStatus'])
+            status = Status(data=data['userStatus'])
             expires_at = ISO8601(data.get('expiresAt'))
 
             if user:
@@ -1286,7 +1286,7 @@ class WebSocketEventParsers:
 
         else:
             user = self._state._get_user(data['userId'])
-            status = Status(state=self._state, data=data['userStatus'])
+            status = Status(data=data['userStatus'])
 
             if user:
                 self.client.dispatch('user_status_delete', user, status)
