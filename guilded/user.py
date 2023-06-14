@@ -639,7 +639,7 @@ class Member(User):
 
         Fetch this member's server permissions.
 
-        .. versionadded:: 1.10
+        .. versionadded:: 1.9.1
 
         Returns
         --------

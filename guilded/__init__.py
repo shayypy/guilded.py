@@ -1,6 +1,6 @@
 
 __copyright__ = 'shay 2020-present'
-__version__ = '1.10.0a'
+__version__ = '1.9.1'
 
 import logging
 

@@ -126,7 +126,7 @@ class Forbidden(HTTPException):
         the operation.
         This is a list of :gdocs:`raw permissions values <Permissions>`\.
 
-        .. versionadded:: 1.10
+        .. versionadded:: 1.9.1
     """
     def __init__(self, response: ClientResponse, data: HTTPErrorPayload):
         super().__init__(response, data)
@@ -149,7 +149,7 @@ class ImATeapot(HTTPException):
     member's permissions <roles/ServerMemberPermissionsRead>`, when the member
     does not have all the permissions passed to ``ids``.
 
-    .. versionadded:: 1.10
+    .. versionadded:: 1.9.1
 
     Attributes
     -----------
