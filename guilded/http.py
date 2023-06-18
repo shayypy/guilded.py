@@ -1088,6 +1088,9 @@ class HTTPClient(HTTPClientBase):
     def unban_server_member(self, server_id: str, user_id: str):
         return self.request(Route('DELETE', f'/servers/{server_id}/bans/{user_id}'))
 
+    def get_server_ban(self, server_id: str, user_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/bans/{user_id}'))
+
     def get_server_bans(self, server_id: str):
         return self.request(Route('GET', f'/servers/{server_id}/bans'))
 

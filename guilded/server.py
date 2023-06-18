@@ -1221,6 +1221,21 @@ class Server(Hashable):
         """
         await self._state.unban_server_member(self.id, user.id)
 
+    async def fetch_ban(self, user: User) -> MemberBan:
+        """|coro|
+
+        Fetch a user's ban.
+
+        .. versionadded:: 1.10
+
+        Returns
+        --------
+        :class:`.MemberBan`
+            The ban for the user.
+        """
+        data = await self._state.get_server_ban(self.id, user.id)
+        return MemberBan(state=self._state, data=data['serverMemberBan'], server=self)
+
     async def bans(self) -> List[MemberBan]:
         """|coro|
 
