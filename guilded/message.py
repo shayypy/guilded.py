@@ -743,7 +743,8 @@ class ChatMessage(Hashable, HasContentMixin):
         This property relies on message cache. If you need a list of IDs,
         consider :attr:`.replied_to_ids` instead.
         """
-        return [self._state._get_message(message_id) for message_id in self.replied_to_ids]
+        messages = [self._state._get_message(message_id) for message_id in self.replied_to_ids]
+        return [m for m in messages if m is not None]
 
     async def delete(self, *, delay: Optional[float] = None) -> None:
         """|coro|
