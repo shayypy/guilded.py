@@ -636,6 +636,12 @@ class HTTPClient(HTTPClientBase):
     def delete_channel(self, channel_id: str):
         return self.request(Route('DELETE', f'/channels/{channel_id}'))
 
+    def archive_channel(self, channel_id: str):
+        return self.request(Route('PUT', f'/channels/{channel_id}/archive'))
+
+    def restore_channel(self, channel_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/archive'))
+
     def create_channel_message(self, channel_id: str, *, payload: Dict[str, Any]):
         route = Route('POST', f'/channels/{channel_id}/messages')
         return self.request(route, json=payload)

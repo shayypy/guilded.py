@@ -668,6 +668,24 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
         """
         await self._state.delete_channel(self.id)
 
+    async def archive(self) -> None:
+        """|coro|
+
+        Archive this channel.
+
+        .. versionadded:: 1.10
+        """
+        await self._state.archive_channel(self.id)
+
+    async def restore(self) -> None:
+        """|coro|
+
+        Restore this channel from its archived state.
+
+        .. versionadded:: 1.10
+        """
+        await self._state.restore_channel(self.id)
+
 GuildChannel = ServerChannel  # discord.py
 
 
