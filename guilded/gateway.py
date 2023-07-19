@@ -833,6 +833,12 @@ class WebSocketEventParsers:
             channel.server._channels.pop(channel.id, None)
             self.client.dispatch('server_channel_delete', channel)
 
+    async def parse_channel_archived(self, data: gw.ServerChannelEvent):
+        await self.parse_server_channel_updated(data)
+
+    async def parse_channel_restored(self, data: gw.ServerChannelEvent):
+        await self.parse_server_channel_updated(data)
+
     async def parse_channel_message_reaction_created(self, data: gw.ChannelMessageReactionCreatedEvent):
         if self._exp_style:
             channel = await self._force_resolve_channel(data['serverId'], data['reaction']['channelId'])
