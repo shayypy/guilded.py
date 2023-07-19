@@ -1015,6 +1015,8 @@ class ChatMessage(Hashable, HasContentMixin):
 
         Pin this message.
 
+        .. versionadded:: 1.10
+
         Raises
         -------
         NotFound
@@ -1030,6 +1032,8 @@ class ChatMessage(Hashable, HasContentMixin):
         """|coro|
 
         Unpin this message.
+
+        .. versionadded:: 1.10
 
         Raises
         -------
