@@ -449,6 +449,12 @@ class WebSocketEventParsers:
                 message.deleted_at = ISO8601(data['message']['deletedAt'])
                 self.client.dispatch('message_delete', message)
 
+    async def parse_channel_message_pinned(self, data: gw.ChatMessageUpdatedEvent):
+        await self.parse_chat_message_updated(data)
+
+    async def parse_channel_message_unpinned(self, data: gw.ChatMessageUpdatedEvent):
+        await self.parse_chat_message_updated(data)
+
     async def parse_bot_server_membership_created(self, data: gw.BotServerMembershipCreatedEvent):
         event = ev.BotAddEvent(self._state, data)
         if self._exp_style:

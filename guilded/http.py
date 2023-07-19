@@ -693,6 +693,12 @@ class HTTPClient(HTTPClientBase):
 
         return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/emotes'), params=params)
 
+    def pin_channel_message(self, channel_id: str, message_id: str):
+        return self.request(Route('POST', f'/channels/{channel_id}/messages/{message_id}/pin'))
+
+    def unpin_channel_message(self, channel_id: str, message_id: str):
+        return self.request(Route('DELETE', f'/channels/{channel_id}/messages/{message_id}/pin'))
+
     def create_forum_topic(self, channel_id: str, *, title: str, content: str):
         payload = {
             'title': title,

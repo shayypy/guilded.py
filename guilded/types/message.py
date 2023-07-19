@@ -41,6 +41,7 @@ class ChatMessage(TypedDict):
     replyMessageIds: NotRequired[str]
     isPrivate: NotRequired[bool]
     isSilent: NotRequired[bool]
+    isPinned: NotRequired[bool]
     mentions: NotRequired[Mentions]
     createdAt: str
     createdBy: str
@@ -54,3 +55,4 @@ class DeletedChatMessage(TypedDict):
     channelId: str
     deletedAt: str
     isPrivate: NotRequired[bool]
+    isPinned: NotRequired[bool]

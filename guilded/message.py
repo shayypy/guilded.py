@@ -594,6 +594,8 @@ class ChatMessage(Hashable, HasContentMixin):
     silent: :class:`bool`
         Whether the message was sent silently, i.e., if this is true then
         users mentioned in the message were not sent a notification.
+    pinned: :class:`bool`
+        Whether the message is pinned in its channel.
     """
 
     __slots__ = (
@@ -612,6 +614,7 @@ class ChatMessage(Hashable, HasContentMixin):
         'replied_to_ids',
         'silent',
         'private',
+        'pinned',
         'content',
         'embeds',
     )
@@ -643,6 +646,7 @@ class ChatMessage(Hashable, HasContentMixin):
 
         self.silent: bool = data.get('isSilent') or False
         self.private: bool = data.get('isPrivate') or False
+        self.pinned: bool = data.get('isPinned') or False
 
         if isinstance(data.get('content'), dict):
             # Webhook execution responses
@@ -1006,18 +1010,36 @@ class ChatMessage(Hashable, HasContentMixin):
         """
         return await self.channel.create_thread(name=name, message=self)
 
-    #async def pin(self):
-    #    """|coro|
+    async def pin(self) -> None:
+        """|coro|
 
-    #    Pin this message.
-    #    """
-    #    await self._state.pin_message(self.channel.id, self.id)
+        Pin this message.
 
-    #async def unpin(self):
-    #    """|coro|
+        Raises
+        -------
+        NotFound
+            The channel or message does not exist.
+        Forbidden
+            You are not allowed to pin messages in this channel.
+        HTTPException
+            Failed to pin the message.
+        """
+        await self._state.pin_channel_message(self.channel.id, self.id)
 
-    #    Unpin this message.
-    #    """
-    #    await self._state.unpin_message(self.channel.id, self.id)
+    async def unpin(self) -> None:
+        """|coro|
+
+        Unpin this message.
+
+        Raises
+        -------
+        NotFound
+            The channel or message does not exist.
+        Forbidden
+            You are not allowed to unpin messages in this channel.
+        HTTPException
+            Failed to unpin the message.
+        """
+        await self._state.unpin_channel_message(self.channel.id, self.id)
 
 Message = ChatMessage
