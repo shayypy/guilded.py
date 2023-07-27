@@ -117,6 +117,8 @@ __all__ = (
     'CalendarEventReplyCreateEvent',
     'CalendarEventReplyUpdateEvent',
     'CalendarEventReplyDeleteEvent',
+    'CalendarEventReplyReactionAddEvent',
+    'CalendarEventReplyReactionRemoveEvent',
     'RsvpUpdateEvent',
     'RsvpDeleteEvent',
     'BulkRsvpCreateEvent',
