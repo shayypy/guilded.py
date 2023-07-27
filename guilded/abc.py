@@ -58,7 +58,7 @@ from typing import TYPE_CHECKING, List, Optional, Sequence
 
 from .asset import Asset
 from .colour import Colour
-from .enums import ChannelType, try_enum, UserType
+from .enums import ChannelType, ChannelVisibility, try_enum, UserType
 from .errors import InvalidArgument
 from .message import HasContentMixin, ChatMessage
 from .mixins import Hashable
@@ -262,6 +262,7 @@ class Messageable(metaclass=abc.ABCMeta):
         name: str,
         *,
         message: Optional[ChatMessage] = None,
+        visibility: ChannelVisibility = None,
     ) -> Thread:
         """|coro|
 
@@ -296,7 +297,11 @@ class Messageable(metaclass=abc.ABCMeta):
             The message to create the thread with.
             If a private message is passed (i.e. :attr:`.ChatMessage.private`
             is ``True``), then the thread is private too.
-            Otherwise, the thread is always public.
+        visibility: Optional[:class:`.ChannelVisibility`]
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.private` or ``None``.
+
+            .. versionadded:: 1.10
 
         Returns
         --------
@@ -323,6 +328,7 @@ class Messageable(metaclass=abc.ABCMeta):
             name=name,
             parent_id=self._channel_id,
             message_id=message.id if message else None,
+            visibility=visibility.value if visibility is not None else None,
         )
         channel = self._state.create_channel(
             data=data['channel'],
@@ -530,7 +536,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
         self.type: ChannelType = try_enum(ChannelType, data.get('type'))
         self.name: str = data.get('name') or ''
         self.topic: str = data.get('topic') or ''
-        self.public: bool = data.get('isPublic', False)
+        self.visibility: Optional[ChannelVisibility] = try_enum(ChannelVisibility, data['visibility']) if data.get('visibility') else None
 
         self.created_by_id: Optional[str] = extra.get('createdBy')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
@@ -606,6 +612,16 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
     def archived_by(self) -> Optional[Member]:
         return self.server.get_member(self.archived_by_id)
 
+    @property
+    def public(self) -> bool:
+        """:class:`bool`: Whether the channel is visible to everyone,
+        including members who are not part of the server.
+
+        .. deprecated:: 1.10
+            Use :attr:`.visibility` instead.
+        """
+        return self.visibility == ChannelVisibility.public
+
     def __str__(self) -> str:
         return self.name
 
@@ -617,6 +633,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
         *,
         name: str = MISSING,
         topic: str = MISSING,
+        visibility: ChannelVisibility = MISSING,
         public: bool = None,
     ) -> Self:
         """|coro|
@@ -631,9 +648,16 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
             The channel's name.
         topic: :class:`str`
             The channel's topic. Not applicable to threads.
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. A channel cannot currently be
+            manually set to :attr:`~.ChannelVisibility.private`.
+            Could be ``None`` to reset the visibility.
         public: :class:`bool`
             Whether the channel should be public, i.e., visible to users who
             are not a member of the server. Not applicable to threads.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
 
         Returns
         --------
@@ -648,8 +672,14 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
         if topic is not MISSING:
             payload['topic'] = topic
 
-        if public is not None:
-            payload['isPublic'] = public
+        if visibility is MISSING and public is not None:
+            visibility = ChannelVisibility.public if public else ChannelVisibility.private
+        # There is a bug currently where you cannot unset a channel's
+        # public status without using isPublic
+        if visibility is None:
+            payload['isPublic'] = False
+        elif visibility is not MISSING:
+            payload['visibility'] = visibility.value
 
         data = await self._state.update_channel(
             self.id,

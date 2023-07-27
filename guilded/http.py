@@ -590,7 +590,7 @@ class HTTPClient(HTTPClientBase):
         *,
         name: str,
         topic: Optional[str] = None,
-        public: Optional[bool] = None,
+        visibility: Optional[str] = None,
         category_id: Optional[int] = None,
         group_id: Optional[str] = None,
         parent_id: Optional[str] = None,
@@ -605,8 +605,8 @@ class HTTPClient(HTTPClientBase):
         if topic is not None:
             payload['topic'] = topic
 
-        if public is not None:
-            payload['isPublic'] = public
+        if visibility is not None:
+            payload['visibility'] = visibility
 
         if category_id is not None:
             payload['categoryId'] = category_id

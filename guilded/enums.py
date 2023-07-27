@@ -56,6 +56,7 @@ from typing import Any, ClassVar, Dict, List, TYPE_CHECKING, Type, TypeVar
 
 __all__ = (
     'ChannelType',
+    'ChannelVisibility',
     'MessageType',
     'FileType',
     'MediaType',
@@ -213,6 +214,14 @@ class ChannelType(Enum):
 
     def __str__(self):
         return self.value
+
+
+class ChannelVisibility(Enum):
+    public = 'public'
+    private = 'private'
+
+    def __str__(self):
+        return self.name
 
 
 class MessageType(Enum):

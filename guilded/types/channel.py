@@ -44,6 +44,7 @@ class ServerChannel(TypedDict):
     messageId: NotRequired[str]
     categoryId: NotRequired[int]
     groupId: str
+    visibility: NotRequired[Optional[Literal['private', 'public']]]
     isPublic: NotRequired[bool]
     archivedBy: NotRequired[str]
     archivedAt: NotRequired[str]

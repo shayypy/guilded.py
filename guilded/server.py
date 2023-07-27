@@ -60,7 +60,7 @@ from .asset import Asset
 from .channel import AnnouncementChannel, ChatChannel, DocsChannel, ForumChannel, ListChannel, MediaChannel, SchedulingChannel, Thread, VoiceChannel
 from .colour import Colour
 from .errors import InvalidData
-from .enums import ServerSubscriptionTierType, ServerType, try_enum, ChannelType
+from .enums import ChannelVisibility, ServerSubscriptionTierType, ServerType, try_enum, ChannelType
 from .group import Group
 from .mixins import Hashable
 from .role import Role
@@ -453,17 +453,21 @@ class Server(Hashable):
         *,
         name: str,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
     ) -> ServerChannel:
+
+        if visibility is None and public is not None:
+            visibility = ChannelVisibility.public if public else None
 
         data = await self._state.create_server_channel(
             self.id,
             content_type.value,
             name=name,
             topic=topic,
-            public=public,
+            visibility=visibility.value if visibility is not None else None,
             category_id=category.id if category is not None else None,
             group_id=group.id if group is not None else None,
         )
@@ -475,6 +479,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -493,8 +498,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -508,6 +523,7 @@ class Server(Hashable):
             ChannelType.announcements,
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,
@@ -519,6 +535,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -537,8 +554,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -552,6 +579,7 @@ class Server(Hashable):
             ChannelType.chat,
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,
@@ -563,6 +591,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -583,8 +612,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -597,6 +636,7 @@ class Server(Hashable):
         return await self.create_chat_channel(
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,
@@ -607,6 +647,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -625,8 +666,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -640,6 +691,7 @@ class Server(Hashable):
             ChannelType.docs,
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,
@@ -651,6 +703,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -669,8 +722,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -684,6 +747,7 @@ class Server(Hashable):
             ChannelType.forums,
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,
@@ -695,6 +759,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -715,8 +780,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -729,6 +804,7 @@ class Server(Hashable):
         return await self.create_forum_channel(
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,
@@ -739,6 +815,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -757,8 +834,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -772,6 +859,7 @@ class Server(Hashable):
             ChannelType.media,
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,
@@ -783,6 +871,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -801,8 +890,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -816,6 +915,7 @@ class Server(Hashable):
             ChannelType.list,
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,
@@ -827,6 +927,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -845,8 +946,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -860,6 +971,7 @@ class Server(Hashable):
             ChannelType.scheduling,
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,
@@ -871,6 +983,7 @@ class Server(Hashable):
         name: str,
         *,
         topic: str = None,
+        visibility: ChannelVisibility = None,
         public: bool = None,
         category: ServerChannel = None,
         group: Group = None,
@@ -889,8 +1002,18 @@ class Server(Hashable):
             The :class:`.CategoryChannel` to create this channel under. If not
             provided, it will be shown under the "Channels" header in the
             client (no category).
+        visibility: :class:`.ChannelVisibility`
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.public` or ``None``.
+
+            .. versionadded:: 1.10
+
         public: :class:`bool`
             Whether this channel and its contents should be visible to people who aren't part of the server. Defaults to ``False``.
+
+            .. deprecated:: 1.10
+                Use ``visibility`` instead.
+
         group: :class:`.Group`
             The :class:`.Group` to create this channel in. If not provided, defaults to the base group.
 
@@ -904,6 +1027,7 @@ class Server(Hashable):
             ChannelType.voice,
             name=name,
             topic=topic,
+            visibility=visibility,
             public=public,
             category=category,
             group=group,

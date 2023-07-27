@@ -59,7 +59,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, List, Sequence, Tuple, Un
 
 from .colour import Colour
 from .embed import Embed
-from .enums import FileType, try_enum, MessageType
+from .enums import ChannelVisibility, FileType, try_enum, MessageType
 from .errors import HTTPException
 from .file import Attachment
 from .mixins import Hashable
@@ -963,7 +963,7 @@ class ChatMessage(Hashable, HasContentMixin):
             delete_after=delete_after,
         )
 
-    async def create_thread(self, name: str) -> Thread:
+    async def create_thread(self, name: str, *, visibility: ChannelVisibility = None) -> Thread:
         """|coro|
 
         Create a new thread under the message.
@@ -993,6 +993,11 @@ class ChatMessage(Hashable, HasContentMixin):
         -----------
         name: :class:`str`
             The thread's name. Can include spaces.
+        visibility: Optional[:class:`.ChannelVisibility`]
+            What users can access the channel. Currently, this can only be
+            :attr:`~.ChannelVisibility.private` or ``None``.
+
+            .. versionadded:: 1.10
 
         Returns
         --------
@@ -1008,7 +1013,7 @@ class ChatMessage(Hashable, HasContentMixin):
         HTTPException
             Failed to create a thread.
         """
-        return await self.channel.create_thread(name=name, message=self)
+        return await self.channel.create_thread(name=name, message=self, visibility=visibility)
 
     async def pin(self) -> None:
         """|coro|

@@ -1569,6 +1569,20 @@ API from being stringly typed in case the strings change in the future.
 
         the channel is a voice channel.
 
+.. class:: ChannelVisibility
+
+    Restricts what users can view a channel.
+
+    .. attribute:: public
+
+        Visible to everyone, including members who are not part of the server.
+        Threads cannot be ``public``.
+
+    .. attribute:: private
+
+        Visible only to members who have been explicitly mentioned.
+        Non-thread channels cannot be ``private``.
+
 .. class:: FlowTriggerType
 
     A type of flow trigger for :class:`.FlowBot`\s.
