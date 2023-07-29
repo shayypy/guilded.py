@@ -673,7 +673,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
             payload['topic'] = topic
 
         if visibility is MISSING and public is not None:
-            visibility = ChannelVisibility.public if public else ChannelVisibility.private
+            visibility = ChannelVisibility.public if public else None
         # There is a bug currently where you cannot unset a channel's
         # public status without using isPublic
         if visibility is None:
