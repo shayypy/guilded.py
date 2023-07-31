@@ -674,12 +674,8 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
 
         if visibility is MISSING and public is not None:
             visibility = ChannelVisibility.public if public else None
-        # There is a bug currently where you cannot unset a channel's
-        # public status without using isPublic
-        if visibility is None:
-            payload['isPublic'] = False
-        elif visibility is not MISSING:
-            payload['visibility'] = visibility.value
+        if visibility is not MISSING:
+            payload['visibility'] = visibility.value if visibility is not None else None
 
         data = await self._state.update_channel(
             self.id,
