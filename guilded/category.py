@@ -72,7 +72,7 @@ class Category(Hashable):
         The category's name.
     created_at: :class:`datetime.datetime`
         When the category was created.
-    updated_at Optional[:class:`datetime.datetime`]
+    updated_at: Optional[:class:`datetime.datetime`]
         When the category was last updated.
     server_id: :class:`str`
         The ID of the server that the category is in.
