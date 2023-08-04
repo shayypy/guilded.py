@@ -2213,6 +2213,13 @@ CalendarEventRSVP
     :members:
     :inherited-members:
 
+Category
+~~~~~~~~~
+
+.. autoclass:: Category()
+    :members:
+    :inherited-members:
+
 ClientUser
 ~~~~~~~~~~~
 

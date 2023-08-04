@@ -1152,6 +1152,39 @@ class HTTPClient(HTTPClientBase):
     def remove_group_member(self, group_id: str, user_id: str):
         return self.request(Route('DELETE', f'/groups/{group_id}/members/{user_id}'))
 
+    # categories
+
+    def create_category(
+        self,
+        server_id: str,
+        *,
+        name: str,
+        group_id: Optional[str] = None,
+    ):
+        payload = {
+            'name': name,
+        }
+
+        if group_id is not None:
+            payload['groupId'] = group_id
+
+        return self.request(Route('POST', f'/servers/{server_id}/categories'), json=payload)
+
+    def update_category(
+        self,
+        server_id: str,
+        category_id: int,
+        *,
+        payload: Dict[str, Any],
+    ):
+        return self.request(Route('PATCH', f'/servers/{server_id}/categories/{category_id}'), json=payload)
+
+    def get_category(self, server_id: str, category_id: int):
+        return self.request(Route('GET', f'/servers/{server_id}/categories/{category_id}'))
+
+    def delete_category(self, server_id: str, category_id: int):
+        return self.request(Route('DELETE', f'/servers/{server_id}/categories/{category_id}'))
+
     # subscriptions
 
     def get_subscription_tier(self, server_id: str, tier_type: str):

@@ -7,6 +7,7 @@ import logging
 from . import abc as abc, utils as utils
 from .utils import Object as Object
 from .asset import *
+from .category import *
 from .channel import *
 from .client import *
 from .colour import *

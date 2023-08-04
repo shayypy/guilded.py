@@ -36,6 +36,7 @@ Modified
   parameter to the respective method.
 * :meth:`.Client.fetch_invite` does not accept URLs or vanity codes.
 * :meth:`.Client.fetch_servers` returns a list of :class:`.Server` instead of an async iterator.
+* :meth:`.Server.fetch_channel` does not accept category IDs. Use :meth:`.Server.fetch_category` instead.
 
 Not present
 ~~~~~~~~~~~~
@@ -62,6 +63,12 @@ Not present
 * ``Client.is_ws_ratelimited``
 * ``Guild.edit``
 * ``Guild.delete``
+* ``Category.clone``
+* ``Category.invites``
+* ``Category.move``
+* ``Category.overwrites_for``
+* ``Category.permissions_for``
+* ``Category.set_permissions``
 
 **Parameters**
 
@@ -110,7 +117,6 @@ Not present
   * :class:`~discord.ThreadMember`
   * :class:`~discord.StageChannel`
   * :class:`~discord.StageInstance`
-  * :class:`~discord.CategoryChannel`
   * :class:`~discord.GroupChannel`
   * :class:`~discord.PartialInviteGuild`
   * :class:`~discord.PartialInviteChannel`
