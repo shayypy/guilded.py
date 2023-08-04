@@ -73,6 +73,7 @@ if TYPE_CHECKING:
     from .types.channel import ServerChannel as ServerChannelPayload
     from .types.comment import ContentComment
 
+    from .category import Category
     from .channel import Thread
     from .embed import Embed
     from .group import Group
@@ -599,6 +600,14 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
         The server that this channel is in.
         """
         return self.server
+
+    @property
+    def category(self) -> Optional[Category]:
+        """Optional[:class:`.Category`]: The category that this channel is in, if any."""
+        if self.category_id and self.server:
+            return self.server.get_category(self.category_id)
+
+        return None
 
     @property
     def parent(self) -> Optional[ServerChannel]:

@@ -153,6 +153,7 @@ class Server(Hashable):
         else:
             self.type = None
 
+        self._categories: Dict[str, Category] = {}
         self._channels: Dict[str, ServerChannel] = {}
         self._threads: Dict[str, Thread] = {}
         self._groups: Dict[str, Group] = {}
@@ -419,6 +420,10 @@ class Server(Hashable):
     def get_group(self, group_id: str, /) -> Optional[Group]:
         """Optional[:class:`~guilded.Group`]: Get a group by its ID from the cache."""
         return self._groups.get(group_id)
+
+    def get_category(self, category_id: int, /) -> Optional[Category]:
+        """Optional[:class:`.Category`]: Get a category by its ID from the cache."""
+        return self._categories.get(category_id)
 
     def get_channel(self, channel_id: str, /) -> Optional[ServerChannel]:
         """Optional[:class:`~.abc.ServerChannel`]: Get a channel by its ID from the cache."""
@@ -1098,6 +1103,9 @@ class Server(Hashable):
 
         data = await self._state.get_category(self.id, category_id)
         return Category(state=self._state, data=data['category'], server=self)
+
+    async def getch_category(self, category_id: int, /) -> Category:
+        return self.get_category(category_id) or await self.fetch_category(category_id)
 
     async def fetch_channel(self, channel_id: str, /) -> ServerChannel:
         """|coro|
