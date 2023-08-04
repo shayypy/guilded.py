@@ -163,4 +163,20 @@ class Category(Hashable):
         data = await self._state.update_category(self.server_id, self.id, payload=payload)
         return Category(state=self._state, data=data['category'], group=self._group, server=self._server)
 
+    async def delete(self) -> Category:
+        """|coro|
+
+        Delete this category.
+
+        This method will not delete the category's channels.
+
+        Returns
+        --------
+        :class:`.Category`:
+            The deleted category.
+        """
+
+        data = await self._state.delete_category(self.server_id, self.id)
+        return Category(state=self._state, data=data['category'], group=self._group, server=self._server)
+
 CategoryChannel = Category  # discord.py
