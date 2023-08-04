@@ -883,6 +883,8 @@ class _CategoryEvent(ServerEvent):
 class CategoryCreateEvent(_CategoryEvent):
     """Represents a :gdocs:`CategoryCreated <websockets/CategoryCreated>` event for dispatching to event handlers.
 
+    .. versionadded:: 1.11
+
     Attributes
     -----------
     server_id: :class:`str`
@@ -899,6 +901,8 @@ class CategoryCreateEvent(_CategoryEvent):
 
 class CategoryUpdateEvent(ServerEvent):
     """Represents a :gdocs:`CategoryUpdated <websockets/CategoryUpdated>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.11
 
     Attributes
     -----------
@@ -933,6 +937,8 @@ class CategoryUpdateEvent(ServerEvent):
 
 class CategoryDeleteEvent(_CategoryEvent):
     """Represents a :gdocs:`CategoryDeleted <websockets/CategoryDeleted>` event for dispatching to event handlers.
+
+    .. versionadded:: 1.11
 
     Attributes
     -----------
