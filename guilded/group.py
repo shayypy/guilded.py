@@ -59,6 +59,7 @@ from .mixins import Hashable
 from .utils import ISO8601, MISSING
 
 if TYPE_CHECKING:
+    from .category import Category
     from .emote import Emote
     from .server import Server
     from .user import Member
@@ -308,3 +309,30 @@ class Group(Hashable):
             Failed to remove the member from this group.
         """
         await self._state.remove_group_member(self.id, member.id)
+
+    async def create_category(self, name: str) -> Category:
+        """|coro|
+
+        Create a new category in the group.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        name: :class:`str`
+            The category's name.
+
+        Returns
+        --------
+        :class:`.Category`
+            The created category.
+        """
+
+        from .category import Category
+
+        data = await self._state.create_category(
+            self.server_id,
+            name=name,
+            group_id=self.id,
+        )
+        return Category(state=self._state, data=data['category'], group=self, server=self.server)
