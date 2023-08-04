@@ -628,6 +628,15 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} server={self.server!r}>'
 
+    def is_nsfw(self) -> bool:
+        """:class:`bool`: |dpyattr|
+
+        Always returns ``False``.
+
+        .. versionadded:: 1.11
+        """
+        return False
+
     async def edit(
         self,
         *,
