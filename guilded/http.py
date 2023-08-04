@@ -79,6 +79,7 @@ if TYPE_CHECKING:
     from .types.channel import ServerChannel as ServerChannelPayload
 
     from .asset import Asset
+    from .category import Category
     from .channel import DMChannel, Thread
     from .emote import Emote
     from .file import Attachment, File
@@ -260,6 +261,10 @@ class HTTPClientBase:
         if self._get_server(server_id):
             return self._get_server(server_id).get_channel_or_thread(channel_id)
 
+    def _get_server_category(self, server_id: str, category_id: int) -> Optional[Category]:
+        if self._get_server(server_id):
+            return self._get_server(server_id).get_category(category_id)
+
     @property
     def _all_server_channels(self) -> Dict[str, ServerChannel]:
         all_channels = {}
@@ -333,6 +338,15 @@ class HTTPClientBase:
     def remove_from_server_channel_cache(self, server_id, channel_id):
         if self._get_server(server_id):
             self._get_server(server_id)._channels.pop(channel_id, None)
+
+    def add_to_category_cache(self, category: Category):
+        server = category.server or self._get_server(category.server_id)
+        if server:
+            server._categories[category.id] = category
+
+    def remove_from_category_cache(self, server_id: str, category_id: int):
+        if self._get_server(server_id):
+            self._get_server(server_id)._categories.pop(category_id, None)
 
     def add_to_dm_channel_cache(self, channel):
         self._dm_channels[channel.id] = channel

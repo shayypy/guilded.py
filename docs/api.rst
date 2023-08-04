@@ -330,6 +330,36 @@ Calendar Events
 Channels
 ~~~~~~~~~
 
+.. function:: on_category_create(category)
+
+    A channel category was created in a server.
+
+    |nestype| :class:`CategoryCreateEvent`
+
+    :param category: The category that was created.
+    :type category: :class:`.Category`
+
+.. function:: on_category_update(before, after)
+
+    A channel category was updated.
+
+    |nestype| :class:`CategoryUpdateEvent`
+
+    :param before: The category before being updated.
+    :type before: :class:`.Category`
+
+    :param after: The category that was updated.
+    :type after: :class:`.Category`
+
+.. function:: on_category_delete(category)
+
+    A channel category was deleted.
+
+    |nestype| :class:`CategoryDeleteEvent`
+
+    :param category: The category that was deleted.
+    :type category: :class:`.Category`
+
 .. function:: on_server_channel_create(channel)
 
     A channel was created in a server.
@@ -1287,6 +1317,18 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: CalendarEventReplyReactionRemoveEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: CategoryCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: CategoryUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: CategoryDeleteEvent()
     :members:
     :inherited-members:
 

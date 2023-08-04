@@ -28,6 +28,7 @@ from typing_extensions import NotRequired
 
 from .announcement import Announcement, AnnouncementComment
 from .calendar_event import CalendarEvent, CalendarEventComment, CalendarEventRsvp
+from .category import Category
 from .channel import ServerChannel
 from .doc import Doc, DocComment
 from .emote import Emote
@@ -185,6 +186,10 @@ class CalendarEventCommentEvent(_ServerEvent):
 
 class CalendarEventCommentReactionEvent(_ServerEvent):
     reaction: CalendarEventCommentReaction
+
+
+class CategoryEvent(_ServerEvent):
+    category: Category
 
 
 class ForumTopicEvent(_ServerEvent):

@@ -66,6 +66,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 from .errors import GuildedException, HTTPException
 from .enums import ChannelType
 from . import events as ev
+from .category import Category
 from .channel import *
 from .group import Group
 from .reaction import RawReactionActionEvent, Reaction
@@ -838,6 +839,46 @@ class WebSocketEventParsers:
 
     async def parse_channel_restored(self, data: gw.ServerChannelEvent):
         await self.parse_server_channel_updated(data)
+
+    async def parse_category_created(self, data: gw.CategoryEvent):
+        if self._exp_style:
+            event = ev.CategoryCreateEvent(self._state, data)
+            self._state.add_to_category_cache(event.category)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            category = Category(state=self._state, data=data['category'], server=server)
+            self._state.add_to_category_cache(category)
+            self.client.dispatch('category_create', category)
+
+    async def parse_category_updated(self, data: gw.CategoryEvent):
+        if self._exp_style:
+            event = ev.CategoryUpdateEvent(self._state, data)
+            self._state.add_to_category_cache(event.after)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            before = server.get_category(data['category']['id'])
+            if not before:
+                return
+
+            after = Category(state=self._state, data=data['category'], server=server)
+            self._state.add_to_category_cache(after)
+            self.client.dispatch('category_update', before, after)
+
+    async def parse_category_deleted(self, data: gw.CategoryEvent):
+        if self._exp_style:
+            event = ev.CategoryDeleteEvent(self._state, data)
+            self._state.remove_from_category_cache(event.server_id, event.category.id)
+            self.client.dispatch(event)
+
+        else:
+            server = self.client.get_server(data['serverId'])
+            category = Category(state=self._state, data=data['category'], server=server)
+            category.server._categories.pop(category.id, None)
+            self.client.dispatch('category_delete', category)
 
     async def parse_channel_message_reaction_created(self, data: gw.ChannelMessageReactionCreatedEvent):
         if self._exp_style:

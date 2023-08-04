@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import datetime
 
+from .category import Category
 from .channel import (
     Announcement,
     AnnouncementChannel,
@@ -119,6 +120,9 @@ __all__ = (
     'CalendarEventReplyDeleteEvent',
     'CalendarEventReplyReactionAddEvent',
     'CalendarEventReplyReactionRemoveEvent',
+    'CategoryCreateEvent',
+    'CategoryUpdateEvent',
+    'CategoryDeleteEvent',
     'RsvpUpdateEvent',
     'RsvpDeleteEvent',
     'BulkRsvpCreateEvent',
@@ -858,6 +862,90 @@ class ServerChannelDeleteEvent(_ServerChannelEvent):
 
     __gateway_event__ = 'ServerChannelDeleted'
     __dispatch_event__ = 'server_channel_delete'
+
+
+class _CategoryEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'category',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.CategoryEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.category: Category = Category(state=state, data=data['category'], server=self.server)
+
+
+class CategoryCreateEvent(_CategoryEvent):
+    """Represents a :gdocs:`CategoryCreated <websockets/CategoryCreated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the category is in.
+    server: :class:`Server`
+        The server that the category is in.
+    category: :class:`.Category`
+        The category that was created.
+    """
+
+    __gateway_event__ = 'CategoryCreated'
+    __dispatch_event__ = 'category_create'
+
+
+class CategoryUpdateEvent(ServerEvent):
+    """Represents a :gdocs:`CategoryUpdated <websockets/CategoryUpdated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the category is in.
+    server: :class:`Server`
+        The server that the category is in.
+    before: Optional[:class:`.Category`]
+        The category before modification, if it was cached.
+    after: :class:`.Category`
+        The category after modification.
+    """
+
+    __gateway_event__ = 'CategoryUpdated'
+    __dispatch_event__ = 'category_update'
+    __slots__: Tuple[str, ...] = (
+        'before',
+        'after',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.CategoryEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+
+        self.before = self.server.get_category(data['category']['id'])
+        self.after: Category = Category(state=state, data=data['category'], server=self.server)
+
+
+class CategoryDeleteEvent(_CategoryEvent):
+    """Represents a :gdocs:`CategoryDeleted <websockets/CategoryDeleted>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the category was in.
+    server: :class:`Server`
+        The server that the category was in.
+    category: :class:`.Category`
+        The category that was deleted.
+    """
+
+    __gateway_event__ = 'CategoryDeleted'
+    __dispatch_event__ = 'category_delete'
 
 
 class _WebhookEvent(ServerEvent):
