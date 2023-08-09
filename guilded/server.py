@@ -1218,6 +1218,67 @@ class Server(Hashable):
             else:
                 self._members[member.id] = member
 
+    async def bulk_award_member_xp(self, amount: int, *members: Member) -> Dict[str, int]:
+        """|coro|
+
+        Bulk award XP to multiple members.
+
+        .. note::
+
+            This method *modifies* the current values.
+            To bulk set total XP, use :meth:`~.bulk_set_member_xp`.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        amount: :class:`int`
+            The amount of XP to award.
+            Could be a negative value to remove XP.
+        members: Tuple[:class:`.Member`]
+            The members to award XP to.
+
+        Returns
+        --------
+        :class:`dict`
+            A mapping of member ID to the total amount of XP they have after
+            the operation.
+        """
+
+        data = await self._state.bulk_award_member_xp(self.id, [m.id for m in members], amount)
+        totals: Dict[str, int] = data['totalsByUserId']
+        return totals
+
+    async def bulk_set_member_xp(self, total: int, *members: Member) -> Dict[str, int]:
+        """|coro|
+
+        Bulk set multiple members' total XP.
+
+        .. note::
+
+            This method *replaces* the current values.
+            To add or subtract XP, use :meth:`.bulk_award_member_xp`.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        total: :class:`int`
+            The total amount of XP each member should have.
+        members: Tuple[:class:`.Member`]
+            The members to set XP for.
+
+        Returns
+        --------
+        :class:`dict`
+            A mapping of member ID to the total amount of XP they have after
+            the operation.
+        """
+
+        data = await self._state.bulk_set_member_xp(self.id, [m.id for m in members], total)
+        totals: Dict[str, int] = data['totalsByUserId']
+        return totals
+
     async def create_role(
         self,
         *,

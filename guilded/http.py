@@ -1028,6 +1028,23 @@ class HTTPClient(HTTPClientBase):
     def get_server(self, server_id: str):
         return self.request(Route('GET', f'/servers/{server_id}'))
 
+    def bulk_award_member_xp(self, server_id: str, user_ids: List[str], amount: int):
+        payload = {
+            'userIds': user_ids,
+            'amount': amount,
+        }
+        return self.request(Route('POST', f'/servers/{server_id}/xp'), json=payload)
+
+    def bulk_set_member_xp(self, server_id: str, user_ids: List[str], total: int):
+        payload = {
+            'userIds': user_ids,
+            'total': total,
+            # There is currently a bug where `total` is ignored and `amount`
+            # is required instead.
+            'amount': total,
+        }
+        return self.request(Route('PUT', f'/servers/{server_id}/xp'), json=payload)
+
     def get_member_roles(self, server_id: str, user_id: str):
         return self.request(Route('GET', f'/servers/{server_id}/members/{user_id}/roles'))
 
