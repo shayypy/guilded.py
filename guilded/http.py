@@ -533,10 +533,10 @@ class HTTPClient(HTTPClientBase):
                 data = await response.read()
             else:
                 data = await json_or_text(response)
+                log.debug('%s %s has received %s', method, url, data)
 
             # The request was successful so just return the text/json
             if 300 > response.status >= 200:
-                log.debug('%s %s has received %s', method, url, data)
                 return data
 
             if response.status == 429:
