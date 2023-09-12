@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import List, Literal, Optional, TypedDict
+from typing import Dict, List, Literal, Optional, TypedDict
 from typing_extensions import NotRequired
 
 from .user import User
@@ -61,3 +61,10 @@ class Mentions(TypedDict):
     roles: Optional[List[Role]]
     everyone: bool
     here: bool
+
+
+class ChannelRolePermission(TypedDict):
+    permissions: Dict[str, bool]
+    createdAt: str
+    updatedAt: NotRequired[str]
+    roleId: int

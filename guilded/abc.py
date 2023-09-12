@@ -62,6 +62,7 @@ from .enums import ChannelType, ChannelVisibility, try_enum, UserType
 from .errors import InvalidArgument
 from .message import HasContentMixin, ChatMessage
 from .mixins import Hashable
+from .permissions import ChannelRoleOverride
 from .presence import Presence
 from .status import Status
 from .utils import ISO8601, MISSING
@@ -77,6 +78,8 @@ if TYPE_CHECKING:
     from .channel import Thread
     from .embed import Embed
     from .group import Group
+    from .permissions import PermissionOverride
+    from .role import Role
     from .server import Server
     from .user import Member
 
@@ -704,6 +707,128 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
             group=self.group,
         )
         return channel
+
+    async def create_role_override(self, role: Role, override: PermissionOverride) -> ChannelRoleOverride:
+        """|coro|
+
+        Create a role-based permission override in this channel.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        role: :class`.Role`
+            The role to create an override for.
+        override: :class:`.PermissionOverride`
+            The override values to use.
+
+        Returns
+        --------
+        :class:`.ChannelRoleOverride`
+            The created role override.
+        """
+
+        data = await self._state.create_channel_role_override(
+            self.server_id,
+            self.id,
+            role.id,
+            permissions=override.to_dict(),
+        )
+        return ChannelRoleOverride(data=data['channelRolePermission'], role=role)
+
+    async def fetch_role_override(self, role: Role) -> ChannelRoleOverride:
+        """|coro|
+
+        Fetch a role-based permission override in this channel.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        role: :class`.Role`
+            The role whose override to fetch.
+
+        Returns
+        --------
+        :class:`.ChannelRoleOverride`
+            The role override.
+        """
+
+        data = await self._state.get_channel_role_override(
+            self.server_id,
+            self.id,
+            role.id,
+        )
+        return ChannelRoleOverride(data=data['channelRolePermission'], role=role)
+
+    async def fetch_role_overrides(self) -> List[ChannelRoleOverride]:
+        """|coro|
+
+        Fetch all role-based permission overrides in this channel.
+
+        .. versionadded:: 1.11
+
+        Returns
+        --------
+        List[:class:`.ChannelRoleOverride`]
+            The role overrides.
+        """
+
+        data = await self._state.get_channel_role_overrides(self.server_id, self.id)
+        return [
+            ChannelRoleOverride(
+                data=override_data,
+                role=self._state._get_server_role(self.server_id, override_data['roleId'])
+            )
+            for override_data in data['channelRolePermissions']
+        ]
+
+    async def update_role_override(self, role: Role, override: PermissionOverride) -> ChannelRoleOverride:
+        """|coro|
+
+        Update a role-based permission override in this channel.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        role: :class`.Role`
+            The role to update an override for.
+        override: :class:`.PermissionOverride`
+            The new override values to use.
+
+        Returns
+        --------
+        :class:`.ChannelRoleOverride`
+            The updated role override.
+        """
+
+        data = await self._state.update_channel_role_override(
+            self.server_id,
+            self.id,
+            role.id,
+            permissions=override.to_dict(),
+        )
+        return ChannelRoleOverride(data=data['channelRolePermission'], role=role)
+
+    async def delete_role_override(self, role: Role) -> None:
+        """|coro|
+
+        Delete a role-based permission override in this channel.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        role: :class`.Role`
+            The role whose override to delete.
+        """
+
+        await self._state.delete_channel_role_override(
+            self.server_id,
+            self.id,
+            role.id,
+        )
 
     async def delete(self) -> None:
         """|coro|

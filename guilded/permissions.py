@@ -66,6 +66,7 @@ __all__ = (
     'Permissions',
     'PermissionOverride',
     'PermissionOverwrite',
+    'ChannelRoleOverride',
 )
 
 
@@ -1347,6 +1348,43 @@ class PermissionOverride:
 
 PermissionOverwrite = PermissionOverride  # discord.py
 
+
+class ChannelRoleOverride:
+    """Represents a role-based permission override in a channel.
+
+    .. versionadded:: 1.11
+
+    Attributes
+    -----------
+    override: :class:`.PermissionOverride`
+        The permission values overridden for the role.
+    role: Optional[:class:`.Role`]
+        The role whose permissions are to be overridden.
+    role_id: :class:`int`
+        The ID of the role.
+    created_at: :class:`datetime.datetime`
+        When the override was created.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the override was last updated.
+    """
+
+    __slots__: Tuple[str, ...] = (
+        'override',
+        'created_at',
+        'updated_at',
+        'role_id',
+        'role',
+    )
+
+    def __init__(self, *, data: ChannelRolePermissionPayload, role: Optional[Role] = None):
+        self.override = PermissionOverride(**{ REVERSE_VALID_NAME_MAP[key]: value for key, value in data['permissions'].items() })
+        self.created_at = ISO8601(data['createdAt'])
+        self.updated_at = ISO8601(data.get('updatedAt'))
+        self.role_id = data['roleId']
+        self.role = role
+
+    def __repr__(self) -> str:
+        return f'<ChannelRoleOverride override={self.override} role_id={self.role_id}>'
 
 class _OldPermissions:
     """Wraps up permission values in Guilded.
