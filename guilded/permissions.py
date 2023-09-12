@@ -20,10 +20,52 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+------------------------------------------------------------------------------
+
+This project includes code from https://github.com/Rapptz/discord.py, which is
+available under the MIT license:
+
+The MIT License (MIT)
+
+Copyright (c) 2015-present Rapptz
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 """
+
+from __future__ import annotations
+from typing import TYPE_CHECKING, ClassVar, Dict, Iterator, Optional, Set, Tuple
+
+from .utils import ISO8601
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
+
+    from .types.channel import ChannelRolePermission as ChannelRolePermissionPayload
+    from .types.role import Role
+    from .types.server import Server
+
 
 __all__ = (
     'Permissions',
+    'PermissionOverride',
+    'PermissionOverwrite',
 )
 
 
@@ -71,7 +113,7 @@ class Permissions:
         """A factory method that creates a :class:`Permissions` with all
         permissions set to ``True``."""
         values = []
-        for category_values in all_values_by_category.values():
+        for category_values in VALUES_BY_CATEGORY.values():
             values += category_values
 
         return cls(*values)
@@ -86,67 +128,67 @@ class Permissions:
     def general(cls):
         """A factory method that creates a :class:`Permissions` with all
         "General" permissions set to ``True``."""
-        return cls(*all_values_by_category['general'])
+        return cls(*VALUES_BY_CATEGORY['general'])
 
     @classmethod
     def recruitment(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Recruitment" permissions set to ``True``."""
-        return cls(*all_values_by_category['recruitment'])
+        return cls(*VALUES_BY_CATEGORY['recruitment'])
 
     @classmethod
     def announcements(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Announcement" permissions set to ``True``."""
-        return cls(*all_values_by_category['announcements'])
+        return cls(*VALUES_BY_CATEGORY['announcements'])
 
     @classmethod
     def chat(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Chat" permissions set to ``True``."""
-        return cls(*all_values_by_category['chat'])
+        return cls(*VALUES_BY_CATEGORY['chat'])
 
     @classmethod
     def calendar(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Calendar" permissions set to ``True``."""
-        return cls(*all_values_by_category['calendar'])
+        return cls(*VALUES_BY_CATEGORY['calendar'])
 
     @classmethod
     def forums(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Forum" permissions set to ``True``."""
-        return cls(*all_values_by_category['forums'])
+        return cls(*VALUES_BY_CATEGORY['forums'])
 
     @classmethod
     def docs(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Docs" permissions set to ``True``."""
-        return cls(*all_values_by_category['docs'])
+        return cls(*VALUES_BY_CATEGORY['docs'])
 
     @classmethod
     def media(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Media" permissions set to ``True``."""
-        return cls(*all_values_by_category['media'])
+        return cls(*VALUES_BY_CATEGORY['media'])
 
     @classmethod
     def voice(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Voice" permissions set to ``True``."""
-        return cls(*all_values_by_category['voice'])
+        return cls(*VALUES_BY_CATEGORY['voice'])
 
     @classmethod
     def competitive(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Competitive" permissions set to ``True``."""
-        return cls(*all_values_by_category['competitive'])
+        return cls(*VALUES_BY_CATEGORY['competitive'])
 
     @classmethod
     def customization(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Customization" permissions set to ``True``."""
-        return cls(*all_values_by_category['customization'])
+        return cls(*VALUES_BY_CATEGORY['customization'])
 
     customisation = customization
 
@@ -154,49 +196,49 @@ class Permissions:
     def forms(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Forms" permissions set to ``True``."""
-        return cls(*all_values_by_category['forms'])
+        return cls(*VALUES_BY_CATEGORY['forms'])
 
     @classmethod
     def lists(cls):
         """A factory method that creates a :class:`Permissions` with all
         "List" permissions set to ``True``."""
-        return cls(*all_values_by_category['lists'])
+        return cls(*VALUES_BY_CATEGORY['lists'])
 
     @classmethod
     def brackets(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Bracket" permissions set to ``True``."""
-        return cls(*all_values_by_category['brackets'])
+        return cls(*VALUES_BY_CATEGORY['brackets'])
 
     @classmethod
     def scheduling(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Scheduling" permissions set to ``True``."""
-        return cls(*all_values_by_category['scheduling'])
+        return cls(*VALUES_BY_CATEGORY['scheduling'])
 
     @classmethod
     def bots(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Bot" permissions set to ``True``."""
-        return cls(*all_values_by_category['bots'])
+        return cls(*VALUES_BY_CATEGORY['bots'])
 
     @classmethod
     def xp(cls):
         """A factory method that creates a :class:`Permissions` with all
         "XP" permissions set to ``True``."""
-        return cls(*all_values_by_category['xp'])
+        return cls(*VALUES_BY_CATEGORY['xp'])
 
     @classmethod
     def streams(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Stream" permissions set to ``True``."""
-        return cls(*all_values_by_category['streams'])
+        return cls(*VALUES_BY_CATEGORY['streams'])
 
     @classmethod
     def socket_events(cls):
         """A factory method that creates a :class:`Permissions` with all
         "Socket event" permissions set to ``True``."""
-        return cls(*all_values_by_category['socket_events'])
+        return cls(*VALUES_BY_CATEGORY['socket_events'])
 
     @property
     def administrator(self) -> bool:
@@ -793,7 +835,7 @@ class Permissions:
         return 'CanReceiveAllSocketEvents' in self.values
 
 
-all_values_by_category = {
+VALUES_BY_CATEGORY = {
     'general': [
         'CanUpdateServer',
         'CanManageRoles',
@@ -918,6 +960,392 @@ all_values_by_category = {
         'CanReceiveAllSocketEvents',
     ],
 }
+
+# Terrible
+VALID_NAME_MAP = {
+    'update_server': 'CanUpdateServer',
+    'manage_server': 'CanUpdateServer',
+    'manage_guild': 'CanUpdateServer',
+    'manage_roles': 'CanManageRoles',
+    'invite_members': 'CanInviteMembers',
+    'create_instant_invite': 'CanInviteMembers',
+    'kick_members': 'CanKickMembers',
+    'ban_members': 'CanKickMembers',
+    'manage_groups': 'CanManageGroups',
+    'manage_channels': 'CanManageChannels',
+    'manage_webhooks': 'CanManageWebhooks',
+    'mention_everyone': 'CanMentionEveryone',
+    'moderator_view': 'CanModerateChannels',
+    'slowmode_exempt': 'CanBypassSlowMode',
+    'read_applications': 'CanReadApplications',
+    'approve_applications': 'CanApproveApplications',
+    'edit_application_form': 'CanEditApplicationForm',
+    'indicate_lfm_interest': 'CanIndicateLfmInterest',
+    'modify_lfm_status': 'CanModifyLfmStatus',
+    'read_announcements': 'CanReadAnnouncements',
+    'create_announcements': 'CanCreateAnnouncements',
+    'manage_announcements': 'CanManageAnnouncements',
+    'read_messages': 'CanReadChats',
+    'view_channel': 'CanReadChats',
+    'send_messages': 'CanCreateChats',
+    'upload_media': 'CanUploadChatMedia',
+    'create_threads': 'CanCreateThreads',
+    'create_public_threads': 'CanCreateThreads',
+    'create_private_threads': 'CanCreateThreads',
+    'send_messages_in_threads': 'CanCreateThreadMessages',
+    'send_private_replies': 'CanCreatePrivateMessages',
+    'manage_messages': 'CanManageChats',
+    'manage_threads': 'CanManageThreads',
+    'create_chat_forms': 'CanCreateChatForms',
+    'view_events': 'CanReadEvents',
+    'create_events': 'CanCreateEvents',
+    'manage_events': 'CanEditEvents',
+    'remove_events': 'CanDeleteEvents',
+    'edit_rsvps': 'CanEditEventRsvps',
+    'read_forums': 'CanReadForums',
+    'create_topics': 'CanCreateTopics',
+    'create_topic_replies': 'CanCreateTopicReplies',
+    'manage_topics': 'CanDeleteTopics',
+    'sticky_topics': 'CanStickyTopics',
+    'lock_topics': 'CanLockTopics',
+    'view_docs': 'CanReadDocs',
+    'read_docs': 'CanReadDocs',
+    'create_docs': 'CanCreateDocs',
+    'manage_docs': 'CanEditDocs',
+    'remove_docs': 'CanDeleteDocs',
+    'see_media': 'CanReadMedia',
+    'read_media': 'CanReadMedia',
+    'create_media': 'CanAddMedia',
+    'manage_media': 'CanEditMedia',
+    'remove_media': 'CanDeleteMedia',
+    'hear_voice': 'CanListenVoice',
+    'add_voice': 'CanAddVoice',
+    'speak': 'CanAddVoice',
+    'manage_voice_rooms': 'CanManageVoiceGroups',
+    'move_members': 'CanAssignVoiceGroup',
+    'broadcast': 'CanBroadcastVoice',
+    'whisper': 'CanDirectVoice',
+    'priority_speaker': 'CanPrioritizeVoice',
+    'use_voice_activity': 'CanUseVoiceActivity',
+    'use_voice_activation': 'CanUseVoiceActivity',
+    'mute_members': 'CanMuteMembers',
+    'deafen_members': 'CanDeafenMembers',
+    'send_voice_messages': 'CanSendVoiceMessages',
+    'create_scrims': 'CanCreateScrims',
+    'create_tournaments': 'CanManageTournaments',
+    'manage_tournaments': 'CanManageTournaments',
+    'register_for_tournaments': 'CanRegisterForTournaments',
+    'manage_emojis': 'CanManageEmotes',
+    'manage_emotes': 'CanManageEmotes',
+    'change_nickname': 'CanChangeNickname',
+    'manage_nicknames': 'CanManageNicknames',
+    'view_form_responses': 'CanViewFormResponses',
+    'view_form_results': 'CanViewFormResponses',
+    'view_poll_responses': 'CanViewPollResponses',
+    'view_poll_results': 'CanViewPollResponses',
+    'view_list_items': 'CanReadListItems',
+    'read_list_items': 'CanReadListItems',
+    'create_list_items': 'CanCreateListItems',
+    'manage_list_items': 'CanUpdateListItems',
+    'remove_list_items': 'CanDeleteListItems',
+    'complete_list_items': 'CanCompleteListItems',
+    'reorder_list_items': 'CanReorderListItems',
+    'view_brackets': 'CanViewBracket',
+    'read_brackets': 'CanViewBracket',
+    'report_scores': 'CanReportScores',
+    'view_schedules': 'CanReadSchedules',
+    'read_schedules': 'CanReadSchedules',
+    'create_schedules': 'CanCreateSchedule',
+    'remove_schedules': 'CanDeleteSchedule',
+    'manage_bots': 'CanManageBots',
+    'manage_server_xp': 'CanManageServerXp',
+    'view_streams': 'CanReadStreams',
+    'join_stream_voice': 'CanJoinStreamVoice',
+    'add_stream': 'CanCreateStreams',
+    'stream': 'CanCreateStreams',
+    'send_stream_messages': 'CanSendStreamMessages',
+    'add_stream_voice': 'CanAddStreamVoice',
+    'use_stream_voice_activity': 'CanUseVoiceActivityInStream',
+    'receive_all_events': 'CanReceiveAllSocketEvents',
+}
+
+# Reverse the map but with no aliases
+REVERSE_VALID_NAME_MAP: Dict[str, str] = {}
+for key, value in VALID_NAME_MAP.items():
+    if value in REVERSE_VALID_NAME_MAP:
+        continue
+    REVERSE_VALID_NAME_MAP[value] = key
+
+def _augment_with_names(cls):
+    cls.VALID_NAMES = set(VALID_NAME_MAP.keys())
+    aliases = set()
+    appearances: Dict[str, str] = {}
+
+    # make descriptors for all the valid names and aliases
+    for name, value in VALID_NAME_MAP.items():
+        if value in appearances:
+            key = appearances[value]
+            aliases.add(name)
+        else:
+            key = name
+            appearances[value] = name
+
+        # god bless Python
+        def getter(self, x=key):
+            return self._values.get(x)
+
+        def setter(self, value, x=key):
+            self._set(x, value)
+
+        prop = property(getter, setter)
+        setattr(cls, name, prop)
+
+    cls.PURE_FLAGS = cls.VALID_NAMES - aliases
+    return cls
+
+
+@_augment_with_names
+class PermissionOverride:
+    r"""Represents a role permission override
+
+    Unlike a regular :class:`Permissions`\, the default value of a
+    permission is equivalent to ``None`` and not ``False``. Setting
+    a value to ``False`` is **explicitly** denying that permission,
+    while setting a value to ``True`` is **explicitly** allowing
+    that permission.
+
+    The values supported by this are the same as :class:`Permissions`
+    with the added possibility of it being set to ``None``.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+            Checks if two overrides are equal.
+
+        .. describe:: x != y
+
+            Checks if two overrides are not equal.
+
+        .. describe:: iter(x)
+
+           Returns an iterator of ``(perm, value)`` pairs. This allows it
+           to be, for example, constructed as a dict or a list of pairs.
+           Note that aliases are not shown.
+
+    Parameters
+    -----------
+    \*\*kwargs
+        Set the value of permissions by their name.
+    """
+
+    __slots__: Tuple[str, ...] = ('_values',)
+
+    if TYPE_CHECKING:
+        VALID_NAMES: ClassVar[Set[str]]
+        PURE_FLAGS: ClassVar[Set[str]]
+        # I wish I didn't have to do this
+        update_server: Optional[bool]
+        manage_server: Optional[bool]
+        manage_guild: Optional[bool]
+        manage_roles: Optional[bool]
+        invite_members: Optional[bool]
+        create_instant_invite: Optional[bool]
+        kick_members: Optional[bool]
+        ban_members: Optional[bool]
+        manage_groups: Optional[bool]
+        manage_channels: Optional[bool]
+        manage_webhooks: Optional[bool]
+        mention_everyone: Optional[bool]
+        moderator_view: Optional[bool]
+        slowmode_exempt: Optional[bool]
+        read_applications: Optional[bool]
+        approve_applications: Optional[bool]
+        edit_application_form: Optional[bool]
+        indicate_lfm_interest: Optional[bool]
+        modify_lfm_status: Optional[bool]
+        read_announcements: Optional[bool]
+        create_announcements: Optional[bool]
+        manage_announcements: Optional[bool]
+        read_messages: Optional[bool]
+        view_channel: Optional[bool]
+        send_messages: Optional[bool]
+        upload_media: Optional[bool]
+        create_threads: Optional[bool]
+        create_public_threads: Optional[bool]
+        create_private_threads: Optional[bool]
+        send_messages_in_threads: Optional[bool]
+        send_private_replies: Optional[bool]
+        manage_messages: Optional[bool]
+        manage_threads: Optional[bool]
+        create_chat_forms: Optional[bool]
+        view_events: Optional[bool]
+        create_events: Optional[bool]
+        manage_events: Optional[bool]
+        remove_events: Optional[bool]
+        edit_rsvps: Optional[bool]
+        read_forums: Optional[bool]
+        create_topics: Optional[bool]
+        create_topic_replies: Optional[bool]
+        manage_topics: Optional[bool]
+        sticky_topics: Optional[bool]
+        lock_topics: Optional[bool]
+        view_docs: Optional[bool]
+        read_docs: Optional[bool]
+        create_docs: Optional[bool]
+        manage_docs: Optional[bool]
+        remove_docs: Optional[bool]
+        see_media: Optional[bool]
+        read_media: Optional[bool]
+        create_media: Optional[bool]
+        manage_media: Optional[bool]
+        remove_media: Optional[bool]
+        hear_voice: Optional[bool]
+        add_voice: Optional[bool]
+        speak: Optional[bool]
+        manage_voice_rooms: Optional[bool]
+        move_members: Optional[bool]
+        broadcast: Optional[bool]
+        whisper: Optional[bool]
+        priority_speaker: Optional[bool]
+        use_voice_activity: Optional[bool]
+        use_voice_activation: Optional[bool]
+        mute_members: Optional[bool]
+        deafen_members: Optional[bool]
+        send_voice_messages: Optional[bool]
+        create_scrims: Optional[bool]
+        create_tournaments: Optional[bool]
+        manage_tournaments: Optional[bool]
+        register_for_tournaments: Optional[bool]
+        manage_emojis: Optional[bool]
+        manage_emotes: Optional[bool]
+        change_nickname: Optional[bool]
+        manage_nicknames: Optional[bool]
+        view_form_responses: Optional[bool]
+        view_form_results: Optional[bool]
+        view_poll_responses: Optional[bool]
+        view_poll_results: Optional[bool]
+        view_list_items: Optional[bool]
+        read_list_items: Optional[bool]
+        create_list_items: Optional[bool]
+        manage_list_items: Optional[bool]
+        remove_list_items: Optional[bool]
+        complete_list_items: Optional[bool]
+        reorder_list_items: Optional[bool]
+        view_brackets: Optional[bool]
+        read_brackets: Optional[bool]
+        report_scores: Optional[bool]
+        view_schedules: Optional[bool]
+        read_schedules: Optional[bool]
+        create_schedules: Optional[bool]
+        remove_schedules: Optional[bool]
+        manage_bots: Optional[bool]
+        manage_server_xp: Optional[bool]
+        view_streams: Optional[bool]
+        join_stream_voice: Optional[bool]
+        add_stream: Optional[bool]
+        stream: Optional[bool]
+        send_stream_messages: Optional[bool]
+        add_stream_voice: Optional[bool]
+        use_stream_voice_activity: Optional[bool]
+        receive_all_events: Optional[bool]
+
+    def __init__(self, **kwargs: Optional[bool]):
+        self._values: Dict[str, Optional[bool]] = {}
+
+        for key, value in kwargs.items():
+            if key not in VALID_NAME_MAP:
+                raise ValueError(f'No such permission: {key}')
+
+            setattr(self, key, value)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, PermissionOverride) and self._values == other._values
+
+    def __repr__(self) -> str:
+        return f'<PermissionOverride values={len(self._values)}>'
+
+    def _set(self, key: str, value: Optional[bool]) -> None:
+        if value not in (True, None, False):
+            raise TypeError(f'Expected bool or NoneType, received {value.__class__.__name__}')
+
+        if value is None:
+            self._values.pop(key, None)
+        else:
+            self._values[key] = value
+
+    def pair(self) -> Tuple[Permissions, Permissions]:
+        """Tuple[:class:`Permissions`, :class:`Permissions`]: Returns the (allow, deny) pair from this override."""
+
+        allow = set()
+        deny = set()
+
+        for key, value in self._values.items():
+            if value is True:
+                allow.add(VALID_NAME_MAP[key])
+            elif value is False:
+                deny.add(VALID_NAME_MAP[key])
+
+        return Permissions(*allow), Permissions(*deny)
+
+    @classmethod
+    def from_pair(cls, allow: Permissions, deny: Permissions) -> Self:
+        """Creates an override from an allow/deny pair of :class:`Permissions`."""
+        self = cls()
+        for value in allow.values:
+            key = REVERSE_VALID_NAME_MAP[value]
+            setattr(self, key, True)
+
+        for value in deny.values:
+            key = REVERSE_VALID_NAME_MAP[value]
+            setattr(self, key, False)
+
+        return self
+
+    def is_empty(self) -> bool:
+        """Checks if the permission override is currently empty.
+
+        An empty permission override is one that has no overrides set
+        to ``True`` or ``False``.
+
+        Returns
+        -------
+        :class:`bool`
+            Indicates if the override is empty.
+        """
+        return len(self._values) == 0
+
+    def update(self, **kwargs: Optional[bool]) -> None:
+        r"""Bulk updates this permission override object.
+
+        Allows you to set multiple attributes by using keyword
+        arguments. The names must be equivalent to the properties
+        listed. Extraneous key/value pairs will be silently ignored.
+
+        Parameters
+        ------------
+        \*\*kwargs
+            A list of key/value pairs to bulk update with.
+        """
+        for key, value in kwargs.items():
+            if key not in self.VALID_NAMES:
+                continue
+
+            setattr(self, key, value)
+
+    def to_dict(self) -> Dict[str, Optional[bool]]:
+        """Dict[:class:`str`, Optional[:class:`bool`]]: Converts this override object into a dict."""
+
+        result: Dict[str, Optional[bool]] = {}
+        for key, value in self._values.items():
+            result[VALID_NAME_MAP[key]] = value
+        return result
+
+    def __iter__(self) -> Iterator[Tuple[str, Optional[bool]]]:
+        for key in self.PURE_FLAGS:
+            yield key, self._values.get(key)
+
+PermissionOverwrite = PermissionOverride  # discord.py
 
 
 class _OldPermissions:
