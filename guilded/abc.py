@@ -717,7 +717,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        role: :class`.Role`
+        role: :class:`.Role`
             The role to create an override for.
         override: :class:`.PermissionOverride`
             The override values to use.
@@ -745,7 +745,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        role: :class`.Role`
+        role: :class:`.Role`
             The role whose override to fetch.
 
         Returns
@@ -792,7 +792,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        role: :class`.Role`
+        role: :class:`.Role`
             The role to update an override for.
         override: :class:`.PermissionOverride`
             The new override values to use.
@@ -820,7 +820,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
 
         Parameters
         -----------
-        role: :class`.Role`
+        role: :class:`.Role`
             The role whose override to delete.
         """
 
