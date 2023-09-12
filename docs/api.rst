@@ -2480,6 +2480,12 @@ Data Classes
 Below are some classes that primarily just wrap data. You are able to create
 most of these yourself.
 
+ChannelRoleOverride
+~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ChannelRoleOverride()
+    :members:
+
 Embed
 ~~~~~~
 
@@ -2502,6 +2508,12 @@ Permissions
 ~~~~~~~~~~~~
 
 .. autoclass:: Permissions()
+    :members:
+
+PermissionOverride
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: PermissionOverride()
     :members:
 
 RawReactionActionEvent
