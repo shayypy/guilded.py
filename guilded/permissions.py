@@ -396,6 +396,11 @@ class Permissions:
         return 'CanManageThreads' in self.values
 
     @property
+    def create_chat_forms(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create forms."""
+        return 'CanCreateChatForms' in self.values
+
+    @property
     def view_events(self) -> bool:
         """:class:`bool`: Returns ``True`` if a user can view calendar
         events."""
@@ -822,6 +827,7 @@ all_values_by_category = {
         'CanCreatePrivateMessages',
         'CanManageChats',
         'CanManageThreads',
+        'CanCreateChatForms',
     ],
     'calendar': [
         'CanReadEvents',
@@ -1383,6 +1389,11 @@ class _OldPermissions:
         """:class:`bool`: Returns ``True`` if a user can archive and restore
         threads."""
         return (self.chat_value & 64) == 64
+
+    @property
+    def create_chat_forms(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can create forms."""
+        return (self.chat_value & 512) == 512
 
     @property
     def view_events(self) -> bool:
