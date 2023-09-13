@@ -1391,7 +1391,7 @@ class ChannelRoleOverride:
         self.role = server.get_role(self.role_id) if server else None
 
     def __repr__(self) -> str:
-        return f'<ChannelRoleOverride override={self.override} role_id={self.role_id}>'
+        return f'<ChannelRoleOverride override={self.override!r} channel_id={self.channel_id!r} role_id={self.role_id!r}>'
 
 class _OldPermissions:
     """Wraps up permission values in Guilded.
