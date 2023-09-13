@@ -33,6 +33,7 @@ from .channel import Mentions
 class ForumTopicSummary(TypedDict):
     id: int
     serverId: str
+    groupId: str
     channelId: str
     title: str
     createdAt: str

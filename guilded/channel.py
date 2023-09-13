@@ -471,6 +471,7 @@ class CalendarEvent(Hashable, HasContentMixin):
         'channel',
         'id',
         'server_id',
+        'group_id',
         'channel_id',
         'author_id',
         'name',
@@ -501,6 +502,7 @@ class CalendarEvent(Hashable, HasContentMixin):
 
         self.id = data['id']
         self.server_id = data.get('serverId')
+        self.group_id = data.get('groupId')
         self.channel_id = data.get('channelId')
         self.author_id = data.get('createdBy')
 
@@ -570,7 +572,7 @@ class CalendarEvent(Hashable, HasContentMixin):
     @property
     def group(self) -> Optional[Group]:
         """:class:`.Group`: The group that the event is in."""
-        return self.channel.group
+        return self.server.get_group(self.group_id) or self.channel.group
 
     @property
     def author(self) -> Optional[Member]:
@@ -1230,7 +1232,7 @@ class CalendarEventRSVP:
     @property
     def group(self) -> Optional[Group]:
         """:class:`.Group`: The group that the event is in."""
-        return self.channel.group
+        return self.event.group
 
     @property
     def author(self) -> Optional[Member]:
@@ -1400,6 +1402,7 @@ class Doc(Hashable, HasContentMixin):
         '_state',
         'channel',
         'server_id',
+        'group_id',
         'channel_id',
         'id',
         'title',
@@ -1418,6 +1421,7 @@ class Doc(Hashable, HasContentMixin):
         self.channel = channel
         self.server_id: str = data.get('serverId')
         self.channel_id: str = data.get('channelId')
+        self.group_id: str = data.get('groupId')
 
         self.id: int = data['id']
         self.title: str = data['title']
@@ -1455,7 +1459,7 @@ class Doc(Hashable, HasContentMixin):
     @property
     def group(self) -> Group:
         """Optional[:class:`.Group`]: The group that the doc is in."""
-        return self.channel.group
+        return self.server.get_group(self.group_id) or self.channel.group
 
     @property
     def author(self) -> Optional[Member]:
@@ -1755,6 +1759,7 @@ class ForumTopic(Hashable, HasContentMixin):
         '_state',
         'channel',
         'channel_id',
+        'group_id',
         'id',
         'title',
         'content',
@@ -1773,6 +1778,7 @@ class ForumTopic(Hashable, HasContentMixin):
         self.channel = channel
         self.channel_id: str = data.get('channelId')
         self.server_id: str = data.get('serverId')
+        self.group_id: str = data.get('groupId')
 
         self.id: int = data['id']
         self.title: Optional[str] = data.get('title')
@@ -1812,7 +1818,7 @@ class ForumTopic(Hashable, HasContentMixin):
     @property
     def group(self) -> Group:
         """Optional[:class:`.Group`]: The group that the topic is in."""
-        return self.channel.group
+        return self.server.get_group(self.group_id) or self.channel.group
 
     @property
     def author(self) -> Optional[Member]:
@@ -2434,6 +2440,7 @@ class Announcement(Hashable, HasContentMixin):
         '_state',
         'channel',
         'channel_id',
+        'group_id',
         'server_id',
         'id',
         'title',
@@ -2449,6 +2456,7 @@ class Announcement(Hashable, HasContentMixin):
         self.channel = channel
         self.channel_id = data['channelId']
         self.server_id = data.get('serverId')
+        self.group_id = data.get('groupId')
 
         self.author_id = data.get('createdBy')
         self.created_at = ISO8601(data.get('createdAt'))
@@ -2483,7 +2491,7 @@ class Announcement(Hashable, HasContentMixin):
     @property
     def group(self) -> Group:
         """:class:`.Group`: The group that the announcement is in."""
-        return self.channel.group
+        return self.server.get_group(self.group_id) or self.channel.group
 
     @property
     def author(self) -> Optional[Member]:
@@ -3190,6 +3198,7 @@ class ListItem(Hashable, HasContentMixin):
         self.id: str = data['id']
         self.parent_id: Optional[str] = data.get('parentListItemId') or data.get('parentId')
         self.channel_id: str = data.get('channelId')
+        self.group_id: str = data.get('groupId')
         self.server_id: str = data.get('serverId') or data.get('teamId')
 
         self.webhook_id: Optional[str] = data.get('createdByWebhookId') or data.get('webhookId')
@@ -3250,7 +3259,7 @@ class ListItem(Hashable, HasContentMixin):
     def group(self) -> Group:
         """:class:`.Group`: The group that the item is in."""
         if self.server:
-            return self.channel.group
+            return self.server.get_group(self.group_id) or self.channel.group
 
     @property
     def author(self) -> Optional[Member]:
@@ -3733,6 +3742,7 @@ class Availability(Hashable):
         self.channel = channel
         self.channel_id: str = data.get('channelId')
         self.server_id: str = data.get('serverId')
+        self.group_id: str = data.get('groupId')
 
         self.id: int = data['id']
         self.start: datetime.datetime = ISO8601(data.get('startDate'))
@@ -3755,7 +3765,7 @@ class Availability(Hashable):
     @property
     def group(self) -> Optional[Group]:
         """Optional[:class:`.Group`]: The group that the availability is in."""
-        return self.channel.group
+        return self.server.get_group(self.group_id) or self.channel.group
 
     @property
     def guild(self) -> Server:
@@ -3996,7 +4006,7 @@ class PartialMessageable(guilded.abc.Messageable, Hashable):
     def group(self) -> Group:
         """Optional[:class:`~guilded.Group`]: The group that this partial messageable is in."""
         if self.server:
-            return self.server.get_group(self.group_id)
+            return self.server.get_group(self.group_id) or self.channel.group
 
     @property
     def share_url(self) -> str:

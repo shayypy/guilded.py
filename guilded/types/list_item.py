@@ -59,4 +59,5 @@ class ListItemNote(ListItemNoteSummary):
 
 
 class ListItem(ListItemSummary):
+    groupId: str
     note: NotRequired[ListItemNote]

@@ -33,6 +33,7 @@ from .comment import ContentComment
 class Announcement(TypedDict):
     id: str
     serverId: str
+    groupId: str
     channelId: str
     title: str
     content: str

@@ -38,6 +38,7 @@ class CalendarEventCancellation(TypedDict):
 class CalendarEvent(TypedDict):
     id: int
     serverId: str
+    groupId: str
     channelId: str
     name: str
     description: NotRequired[str]
