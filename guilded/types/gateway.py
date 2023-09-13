@@ -29,7 +29,7 @@ from typing_extensions import NotRequired
 from .announcement import Announcement, AnnouncementComment
 from .calendar_event import CalendarEvent, CalendarEventComment, CalendarEventRsvp
 from .category import Category
-from .channel import ServerChannel
+from .channel import ChannelRolePermission, ServerChannel
 from .doc import Doc, DocComment
 from .emote import Emote
 from .forum_topic import ForumTopic, ForumTopicComment
@@ -239,6 +239,10 @@ class ChannelMessageReactionManyDeletedEvent(_ServerEvent):
     deletedBy: str
     count: int
     emote: NotRequired[Emote]
+
+
+class ChannelRolePermissionEvent(_ServerEvent):
+    channelRolePermission: ChannelRolePermission
 
 
 class UserStatusCreatedEvent(TypedDict):

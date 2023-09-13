@@ -1037,6 +1037,42 @@ Roles
     :param role: The role that was deleted.
     :type role: :class:`.Role`
 
+.. function:: on_role_override_create(role)
+
+    A role override was created in a channel.
+
+    |nestype| :class:`RoleOverrideCreateEvent`
+
+    :param role: The override that was created.
+    :type role: :class:`.ChannelRoleOverride`
+
+.. function:: on_raw_role_override_update(after)
+
+    |nesnever|
+
+    A role override was updated.
+
+    :param after: The override after modification.
+    :type after: :class:`.ChannelRoleOverride`
+
+.. function:: on_role_override_update(event)
+
+    |nesonly|
+
+    A role override was updated.
+
+    :param event: The event containing the payload.
+    :type event: :class:`.RoleOverrideUpdateEvent`
+
+.. function:: on_role_override_delete(role)
+
+    A role override was deleted.
+
+    |nestype| :class:`RoleOverrideDeleteEvent`
+
+    :param role: The override that was deleted.
+    :type role: :class:`.ChannelRoleOverride`
+
 Webhooks
 ~~~~~~~~~
 
@@ -1453,6 +1489,18 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :inherited-members:
 
 .. autoclass:: RoleDeleteEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: RoleOverrideCreateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: RoleOverrideUpdateEvent()
+    :members:
+    :inherited-members:
+
+.. autoclass:: RoleOverrideDeleteEvent()
     :members:
     :inherited-members:
 
