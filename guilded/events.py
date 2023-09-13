@@ -3102,7 +3102,7 @@ class _RoleOverrideEvent(ServerEvent):
         super().__init__(state, data)
         self.override = ChannelRoleOverride(
             data=data['channelRolePermission'],
-            role=self.server.get_role(data['channelRolePermission']['roleId']) if self.server else None,
+            server=self.server,
         )
 
 

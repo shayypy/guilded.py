@@ -58,8 +58,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from .types.channel import ChannelRolePermission as ChannelRolePermissionPayload
-    from .types.role import Role
-    from .types.server import Server
+    from .server import Server
 
 
 __all__ = (
@@ -1362,6 +1361,10 @@ class ChannelRoleOverride:
         The role whose permissions are to be overridden.
     role_id: :class:`int`
         The ID of the role.
+    channel: Optional[:class:`.abc.ServerChannel`]
+        The channel that the override is in.
+    channel_id: :class:`int`
+        The ID of the channel.
     created_at: :class:`datetime.datetime`
         When the override was created.
     updated_at: Optional[:class:`datetime.datetime`]
@@ -1372,16 +1375,20 @@ class ChannelRoleOverride:
         'override',
         'created_at',
         'updated_at',
+        'channel_id',
+        'channel',
         'role_id',
         'role',
     )
 
-    def __init__(self, *, data: ChannelRolePermissionPayload, role: Optional[Role] = None):
+    def __init__(self, *, data: ChannelRolePermissionPayload, server: Optional[Server] = None):
         self.override = PermissionOverride(**{ REVERSE_VALID_NAME_MAP[key]: value for key, value in data['permissions'].items() })
         self.created_at = ISO8601(data['createdAt'])
         self.updated_at = ISO8601(data.get('updatedAt'))
+        self.channel_id = data['channelId']
+        self.channel = server.get_channel(self.channel_id) if server else None
         self.role_id = data['roleId']
-        self.role = role
+        self.role = server.get_role(self.role_id) if server else None
 
     def __repr__(self) -> str:
         return f'<ChannelRoleOverride override={self.override} role_id={self.role_id}>'

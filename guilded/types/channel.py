@@ -68,3 +68,4 @@ class ChannelRolePermission(TypedDict):
     createdAt: str
     updatedAt: NotRequired[str]
     roleId: int
+    channelId: str

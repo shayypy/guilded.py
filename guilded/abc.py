@@ -734,7 +734,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
             role.id,
             permissions=override.to_dict(),
         )
-        return ChannelRoleOverride(data=data['channelRolePermission'], role=role)
+        return ChannelRoleOverride(data=data['channelRolePermission'], server=self.server)
 
     async def fetch_role_override(self, role: Role) -> ChannelRoleOverride:
         """|coro|
@@ -759,7 +759,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
             self.id,
             role.id,
         )
-        return ChannelRoleOverride(data=data['channelRolePermission'], role=role)
+        return ChannelRoleOverride(data=data['channelRolePermission'], server=self.server)
 
     async def fetch_role_overrides(self) -> List[ChannelRoleOverride]:
         """|coro|
@@ -776,10 +776,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
 
         data = await self._state.get_channel_role_overrides(self.server_id, self.id)
         return [
-            ChannelRoleOverride(
-                data=override_data,
-                role=self._state._get_server_role(self.server_id, override_data['roleId'])
-            )
+            ChannelRoleOverride(data=override_data, server=self.server)
             for override_data in data['channelRolePermissions']
         ]
 
@@ -809,7 +806,7 @@ class ServerChannel(Hashable, metaclass=abc.ABCMeta):
             role.id,
             permissions=override.to_dict(),
         )
-        return ChannelRoleOverride(data=data['channelRolePermission'], role=role)
+        return ChannelRoleOverride(data=data['channelRolePermission'], server=self.server)
 
     async def delete_role_override(self, role: Role) -> None:
         """|coro|
