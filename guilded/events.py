@@ -47,7 +47,7 @@ from .emote import Emote
 from .group import Group
 from .message import ChatMessage
 from .status import Status
-from .permissions import ChannelRoleOverride
+from .permissions import ChannelRoleOverride, ChannelUserOverride
 from .reply import AnnouncementReply, CalendarEventReply, DocReply, ForumTopicReply
 from .role import Role
 from .user import Member, MemberBan, SocialLink
@@ -160,6 +160,9 @@ __all__ = (
     'RoleOverrideCreateEvent',
     'RoleOverrideUpdateEvent',
     'RoleOverrideDeleteEvent',
+    'UserOverrideCreateEvent',
+    'UserOverrideUpdateEvent',
+    'UserOverrideDeleteEvent',
 )
 
 
@@ -3155,3 +3158,72 @@ class RoleOverrideDeleteEvent(_RoleOverrideEvent):
 
     __gateway_event__ = 'ChannelRolePermissionDeleted'
     __dispatch_event__ = 'role_override_delete'
+
+
+class _UserOverrideEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'override',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.ChannelUserPermissionEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+        self.override = ChannelUserOverride(
+            data=data['channelUserPermission'],
+            server=self.server,
+        )
+
+
+class UserOverrideCreateEvent(_UserOverrideEvent):
+    """Represents a :gdocs:`ChannelUserPermissionCreated <websockets/ChannelUserPermissionCreated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the override is in.
+    server: :class:`Server`
+        The server that the override is in.
+    override: :class:`.ChannelUserOverride`
+        The user override that was created.
+    """
+
+    __gateway_event__ = 'ChannelUserPermissionCreated'
+    __dispatch_event__ = 'user_override_create'
+
+
+class UserOverrideUpdateEvent(_UserOverrideEvent):
+    """Represents a :gdocs:`ChannelUserPermissionUpdated <websockets/ChannelUserPermissionUpdated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the override is in.
+    server: :class:`Server`
+        The server that the override is in.
+    override: :class:`.ChannelUserOverride`
+        The user override after modification.
+    """
+
+    __gateway_event__ = 'ChannelUserPermissionUpdated'
+    __dispatch_event__ = 'user_override_update'
+
+
+class UserOverrideDeleteEvent(_UserOverrideEvent):
+    """Represents a :gdocs:`ChannelUserPermissionDeleted <websockets/ChannelUserPermissionDeleted>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the override was in.
+    server: :class:`Server`
+        The server that the override was in.
+    override: :class:`.ChannelUserOverride`
+        The user override that was deleted.
+    """
+
+    __gateway_event__ = 'ChannelUserPermissionDeleted'
+    __dispatch_event__ = 'user_override_delete'

@@ -69,7 +69,7 @@ from . import events as ev
 from .category import Category
 from .channel import *
 from .group import Group
-from .permissions import ChannelRoleOverride
+from .permissions import ChannelRoleOverride, ChannelUserOverride
 from .reaction import RawReactionActionEvent, Reaction
 from .role import Role
 from .status import Status
@@ -947,6 +947,33 @@ class WebSocketEventParsers:
             server = self.client.get_server(data['serverId'])
             override = ChannelRoleOverride(data=data['channelRolePermission'], server=server)
             self.client.dispatch('role_override_delete', override)
+
+    async def parse_channel_user_permission_created(self, data: gw.ChannelUserPermissionEvent):
+        if self._exp_style:
+            event = ev.UserOverrideCreateEvent(self._state, data)
+            self.client.dispatch(event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            override = ChannelUserOverride(data=data['channelUserPermission'], server=server)
+            self.client.dispatch('user_override_create', override)
+
+    async def parse_channel_user_permission_updated(self, data: gw.ChannelUserPermissionEvent):
+        if self._exp_style:
+            event = ev.UserOverrideUpdateEvent(self._state, data)
+            self.client.dispatch(event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            override = ChannelUserOverride(data=data['channelUserPermission'], server=server)
+            self.client.dispatch('raw_user_override_update', override)
+
+    async def parse_channel_user_permission_deleted(self, data: gw.ChannelUserPermissionEvent):
+        if self._exp_style:
+            event = ev.UserOverrideDeleteEvent(self._state, data)
+            self.client.dispatch(event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            override = ChannelUserOverride(data=data['channelUserPermission'], server=server)
+            self.client.dispatch('user_override_delete', override)
 
     async def parse_calendar_event_created(self, data: gw.CalendarEventEvent):
         if self._exp_style:
