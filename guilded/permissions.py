@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from .types.channel import ChannelRolePermission as ChannelRolePermissionPayload
+    from .types.channel import ChannelUserPermission as ChannelUserPermissionPayload
     from .server import Server
 
 
@@ -1363,7 +1364,7 @@ class ChannelRoleOverride:
         The ID of the role.
     channel: Optional[:class:`.abc.ServerChannel`]
         The channel that the override is in.
-    channel_id: :class:`int`
+    channel_id: :class:`str`
         The ID of the channel.
     created_at: :class:`datetime.datetime`
         When the override was created.
@@ -1392,6 +1393,53 @@ class ChannelRoleOverride:
 
     def __repr__(self) -> str:
         return f'<ChannelRoleOverride override={self.override!r} channel_id={self.channel_id!r} role_id={self.role_id!r}>'
+
+
+class ChannelUserOverride:
+    """Represents a user-based permission override in a channel.
+
+    .. versionadded:: 1.11
+
+    Attributes
+    -----------
+    override: :class:`.PermissionOverride`
+        The permission values overridden for the role.
+    user: Optional[:class:`.Member`]
+        The user whose permissions are to be overridden.
+    user_id: :class:`str`
+        The ID of the user.
+    channel: Optional[:class:`.abc.ServerChannel`]
+        The channel that the override is in.
+    channel_id: :class:`str`
+        The ID of the channel.
+    created_at: :class:`datetime.datetime`
+        When the override was created.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the override was last updated.
+    """
+
+    __slots__: Tuple[str, ...] = (
+        'override',
+        'created_at',
+        'updated_at',
+        'channel_id',
+        'channel',
+        'user_id',
+        'user',
+    )
+
+    def __init__(self, *, data: ChannelUserPermissionPayload, server: Optional[Server] = None):
+        self.override = PermissionOverride(**{ REVERSE_VALID_NAME_MAP[key]: value for key, value in data['permissions'].items() })
+        self.created_at = ISO8601(data['createdAt'])
+        self.updated_at = ISO8601(data.get('updatedAt'))
+        self.channel_id = data['channelId']
+        self.channel = server.get_channel(self.channel_id) if server else None
+        self.user_id = data['userId']
+        self.user = server.get_member(self.user_id) if server else None
+
+    def __repr__(self) -> str:
+        return f'<ChannelUserOverride override={self.override!r} channel_id={self.channel_id!r} user_id={self.user_id!r}>'
+
 
 class _OldPermissions:
     """Wraps up permission values in Guilded.

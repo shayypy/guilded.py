@@ -1183,6 +1183,27 @@ class HTTPClient(HTTPClientBase):
     def delete_channel_role_override(self, server_id: str, channel_id: str, role_id: int):
         return self.request(Route('DELETE', f'/servers/{server_id}/channels/{channel_id}/permissions/roles/{role_id}'))
 
+    def create_channel_user_override(self, server_id: str, channel_id: str, user_id: str, *, permissions: Dict[str, Optional[bool]]):
+        payload = {
+            'permissions': permissions,
+        }
+        return self.request(Route('POST', f'/servers/{server_id}/channels/{channel_id}/permissions/users/{user_id}'), json=payload)
+
+    def get_channel_user_override(self, server_id: str, channel_id: str, user_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/channels/{channel_id}/permissions/users/{user_id}'))
+
+    def get_channel_user_overrides(self, server_id: str, channel_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/channels/{channel_id}/permissions/users'))
+
+    def update_channel_user_override(self, server_id: str, channel_id: str, user_id: str, *, permissions: Dict[str, Optional[bool]]):
+        payload = {
+            'permissions': permissions,
+        }
+        return self.request(Route('PATCH', f'/servers/{server_id}/channels/{channel_id}/permissions/users/{user_id}'), json=payload)
+
+    def delete_channel_user_override(self, server_id: str, channel_id: str, user_id: str):
+        return self.request(Route('DELETE', f'/servers/{server_id}/channels/{channel_id}/permissions/users/{user_id}'))
+
     # groups
 
     def create_group(self, server_id: str, *, payload: Dict[str, Any]):

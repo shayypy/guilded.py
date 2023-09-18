@@ -2534,6 +2534,12 @@ ChannelRoleOverride
 .. autoclass:: ChannelRoleOverride()
     :members:
 
+ChannelUserOverride
+~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ChannelUserOverride()
+    :members:
+
 Embed
 ~~~~~~
 
