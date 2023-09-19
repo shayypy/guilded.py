@@ -127,6 +127,7 @@ def handle_message_parameters(
     reply_to: Sequence[str] = MISSING,
     silent: Optional[bool] = None,
     private: Optional[bool] = None,
+    hide_preview_urls: Sequence[str] = MISSING,
 ) -> MultipartParameters:
     if files is not MISSING and file is not MISSING:
         raise TypeError('Cannot mix file and files keyword arguments.')
@@ -163,6 +164,9 @@ def handle_message_parameters(
     if private is not None:
         payload['isPrivate'] = private
 
+    if hide_preview_urls is not MISSING:
+        payload['hiddenLinkPreviewUrls'] = hide_preview_urls
+
     if username:
         payload['username'] = username
 
@@ -174,14 +178,12 @@ def handle_message_parameters(
         multipart.append({'name': 'payload_json', 'value': json.dumps(payload)})
         payload = None
         for index, file in enumerate(files):
-            multipart.append(
-                {
-                    'name': f'files[{index}]',
-                    'value': file.fp,
-                    'filename': file.filename,
-                    'content_type': file.content_type,
-                }
-            )
+            multipart.append({
+                'name': f'files[{index}]',
+                'value': file.fp,
+                'filename': file.filename,
+                'content_type': file.content_type,
+            })
 
     return MultipartParameters(payload=payload, multipart=multipart, files=files)
 

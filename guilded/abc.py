@@ -132,6 +132,7 @@ class Messageable(metaclass=abc.ABCMeta):
         silent: Optional[bool] = None,
         private: bool = False,
         delete_after: Optional[float] = None,
+        hide_preview_urls: Optional[Sequence[str]] = MISSING,
     ) -> ChatMessage:
         """|coro|
 
@@ -169,6 +170,8 @@ class Messageable(metaclass=abc.ABCMeta):
         delete_after: :class:`float`
             If provided, the number of seconds to wait in the background before deleting the sent message.
             If the deletion fails, then it is silently ignored.
+        hide_preview_urls: List[:class:`str`]
+            URLs in ``content`` to prevent unfurling as a link preview when displaying in Guilded.
         """
 
         from .http import handle_message_parameters
@@ -183,6 +186,7 @@ class Messageable(metaclass=abc.ABCMeta):
             reply_to=[message.id for message in reply_to] if reply_to is not MISSING else MISSING,
             private=private,
             silent=silent if silent is not None else not mention_author if mention_author is not None else None,
+            hide_preview_urls=hide_preview_urls,
         )
 
         data = await self._state.create_channel_message(
