@@ -67,6 +67,7 @@ __all__ = (
     'PermissionOverride',
     'PermissionOverwrite',
     'ChannelRoleOverride',
+    'ChannelUserOverride',
 )
 
 
