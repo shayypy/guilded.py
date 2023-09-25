@@ -1,5 +1,5 @@
 
-from typing import NotRequired, TypedDict
+from typing import Dict, NotRequired, TypedDict
 
 
 class Category(TypedDict):
@@ -9,3 +9,19 @@ class Category(TypedDict):
     createdAt: str
     updatedAt: NotRequired[str]
     name: str
+
+
+class ChannelCategoryRolePermission(TypedDict):
+    permissions: Dict[str, bool]
+    createdAt: str
+    updatedAt: NotRequired[str]
+    roleId: int
+    categoryId: int
+
+
+class ChannelCategoryUserPermission(TypedDict):
+    permissions: Dict[str, bool]
+    createdAt: str
+    updatedAt: NotRequired[str]
+    userId: str
+    categoryId: int
