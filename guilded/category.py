@@ -24,15 +24,18 @@ SOFTWARE.
 
 from __future__ import annotations
 import datetime
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from .mixins import Hashable
+from .override import CategoryRoleOverride
 from .utils import ISO8601
 
 if TYPE_CHECKING:
     from .types.category import Category as CategoryPayload
 
     from .group import Group
+    from .role import Role
+    from .permissions import PermissionOverride
     from .server import Server
 
 __all__ = (
@@ -162,6 +165,125 @@ class Category(Hashable):
         }
         data = await self._state.update_category(self.server_id, self.id, payload=payload)
         return Category(state=self._state, data=data['category'], group=self._group, server=self._server)
+
+    async def create_role_override(self, role: Role, override: PermissionOverride) -> CategoryRoleOverride:
+        """|coro|
+
+        Create a role-based permission override in this category.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        role: :class:`.Role`
+            The role to create an override for.
+        override: :class:`.PermissionOverride`
+            The override values to use.
+
+        Returns
+        --------
+        :class:`.CategoryRoleOverride`
+            The created role override.
+        """
+
+        data = await self._state.create_category_role_override(
+            self.server_id,
+            self.id,
+            role.id,
+            permissions=override.to_dict(),
+        )
+        return CategoryRoleOverride(data=data['channelCategoryRolePermission'], server=self.server)
+
+    async def fetch_role_override(self, role: Role) -> CategoryRoleOverride:
+        """|coro|
+
+        Fetch a role-based permission override in this category.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        role: :class:`.Role`
+            The role whose override to fetch.
+
+        Returns
+        --------
+        :class:`.CategoryRoleOverride`
+            The role override.
+        """
+
+        data = await self._state.get_category_role_override(
+            self.server_id,
+            self.id,
+            role.id,
+        )
+        return CategoryRoleOverride(data=data['channelCategoryRolePermission'], server=self.server)
+
+    async def fetch_role_overrides(self) -> List[CategoryRoleOverride]:
+        """|coro|
+
+        Fetch all role-based permission overrides in this category.
+
+        .. versionadded:: 1.11
+
+        Returns
+        --------
+        List[:class:`.CategoryRoleOverride`]
+            The role overrides.
+        """
+
+        data = await self._state.get_category_role_overrides(self.server_id, self.id)
+        return [
+            CategoryRoleOverride(data=override_data, server=self.server)
+            for override_data in data['channelCategoryRolePermissions']
+        ]
+
+    async def update_role_override(self, role: Role, override: PermissionOverride) -> CategoryRoleOverride:
+        """|coro|
+
+        Update a role-based permission override in this category.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        role: :class:`.Role`
+            The role to update an override for.
+        override: :class:`.PermissionOverride`
+            The new override values to use.
+
+        Returns
+        --------
+        :class:`.CategoryRoleOverride`
+            The updated role override.
+        """
+
+        data = await self._state.update_category_role_override(
+            self.server_id,
+            self.id,
+            role.id,
+            permissions=override.to_dict(),
+        )
+        return CategoryRoleOverride(data=data['channelCategoryRolePermission'], server=self.server)
+
+    async def delete_role_override(self, role: Role) -> None:
+        """|coro|
+
+        Delete a role-based permission override in this category.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        role: :class:`.Role`
+            The role whose override to delete.
+        """
+
+        await self._state.delete_category_role_override(
+            self.server_id,
+            self.id,
+            role.id,
+        )
 
     async def delete(self) -> Category:
         """|coro|
