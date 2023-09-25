@@ -291,18 +291,34 @@ class MessageDeleteEvent(BaseEvent):
         The ID of the server that the message was sent in.
     server: Optional[:class:`Server`]
         The server that the message was sent in.
-    channel: Optional[:class:`ChatMessage`]
+    channel: Optional[:class:`~.abc.ServerChannel`]
         The channel that the message was sent in.
-    message: Optional[:class:`ChatMessage`]
-        The message from cache, if available.
+    message: :class:`ChatMessage`
+        The message that was deleted.
     message_id: :class:`str`
         The ID of the message that was deleted.
+
+        .. deprecated:: 1.11
+            The library populates this value with data from :attr:`.message`.
+            Use that attribute instead.
     channel_id: :class:`str`
         The ID of the message's channel.
+
+        .. deprecated:: 1.11
+            The library populates this value with data from :attr:`.message`.
+            Use that attribute instead.
     deleted_at: :class:`datetime.datetime`
         When the message was deleted.
+
+        .. deprecated:: 1.11
+            Guilded no longer sends this data. The library populates
+            this value with the current time in UTC.
     private: :class:`bool`
         Whether the message was private.
+
+        .. deprecated:: 1.11
+            The library populates this value with data from :attr:`.message`.
+            Use that attribute instead.
     """
 
     __gateway_event__ = 'ChatMessageDeleted'
@@ -324,7 +340,7 @@ class MessageDeleteEvent(BaseEvent):
         data: gw.ChatMessageDeletedEvent,
         /,
         channel: Union[ChatChannel, VoiceChannel, Thread, DMChannel],
-        message: Optional[ChatMessage],
+        message: ChatMessage,
     ) -> None:
         self.server_id: Optional[str] = data.get('serverId')
         self.server: Optional[Server] = state._get_server(self.server_id)
@@ -332,11 +348,10 @@ class MessageDeleteEvent(BaseEvent):
         self.channel = channel
         self.message = message
 
-        message_data = data['message']
-        self.message_id = message_data['id']
-        self.channel_id = message_data['channelId']
-        self.deleted_at: datetime.datetime = ISO8601(message_data['deletedAt'])
-        self.private = message_data.get('isPrivate') or False
+        self.message_id = message.id
+        self.channel_id = message.channel_id
+        self.deleted_at = datetime.datetime.now(datetime.timezone.utc)
+        self.private = message.private
 
 
 class BotAddEvent(ServerEvent):

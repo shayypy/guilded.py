@@ -35,7 +35,7 @@ from .emote import Emote
 from .forum_topic import ForumTopic, ForumTopicComment
 from .group import Group
 from .list_item import ListItem
-from .message import ChatMessage, DeletedChatMessage
+from .message import ChatMessage
 from .reaction import AnnouncementCommentReaction, AnnouncementReaction, CalendarEventCommentReaction, ChannelMessageReaction, CalendarEventReaction, DocCommentReaction, DocReaction, ForumTopicCommentReaction, ForumTopicReaction
 from .role import Role
 from .server import Server
@@ -78,7 +78,7 @@ class ChatMessageUpdatedEvent(_ServerEvent):
 
 
 class ChatMessageDeletedEvent(_ServerEvent):
-    message: DeletedChatMessage
+    message: ChatMessage
 
 
 class BotServerMembershipCreatedEvent(TypedDict):

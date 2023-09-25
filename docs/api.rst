@@ -959,10 +959,6 @@ Messages
 
     |nestype| :class:`MessageDeleteEvent`
 
-    If the style experiment is disabled, then this event is only dispatched if
-    the message was cached before being deleted. If you want to handle message
-    deletions regardless of state, see :func:`.on_raw_message_delete`.
-
     :param message: The message that was deleted.
     :type message: :class:`.Message`
 
@@ -971,6 +967,10 @@ Messages
     |nesnever|
 
     A message was deleted.
+
+    .. deprecated:: 1.11
+        The non-raw version of this event no longer relies on message cache.
+        Use :func:`on_message_delete` instead.
 
     :param data:
     :type data: :class:`dict`

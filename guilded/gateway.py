@@ -50,6 +50,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 from __future__ import annotations
+import datetime
 import re
 
 import time
@@ -435,12 +436,12 @@ class WebSocketEventParsers:
             self.client.dispatch('message_edit', before, after)
 
     async def parse_chat_message_deleted(self, data: gw.ChatMessageDeletedEvent):
-        message = self._state._get_message(data['message']['id'])
+        channel = await self._force_resolve_channel(data.get('serverId'), data['message']['channelId'])
+        message = self._state.create_message(data=data['message'], channel=channel)
 
         if self._exp_style:
-            channel = await self._force_resolve_channel(data.get('serverId'), data['message']['channelId'])
             event = ev.MessageDeleteEvent(self._state, data, message=message, channel=channel)
-            self._state._messages.pop(event.message_id, None)
+            self._state._messages.pop(message.id, None)
             self.client.dispatch(event)
 
         else:
@@ -448,7 +449,7 @@ class WebSocketEventParsers:
             self.client.dispatch('raw_message_delete', data)
             if message is not None:
                 self._state._messages.pop(message.id, None)
-                message.deleted_at = ISO8601(data['message']['deletedAt'])
+                message.deleted_at = datetime.datetime.now(datetime.timezone.utc)
                 self.client.dispatch('message_delete', message)
 
     async def parse_channel_message_pinned(self, data: gw.ChatMessageUpdatedEvent):
