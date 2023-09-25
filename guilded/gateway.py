@@ -70,7 +70,7 @@ from . import events as ev
 from .category import Category
 from .channel import *
 from .group import Group
-from .permissions import ChannelRoleOverride, ChannelUserOverride
+from .override import ChannelRoleOverride, ChannelUserOverride
 from .reaction import RawReactionActionEvent, Reaction
 from .role import Role
 from .status import Status

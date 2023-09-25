@@ -47,7 +47,7 @@ from .emote import Emote
 from .group import Group
 from .message import ChatMessage
 from .status import Status
-from .permissions import ChannelRoleOverride, ChannelUserOverride
+from .override import ChannelRoleOverride, ChannelUserOverride
 from .reply import AnnouncementReply, CalendarEventReply, DocReply, ForumTopicReply
 from .role import Role
 from .user import Member, MemberBan, SocialLink

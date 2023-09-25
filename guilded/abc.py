@@ -62,7 +62,7 @@ from .enums import ChannelType, ChannelVisibility, try_enum, UserType
 from .errors import InvalidArgument
 from .message import HasContentMixin, ChatMessage
 from .mixins import Hashable
-from .permissions import ChannelRoleOverride, ChannelUserOverride
+from .override import ChannelRoleOverride, ChannelUserOverride
 from .presence import Presence
 from .status import Status
 from .utils import ISO8601, MISSING

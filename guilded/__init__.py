@@ -21,6 +21,7 @@ from .flowbot import *
 from .group import *
 from .invite import *
 from .message import *
+from .override import *
 from .reply import *
 from .role import *
 from .permissions import *

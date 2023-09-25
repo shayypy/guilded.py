@@ -52,22 +52,13 @@ DEALINGS IN THE SOFTWARE.
 from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar, Dict, Iterator, Optional, Set, Tuple
 
-from .utils import ISO8601
-
 if TYPE_CHECKING:
     from typing_extensions import Self
-
-    from .types.channel import ChannelRolePermission as ChannelRolePermissionPayload
-    from .types.channel import ChannelUserPermission as ChannelUserPermissionPayload
-    from .server import Server
-
 
 __all__ = (
     'Permissions',
     'PermissionOverride',
     'PermissionOverwrite',
-    'ChannelRoleOverride',
-    'ChannelUserOverride',
 )
 
 
@@ -1348,98 +1339,6 @@ class PermissionOverride:
             yield key, self._values.get(key)
 
 PermissionOverwrite = PermissionOverride  # discord.py
-
-
-class ChannelRoleOverride:
-    """Represents a role-based permission override in a channel.
-
-    .. versionadded:: 1.11
-
-    Attributes
-    -----------
-    override: :class:`.PermissionOverride`
-        The permission values overridden for the role.
-    role: Optional[:class:`.Role`]
-        The role whose permissions are to be overridden.
-    role_id: :class:`int`
-        The ID of the role.
-    channel: Optional[:class:`.abc.ServerChannel`]
-        The channel that the override is in.
-    channel_id: :class:`str`
-        The ID of the channel.
-    created_at: :class:`datetime.datetime`
-        When the override was created.
-    updated_at: Optional[:class:`datetime.datetime`]
-        When the override was last updated.
-    """
-
-    __slots__: Tuple[str, ...] = (
-        'override',
-        'created_at',
-        'updated_at',
-        'channel_id',
-        'channel',
-        'role_id',
-        'role',
-    )
-
-    def __init__(self, *, data: ChannelRolePermissionPayload, server: Optional[Server] = None):
-        self.override = PermissionOverride(**{ REVERSE_VALID_NAME_MAP[key]: value for key, value in data['permissions'].items() })
-        self.created_at = ISO8601(data['createdAt'])
-        self.updated_at = ISO8601(data.get('updatedAt'))
-        self.channel_id = data['channelId']
-        self.channel = server.get_channel(self.channel_id) if server else None
-        self.role_id = data['roleId']
-        self.role = server.get_role(self.role_id) if server else None
-
-    def __repr__(self) -> str:
-        return f'<ChannelRoleOverride override={self.override!r} channel_id={self.channel_id!r} role_id={self.role_id!r}>'
-
-
-class ChannelUserOverride:
-    """Represents a user-based permission override in a channel.
-
-    .. versionadded:: 1.11
-
-    Attributes
-    -----------
-    override: :class:`.PermissionOverride`
-        The permission values overridden for the role.
-    user: Optional[:class:`.Member`]
-        The user whose permissions are to be overridden.
-    user_id: :class:`str`
-        The ID of the user.
-    channel: Optional[:class:`.abc.ServerChannel`]
-        The channel that the override is in.
-    channel_id: :class:`str`
-        The ID of the channel.
-    created_at: :class:`datetime.datetime`
-        When the override was created.
-    updated_at: Optional[:class:`datetime.datetime`]
-        When the override was last updated.
-    """
-
-    __slots__: Tuple[str, ...] = (
-        'override',
-        'created_at',
-        'updated_at',
-        'channel_id',
-        'channel',
-        'user_id',
-        'user',
-    )
-
-    def __init__(self, *, data: ChannelUserPermissionPayload, server: Optional[Server] = None):
-        self.override = PermissionOverride(**{ REVERSE_VALID_NAME_MAP[key]: value for key, value in data['permissions'].items() })
-        self.created_at = ISO8601(data['createdAt'])
-        self.updated_at = ISO8601(data.get('updatedAt'))
-        self.channel_id = data['channelId']
-        self.channel = server.get_channel(self.channel_id) if server else None
-        self.user_id = data['userId']
-        self.user = server.get_member(self.user_id) if server else None
-
-    def __repr__(self) -> str:
-        return f'<ChannelUserOverride override={self.override!r} channel_id={self.channel_id!r} user_id={self.user_id!r}>'
 
 
 class _OldPermissions:
