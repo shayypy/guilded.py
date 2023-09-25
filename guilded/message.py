@@ -802,7 +802,7 @@ class ChatMessage(Hashable, HasContentMixin):
         *,
         embed: Optional[Embed] = MISSING,
         embeds: Optional[Sequence[Embed]] = MISSING,
-        # hide_preview_urls: Optional[Sequence[str]] = MISSING,
+        hide_preview_urls: Optional[Sequence[str]] = MISSING,
     ) -> ChatMessage:
         """|coro|
 
@@ -824,6 +824,8 @@ class ChatMessage(Hashable, HasContentMixin):
             A list of embeds in the message.
             At present, this can contain at most 1 value.
             This parameter cannot be meaningfully combined with ``embed``.
+        hide_preview_urls: List[:class:`str`]
+            URLs in ``content`` to prevent unfurling as a link preview when displaying in Guilded.
 
         Returns
         --------
@@ -846,7 +848,7 @@ class ChatMessage(Hashable, HasContentMixin):
             content=content,
             embed=embed,
             embeds=embeds,
-            # hide_preview_urls=hide_preview_urls,
+            hide_preview_urls=hide_preview_urls,
         )
 
         data = await self._state.update_channel_message(
