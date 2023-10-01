@@ -28,7 +28,7 @@ from typing_extensions import NotRequired
 
 from .announcement import Announcement, AnnouncementComment
 from .calendar_event import CalendarEvent, CalendarEventComment, CalendarEventRsvp
-from .category import Category
+from .category import Category, ChannelCategoryRolePermission, ChannelCategoryUserPermission
 from .channel import ChannelRolePermission, ChannelUserPermission, ServerChannel
 from .doc import Doc, DocComment
 from .emote import Emote
@@ -247,6 +247,14 @@ class ChannelRolePermissionEvent(_ServerEvent):
 
 class ChannelUserPermissionEvent(_ServerEvent):
     channelUserPermission: ChannelUserPermission
+
+
+class ChannelCategoryRolePermissionEvent(_ServerEvent):
+    channelCategoryRolePermission: ChannelCategoryRolePermission
+
+
+class ChannelCategoryUserPermissionEvent(_ServerEvent):
+    channelCategoryUserPermission: ChannelCategoryUserPermission
 
 
 class UserStatusCreatedEvent(TypedDict):

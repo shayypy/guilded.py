@@ -47,7 +47,7 @@ from .emote import Emote
 from .group import Group
 from .message import ChatMessage
 from .status import Status
-from .override import ChannelRoleOverride, ChannelUserOverride
+from .override import CategoryRoleOverride, CategoryUserOverride, ChannelRoleOverride, ChannelUserOverride
 from .reply import AnnouncementReply, CalendarEventReply, DocReply, ForumTopicReply
 from .role import Role
 from .user import Member, MemberBan, SocialLink
@@ -163,6 +163,12 @@ __all__ = (
     'ChannelUserOverrideCreateEvent',
     'ChannelUserOverrideUpdateEvent',
     'ChannelUserOverrideDeleteEvent',
+    'CategoryRoleOverrideCreateEvent',
+    'CategoryRoleOverrideUpdateEvent',
+    'CategoryRoleOverrideDeleteEvent',
+    'CategoryUserOverrideCreateEvent',
+    'CategoryUserOverrideUpdateEvent',
+    'CategoryUserOverrideDeleteEvent',
 )
 
 
@@ -3242,3 +3248,141 @@ class ChannelUserOverrideDeleteEvent(_ChannelUserOverrideEvent):
 
     __gateway_event__ = 'ChannelUserPermissionDeleted'
     __dispatch_event__ = 'channel_user_override_delete'
+
+
+class _CategoryRoleOverrideEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'override',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.ChannelCategoryRolePermissionEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+        self.override = CategoryRoleOverride(
+            data=data['channelCategoryRolePermission'],
+            server=self.server,
+        )
+
+
+class CategoryRoleOverrideCreateEvent(_CategoryRoleOverrideEvent):
+    """Represents a :gdocs:`ChannelCategoryRolePermissionCreated <websockets/ChannelCategoryRolePermissionCreated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the override is in.
+    server: :class:`Server`
+        The server that the override is in.
+    override: :class:`.CategoryRoleOverride`
+        The role override that was created.
+    """
+
+    __gateway_event__ = 'ChannelCategoryRolePermissionCreated'
+    __dispatch_event__ = 'category_role_override_create'
+
+
+class CategoryRoleOverrideUpdateEvent(_CategoryRoleOverrideEvent):
+    """Represents a :gdocs:`ChannelCategoryRolePermissionUpdated <websockets/ChannelCategoryRolePermissionUpdated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the override is in.
+    server: :class:`Server`
+        The server that the override is in.
+    override: :class:`.CategoryRoleOverride`
+        The role override after modification.
+    """
+
+    __gateway_event__ = 'ChannelCategoryRolePermissionUpdated'
+    __dispatch_event__ = 'category_role_override_update'
+
+
+class CategoryRoleOverrideDeleteEvent(_CategoryRoleOverrideEvent):
+    """Represents a :gdocs:`ChannelCategoryRolePermissionDeleted <websockets/ChannelCategoryRolePermissionDeleted>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the override was in.
+    server: :class:`Server`
+        The server that the override was in.
+    override: :class:`.CategoryRoleOverride`
+        The role override that was deleted.
+    """
+
+    __gateway_event__ = 'ChannelCategoryRolePermissionDeleted'
+    __dispatch_event__ = 'category_role_override_delete'
+
+
+class _CategoryUserOverrideEvent(ServerEvent):
+    __slots__: Tuple[str, ...] = (
+        'override',
+    )
+
+    def __init__(
+        self,
+        state,
+        data: gw.ChannelCategoryUserPermissionEvent,
+        /,
+    ) -> None:
+        super().__init__(state, data)
+        self.override = CategoryUserOverride(
+            data=data['channelCategoryUserPermission'],
+            server=self.server,
+        )
+
+
+class CategoryUserOverrideCreateEvent(_CategoryUserOverrideEvent):
+    """Represents a :gdocs:`ChannelCategoryUserPermissionCreated <websockets/ChannelCategoryUserPermissionCreated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the override is in.
+    server: :class:`Server`
+        The server that the override is in.
+    override: :class:`.CategoryUserOverride`
+        The user override that was created.
+    """
+
+    __gateway_event__ = 'ChannelCategoryUserPermissionCreated'
+    __dispatch_event__ = 'category_user_override_create'
+
+
+class CategoryUserOverrideUpdateEvent(_CategoryUserOverrideEvent):
+    """Represents a :gdocs:`ChannelCategoryUserPermissionUpdated <websockets/ChannelCategoryUserPermissionUpdated>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the override is in.
+    server: :class:`Server`
+        The server that the override is in.
+    override: :class:`.CategoryUserOverride`
+        The user override after modification.
+    """
+
+    __gateway_event__ = 'ChannelCategoryUserPermissionUpdated'
+    __dispatch_event__ = 'category_user_override_update'
+
+
+class CategoryUserOverrideDeleteEvent(_CategoryUserOverrideEvent):
+    """Represents a :gdocs:`ChannelCategoryUserPermissionDeleted <websockets/ChannelCategoryUserPermissionDeleted>` event for dispatching to event handlers.
+
+    Attributes
+    -----------
+    server_id: :class:`str`
+        The ID of the server that the override was in.
+    server: :class:`Server`
+        The server that the override was in.
+    override: :class:`.CategoryUserOverride`
+        The user override that was deleted.
+    """
+
+    __gateway_event__ = 'ChannelCategoryUserPermissionDeleted'
+    __dispatch_event__ = 'category_user_override_delete'

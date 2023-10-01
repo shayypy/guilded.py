@@ -70,7 +70,7 @@ from . import events as ev
 from .category import Category
 from .channel import *
 from .group import Group
-from .override import ChannelRoleOverride, ChannelUserOverride
+from .override import CategoryRoleOverride, CategoryUserOverride, ChannelRoleOverride, ChannelUserOverride
 from .reaction import RawReactionActionEvent, Reaction
 from .role import Role
 from .status import Status
@@ -975,6 +975,60 @@ class WebSocketEventParsers:
             server = self.client.get_server(data['serverId'])
             override = ChannelUserOverride(data=data['channelUserPermission'], server=server)
             self.client.dispatch('channel_user_override_delete', override)
+
+    async def parse_channel_category_role_permission_created(self, data: gw.ChannelCategoryRolePermissionEvent):
+        if self._exp_style:
+            event = ev.CategoryRoleOverrideCreateEvent(self._state, data)
+            self.client.dispatch(event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            override = CategoryRoleOverride(data=data['channelCategoryRolePermission'], server=server)
+            self.client.dispatch('category_role_override_create', override)
+
+    async def parse_channel_category_role_permission_updated(self, data: gw.ChannelCategoryRolePermissionEvent):
+        if self._exp_style:
+            event = ev.CategoryRoleOverrideUpdateEvent(self._state, data)
+            self.client.dispatch(event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            override = CategoryRoleOverride(data=data['channelCategoryRolePermission'], server=server)
+            self.client.dispatch('raw_category_role_override_update', override)
+
+    async def parse_channel_category_role_permission_deleted(self, data: gw.ChannelCategoryRolePermissionEvent):
+        if self._exp_style:
+            event = ev.CategoryRoleOverrideDeleteEvent(self._state, data)
+            self.client.dispatch(event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            override = CategoryRoleOverride(data=data['channelCategoryRolePermission'], server=server)
+            self.client.dispatch('category_role_override_delete', override)
+
+    async def parse_channel_category_user_permission_created(self, data: gw.ChannelCategoryUserPermissionEvent):
+        if self._exp_style:
+            event = ev.CategoryUserOverrideCreateEvent(self._state, data)
+            self.client.dispatch(event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            override = CategoryUserOverride(data=data['channelCategoryUserPermission'], server=server)
+            self.client.dispatch('category_user_override_create', override)
+
+    async def parse_channel_category_user_permission_updated(self, data: gw.ChannelCategoryUserPermissionEvent):
+        if self._exp_style:
+            event = ev.CategoryUserOverrideUpdateEvent(self._state, data)
+            self.client.dispatch(event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            override = CategoryUserOverride(data=data['channelCategoryUserPermission'], server=server)
+            self.client.dispatch('raw_category_user_override_update', override)
+
+    async def parse_channel_category_user_permission_deleted(self, data: gw.ChannelCategoryUserPermissionEvent):
+        if self._exp_style:
+            event = ev.CategoryUserOverrideDeleteEvent(self._state, data)
+            self.client.dispatch(event)
+        else:
+            server = self.client.get_server(data['serverId'])
+            override = CategoryUserOverride(data=data['channelCategoryUserPermission'], server=server)
+            self.client.dispatch('category_user_override_delete', override)
 
     async def parse_calendar_event_created(self, data: gw.CalendarEventEvent):
         if self._exp_style:
