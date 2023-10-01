@@ -45,6 +45,7 @@ __all__ = (
     'ChannelRoleOverride',
     'ChannelUserOverride',
     'CategoryRoleOverride',
+    'CategoryUserOverride',
 )
 
 
@@ -79,7 +80,7 @@ class ChannelRoleOverride(_ChannelPermissionOverride):
     -----------
     role: Optional[:class:`.Role`]
         The role whose permissions are to be overridden.
-    role_id: :class:`str`
+    role_id: :class:`int`
         The ID of the role.
     override: :class:`.PermissionOverride`
         The permission values overridden for the role.
@@ -114,12 +115,12 @@ class ChannelUserOverride(_ChannelPermissionOverride):
 
     Attributes
     -----------
-    override: :class:`.PermissionOverride`
-        The permission values overridden for the role.
     user: Optional[:class:`.Member`]
         The user whose permissions are to be overridden.
     user_id: :class:`str`
         The ID of the user.
+    override: :class:`.PermissionOverride`
+        The permission values overridden for the user.
     channel: Optional[:class:`.abc.ServerChannel`]
         The channel that the override is in.
     channel_id: :class:`str`
@@ -175,7 +176,7 @@ class CategoryRoleOverride(_CategoryPermissionOverride):
     -----------
     role: Optional[:class:`.Role`]
         The role whose permissions are to be overridden.
-    role_id: :class:`str`
+    role_id: :class:`int`
         The ID of the role.
     override: :class:`.PermissionOverride`
         The permission values overridden for the role.
@@ -201,3 +202,40 @@ class CategoryRoleOverride(_CategoryPermissionOverride):
 
     def __repr__(self) -> str:
         return f'<CategoryRoleOverride override={self.override!r} category_id={self.category_id!r} role_id={self.role_id!r}>'
+
+
+class CategoryUserOverride(_CategoryPermissionOverride):
+    """Represents a user-based permission override in a category.
+
+    .. versionadded:: 1.11
+
+    Attributes
+    -----------
+    user: Optional[:class:`.Member`]
+        The user whose permissions are to be overridden.
+    user_id: :class:`str`
+        The ID of the user.
+    override: :class:`.PermissionOverride`
+        The permission values overridden for the user.
+    category: Optional[:class:`.Category`]
+        The category that the override is in.
+    category_id: :class:`int`
+        The ID of the category.
+    created_at: :class:`datetime.datetime`
+        When the override was created.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the override was last updated.
+    """
+
+    __slots__: Tuple[str, ...] = (
+        'user_id',
+        'user',
+    )
+
+    def __init__(self, *, data: ChannelUserPermissionPayload, server: Optional[Server] = None):
+        super().__init__(data=data, server=server)
+        self.user_id = data['userId']
+        self.user = server.get_member(self.user_id) if server else None
+
+    def __repr__(self) -> str:
+        return f'<CategoryRoleOverride override={self.override!r} category_id={self.category_id!r} user_id={self.user_id!r}>'

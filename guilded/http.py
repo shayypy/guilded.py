@@ -1227,6 +1227,27 @@ class HTTPClient(HTTPClientBase):
     def delete_category_role_override(self, server_id: str, category_id: int, role_id: int):
         return self.request(Route('DELETE', f'/servers/{server_id}/categories/{category_id}/permissions/roles/{role_id}'))
 
+    def create_category_user_override(self, server_id: str, category_id: int, user_id: str, *, permissions: Dict[str, Optional[bool]]):
+        payload = {
+            'permissions': permissions,
+        }
+        return self.request(Route('POST', f'/servers/{server_id}/categories/{category_id}/permissions/users/{user_id}'), json=payload)
+
+    def get_category_user_override(self, server_id: str, category_id: int, user_id: str):
+        return self.request(Route('GET', f'/servers/{server_id}/categories/{category_id}/permissions/users/{user_id}'))
+
+    def get_category_user_overrides(self, server_id: str, category_id: int):
+        return self.request(Route('GET', f'/servers/{server_id}/categories/{category_id}/permissions/users'))
+
+    def update_category_user_override(self, server_id: str, category_id: int, user_id: str, *, permissions: Dict[str, Optional[bool]]):
+        payload = {
+            'permissions': permissions,
+        }
+        return self.request(Route('PATCH', f'/servers/{server_id}/categories/{category_id}/permissions/users/{user_id}'), json=payload)
+
+    def delete_category_user_override(self, server_id: str, category_id: int, user_id: str):
+        return self.request(Route('DELETE', f'/servers/{server_id}/categories/{category_id}/permissions/users/{user_id}'))
+
     # groups
 
     def create_group(self, server_id: str, *, payload: Dict[str, Any]):

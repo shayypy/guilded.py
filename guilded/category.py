@@ -27,16 +27,17 @@ import datetime
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from .mixins import Hashable
-from .override import CategoryRoleOverride
+from .override import CategoryRoleOverride, CategoryUserOverride
 from .utils import ISO8601
 
 if TYPE_CHECKING:
     from .types.category import Category as CategoryPayload
 
     from .group import Group
-    from .role import Role
     from .permissions import PermissionOverride
+    from .role import Role
     from .server import Server
+    from .user import Member
 
 __all__ = (
     'Category',
@@ -156,7 +157,7 @@ class Category(Hashable):
 
         Returns
         --------
-        :class:`.Category`:
+        :class:`.Category`
             The newly edited category.
         """
 
@@ -283,6 +284,125 @@ class Category(Hashable):
             self.server_id,
             self.id,
             role.id,
+        )
+
+    async def create_user_override(self, user: Member, override: PermissionOverride) -> CategoryUserOverride:
+        """|coro|
+
+        Create a user-based permission override in this category.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        user: :class:`.Member`
+            The user to create an override for.
+        override: :class:`.PermissionOverride`
+            The override values to use.
+
+        Returns
+        --------
+        :class:`.CategoryUserOverride`
+            The created user override.
+        """
+
+        data = await self._state.create_category_user_override(
+            self.server_id,
+            self.id,
+            user.id,
+            permissions=override.to_dict(),
+        )
+        return CategoryUserOverride(data=data['channelCategoryUserPermission'], server=self.server)
+
+    async def fetch_user_override(self, user: Member) -> CategoryUserOverride:
+        """|coro|
+
+        Fetch a user-based permission override in this category.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        user: :class:`.Member`
+            The user whose override to fetch.
+
+        Returns
+        --------
+        :class:`.CategoryUserOverride`
+            The role override.
+        """
+
+        data = await self._state.get_category_user_override(
+            self.server_id,
+            self.id,
+            user.id,
+        )
+        return CategoryUserOverride(data=data['channelCategoryUserPermission'], server=self.server)
+
+    async def fetch_user_overrides(self) -> List[CategoryUserOverride]:
+        """|coro|
+
+        Fetch all user-based permission overrides in this category.
+
+        .. versionadded:: 1.11
+
+        Returns
+        --------
+        List[:class:`.CategoryUserOverride`]
+            The role overrides.
+        """
+
+        data = await self._state.get_category_user_overrides(self.server_id, self.id)
+        return [
+            CategoryUserOverride(data=override_data, server=self.server)
+            for override_data in data['channelCategoryUserPermissions']
+        ]
+
+    async def update_user_override(self, user: Member, override: PermissionOverride) -> CategoryUserOverride:
+        """|coro|
+
+        Update a user-based permission override in this category.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        user: :class:`.Member`
+            The user to update an override for.
+        override: :class:`.PermissionOverride`
+            The new override values to use.
+
+        Returns
+        --------
+        :class:`.CategoryUserOverride`
+            The updated role override.
+        """
+
+        data = await self._state.update_category_user_override(
+            self.server_id,
+            self.id,
+            user.id,
+            permissions=override.to_dict(),
+        )
+        return CategoryUserOverride(data=data['channelCategoryUserPermission'], server=self.server)
+
+    async def delete_user_override(self, user: Member) -> None:
+        """|coro|
+
+        Delete a user-based permission override in this category.
+
+        .. versionadded:: 1.11
+
+        Parameters
+        -----------
+        user: :class:`.Member`
+            The user whose override to delete.
+        """
+
+        await self._state.delete_category_user_override(
+            self.server_id,
+            self.id,
+            user.id,
         )
 
     async def delete(self) -> Category:
