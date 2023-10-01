@@ -1037,16 +1037,16 @@ Roles
     :param role: The role that was deleted.
     :type role: :class:`.Role`
 
-.. function:: on_role_override_create(override)
+.. function:: on_channel_role_override_create(override)
 
     A role override was created in a channel.
 
-    |nestype| :class:`RoleOverrideCreateEvent`
+    |nestype| :class:`ChannelRoleOverrideCreateEvent`
 
     :param override: The override that was created.
     :type override: :class:`.ChannelRoleOverride`
 
-.. function:: on_raw_role_override_update(override)
+.. function:: on_raw_channel_role_override_update(override)
 
     |nesnever|
 
@@ -1055,20 +1055,20 @@ Roles
     :param override: The override after modification.
     :type override: :class:`.ChannelRoleOverride`
 
-.. function:: on_role_override_update(event)
+.. function:: on_channel_role_override_update(event)
 
     |nesonly|
 
     A role override was updated.
 
     :param event: The event containing the payload.
-    :type event: :class:`.RoleOverrideUpdateEvent`
+    :type event: :class:`.ChannelRoleOverrideUpdateEvent`
 
-.. function:: on_role_override_delete(override)
+.. function:: on_channel_role_override_delete(override)
 
     A role override was deleted.
 
-    |nestype| :class:`RoleOverrideDeleteEvent`
+    |nestype| :class:`ChannelRoleOverrideDeleteEvent`
 
     :param override: The override that was deleted.
     :type override: :class:`.ChannelRoleOverride`
@@ -1144,16 +1144,16 @@ Users
     :param status: The status that was deleted.
     :type status: :class:`.Status`
 
-.. function:: on_user_override_create(override)
+.. function:: on_channel_user_override_create(override)
 
     A user override was created in a channel.
 
-    |nestype| :class:`UserOverrideCreateEvent`
+    |nestype| :class:`ChannelUserOverrideCreateEvent`
 
     :param override: The override that was created.
     :type override: :class:`.ChannelUserOverride`
 
-.. function:: on_raw_user_override_update(override)
+.. function:: on_raw_channel_user_override_update(override)
 
     |nesnever|
 
@@ -1162,20 +1162,20 @@ Users
     :param override: The override after modification.
     :type override: :class:`.ChannelUserOverride`
 
-.. function:: on_user_override_update(event)
+.. function:: on_channel_user_override_update(event)
 
     |nesonly|
 
     A user override was updated.
 
     :param event: The event containing the payload.
-    :type event: :class:`.UserOverrideUpdateEvent`
+    :type event: :class:`.ChannelUserOverrideUpdateEvent`
 
-.. function:: on_user_override_delete(override)
+.. function:: on_channel_user_override_delete(override)
 
     A user override was deleted.
 
-    |nestype| :class:`UserOverrideDeleteEvent`
+    |nestype| :class:`ChannelUserOverrideDeleteEvent`
 
     :param override: The override that was deleted.
     :type override: :class:`.ChannelUserOverride`
@@ -1528,27 +1528,27 @@ these event wrappers closely mirror the payloads provided by the Guilded API.
     :members:
     :inherited-members:
 
-.. autoclass:: RoleOverrideCreateEvent()
+.. autoclass:: ChannelRoleOverrideCreateEvent()
     :members:
     :inherited-members:
 
-.. autoclass:: RoleOverrideUpdateEvent()
+.. autoclass:: ChannelRoleOverrideUpdateEvent()
     :members:
     :inherited-members:
 
-.. autoclass:: RoleOverrideDeleteEvent()
+.. autoclass:: ChannelRoleOverrideDeleteEvent()
     :members:
     :inherited-members:
 
-.. autoclass:: UserOverrideCreateEvent()
+.. autoclass:: ChannelUserOverrideCreateEvent()
     :members:
     :inherited-members:
 
-.. autoclass:: UserOverrideUpdateEvent()
+.. autoclass:: ChannelUserOverrideUpdateEvent()
     :members:
     :inherited-members:
 
-.. autoclass:: UserOverrideDeleteEvent()
+.. autoclass:: ChannelUserOverrideDeleteEvent()
     :members:
     :inherited-members:
 
