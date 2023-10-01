@@ -157,12 +157,12 @@ __all__ = (
     'RoleCreateEvent',
     'RoleUpdateEvent',
     'RoleDeleteEvent',
-    'RoleOverrideCreateEvent',
-    'RoleOverrideUpdateEvent',
-    'RoleOverrideDeleteEvent',
-    'UserOverrideCreateEvent',
-    'UserOverrideUpdateEvent',
-    'UserOverrideDeleteEvent',
+    'ChannelRoleOverrideCreateEvent',
+    'ChannelRoleOverrideUpdateEvent',
+    'ChannelRoleOverrideDeleteEvent',
+    'ChannelUserOverrideCreateEvent',
+    'ChannelUserOverrideUpdateEvent',
+    'ChannelUserOverrideDeleteEvent',
 )
 
 
@@ -3106,7 +3106,7 @@ class RoleDeleteEvent(_RoleEvent):
     __dispatch_event__ = 'role_delete'
 
 
-class _RoleOverrideEvent(ServerEvent):
+class _ChannelRoleOverrideEvent(ServerEvent):
     __slots__: Tuple[str, ...] = (
         'override',
     )
@@ -3124,7 +3124,7 @@ class _RoleOverrideEvent(ServerEvent):
         )
 
 
-class RoleOverrideCreateEvent(_RoleOverrideEvent):
+class ChannelRoleOverrideCreateEvent(_ChannelRoleOverrideEvent):
     """Represents a :gdocs:`ChannelRolePermissionCreated <websockets/ChannelRolePermissionCreated>` event for dispatching to event handlers.
 
     Attributes
@@ -3138,10 +3138,10 @@ class RoleOverrideCreateEvent(_RoleOverrideEvent):
     """
 
     __gateway_event__ = 'ChannelRolePermissionCreated'
-    __dispatch_event__ = 'role_override_create'
+    __dispatch_event__ = 'channel_role_override_create'
 
 
-class RoleOverrideUpdateEvent(_RoleOverrideEvent):
+class ChannelRoleOverrideUpdateEvent(_ChannelRoleOverrideEvent):
     """Represents a :gdocs:`ChannelRolePermissionUpdated <websockets/ChannelRolePermissionUpdated>` event for dispatching to event handlers.
 
     Attributes
@@ -3155,10 +3155,10 @@ class RoleOverrideUpdateEvent(_RoleOverrideEvent):
     """
 
     __gateway_event__ = 'ChannelRolePermissionUpdated'
-    __dispatch_event__ = 'role_override_update'
+    __dispatch_event__ = 'channel_role_override_update'
 
 
-class RoleOverrideDeleteEvent(_RoleOverrideEvent):
+class ChannelRoleOverrideDeleteEvent(_ChannelRoleOverrideEvent):
     """Represents a :gdocs:`ChannelRolePermissionDeleted <websockets/ChannelRolePermissionDeleted>` event for dispatching to event handlers.
 
     Attributes
@@ -3172,10 +3172,10 @@ class RoleOverrideDeleteEvent(_RoleOverrideEvent):
     """
 
     __gateway_event__ = 'ChannelRolePermissionDeleted'
-    __dispatch_event__ = 'role_override_delete'
+    __dispatch_event__ = 'channel_role_override_delete'
 
 
-class _UserOverrideEvent(ServerEvent):
+class _ChannelUserOverrideEvent(ServerEvent):
     __slots__: Tuple[str, ...] = (
         'override',
     )
@@ -3193,7 +3193,7 @@ class _UserOverrideEvent(ServerEvent):
         )
 
 
-class UserOverrideCreateEvent(_UserOverrideEvent):
+class ChannelUserOverrideCreateEvent(_ChannelUserOverrideEvent):
     """Represents a :gdocs:`ChannelUserPermissionCreated <websockets/ChannelUserPermissionCreated>` event for dispatching to event handlers.
 
     Attributes
@@ -3207,10 +3207,10 @@ class UserOverrideCreateEvent(_UserOverrideEvent):
     """
 
     __gateway_event__ = 'ChannelUserPermissionCreated'
-    __dispatch_event__ = 'user_override_create'
+    __dispatch_event__ = 'channel_user_override_create'
 
 
-class UserOverrideUpdateEvent(_UserOverrideEvent):
+class ChannelUserOverrideUpdateEvent(_ChannelUserOverrideEvent):
     """Represents a :gdocs:`ChannelUserPermissionUpdated <websockets/ChannelUserPermissionUpdated>` event for dispatching to event handlers.
 
     Attributes
@@ -3224,10 +3224,10 @@ class UserOverrideUpdateEvent(_UserOverrideEvent):
     """
 
     __gateway_event__ = 'ChannelUserPermissionUpdated'
-    __dispatch_event__ = 'user_override_update'
+    __dispatch_event__ = 'channel_user_override_update'
 
 
-class UserOverrideDeleteEvent(_UserOverrideEvent):
+class ChannelUserOverrideDeleteEvent(_ChannelUserOverrideEvent):
     """Represents a :gdocs:`ChannelUserPermissionDeleted <websockets/ChannelUserPermissionDeleted>` event for dispatching to event handlers.
 
     Attributes
@@ -3241,4 +3241,4 @@ class UserOverrideDeleteEvent(_UserOverrideEvent):
     """
 
     __gateway_event__ = 'ChannelUserPermissionDeleted'
-    __dispatch_event__ = 'user_override_delete'
+    __dispatch_event__ = 'channel_user_override_delete'
