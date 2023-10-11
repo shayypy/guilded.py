@@ -39,6 +39,6 @@ class Role(TypedDict):
     permissions: List[str]
     colors: NotRequired[List[int]]
     icon: NotRequired[str]
-    position: int
+    priority: int
     isBase: NotRequired[bool]
     botUserId: NotRequired[str]

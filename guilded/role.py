@@ -74,8 +74,9 @@ class Role(Hashable):
         When the role was created.
     updated_at: Optional[:class:`datetime.datetime`]
         When the role was last updated.
-    position: :class:`int`
-        The role's position in the role hierarchy.
+    priority: :class:`int`
+        The role's priority in the role hierarchy.
+        Could be zero or negative.
     mentionable: :class:`bool`
         Whether members may mention this role.
     self_assignable: :class:`bool`
@@ -103,7 +104,7 @@ class Role(Hashable):
         '_icon',
         '_permissions',
         'bot_user_id',
-        'position',
+        'priority',
         'mentionable',
         'self_assignable',
         'displayed_separately',
@@ -125,7 +126,7 @@ class Role(Hashable):
         self._icon = data.get('icon')
 
         self.bot_user_id: Optional[str] = data.get('botUserId')
-        self.position: int = data.get('position', 0)
+        self.priority: int = data.get('priority', 0)
         self.mentionable: bool = data.get('isMentionable', False)
         self.self_assignable: bool = data.get('isSelfAssignable', False)
         self.displayed_separately: bool = data.get('isDisplayedSeparately', False)
@@ -223,7 +224,7 @@ class Role(Hashable):
 
     @property
     def hoist(self) -> bool:
-        """|dpyattr|
+        """:class:`bool`: |dpyattr|
 
         This is an alias of :attr:`.displayed_separately`.
         """
@@ -233,6 +234,14 @@ class Role(Hashable):
     def permissions(self) -> Permissions:
         """:class:`.Permissions`: The permissions that the role has."""
         return Permissions(*self._permissions)
+
+    @property
+    def position(self) -> int:
+        """:class:`int`: |dpyattr|
+
+        The role's priority in the role hierarchy. Could be zero or negative.
+        """
+        return self.priority
 
     @property
     def bot_member(self) -> Optional[Member]:
@@ -279,6 +288,7 @@ class Role(Hashable):
         *,
         name: str = MISSING,
         permissions: Permissions = MISSING,
+        priority: int = MISSING,
         colours: List[Union[Colour, int]] = MISSING,
         colors: List[Union[Colour, int]] = MISSING,
         colour: Union[Colour, int] = MISSING,
@@ -302,6 +312,11 @@ class Role(Hashable):
             The name of the role.
         permissions: :class:`Permissions`
             The permissions for the role.
+        priority: :class:`int`
+            The priority of the role in the role hierarchy.
+            Could be zero or negative.
+
+            .. versionadded:: 1.12
         colours: List[Union[:class:`Colour`, :class:`int`]]
             The colour(s) of the role. If there are two values, the
             second indicates the end of the gradient.
@@ -353,6 +368,9 @@ class Role(Hashable):
 
         if permissions is not MISSING:
             payload['permissions'] = permissions.values
+
+        if priority is not MISSING:
+            payload['priority'] = priority
 
         if colours is not MISSING:
             payload['colors'] = [c.value if isinstance(c, Colour) else c for c in colours]
