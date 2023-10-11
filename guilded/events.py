@@ -317,8 +317,8 @@ class MessageDeleteEvent(BaseEvent):
         When the message was deleted.
 
         .. deprecated:: 1.11
-            Guilded no longer sends this data. The library populates
-            this value with the current time in UTC.
+            The library populates this value with data from :attr:`.message`.
+            Use that attribute instead.
     private: :class:`bool`
         Whether the message was private.
 
@@ -356,7 +356,7 @@ class MessageDeleteEvent(BaseEvent):
 
         self.message_id = message.id
         self.channel_id = message.channel_id
-        self.deleted_at = datetime.datetime.now(datetime.timezone.utc)
+        self.deleted_at = message.deleted_at
         self.private = message.private
 
 

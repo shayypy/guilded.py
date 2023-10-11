@@ -449,7 +449,6 @@ class WebSocketEventParsers:
             self.client.dispatch('raw_message_delete', data)
             if message is not None:
                 self._state._messages.pop(message.id, None)
-                message.deleted_at = datetime.datetime.now(datetime.timezone.utc)
                 self.client.dispatch('message_delete', message)
 
     async def parse_channel_message_pinned(self, data: gw.ChatMessageUpdatedEvent):

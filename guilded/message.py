@@ -599,6 +599,12 @@ class ChatMessage(Hashable, HasContentMixin):
     hidden_preview_urls: List[:class:`str`]
         URLs in ``content`` that have been prevented from unfurling as a link
         preview when displayed in Guilded.
+    created_at: :class:`datetime.datetime`
+        When the message was created.
+    updated_at: Optional[:class:`datetime.datetime`]
+        When the message was last updated.
+    deleted_at: Optional[:class:`datetime.datetime`]
+        When the message was deleted.
     """
 
     __slots__ = (
@@ -648,6 +654,7 @@ class ChatMessage(Hashable, HasContentMixin):
 
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt') or data.get('editedAt'))
+        self.deleted_at: Optional[datetime.datetime] = ISO8601(data.get('deletedAt'))
 
         self.silent: bool = data.get('isSilent') or False
         self.private: bool = data.get('isPrivate') or False
