@@ -93,6 +93,7 @@ class BotServerMembershipDeletedEvent(TypedDict):
 
 class ServerMemberJoinedEvent(_ServerEvent):
     member: ServerMember
+    serverMemberCount: int
 
 
 class ServerMemberRemovedEvent(_ServerEvent):
