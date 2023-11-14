@@ -642,7 +642,7 @@ class Client:
         """
 
         data = await self.http.get_server(server_id)
-        return Server(state=self.http, data=data['server'])
+        return Server(state=self.http, data=data['server'], member_count=data.get("serverMemberCount"))
 
     async def getch_server(self, server_id: str, /) -> Server:
         """|coro|

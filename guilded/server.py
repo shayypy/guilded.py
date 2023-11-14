@@ -60,7 +60,7 @@ from .asset import Asset
 from .channel import AnnouncementChannel, ChatChannel, DocsChannel, ForumChannel, ListChannel, MediaChannel, SchedulingChannel, Thread, VoiceChannel
 from .colour import Colour
 from .errors import InvalidData
-from .enums import ChannelVisibility, ServerSubscriptionTierType, ServerType, try_enum, ChannelType
+from .enums import ChannelVisibility, ServerSubscriptionTierType, ServerType, UserType, try_enum, ChannelType
 from .group import Group
 from .mixins import Hashable
 from .role import Role
@@ -143,7 +143,7 @@ class Server(Hashable):
         Whether the server is verified.
     """
 
-    def __init__(self, *, state, data):
+    def __init__(self, *, state, data, member_count: Optional[int] = None):
         self._state = state
 
         self.id: str = data['id']
@@ -163,6 +163,7 @@ class Server(Hashable):
         self._flowbots: Dict[str, FlowBot] = {}
 
         self._base_role: Optional[Role] = None
+        self._member_count: Optional[int] = member_count
 
         self.owner_id: str = data.get('ownerId')
         self.name: str = data.get('name')
@@ -274,11 +275,29 @@ class Server(Hashable):
 
     @property
     def member_count(self) -> int:
-        """:class:`int`: |dpyattr|
-
-        The server's member count.
+        """:class:`int`: The server's count of all members.
+        If this is ``0``, the member cache is empty.
+        It can be populated with :meth:`.fill_members`.
         """
         return len(self.members)
+
+    @property
+    def user_member_count(self) -> int:
+        """:class:`int`: The server's count of non-bot members.
+        If it is above ``1000``, this may be an outdated number, provided by Guilded.
+        Otherwise, it should be a precise figure given the data available.
+
+        .. versionadded:: 1.12
+        """
+        count = len([m for m in self.members if m._user_type == UserType.user])
+        if self._member_count is not None and (self._member_count <= 1000 or self._member_count > count):
+            # Why check `member_count` > `len(members)`?
+            # In this instance I'm expecting incomplete member cache to preside
+            # over outdated member cache. i.e., it may be more likely to have
+            # only fetched 3 members than to have failed to receive member
+            # removal events.
+            return self._member_count
+        return count
 
     @property
     def owner(self) -> Optional[Member]:
