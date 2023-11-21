@@ -443,9 +443,9 @@ class MemberJoinEvent(ServerEvent):
         The server that the member joined.
     member: :class:`Member`
         The member that joined.
-    server_member_count: :class:`int`
-        The new number of members in the server.
-        Imprecise if greater than 1,000.
+    user_member_count: :class:`int`
+        The new number of non-bot members in the server.
+        Imprecise if greater than ``1000``.
 
         .. versionadded:: 1.12
     """
@@ -454,7 +454,7 @@ class MemberJoinEvent(ServerEvent):
     __dispatch_event__ = 'member_join'
     __slots__: Tuple[str, ...] = (
         'member',
-        'server_member_count',
+        'user_member_count',
     )
 
     def __init__(
@@ -466,7 +466,7 @@ class MemberJoinEvent(ServerEvent):
         super().__init__(state, data)
 
         self.member = Member(state=state, data=data['member'], server=self.server)
-        self.server_member_count = data.get("serverMemberCount")
+        self.user_member_count = data.get("serverMemberCount")
 
 
 class MemberRemoveEvent(ServerEvent):
