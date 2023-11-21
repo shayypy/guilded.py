@@ -74,6 +74,12 @@ class Category(Hashable):
         The category's ID.
     name: :class:`str`
         The category's name.
+    priority: Optional[:class:`int`]
+        The priority of the category in relation to other categories in the
+        group. Higher values are displayed higher in the UI. If this is ``None``,
+        the category is to be sorted descending by :attr:`.created_at`.
+
+        .. versionadded:: 1.12
     created_at: :class:`datetime.datetime`
         When the category was created.
     updated_at: Optional[:class:`datetime.datetime`]
@@ -94,6 +100,7 @@ class Category(Hashable):
         'group_id',
         'created_at',
         'updated_at',
+        'priority',
     )
 
     def __init__(self, *, state, data: CategoryPayload, **extra):
@@ -107,6 +114,7 @@ class Category(Hashable):
         self.group_id: str = data.get('groupId')
         self.created_at: datetime.datetime = ISO8601(data.get('createdAt'))
         self.updated_at: Optional[datetime.datetime] = ISO8601(data.get('updatedAt'))
+        self.priority: Optional[int] = data.get('priority')
 
     def __str__(self):
         return self.name
@@ -145,15 +153,21 @@ class Category(Hashable):
         """
         return False
 
-    async def edit(self, *, name: str) -> Category:
+    async def edit(self, *, name: str = None, priority: int = None) -> Category:
         """|coro|
 
         Edit this category.
+
+        All parameters are optional.
 
         Parameters
         -----------
         name: :class:`str`
             The category's name.
+        priority: :class:`int`
+            The category's priority.
+
+            .. versionadded:: 1.12
 
         Returns
         --------
@@ -161,9 +175,12 @@ class Category(Hashable):
             The newly edited category.
         """
 
-        payload = {
-            'name': name,
-        }
+        payload = {}
+        if name is not None:
+            payload['name'] = name
+        if priority is not None:
+            payload['priority'] = priority
+
         data = await self._state.update_category(self.server_id, self.id, payload=payload)
         return Category(state=self._state, data=data['category'], group=self._group, server=self._server)
 

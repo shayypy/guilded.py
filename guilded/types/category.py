@@ -9,6 +9,7 @@ class Category(TypedDict):
     createdAt: str
     updatedAt: NotRequired[str]
     name: str
+    priority: NotRequired[int]
 
 
 class ChannelCategoryRolePermission(TypedDict):
