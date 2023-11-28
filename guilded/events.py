@@ -2992,7 +2992,7 @@ class UserStatusCreateEvent(BaseEvent):
         data: gw.UserStatusCreatedEvent,
         /,
     ) -> None:
-        super().__init__(state, data)
+        super().__init__()
 
         self.user_id = data['userId']
         self.user: Optional[User] = state._get_user(self.user_id)
@@ -3028,7 +3028,7 @@ class UserStatusDeleteEvent(BaseEvent):
         data: gw.UserStatusDeletedEvent,
         /,
     ) -> None:
-        super().__init__(state, data)
+        super().__init__()
 
         self.user_id = data['userId']
         self.user: Optional[User] = state._get_user(self.user_id)
