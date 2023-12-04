@@ -103,7 +103,6 @@ html_favicon = './images/guilded_py_logo.ico'
 html_theme = 'alabaster'
 
 html_context = {
-  'guilded_server': 'https://guilded.gg/guilded-api',
   'guilded_extensions': [('guilded.ext.commands', 'ext/commands'), ('guilded.ext.tasks', 'ext/tasks')],
 }
 
@@ -115,7 +114,6 @@ html_sidebars = {
 }
 
 resource_links = {
-  'api_server': 'https://guilded.gg/guilded-api',
   'repository': 'https://github.com/shayypy/guilded.py',
   'issues': 'https://github.com/shayypy/guilded.py/issues',
   'examples': 'https://github.com/shayypy/guilded.py/tree/master/examples',

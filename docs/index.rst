@@ -40,8 +40,8 @@ Support
 
 If you're having trouble with something, these resources might help.
 
-- Join the :resource:`Guilded API server <api_server>` and `follow the Guilded.py group <https://www.guilded.gg/guilded-api/groups/l3GmAe9d/channels/11f58acc-e779-40c0-9537-c7b7af07bb80/announcements>`_.
 - If you're looking for something specific, try the :ref:`index <genindex>` or :ref:`searching <search>`.
+- Join the `guilded.py server <https://guilded.gg/gpy>`_.
 - Report bugs in the :resource:`issue tracker <issues>`.
 
 Extensions
