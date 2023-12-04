@@ -44,13 +44,6 @@ For more examples, see the examples directory in this repository.
 
 ## Support
 
-Guilded.py has a support channel under its dedicated group for any questions you may have.
+Join the guilded.py server for help & discussion. Use the #library-help channel.
 
-1. Join [this server](https://guilded.gg/guilded-api)
-2. Click on the far-left plus sign
-
-    ![](https://img.guildedcdn.com/ContentMedia/f4f92fa74bf1b6043b438046eebcf0f4-Full.webp?w=198&h=165)
-
-3. Click the "Follow" button on the guilded.py group
-
-    ![](https://img.guildedcdn.com/ContentMedia/ecfc6237dd2f401fbd356edfd50916fc-Full.webp?w=816&h=339)
+[![shield](https://shields.yoki-labs.xyz/shields/vanity/gpy)](https://guilded.gg/gpy)
