@@ -582,6 +582,12 @@ class Permissions:
         return 'CanAssignVoiceGroup' in self.values
 
     @property
+    def disconnect_members(self) -> bool:
+        """:class:`bool`: Returns ``True`` if a user can disconnect members
+        from voice or stream rooms."""
+        return 'CanDisconnectUsers' in self.values
+
+    @property
     def broadcast(self) -> bool:
         """:class:`bool`: Returns ``True`` if a user can broadcast their voice
         to voice rooms lower in the hierarchy when speaking in voice chat."""
@@ -896,6 +902,7 @@ VALUES_BY_CATEGORY = {
         'CanAddVoice',
         'CanManageVoiceGroups',
         'CanAssignVoiceGroup',
+        'CanDisconnectUsers',
         'CanBroadcastVoice',
         'CanDirectVoice',
         'CanPrioritizeVoice',
@@ -1016,6 +1023,7 @@ VALID_NAME_MAP = {
     'speak': 'CanAddVoice',
     'manage_voice_rooms': 'CanManageVoiceGroups',
     'move_members': 'CanAssignVoiceGroup',
+    'disconnect_members': 'CanDisconnectUsers',
     'broadcast': 'CanBroadcastVoice',
     'whisper': 'CanDirectVoice',
     'priority_speaker': 'CanPrioritizeVoice',
