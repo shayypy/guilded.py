@@ -1616,15 +1616,14 @@ class Server(Hashable):
 
         Fetch the list of webhooks in this server.
 
+        .. versionchanged:: 1.13
+            No longer relies on channel cache when ``channel`` is not
+            provided.
+
         Parameters
         -----------
         channel: Optional[Union[:class:`.ChatChannel`, :class:`.ListChannel`]]
             The channel to fetch webhooks from.
-
-            .. warning::
-
-                If not specified, this method will make a request for every
-                compatible channel in the server, which may be very slow.
 
         Returns
         --------
@@ -1637,22 +1636,13 @@ class Server(Hashable):
             You do not have permission to get webhooks in this channel.
         """
 
-        if channel is not None:
+        from .webhook import Webhook
 
-            from .webhook import Webhook
-
-            data = await self._state.get_server_webhooks(self.id, channel.id)
-            webhooks = [
-                Webhook.from_state(webhook_data, self._state)
-                for webhook_data in data['webhooks']
-            ]
-
-        else:
-            webhooks = []
-            for channel in (self.chat_channels + self.list_channels):
-                webhooks += await channel.webhooks()
-
-        return webhooks
+        data = await self._state.get_server_webhooks(self.id, channel.id if channel else None)
+        return [
+            Webhook.from_state(webhook_data, self._state)
+            for webhook_data in data['webhooks']
+        ]
 
     async def fetch_default_channel(self) -> ServerChannel:
         """|coro|

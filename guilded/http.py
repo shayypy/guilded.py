@@ -1149,10 +1149,10 @@ class HTTPClient(HTTPClientBase):
     def get_server_webhook(self, server_id: str, webhook_id: str):
         return self.request(Route('GET', f'/servers/{server_id}/webhooks/{webhook_id}'))
 
-    def get_server_webhooks(self, server_id: str, channel_id: str):
-        params = {
-            'channelId': channel_id,
-        }
+    def get_server_webhooks(self, server_id: str, channel_id: Optional[str] = None):
+        params = {}
+        if channel_id is not None:
+            params['channelId'] = channel_id
 
         return self.request(Route('GET', f'/servers/{server_id}/webhooks'), params=params)
 
