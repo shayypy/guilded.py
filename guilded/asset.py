@@ -218,7 +218,7 @@ class Asset(AssetMixin):
         '_key',
     )
 
-    BASE = 'https://img.guildedcdn.com'
+    BASE = 'https://cdn.gilcdn.com'
     AWS_BASE = 'https://s3-us-west-2.amazonaws.com/www.guilded.gg'
 
     def __init__(
