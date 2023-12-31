@@ -73,9 +73,9 @@ def strip_cdn_url(url: str) -> str:
     """Returns the identifying key from an entire CDN URL. This exists because
     the API returns full URLs instead of only hashes/names, but we want to be
     able to modify size and format freely."""
-    match = re.search(r'\/(?P<hash>[a-zA-Z0-9]+)-(?P<size>\w+)\.(?P<format>[a-z]+)', url)
+    match = re.search(r'\/(?P<key>[a-zA-Z0-9]+)-(?P<size>\w+)\.(?P<format>[a-z]+)', url)
     if match:
-        return match.group('hash')
+        return match.group('key')
     raise ValueError(f'Invalid CDN URL: {url}')
 
 
