@@ -73,12 +73,10 @@ def strip_cdn_url(url: str) -> str:
     """Returns the identifying key from an entire CDN URL. This exists because
     the API returns full URLs instead of only hashes/names, but we want to be
     able to modify size and format freely."""
-    return re.sub(
-        r'^(?:\/asset)?\/([a-zA-Z]+)\/|(?:-(Small|Medium|Large|HeroMd|Hero|Full))?\.(webp|jpeg|jpg|png|gif|apng)(?:\?.+)?$',
-        '',
-        url.replace(Asset.AWS_BASE, '').replace(Asset.BASE, '').replace('https://www.guilded.gg', '')
-        # Any of these three bases, if not more, could be used, so we just try to remove all of them
-    )
+    match = re.search(r'\/(?P<hash>[a-zA-Z0-9]+)-(?P<size>\w+)\.(?P<format>[a-z]+)', url)
+    if match:
+        return match.group('hash')
+    raise ValueError(f'Invalid CDN URL: {url}')
 
 
 def convert_int_size(size: int, *, banner: bool = False) -> Optional[str]:
