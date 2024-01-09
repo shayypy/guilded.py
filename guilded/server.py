@@ -1616,7 +1616,7 @@ class Server(Hashable):
 
         Fetch the list of webhooks in this server.
 
-        .. versionchanged:: 1.13
+        .. versionchanged:: 1.12.1
             No longer relies on channel cache when ``channel`` is not
             provided.
 
