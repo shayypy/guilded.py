@@ -236,7 +236,12 @@ class Attachment(AssetMixin):
     Attributes
     -----------
     url: :class:`str`
-        The URL to the file on Guilded's CDN.
+        The URL to the file.
+
+        .. versionchanged: 1.13
+            May now be a tenor.com or giphy.com URL in the
+            case of GIF picker "attachments".
+
     file_type: Optional[:class:`FileType`]
         The type of file.
     caption: Optional[:class:`str`]
