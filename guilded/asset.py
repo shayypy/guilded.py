@@ -415,7 +415,12 @@ class Asset(AssetMixin):
 
     @property
     def aws_url(self) -> str:
-        """:class:`str`: The underlying URL of the asset on AWS."""
+        """:class:`str`: The underlying URL of the asset on AWS.
+
+        .. deprecated:: 1.13
+            This type of URL should no longer be required, and it seems
+            to be getting phased out by Guilded. Use :attr:`.url` instead.
+        """
         return self._url.replace(self.BASE, self.AWS_BASE)
 
     def is_animated(self) -> bool:
