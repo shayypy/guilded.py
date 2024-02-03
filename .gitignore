@@ -9,3 +9,4 @@ testing/
 *.pyc
 *.log
 venv/
+.DS_Store

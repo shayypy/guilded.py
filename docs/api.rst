@@ -2688,6 +2688,12 @@ CategoryUserOverride
 .. autoclass:: CategoryUserOverride()
     :members:
 
+ClientFeatures
+~~~~~~~~~~~~~~~
+
+.. autoclass:: ClientFeatures()
+    :members:
+
 Embed
 ~~~~~~
 

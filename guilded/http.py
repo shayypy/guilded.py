@@ -81,6 +81,7 @@ if TYPE_CHECKING:
     from .asset import Asset
     from .category import Category
     from .channel import DMChannel, Thread
+    from .client import ClientFeatures
     from .emote import Emote
     from .file import Attachment, File
     from .gateway import GuildedWebSocket
@@ -220,10 +221,10 @@ class Route:
 
 class HTTPClientBase:
     GIL_ID = 'Ann6LewA'
-    def __init__(self, *, max_messages: int = 1000, experimental_event_style: bool = False):
+    def __init__(self, *, max_messages: int = 1000, features: Optional[ClientFeatures] = None):
         self.session: Optional[aiohttp.ClientSession] = None
         self._max_messages = max_messages
-        self._experimental_event_style = experimental_event_style
+        self._experimental_event_style = features.experimental_event_style if features else False
 
         self.ws: Optional[GuildedWebSocket] = None
         self.user: Optional[ClientUser] = None
@@ -468,8 +469,9 @@ class HTTPClientBase:
 
 
 class HTTPClient(HTTPClientBase):
-    def __init__(self, *, max_messages=1000, experimental_event_style=False):
-        super().__init__(max_messages=max_messages, experimental_event_style=experimental_event_style)
+    def __init__(self, *, max_messages=1000, features=None):
+        super().__init__(max_messages=max_messages, features=features)
+        self.client_features = features
 
         self.token: Optional[str] = None
 
@@ -487,6 +489,12 @@ class HTTPClient(HTTPClientBase):
 
         if self.token:
             headers['Authorization'] = f'Bearer {self.token}'
+
+        if self.client_features and self.client_features.official_markdown:
+            # There doesn't really seem to be a standard for boolean values in headers,
+            # and Guilded doesn't specify what the value should be - all values are
+            # treated the same. A lowercase `true` seemed appropriate.
+            headers['x-guilded-bot-api-use-official-markdown'] = "true"
 
         if 'json' in kwargs:
             headers['Content-Type'] = 'application/json'
@@ -590,6 +598,9 @@ class HTTPClient(HTTPClientBase):
         if self.ws and self.ws._last_message_id:
             # We have connected before, resume and catch up with missed messages
             headers['guilded-last-message-id'] = self.ws._last_message_id
+
+        if self.client_features and self.client_features.official_markdown:
+            headers['x-guilded-bot-api-use-official-markdown'] = "true"
 
         log_headers = headers.copy()
         log_headers['Authorization'] = 'Bearer [removed]'

@@ -82,6 +82,7 @@ log = logging.getLogger(__name__)
 
 __all__ = (
     'Client',
+    'ClientFeatures',
 )
 
 
@@ -99,6 +100,30 @@ class _LoopSentinel:
 _loop: Any = _LoopSentinel()
 
 
+class ClientFeatures:
+    """Opt-in or out of Guilded or guilded.py features.
+
+    All parameters are optional.
+
+    Parameters
+    -----------
+    experimental_event_style: :class:`bool`
+        Enables a more simplified event handling interface.
+        Read more about this `here <https://www.guilded.gg/guilded-api/blog/updates/Event-style-experiment>`_.
+    official_markdown: :class:`bool`
+        Enables new (2024) markdown support for requests made by the client
+        as well as events received.
+    """
+    def __init__(
+        self,
+        *,
+        experimental_event_style: bool = False,
+        official_markdown: bool = False,
+    ) -> None:
+        self.experimental_event_style = experimental_event_style
+        self.official_markdown = official_markdown
+
+
 class Client:
     """The basic client class for interfacing with Guilded.
 
@@ -109,6 +134,8 @@ class Client:
     max_messages: Optional[:class:`int`]
         The maximum number of messages to store in the internal message cache.
         This defaults to ``1000``. Passing in ``None`` disables the message cache.
+    features: Optional[:class:`.ClientFeatures`]
+        Client features to opt in or out of.
 
     Attributes
     -----------
@@ -123,6 +150,8 @@ class Client:
     max_messages: Optional[:class:`int`]
         The maximum number of messages to store in the internal message cache.
         This defaults to ``1000``. Passing in ``None`` disables the message cache.
+    features: :class:`.ClientFeatures`
+        The features that are enabled or disabled for the client.
     """
 
     def __init__(
@@ -130,12 +159,19 @@ class Client:
         *,
         internal_server_id: Optional[str] = None,
         max_messages: Optional[int] = MISSING,
+        features: Optional[ClientFeatures] = None,
         **options,
     ):
         # internal
         self.loop: asyncio.AbstractEventLoop = _loop
         self.max_messages: int = 1000 if max_messages is MISSING else max_messages
         self._listeners = {}
+
+        self.features = features or ClientFeatures()
+        # This option is deprecated
+        if options.get('experimental_event_style') is not None:
+            log.info("The `experimental_event_style` client parameter is deprecated, please switch to using ClientFeatures instead.")
+            self.features.experimental_event_style = options.pop('experimental_event_style', False)
 
         # state
         self._closed: bool = False
@@ -145,7 +181,7 @@ class Client:
         self.ws: Optional[GuildedWebSocket] = None
         self.http: HTTPClient = HTTPClient(
             max_messages=self.max_messages,
-            experimental_event_style=options.pop('experimental_event_style', False),
+            features=self.features,
         )
 
     async def __aenter__(self) -> Self:
