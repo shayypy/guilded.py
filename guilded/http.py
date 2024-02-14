@@ -64,7 +64,7 @@ from . import __version__, channel
 from .abc import ServerChannel
 from .embed import Embed
 from .enums import try_enum, ChannelType
-from .errors import Forbidden, GuildedServerError, HTTPException, NotFound
+from .errors import BadRequest, Forbidden, GuildedServerError, HTTPException, ImATeapot, NotFound
 from .message import ChatMessage
 from .user import User, Member
 from .utils import MISSING
@@ -568,10 +568,14 @@ class HTTPClient(HTTPClientBase):
                 await asyncio.sleep(1 + tries * 2)
                 continue
 
-            if response.status == 403:
+            if response.status == 400:
+                raise BadRequest(response, data)
+            elif response.status == 403:
                 raise Forbidden(response, data)
             elif response.status == 404:
                 raise NotFound(response, data)
+            elif response.status == 418:
+                raise ImATeapot(response, data)
             elif response.status >= 500:
                 raise GuildedServerError(response, data)
             else:
