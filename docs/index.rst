@@ -53,6 +53,13 @@ Extensions
     ext/commands/index.rst
     ext/tasks/index.rst
 
+Additional Extensions
+~~~~~~~~~~~~~~~~~~~~~~
+
+These packages are not included with the library and must be installed separately if you wish to use them.
+
+- `guilded.ext.menus <https://github.com/shayypy/guilded-ext-menus>`_
+
 Reference Pages
 ----------------
 
