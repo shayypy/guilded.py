@@ -91,6 +91,10 @@ class Emote(Hashable, AssetMixin):
 
             Returns the name of the emote.
 
+            .. versionchanged:: 1.13
+                If the :ref:`official markdown feature<clientfeatures>` is enabled,
+                returns a markdown string for mentioning the emote instead.
+
     Attributes
     -----------
     id: :class:`int`
@@ -141,7 +145,11 @@ class Emote(Hashable, AssetMixin):
         self._underlying: Asset = asset
 
     def __str__(self):
-        return self.name
+        return (
+            f'<:{self.name}:{self.id}>'
+            if self._state.client_features and self._state.client_features.official_markdown
+            else self.name
+        )
 
     def __repr__(self):
         return f'<Emote id={self.id!r} name={self.name!r} server={self.server!r}>'
