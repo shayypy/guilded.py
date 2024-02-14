@@ -3,9 +3,6 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. role:: strike
-    :class: strike
-
 Welcome to guilded.py
 ======================
 
@@ -17,7 +14,7 @@ directly from discord.py's own documentation.
 **Features:**
 
 - Modern Pythonic API using ``async``\/``await`` syntax
-- :strike:`Sane rate limit handling that prevents 429s` Guilded does not return rate limit headers outside of a Retry-After on 429 responses, so in this event, that header is used.
+- :gdocs:`Compliant rate limit backoff <http_rate_limits>`
 - Implements 100% of the Guilded API
 - Command extension to aid with bot creation
 - Easy to use with an object oriented design

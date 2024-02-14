@@ -261,14 +261,6 @@ pre {
     height: 0px;
 }
 
-
-/* strikethrough */
-
-.strike {
-    text-decoration: line-through
-}
-
-
 /* admonitions (notes, warnings, ...) */
 
 .admonition-title {
