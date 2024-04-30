@@ -247,6 +247,7 @@ class MediaType(Enum):
     group_banner = 'GroupBanner'
     embed_image = 'ExternalOGEmbedImage'
     media_channel_upload = 'MediaChannelUpload'
+    user_content = 'user_content'
 
     # Aliases
     attachment = 'ContentMedia'
