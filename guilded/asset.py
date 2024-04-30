@@ -126,15 +126,15 @@ class AssetMixin:
     async def sign(self) -> Self:
         """|coro|
 
-        Signs the asset through the bot API. This is required to read assets
-        as of June 30th, 2024. This method modifies the Asset in place with
-        its new, signed URL, and subsequently causes :attr:`.signed` to
-        return ``True``.
+        Signs the asset. This is required to read assets as of June 30th,
+        2024. This method modifies the Asset in place with its signed URL
+        and consequently causes :attr:`.signed` to return ``True``, until
+        the signature expiry is reached.
 
         You may do this once per day per asset and are expected to store
-        the content of assets after having signed and read them (within 5
-        minutes). For now, the library provides no assistance with this, but
-        will automatically sign assets when necessary.
+        the contents of assets after having signed and read them. guilded.py
+        provides no assistance with asset caching, but will automatically sign
+        URLs when necessary.
 
         .. versionadded:: 1.13.1
         """
