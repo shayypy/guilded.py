@@ -137,6 +137,12 @@ class AssetMixin:
         URLs when necessary.
 
         .. versionadded:: 1.13.1
+
+        Raises
+        -------
+        GuildedException
+            The asset is already signed or there is no internal connection
+            state.
         """
         if self._state is None:
             raise GuildedException('Invalid state (none provided)')
@@ -150,7 +156,6 @@ class AssetMixin:
             urls = await self._state.create_url_signatures([self.url])
             self.url = urls[0]
 
-        self.signed = True
         return self
 
     async def read(self) -> bytes:
