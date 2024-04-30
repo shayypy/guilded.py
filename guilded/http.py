@@ -406,6 +406,8 @@ class HTTPClientBase:
         """
         :class:`bool`: Refresh the CDN signature. Returns a :class:`bool`;
         whether the current signature is valid.
+
+        .. versionadded:: 1.13.1
         """
         if not self._auto_sign:
             return False
@@ -413,17 +415,11 @@ class HTTPClientBase:
             return True
 
         try:
-            headers = await self.get_event_headers()
+            await self.get_my_user()
         except:
             return False
 
-        new_token = headers.get("x-cdn-token")
-        if not new_token:
-            self.cdn_qs = None
-            return False
-
-        self.cdn_qs = new_token
-        return True
+        return not self.cdn_qs_expired
 
     # /teams
 
@@ -598,6 +594,11 @@ class HTTPClient(HTTPClientBase):
                 if last_user:
                     last_user.id = self.my_id
                     self._users[self.my_id] = last_user
+
+            cdn_token = response.headers.get('x-cdn-token')
+            if cdn_token and self._auto_sign and cdn_token != self.cdn_qs and cdn_token != 'None':
+                log.debug('Response provided a CDN token, storing')
+                self.cdn_qs = cdn_token
 
             if response.headers.get('Content-Type', '').startswith(('image/', 'video/')):
                 data = await response.read()

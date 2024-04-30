@@ -58,7 +58,7 @@ import sys
 import traceback
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Generator, List, Optional, Type, Union
 
-from .errors import ClientException, HTTPException
+from .errors import ClientException
 from .enums import *
 from .events import BaseEvent
 from .gateway import GuildedWebSocket, WebSocketClosure
@@ -72,7 +72,10 @@ if TYPE_CHECKING:
     from types import TracebackType
     from typing_extensions import Self
 
+    from .types.asset import UrlSignature
+
     from .abc import ServerChannel
+    from .asset import AssetMixin
     from .channel import DMChannel, PartialMessageable
     from .emote import Emote
     from .message import ChatMessage
@@ -324,7 +327,7 @@ class Client:
         To perform asynchronous setup after the bot is logged in but before
         it has connected to the Websocket, overwrite this method.
 
-        This is only called once, in :meth:`login`, and will be called before
+        This is only called once, in :meth:`start`, and will be called before
         any events are dispatched, making it a better solution than doing such
         setup in the :func:`~.on_ready` event.
 
@@ -808,6 +811,49 @@ class Client:
         """
         await self.http.delete_my_status()
 
+    async def sign_assets(self, *assets: AssetMixin) -> List[AssetMixin]:
+        """|coro|
+
+        Sign multiple assets at once.
+
+        .. warning::
+
+            Assets are signed in chunks of 10. If you are providing a lot of
+            assets, this method may be very slow.
+
+        .. versionadded:: 1.13.1
+
+        Parameters
+        -----------
+        assets: List[:class:`.AssetMixin`]
+            The assets to sign.
+
+        Returns
+        --------
+        List[:class:`.AssetMixin`]
+            The signed input assets, modified in place.
+
+        Raises
+        -------
+        HTTPException
+            Failed to sign one or multiple assets.
+        """
+
+        filtered = [asset for asset in assets if not asset.signed]
+        batches: List[List[AssetMixin]] = [filtered[i:i+10] for i in range(0, len(filtered), 10)]
+        for batch in batches:
+            if len(batch) == 0:
+                continue
+
+            urls: List[UrlSignature] = await self.http.create_url_signatures([asset.url for asset in batch])
+            # Assume the same order
+            i = 0
+            for asset in batch:
+                asset.url = urls[i].get("signature") or urls[i]["url"]
+                i += 1
+
+        return assets
+
     async def on_error(self, event_method, *args, **kwargs) -> None:
         print(f'Ignoring exception in {event_method}:', file=sys.stderr)
         traceback.print_exc()
@@ -822,9 +868,8 @@ class Client:
 
         self.http.session = aiohttp.ClientSession()
 
-        # We want to do this before anything has a chance to construct an Asset
-        await self.http.refresh_signature()
-
+        # The client does not have an auto signature at this point. Is this
+        # something we should worry about for `setup_hook`s?
         await self._async_setup_hook()
         await self.setup_hook()
 

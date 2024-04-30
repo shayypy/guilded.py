@@ -55,7 +55,7 @@ import datetime
 import io
 import os
 import re
-from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 from urllib.parse import parse_qs, parse_qsl, quote_plus, urlencode, urlparse
 import yarl
 
@@ -63,6 +63,8 @@ from .errors import GuildedException, InvalidArgument
 
 if TYPE_CHECKING:
     from typing_extensions import Self
+
+    from .types.asset import UrlSignature
 
 
 VALID_STATIC_FORMATS = frozenset({'jpeg', 'jpg', 'webp', 'png'})
@@ -153,8 +155,13 @@ class AssetMixin:
         if valid:
             self.url = url_with_signature(self.url, self._state.cdn_qs)
         else:
-            urls = await self._state.create_url_signatures([self.url])
-            self.url = urls[0]
+            urls: List[UrlSignature] = await self._state.create_url_signatures([self.url])
+            if not urls[0].get("signature") and self._state.cdn_qs:
+                # We may have just received a valid token with the sign
+                # request that refresh_signature was unable to retrieve.
+                self.url = url_with_signature(self.url, self._state.cdn_qs)
+            else:
+                self.url = urls[0].get("signature") or urls[0]["url"]
 
         return self
 
