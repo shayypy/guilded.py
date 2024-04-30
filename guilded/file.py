@@ -54,7 +54,7 @@ import os
 import re
 from typing import Any, Dict, Optional, Union
 
-from .asset import AssetMixin
+from .asset import AssetMixin, url_with_signature
 from .enums import try_enum, FileType, MediaType
 from . import utils
 
@@ -277,6 +277,12 @@ class Attachment(AssetMixin):
         self._filename: Optional[str] = inner_data.get('name')
 
         self.url: str = data.get('url') or inner_data.get('src')
+        if not state.cdn_qs_expired:
+            # Avoid the signing dance if possible. This makes it possible for
+            # users to use URLs straight from the library without having to
+            # read (and thus sign) them first.
+            self.url = url_with_signature(self.url, state.cdn_qs)
+
         self.width: Optional[int] = None
         self.height: Optional[int] = None
 

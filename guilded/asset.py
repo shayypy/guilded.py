@@ -49,14 +49,20 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
+import datetime
 import io
 import os
 import re
-from typing import Any, Optional, Tuple, Union
-from urllib.parse import quote_plus
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
+from urllib.parse import parse_qs, parse_qsl, quote_plus, urlencode, urlparse
 import yarl
 
 from .errors import GuildedException, InvalidArgument
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 
 VALID_STATIC_FORMATS = frozenset({'jpeg', 'jpg', 'webp', 'png'})
@@ -73,7 +79,10 @@ def strip_cdn_url(url: str) -> str:
     """Returns the identifying key from an entire CDN URL. This exists because
     the API returns full URLs instead of only hashes/names, but we want to be
     able to modify size and format freely."""
-    match = re.search(r'\/(?P<key>[a-zA-Z0-9]+)-(?P<size>\w+)\.(?P<format>[a-z]+)', url)
+    # We were having issues matching `cdn.gilcdn` so we just take the origin
+    # out of the equation.
+    path = yarl.URL(url).path
+    match = re.search(r'\/(?P<key>[a-zA-Z0-9]+)(?:-(?P<size>\w+))?\.(?P<format>[a-z]+)', path)
     if match:
         return match.group('key')
     raise ValueError(f'Invalid CDN URL: {url}')
@@ -91,9 +100,58 @@ def convert_int_size(size: int, *, banner: bool = False) -> Optional[str]:
             return 'HeroMd' if banner else 'Small'
 
 
+def url_with_signature(url: str, signature: str) -> str:
+    parsed = yarl.URL(url)
+    return str(parsed.update_query(parse_qs(signature)))
+
+
 class AssetMixin:
     url: str
     _state: Optional[Any]
+
+    @property
+    def signed(self) -> bool:
+        parsed = parse_qs(urlparse(self.url).query)
+        # Unix time in seconds
+        expires = parsed.get("Expires")
+        if not expires or not parsed.get("Signature"):
+            return False
+
+        try:
+            remaining = int(expires[0]) - datetime.datetime.now(tz=datetime.timezone.utc).timestamp()
+            return remaining > 5
+        except:
+            return False
+
+    async def sign(self) -> Self:
+        """|coro|
+
+        Signs the asset through the bot API. This is required to read assets
+        as of June 30th, 2024. This method modifies the Asset in place with
+        its new, signed URL, and subsequently causes :attr:`.signed` to
+        return ``True``.
+
+        You may do this once per day per asset and are expected to store
+        the content of assets after having signed and read them (within 5
+        minutes). For now, the library provides no assistance with this, but
+        will automatically sign assets when necessary.
+
+        .. versionadded:: 1.13.1
+        """
+        if self._state is None:
+            raise GuildedException('Invalid state (none provided)')
+        if self.signed:
+            raise GuildedException('Asset is already signed')
+
+        valid = await self._state.refresh_signature()
+        if valid:
+            self.url = url_with_signature(self.url, self._state.cdn_qs)
+        else:
+            urls = await self._state.create_url_signatures([self.url])
+            self.url = urls[0]
+
+        self.signed = True
+        return self
 
     async def read(self) -> bytes:
         """|coro|
@@ -116,6 +174,8 @@ class AssetMixin:
         """
         if self._state is None:
             raise GuildedException('Invalid state (none provided)')
+        if not self.signed:
+            await self.sign()
 
         return await self._state.read_filelike_data(self)
 
@@ -231,6 +291,11 @@ class Asset(AssetMixin):
     ):
         self._state = state
         self._url = url
+        if not state.cdn_qs_expired:
+            # Avoid the signing dance if possible. This makes it possible for
+            # users to use URLs straight from the library without having to
+            # read (and thus sign) them first.
+            self._url = url_with_signature(self._url, state.cdn_qs)
 
         # Force unity if we know a value of one that should affect the other
         if animated:

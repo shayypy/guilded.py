@@ -113,15 +113,22 @@ class ClientFeatures:
     official_markdown: :class:`bool`
         Enables new (2024) markdown support for requests made by the client
         as well as events received.
+    auto_sign: :class:`bool`
+        Attempts to automatically retrieve asset signatures at startup for a
+        less impeded signing process. Defaults to ``True``.
+
+        .. versionadded:: 1.13.1
     """
     def __init__(
         self,
         *,
         experimental_event_style: bool = False,
         official_markdown: bool = False,
+        auto_sign: bool = True,
     ) -> None:
         self.experimental_event_style = experimental_event_style
         self.official_markdown = official_markdown
+        self.auto_sign = auto_sign
 
 
 class Client:
@@ -814,6 +821,9 @@ class Client:
             )
 
         self.http.session = aiohttp.ClientSession()
+
+        # We want to do this before anything has a chance to construct an Asset
+        await self.http.refresh_signature()
 
         await self._async_setup_hook()
         await self.setup_hook()

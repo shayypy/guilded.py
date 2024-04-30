@@ -51,6 +51,7 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 import sys
+from urllib.parse import parse_qs
 
 import aiohttp
 import asyncio
@@ -225,10 +226,12 @@ class HTTPClientBase:
         self.session: Optional[aiohttp.ClientSession] = None
         self._max_messages = max_messages
         self._experimental_event_style = features.experimental_event_style if features else False
+        self._auto_sign = features.auto_sign if features else True
 
         self.ws: Optional[GuildedWebSocket] = None
         self.user: Optional[ClientUser] = None
         self.my_id: Optional[str] = None
+        self.cdn_qs: Optional[str] = None
 
         self._users = {}
         self._servers = {}
@@ -370,6 +373,58 @@ class HTTPClientBase:
         # Valid example: 2021-10-15T23:58:44.537Z
         return timestamp.strftime('%Y-%m-%dT%H:%M:%S.000Z')
 
+    @property
+    def cdn_qs_expires(self) -> Optional[datetime.datetime]:
+        if not self.cdn_qs:
+            return None
+
+        parsed = parse_qs(self.cdn_qs)
+        # Unix time in seconds
+        expires = parsed.get("Expires")
+        if not expires:
+            return None
+
+        try:
+            return datetime.datetime.fromtimestamp(
+                float(expires[0]),
+                tz=datetime.timezone.utc,
+            )
+        except:
+            return None
+
+    @property
+    def cdn_qs_expired(self) -> bool:
+        expires_at = self.cdn_qs_expires
+        if not expires_at:
+            return True
+
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        # 5 seconds of leeway
+        return expires_at.timestamp() - now.timestamp() <= 5
+
+    async def refresh_signature(self):
+        """
+        :class:`bool`: Refresh the CDN signature. Returns a :class:`bool`;
+        whether the current signature is valid.
+        """
+        if not self._auto_sign:
+            return False
+        if not self.cdn_qs_expired:
+            return True
+
+        try:
+            headers = await self.get_event_headers()
+        except:
+            return False
+
+        new_token = headers.get("x-cdn-token")
+        if not new_token:
+            self.cdn_qs = None
+            return False
+
+        self.cdn_qs = new_token
+        return True
+
     # /teams
 
     def get_team_info(self, team_id: str):
@@ -458,6 +513,10 @@ class HTTPClientBase:
 
     # one-off
 
+    async def get_event_headers(self):
+        data = await self.request(Route('PUT', '/data/event', override_base=Route.USER_BASE), return_details=True)
+        return data["headers"]
+
     def read_filelike_data(self, filelike: Union[Attachment, Asset, File]):
         return self.request(Route('GET', filelike.url, override_base=Route.NO_BASE))
 
@@ -481,6 +540,7 @@ class HTTPClient(HTTPClientBase):
     async def request(self, route, **kwargs):
         url = route.url
         method = route.method
+        return_details = kwargs.pop("return_details", False)
 
         # create headers
         headers: Dict[str, str] = {
@@ -547,7 +607,10 @@ class HTTPClient(HTTPClientBase):
 
             # The request was successful so just return the text/json
             if 300 > response.status >= 200:
-                return data
+                return {
+                    "headers": response.headers,
+                    "data": data
+                } if return_details else data
 
             if response.status == 429:
                 retry_after = response.headers.get('retry-after')
@@ -611,6 +674,14 @@ class HTTPClient(HTTPClientBase):
         log.debug('Connecting to the gateway with %s', log_headers)
 
         return await self.session.ws_connect(Route.WEBSOCKET_BASE, headers=headers, autoping=False)
+
+    # url signatures
+
+    def create_url_signatures(self, urls: List[str]):
+        payload = {
+            "urls": urls,
+        }
+        return self.request(Route("POST", "/url-signatures"), json=payload)
 
     # /channels
 
