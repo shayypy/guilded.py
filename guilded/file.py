@@ -54,7 +54,7 @@ import os
 import re
 from typing import Any, Dict, Optional, Union
 
-from .asset import AssetMixin, url_with_signature
+from .asset import Asset, AssetMixin, url_with_signature
 from .enums import try_enum, FileType, MediaType
 from . import utils
 
@@ -276,13 +276,19 @@ class Attachment(AssetMixin):
         self.size: Optional[int] = inner_data.get('fileSizeBytes')
         self._filename: Optional[str] = inner_data.get('name')
 
-        self.url: str = data.get('url') or inner_data.get('src')
-        if not state.cdn_qs_expired:
-            # Avoid the signing dance if possible. This makes it possible for
-            # users to use URLs straight from the library without having to
-            # read (and thus sign) them first.
-            self.url = url_with_signature(self.url, state.cdn_qs)
+        url: str = data.get('url') or inner_data.get('src')
+        if url:
+            # The sign endpoint doesn't accept AWS urls, which attachments use by
+            # default, and the AWS host rejects signature parameters
+            url = url.replace(Asset.AWS_BASE, Asset.BASE)
 
+            if not state.cdn_qs_expired:
+                # Avoid the signing dance if possible. This makes it possible for
+                # users to use URLs straight from the library without having to
+                # read (and thus sign) them first.
+                url = url_with_signature(url, state.cdn_qs)
+
+        self.url = url
         self.width: Optional[int] = None
         self.height: Optional[int] = None
 
