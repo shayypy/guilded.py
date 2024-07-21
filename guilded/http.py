@@ -470,8 +470,11 @@ class HTTPClientBase:
 
     # /users
 
+    def get_user_legacy(self, user_id: str):
+        return self.request(Route('GET', f'/users/{user_id}/profilev3', override_base=Route.USER_BASE))
+
     def get_user(self, user_id: str):
-        return self.request(Route('GET', f'/users/{user_id}', override_base=Route.USER_BASE))
+        return self.request(Route('GET', f'/users/{user_id}'))
 
     def get_my_user(self):
         return self.request(Route('GET', '/users/@me'))
@@ -533,7 +536,7 @@ class HTTPClient(HTTPClientBase):
         user_agent = 'guilded.py/{0} (https://github.com/shayypy/guilded.py) Python/{1[0]}.{1[1]} aiohttp/{2}'
         self.user_agent: str = user_agent.format(__version__, sys.version_info, aiohttp.__version__)
 
-    async def request(self, route, **kwargs):
+    async def request(self, route: Route, **kwargs):
         url = route.url
         method = route.method
         return_details = kwargs.pop("return_details", False)
@@ -555,6 +558,12 @@ class HTTPClient(HTTPClientBase):
         if 'json' in kwargs:
             headers['Content-Type'] = 'application/json'
             kwargs['data'] = json.dumps(kwargs.pop('json'))
+
+        # Avoid 403, we don't want to authorize these requests anyway.
+        # Also allow an optional kwarg in case this behavior is not wanted;
+        # I believe there are some cases where bot authorization still works?
+        if route.BASE == Route.USER_BASE and kwargs.get("preserve_user_base_authorization") != True:
+            headers.pop('Authorization', None)
 
         kwargs['headers'] = headers
 

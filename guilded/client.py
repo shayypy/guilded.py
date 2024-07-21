@@ -58,7 +58,7 @@ import sys
 import traceback
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Generator, List, Optional, Type, Union
 
-from .errors import ClientException
+from .errors import ClientException, HTTPException
 from .enums import *
 from .events import BaseEvent
 from .gateway import GuildedWebSocket, WebSocketClosure
@@ -636,8 +636,13 @@ class Client:
             The user from the ID.
         """
 
-        data = await self.http.get_user(user_id)
-        return User(state=self.http, data=data['user'])
+        try:
+            data = await self.http.get_user_legacy(user_id)
+        except HTTPException:
+            data = await self.http.get_user(user_id)
+            data = data["user"]
+
+        return User(state=self.http, data=data)
 
     async def getch_user(self, user_id: str, /) -> User:
         """|coro|
