@@ -1,5 +1,9 @@
 Welcome to guilded.py, a discord.py-esque asynchronous Python wrapper for Guilded's bot API. If you know discord.py, you know guilded.py.
 
+## Warning
+
+Due to the fallout of [Guilded's login change](https://www.guilded.gg/blog/update-to-guilded-login-requirements), this project will not be seeing much maintenance. This is in conjunction with the API itself getting little attention lately. As such, you may want to coordinate with me [on Discord](#support) to update the library.
+
 ## Documentation
 
 Documentation is available on [Read the Docs](https://guildedpy.readthedocs.io).
@@ -44,6 +48,4 @@ For more examples, see the examples directory in this repository.
 
 ## Support
 
-Join the guilded.py server for help & discussion. Use the #library-help channel.
-
-[![shield](https://shields.yoki-labs.xyz/shields/vanity/gpy)](https://guilded.gg/gpy)
+I am reachable on [Discord](https://discord.com/invite/m4BqzUx72w).
