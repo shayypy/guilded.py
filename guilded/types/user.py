@@ -55,6 +55,7 @@ class User(UserSummary):
     email: NotRequired[Optional[str]]
     serviceEmail: NotRequired[Optional[str]]
     joinDate: NotRequired[str]
+    robloxId: NotRequired[Optional[str]]
     lastOnline: NotRequired[str]
     steamId: NotRequired[str]
     stonks: NotRequired[int]

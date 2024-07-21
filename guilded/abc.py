@@ -408,6 +408,7 @@ class User(Hashable, metaclass=abc.ABCMeta):
         'tagline',
         'presence',
         'status',
+        'roblox_id',
         'blocked_at',
         'online_at',
         'created_at',
@@ -437,6 +438,7 @@ class User(Hashable, metaclass=abc.ABCMeta):
         self.tagline: str = (data.get('aboutInfo') or {}).get('tagLine') or ''
         self.presence: Presence = Presence.from_value(data.get('userPresenceStatus')) or None
         self.status = Status(data=data.get('status')) if data.get('status') else None
+        self.roblox_id: Optional[int] = int(data.get("robloxId")) if data.get("robloxId") else None
 
         self.blocked_at: Optional[datetime.datetime] = ISO8601(data.get('blockedDate'))
         self.online_at: Optional[datetime.datetime] = ISO8601(data.get('lastOnline'))
