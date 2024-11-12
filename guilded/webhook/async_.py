@@ -318,6 +318,22 @@ class _WebhookState:
     def create_member(self, **data):
         return Member(state=self, **data)
 
+    @property
+    def cdn_qs(self) -> Optional[str]:
+        if self._parent is not None:
+            return self._parent.cdn_qs
+        return None
+
+    @property
+    def cdn_qs_expires(self) -> Optional[datetime.datetime]:
+        if self._parent is not None:
+            return self._parent.cdn_qs_expires
+        return None
+
+    @property
+    def cdn_qs_expired(self) -> bool:
+        return not self.cdn_qs_expires
+
     def __getattr__(self, attr):
         if self._parent is not None:
             return getattr(self._parent, attr)
