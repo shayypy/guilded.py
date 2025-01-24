@@ -410,7 +410,7 @@ class Permissions:
     @property
     def send_messages_in_threads(self) -> bool:
         """:class:`bool`: Returns ``True`` if a user can reply to threads."""
-        return 'CanCreateThreadMessages' in self.values
+        return 'CanCreateThreadMessages' in self.values or 'CanReplyToChatThreads' in self.values
 
     @property
     def send_private_replies(self) -> bool:
@@ -869,6 +869,7 @@ VALUES_BY_CATEGORY = {
         'CanManageChats',
         'CanManageThreads',
         'CanCreateChatForms',
+        'CanReplyToChatThreads',
     ],
     'calendar': [
         'CanReadEvents',
@@ -993,6 +994,7 @@ VALID_NAME_MAP = {
     'create_public_threads': 'CanCreateThreads',
     'create_private_threads': 'CanCreateThreads',
     'send_messages_in_threads': 'CanCreateThreadMessages',
+    # 'send_messages_in_threads': 'CanReplyToChatThreads',
     'send_private_replies': 'CanCreatePrivateMessages',
     'manage_messages': 'CanManageChats',
     'manage_threads': 'CanManageThreads',
