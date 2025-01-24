@@ -266,7 +266,7 @@ class Mentions:
                     self._state.add_to_server_channel_cache(channel)
 
 
-ATTACHMENT_REGEX = re.compile(r'!\[(?P<caption>.+)?\]\((?P<url>(?:(?:https:\/\/(?:s3-us-west-2\.amazonaws\.com\/www\.guilded\.gg|img\.guildedcdn\.com|img2\.guildedcdn\.com|www\.guilded\.gg|cdn\.gilcdn\.com)\/(?:ContentMediaGenericFiles|ContentMedia|WebhookPrimaryMedia)\/[a-zA-Z0-9]+-Full)|(?:https:\/\/media\d+\.giphy\.com\/media\/[^ \n]+)|(?:https:\/\/media\.tenor\.com\/[^ \n]+))\.(?P<extension>webp|jpeg|jpg|png|gif|apng|webm|mp4)(?:\?.+)?)\)')
+ATTACHMENT_REGEX = re.compile(r'!\[(?P<caption>.+)?\]\((?P<url>(?:(?:https:\/\/(?:s3-us-west-2\.amazonaws\.com\/www\.guilded\.gg|img\.guildedcdn\.com|img2\.guildedcdn\.com|www\.guilded\.gg|cdn\.gilcdn\.com|cdn\.gldcdn\.com)\/(?:ContentMediaGenericFiles|ContentMedia|WebhookPrimaryMedia)\/[a-zA-Z0-9]+-Full)|(?:https:\/\/media\d+\.giphy\.com\/media\/[^ \n]+)|(?:https:\/\/media\.tenor\.com\/[^ \n]+))\.(?P<extension>webp|jpeg|jpg|png|gif|apng|webm|mp4)(?:\?.+)?)\)')
 
 class HasContentMixin:
     def __init__(self):
