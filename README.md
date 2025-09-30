@@ -1,8 +1,10 @@
 Welcome to guilded.py, a discord.py-esque asynchronous Python wrapper for Guilded's bot API. If you know discord.py, you know guilded.py.
 
-## Warning
+> [!NOTE]
+> 2025/09/29: Roblox has announced they are shutting down Guilded by the end of the year, so I am archiving this repository after the final release of 1.13.3.
 
-Due to the fallout of [Guilded's login change](https://www.guilded.gg/blog/update-to-guilded-login-requirements), this project will not be seeing much maintenance. This is in conjunction with the API itself getting little attention lately. As such, you may want to coordinate with me [on Discord](#support) to update the library.
+> [!NOTE]
+> 2024/07/21: Due to the fallout of [Guilded's login change](https://www.guilded.gg/blog/update-to-guilded-login-requirements), this project will not be seeing much maintenance. This is in conjunction with the API itself getting little attention lately. As such, you may want to coordinate with me [on Discord](#support) to update the library.
 
 ## Documentation
 
